@@ -1,0 +1,49 @@
+{{- define "config-script" -}}
+set -e
+configDir=/var/syncthing/config
+
+echo "Waiting for syncthing to create the config file at $$configDir/config.xml"
+
+# Make sure the file exists
+until [ -f "$$configDir/config.xml" ]; do
+  sleep 2
+done
+
+# Fetch API Key from the config file
+apiKey=$$(sed -n 's/.*<apikey>\(.*\)<\/apikey>.*/\1/p' /var/syncthing/config/config.xml)
+
+echo "Waiting for syncthing to start"
+# Check the API is running
+until curl --silent --output /dev/null http://syncthing:{{.Values.syncthingNetwork.webPort}}/rest/noauth/health; do
+  sleep 2
+done
+
+function setConfig() {
+  syncthing cli --gui-apikey "$$apiKey" config "$$@"
+}
+
+echo "Setting syncthing defaults"
+# Now we can use the syncthing cli (wrapper around the API) to set the defaults.
+# Keep in mind that all the below values are not enforced, user can change them
+# while the app is running, but will be re-applied on restart.
+
+# Category "options" is more like "general" or "global" settings.
+setConfig options announce-lanaddresses set -- {{ternary "1" "0" .Values.syncthingConfig.announceLANAddresses | quote}}
+setConfig options global-ann-enabled set -- {{ternary "1" "0" .Values.syncthingConfig.globalDiscovery | quote}}
+setConfig options local-ann-enabled set -- {{ternary "1" "0" .Values.syncthingConfig.localDiscovery | quote}}
+setConfig options natenabled set -- {{ternary "1" "0" .Values.syncthingConfig.natTraversal | quote}}
+setConfig options relays-enabled set -- {{ternary "1" "0" .Values.syncthingConfig.relaying | quote}}
+setConfig options uraccepted set -- {{ternary "1" "-1" .Values.syncthingConfig.telemetry | quote}}
+setConfig options auto-upgrade-intervalh set -- "0"
+
+# Category "defaults/folder" contains the default settings for new folders.
+setConfig defaults folder xattr-filter max-total-size set -- 10485760
+setConfig defaults folder xattr-filter max-single-entry-size set -- 2097152
+setConfig defaults folder send-ownership set -- 1
+setConfig defaults folder sync-ownership set -- 1
+setConfig defaults folder send-xattrs set -- 1
+setConfig defaults folder sync-xattrs set -- 1
+setConfig defaults folder ignore-perms set -- 1
+setConfig defaults folder path set -- ""
+echo "Done setting defaults"
+{{- end -}}

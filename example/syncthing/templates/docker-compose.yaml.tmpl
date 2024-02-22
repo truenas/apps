@@ -1,0 +1,78 @@
+services:
+  syncthing_config:
+    image: syncthing/syncthing:1.27.0
+    restart: "no"
+    depends_on:
+      syncthing:
+        condition: service_healthy
+    environment:
+      STGUIADDRESS: "syncthing:{{.Values.syncthingNetwork.webPort}}"
+    volumes:
+      - {{.Values.syncthingStorage.home.hostPathConfig.hostPath}}:/var/syncthing/config
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        {{- include "config-script" . | nindent 8 }}
+
+  syncthing:
+    image: syncthing/syncthing:1.27.0
+    container_name: syncthing
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: {{.Values.resources.limits.cpu|quote}}
+          memory: {{.Values.resources.limits.memory}}
+    environment:
+      PCAP: cap_sys_admin,cap_chown,cap_dac_override,cap_fowner+ep
+      STGUIADDRESS: "0.0.0.0:{{.Values.syncthingNetwork.webPort}}"
+      TZ: {{.Values.TZ}}
+      # Set custom override for GUI assets
+      STGUIASSETS: /var/truenas/assets/gui
+      # Disable automatic updates
+      STNOUPGRADE: "true"
+      PUID: {{.Values.syncthingID.user}}
+      PGID: {{.Values.syncthingID.group}}
+      {{range $e := .Values.syncthingConfig.additionalEnvs}}
+      {{ $e.name }}: {{ $e.value }}
+      {{ end }}
+    ports:
+      # Web UI
+      - {{.Values.syncthingNetwork.webPort}}:{{.Values.syncthingNetwork.webPort}}
+      # Local Discovery
+      {{if .Values.syncthingConfig.localDiscovery}}
+      - {{.Values.syncthingNetwork.localDiscoveryPort}}:21027/udp
+      {{end}}
+      # Transfer
+      - {{.Values.syncthingNetwork.tcpPort}}:22000
+      # QUIC
+      - {{.Values.syncthingNetwork.quicPort}}:22000/udp
+    volumes:
+      - {{.Values.syncthingStorage.home.hostPathConfig.hostPath}}:/var/syncthing/config
+    {{range $v := .Values.syncthingStorage.additionalStorages}}
+      - {{$v.hostPathConfig.hostPath}}:{{$v.mountPath}}
+    {{end}}
+      # TODO: We need a way to move this kind of files into the ix-applications dataset
+      - {{.AppCtx.System.AppDataset}}/logo-horizontal.svg:/var/truenas/assets/gui/default/assets/img/logo-horizontal.svg
+    {{if .Values.syncthingNetwork.certificateID}}
+      # TODO: We need a way to move this kind of files into the ix-applications dataset
+      - {{.AppCtx.System.AppDataset}}/https-key.pem:/var/syncthing/config/https-key.pem:ro
+      - {{.AppCtx.System.AppDataset}}/https-cert.pem:/var/syncthing/config/https-cert.pem:ro
+    {{end}}
+    healthcheck:
+      test: 'curl -f -s http://localhost:{{.Values.syncthingNetwork.webPort}}/rest/noauth/health'
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    cap_drop:
+      - ALL
+    cap_add:
+      - FOWNER
+      - DAC_OVERRIDE
+      - CHOWN
+      - SETUID
+      - SETGID
+      - SETFCAP
+      - SETPCAP
+      - SYS_ADMIN
