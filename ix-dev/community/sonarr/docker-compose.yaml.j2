@@ -1,0 +1,83 @@
+services:
+  sonarr:
+    image: ghcr.io/onedr0p/sonarr@4.0.2.1183
+    restart: unless-stopped
+    user: "{{ sonarr.runAs.user }}:{{ sonarr.runAs.group }}"
+    volumes:
+      {% if sonarr.storage.config.type == 'hostPath' %}
+      - {{ sonarr.storage.config.hostPath }}:/config
+      {% elif sonarr.storage.config.type == 'volume' %}
+      - {{ sonarr.storage.config.volume }}:/config
+      {% endif %}
+      {% for item in sonarr.storage.additional_storage %}
+        {# Same if/elif checks as above #}
+      - {{ item.hostPath }}:{{ item.containerPath }}:{{ default('rw', item.mode) }}
+      {% endfor %}
+    ports:
+      - {{ sonarr.ports.webui.host_port }}:8989/tcp
+      {% for item in sonarr.ports.webui.additional_ports %}
+        {% if item.type == 'single' %}
+      - {{ item.host_port }}:{{ item.target }}/{{ item.protocol }}
+        {% elif item.type == 'range' %}
+      - {{ item.host_port_start }}-{{ item.host_port_end }}:{{ item.target_start }}-{{ item.target_end }}/{{ item.protocol }}
+        {% endif %}
+      {% endfor %}
+    {% if sonarr.networks %}
+    networks:
+      {% for item in sonarr.networks %}
+      - {{ item }}
+      {% endfor %}
+    {% endif %}
+    deploy:
+      resources:
+        limits:
+          cpus: "{{ sonarr.resources.limits.cpus }}"
+          memory: "{{ sonarr.resources.limits.memory }}"
+    environment:
+      SONARR__PORT: 8989
+      SONARR__INSTANCE_NAME: "${INSTANCE_NAME}"
+      {% for e in sonarr.configuration.additional_envs %}
+      {{ e.key }}: {{ e.value }}
+      {% endfor %}
+    healthcheck:
+      test: "curl -f -s http://localhost:8989/ping"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  {% if sonarr.labels %}
+    labels:
+    {% for item in sonarr.labels %}
+      {{ item.key }}: {{ item.value }}
+    {% endfor %}
+  {% endif %}
+
+# User input
+x-configuration:
+  sonarr:
+    configuration:
+      additional_envs: []
+    runAs:
+      user: 568
+      group: 568
+    storage:
+      config:
+        type: volume
+        volume: somevolume
+        # type: hostPath
+        # hostPath: /mnt/some/path
+      additional_storage: []
+    ports:
+      webui:
+        host_port: 8989
+        additional_ports: []
+    labels:
+      - key: somekey
+        value: somevalue
+      - key: otherkey
+        value: othervalue
+    networks: []
+    resources:
+      limits:
+        memory: 1gb
+        cpus: "4.0"
