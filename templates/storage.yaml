@@ -1,0 +1,208 @@
+# - For host_paths we dont need to create a volume, we just mount the host_path on any container we need/want
+# so this type is not even on the list below at all. it will be at the container level.
+
+# - For volumes/cifs/nfs we need to create a top-level volume config always
+
+# ---
+
+# While we can have multiple nfs/cifs volumes pointing to the same server/share, (docker wont complain.)
+# Its not ideal. We create an additional connection to the server for no reason
+# Also this won't work with docker volumes, as each volume creates a unique mount point on the host.
+
+# We need to somehow select to which containers this volumes should be shared with and the mountPath for each
+
+# -- One option is to embed on each volume item, another list which will contain container names and mountPaths
+# This gets a bit messy.
+
+# -- Another option is to have different section that creates the volumes
+# and another section per container, that will reference the volume names and the mountPath.
+# But this leaves the door open for typos. We will ofcourse validate that on the template side.
+# and docker also does that anyway.
+
+# ---
+
+# Another thing to consider is that nfs/cifs volumes can be used across multiple compose projects.
+# That means that user might want to create this volume before any apps are installed.
+# and just reference them inside the each app by name and a mountpath
+
+# Regarding docker volumes, I don't think there is a good use case with shared
+# volumes across multiple compose projects. For such use case, host_paths are much easier to use.
+# docker volumes are host_paths after all, so there is no much difference.
+
+# With all that in mind, what we can do sometihng is something like that:
+# - Allow docker volumes only for predefined storage based on each app needs, eg `/config`
+#   where those are mounted and configured will be part of the template and up to the app developer
+#   those will be mostly as a sane default to make sure app works with "next" "next" "install".
+# - Allow host_paths for both predefined and "arbitrary" storages
+# - Move nfs/cifs to a new tab where users can pre-create those
+#   and allow them to select them inside each app. (Provide a $ref to list available)
+
+# Predefiend storage
+- variable: config
+  label: Config
+  description: |
+    The config to mount
+  schema:
+    type: dict
+    attrs:
+      - variable: type
+        label: Type
+        description: The type of the config
+        schema:
+          type: string
+          default: volume
+          required: true
+          enum:
+            - value: volume
+              description: Volume
+            - value: host_path
+              description: Host Path
+            - value: cifs
+              description: SMB
+            - value: nfs
+              description: NFS
+      - variable: volume_name
+        label: Volume Name
+        description: The name of the volume
+        schema:
+          type: string
+          # $ref here will be replaced with a list of available nfs/cifs volumes
+          show_if: [["type", "=", "nfs"], ["type", "=", "cifs"]]
+          required: true
+      - variable: host_path_options
+        label: Host Path Options
+        description: The host path options
+        schema:
+          type: dict
+          show_if: [["type", "=", "host_path"]]
+          attrs:
+            - variable: host_path
+              label: Host Path
+              description: The path on the host
+              schema:
+                type: path
+                required: true
+
+# This section can be either per container or have an enum with containers to mount it
+# Depends on the app
+- variable: additional_storage
+  label: Additional Storage
+  description: |
+    Additional storage to mount
+  schema:
+    type: list
+    items:
+      - variable: type
+        label: Type
+        description: The type of the storage
+        schema:
+          type: string
+          default: volume
+          required: true
+          enum:
+            - value: host_path
+              description: Host Path
+            - value: cifs
+              description: SMB
+            - value: nfs
+              description: NFS
+      - variable: volume_name
+        label: Volume Name
+        description: The name of the volume
+        schema:
+          type: string
+          # $ref here will be replaced with a list of available nfs/cifs volumes
+          show_if: [["type", "=", "nfs"], ["type", "=", "cifs"]]
+          required: true
+      - variable: mount_path
+        label: Mount Path
+        description: The mount path
+        schema:
+          type: path
+          required: true
+
+# Volumes, will be in a new tab to allow users to pre-create
+- variable: volumes
+  labels: Volumes
+  description: |
+    The volumes to mount
+  schema:
+    type: list
+    items:
+      - variable: name
+        label: Volume Name
+        description: The name of the volume
+        schema:
+          type: string
+          required: true
+      - variable: type
+        label: Type
+        description: The type of the volume
+        schema:
+          type: string
+          default: none
+          required: true
+          enum:
+            - value: cifs
+              description: SMB
+            - value: nfs
+              description: NFS
+      - variable: cifs_options
+        label: SMB Options
+        description: The SMB options
+        schema:
+          type: dict
+          show_if: [["type", "=", "cifs"]]
+          attrs:
+            - variable: server
+              label: Server
+              description: The SMB server
+              schema:
+                # maybe leave it as string?
+                # Have to test if dns works
+                type: ipaddr
+                required: true
+            - variable: share
+              label: Share
+              description: The SMB share
+              schema:
+                type: string
+                required: true
+            - variable: username
+              label: Username
+              description: The SMB username
+              schema:
+                type: string
+                required: true
+            - variable: password
+              label: Password
+              description: The SMB password
+              schema:
+                type: string
+                private: true
+                required: true
+            - variable: domain
+              label: Domain
+              description: The SMB domain
+              schema:
+                type: string
+            # Maybe allow additional user-defind mount options?
+      - variable: nfs_options
+        label: NFS Options
+        description: The NFS options
+        schema:
+          type: dict
+          attrs:
+            - variable: server
+              label: Server
+              description: The NFS server
+              schema:
+                type: string
+                required: true
+            - variable: path
+              label: Path
+              description: The NFS path
+              schema:
+                type: string
+                required: true
+            # Maybe allow additional user-defind mount options
