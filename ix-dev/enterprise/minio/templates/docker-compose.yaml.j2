@@ -46,9 +46,8 @@ services:
       logsearch:
         condition: service_healthy
     {% endif %}
-    healthcheck:
-      test: 'curl --silent --fail http://localhost:{{ data.network.api_port }}/minio/health/live'
-      {{ healthcheck_timeouts()|indent(6) }}
+    {{ healthcheck(curl_test("http://localhost:%d/minio/health/live"|
+      format(data.network.api_port)))|indent(4) }}
 
   {% if data.minio.logsearch.enabled %}
   logsearch:
@@ -60,23 +59,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    {{ healthcheck(curl_test("http://localhost:8000/status"))|indent(4) }}
     environment:
       LOGSEARCH_DISK_CAPACITY_GB: {{ data.minio.logsearch.disk_capacity_gb }}
       LOGSEARCH_PG_CONN_STR: postgresql://{{ pg_user }}:{{ data.minio.logsearch.postgres_password }}@postgres:5432/{{ pg_database }}?sslmode=disable
       LOGSEARCH_AUDIT_AUTH_TOKEN: TODO:THE TOKEN
       MINIO_LOG_QUERY_AUTH_TOKEN: TODO:THE TOKEN
-    healthcheck:
-      test: 'curl --silent --fail http://localhost:8000/status'
-      {{ healthcheck_timeouts()|indent(6) }}
 
   postgres:
     image: postgres:15
     user: 999:999
     networks:
       - minio_internal
-    healthcheck:
-      test: 'pg_isready -h 127.0.0.1 -p 5432 -d {{ pg_database }} -U {{ pg_user }}'
-      {{ healthcheck_timeouts(start_period=5, retries=3)|indent(6) }}
+    {{ healthcheck(pg_test("127.0.0.1", 5432, pg_database, pg_user),
+      start_period=5, retries=3)|indent(4) }}
     environment:
       POSTGRES_USER: {{ pg_user }}
       POSTGRES_PASSWORD: {{ data.minio.logsearch.postgres_password }}
