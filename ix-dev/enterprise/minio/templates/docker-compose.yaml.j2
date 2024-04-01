@@ -1,5 +1,7 @@
 {% set pg_database = "minio" %}
 {% set pg_user = "minio" %}
+{% set log_auth_token = secure_string(16) %}
+{% set log_audit_token = secure_string(16) %}
 
 services:
   minio:
@@ -7,6 +9,11 @@ services:
     user: {{ "%s:%s"|format(data.minio.user, data.minio.group) }}
     networks:
       - minio_internal
+
+    {# TODO: #}
+    ports:
+      - {{ "%d:%d"|format(data.network.api_port, data.network.api_port) }}
+      - {{ "%d:%d"|format(data.network.console_port, data.network.console_port) }}
     command:
       - server
       - --address
@@ -23,10 +30,14 @@ services:
       {% if data.minio.logging.quiet %}
       - --quiet
       {% endif %}
+    volumes:
+      {# TODO: #}
+      - /mnt/test1/minio:/data
     environment:
       MINIO_ROOT_USER: {{ data.minio.access_key }}
       MINIO_ROOT_PASSWORD: {{ data.minio.secret_key  }}
-      MINIO_VOLUMES: {# TODO: #}
+      {# TODO: #}
+      MINIO_VOLUMES: /data
       {% if data.minio.server_url %}
       MINIO_SERVER_URL: {{ data.minio.server_url }}
       {% endif %}
@@ -35,19 +46,17 @@ services:
       {% endif %}
       {% if data.minio.logsearch.enabled %}
       MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch: "on"
-      {# TODO: generate the token, can it be dynamic? #}
-      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://logsearch:8000/api/ingest?token=%s"|format("TODO:THE TOKEN") }}
-      {# TODO: generate the token, can it be dynamic? #}
-      MINIO_LOG_QUERY_AUTH_TOKEN: TODO:THE TOKEN
-      MINIO_LOG_QUERY_URL: http://logsearch:8000
+      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://logsearch:8080/api/ingest?token=%s"|format(log_audit_token) }}
+      MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
+      MINIO_LOG_QUERY_URL: http://logsearch:8080
       {% endif %}
+      MC_HOST_health: {{ "http://localhost:%d"|format(data.network.api_port) }}
+    {{ healthcheck(test="mc ready health")|indent(4) }}
     {% if data.minio.logsearch.enabled %}
     depends_on:
       logsearch:
         condition: service_healthy
     {% endif %}
-    {{ healthcheck(curl_test("http://localhost:%d/minio/health/live"|
-      format(data.network.api_port)))|indent(4) }}
 
   {% if data.minio.logsearch.enabled %}
   logsearch:
@@ -59,24 +68,27 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    {{ healthcheck(curl_test("http://localhost:8000/status"))|indent(4) }}
+    {{ healthcheck(curl_test("http://localhost:8080/status"))|indent(4) }}
     environment:
       LOGSEARCH_DISK_CAPACITY_GB: {{ data.minio.logsearch.disk_capacity_gb }}
       LOGSEARCH_PG_CONN_STR: postgresql://{{ pg_user }}:{{ data.minio.logsearch.postgres_password }}@postgres:5432/{{ pg_database }}?sslmode=disable
-      LOGSEARCH_AUDIT_AUTH_TOKEN: TODO:THE TOKEN
-      MINIO_LOG_QUERY_AUTH_TOKEN: TODO:THE TOKEN
+      LOGSEARCH_AUDIT_AUTH_TOKEN: {{ log_audit_token }}
+      MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
 
   postgres:
     image: postgres:15
     user: 999:999
     networks:
       - minio_internal
-    {{ healthcheck(pg_test("127.0.0.1", 5432, pg_database, pg_user),
+    {{ healthcheck(pg_test(host="127.0.0.1",port=5432, db=pg_database, user=pg_user),
       start_period=5, retries=3)|indent(4) }}
     environment:
       POSTGRES_USER: {{ pg_user }}
       POSTGRES_PASSWORD: {{ data.minio.logsearch.postgres_password }}
       POSTGRES_DB: {{ pg_database }}
+    {# TODO: #}
+    volumes:
+      - postgres:/var/lib/postgresql/data
   {% endif %}
 
 {#
@@ -84,5 +96,11 @@ TODO: add function for container that runs a pg backup on a schedule. Nice read
 https://wbarillon.medium.com/the-proper-and-easiest-way-to-set-cron-jobs-docker-version-1ef213578ad
 #}
 
+{# TODO: make a postgres snippet #}
+
 networks:
   minio_internal: {}
+
+{# TODO: #}
+volumes:
+  postgres: {}
