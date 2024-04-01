@@ -20,7 +20,7 @@ for name, func in inspect.getmembers(utils, inspect.isfunction):
 template = env.get_template("docker-compose.yaml.j2")
 
 
-mock = {
+mock1 = {
   "network": {
     "api_port": 9000,
     "console_port": 9001,
@@ -44,4 +44,28 @@ mock = {
     }
   }
 }
-print(template.render(data=mock))
+
+mock2 = {
+  "network": {
+    "api_port": 9000,
+    "console_port": 9001,
+    "certificateID": None
+  },
+  "minio": {
+    "access_key": "minio",
+    "secret_key": "minio123",
+    "server_url": "",
+    "console_url": "",
+    "user": 568,
+    "group": 568,
+    "logging": {
+      "quiet": True,
+      "anonymous": True
+    },
+    "logsearch": {
+      "enabled": False,
+    }
+  }
+}
+
+print(template.render(data=mock2))
