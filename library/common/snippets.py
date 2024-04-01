@@ -13,10 +13,10 @@ def healthcheck(test="", interval=10, timeout=10, retries=5, start_period=30):
   timeouts = {
     "healthcheck": {
       "test": test,
-      "interval": interval,
-      "timeout": timeout,
+      "interval": f'{interval}s',
+      "timeout": f'{timeout}s',
       "retries": retries,
-      "start_period": start_period
+      "start_period": f'{start_period}s'
     }
   }
 

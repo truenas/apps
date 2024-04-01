@@ -8,10 +8,13 @@ env = Environment(
 
 validators = importlib.import_module("library.common.validations")
 snippets = importlib.import_module("library.common.snippets")
+utils = importlib.import_module("library.common.utils")
 
 for name, func in inspect.getmembers(validators, inspect.isfunction):
     env.filters[name] = func
 for name, func in inspect.getmembers(snippets, inspect.isfunction):
+    env.globals.update({name: func})
+for name, func in inspect.getmembers(utils, inspect.isfunction):
     env.globals.update({name: func})
 
 template = env.get_template("docker-compose.yaml.j2")
