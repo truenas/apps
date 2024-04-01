@@ -7,19 +7,19 @@
 services:
   minio:
     image: minio/minio:RELEASE.2023-12-07T04-16-00Z
-    user: {{ "%s:%s"|format(data.minio.user, data.minio.group) }}
+    user: {{ "%s:%s" | format(data.minio.user, data.minio.group) }}
     networks:
       - {{ minio_network }}
     {# TODO: #}
     ports:
-      - {{ "%d:%d"|format(data.network.api_port, data.network.api_port) }}
-      - {{ "%d:%d"|format(data.network.console_port, data.network.console_port) }}
+      - {{ "%d:%d" | format(data.network.api_port, data.network.api_port) }}
+      - {{ "%d:%d" | format(data.network.console_port, data.network.console_port) }}
     command:
       - server
       - --address
-      - {{ ":%d"|format(data.network.api_port) }}
+      - {{ ":%d" | format(data.network.api_port) }}
       - --console-address
-      - {{ ":%d"|format(data.network.console_port) }}
+      - {{ ":%d" | format(data.network.console_port) }}
       {% if data.network.certificateID is defined %}
       - --certs-dir
       - /.minio/certs
@@ -31,13 +31,18 @@ services:
       - --quiet
       {% endif %}
     volumes:
-      {# TODO: #}
-      - /mnt/test1/minio:/data
+      {% set ns = namespace(volumes=[]) %}
+      {% for data in data.storage.data %}
+        {% if data.type == 'hostPath' %}
+          {% set ns.volumes = ns.volumes + [data.mountPath] %}
+      - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
+        {% endif %}
+      {% endfor %}
     environment:
       MINIO_ROOT_USER: {{ data.minio.access_key }}
       MINIO_ROOT_PASSWORD: {{ data.minio.secret_key  }}
-      {# TODO: #}
-      MINIO_VOLUMES: /data
+
+      MINIO_VOLUMES: {{ ns.volumes | join(' ') }}
       {% if data.minio.server_url %}
       MINIO_SERVER_URL: {{ data.minio.server_url }}
       {% endif %}
@@ -46,13 +51,13 @@ services:
       {% endif %}
       {% if data.minio.logsearch.enabled %}
       MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch: "on"
-      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://logsearch:8080/api/ingest?token=%s"|format(log_audit_token) }}
+      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://logsearch:8080/api/ingest?token=%s" | format(log_audit_token) }}
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
       MINIO_LOG_QUERY_URL: http://logsearch:8080
       {% endif %}
-      MC_HOST_health: {{ "http://localhost:%d"|format(data.network.api_port) }}
+      MC_HOST_health: {{ "http://localhost:%d" | format(data.network.api_port) }}
     healthcheck:
-      {{ health_check(test="mc ready health")|indent(6) }}
+      {{ health_check(test = "mc ready health") | indent(6) }}
     {% if data.minio.logsearch.enabled %}
     depends_on:
       logsearch:
@@ -62,7 +67,7 @@ services:
   {% if data.minio.logsearch.enabled %}
   logsearch:
     image: minio/operator:v4.5.8
-    user: {{ "%s:%s"|format(data.minio.user, data.minio.group) }}
+    user: {{ "%s:%s" | format(data.minio.user, data.minio.group) }}
     networks:
       - {{ minio_network }}
     entrypoint: /logsearchapi
@@ -70,13 +75,12 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      {{ health_check(curl_test("http://localhost:8080/status"))|indent(6) }}
+      {{ health_check(curl_test("http://localhost:8080/status")) | indent(6) }}
     environment:
       LOGSEARCH_DISK_CAPACITY_GB: {{ data.minio.logsearch.disk_capacity_gb }}
       LOGSEARCH_PG_CONN_STR: postgresql://{{ pg_user }}:{{ data.minio.logsearch.postgres_password }}@postgres:5432/{{ pg_database }}?sslmode=disable
       LOGSEARCH_AUDIT_AUTH_TOKEN: {{ log_audit_token }}
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
-
 
   postgres:
     image: postgres:15
@@ -84,10 +88,10 @@ services:
     networks:
       - {{ minio_network }}
     healthcheck:
-      {{ health_check(pg_test(user=pg_user, db=pg_database))|indent(6) }}
+      {{ health_check(pg_test(user = pg_user, db=pg_database))|indent(6) }}
     environment:
-      {{ postgres_environment(user=pg_user, db=pg_database,
-        password=data.minio.logsearch.postgres_password) }}
+      {{ postgres_environment(user = pg_user, db = pg_database,
+        password = data.minio.logsearch.postgres_password) }}
     {# TODO: #}
     volumes:
       - postgres:/var/lib/postgresql/data

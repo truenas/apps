@@ -51,6 +51,24 @@ mock2 = {
     "console_port": 9001,
     "certificateID": None
   },
+  "storage": {
+    "data": [
+      {
+        "type": "hostPath",
+        "mountPath": "/data1",
+        "hostPathConfig": {
+          "path": "/mnt/test/data1",
+        }
+      },
+      {
+        "type": "hostPath",
+        "mountPath": "/data2",
+        "hostPathConfig": {
+          "path": "/mnt/test/data2",
+        }
+      }
+    ]
+  },
   "minio": {
     "access_key": "minio",
     "secret_key": "minio123",
