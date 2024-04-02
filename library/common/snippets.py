@@ -42,3 +42,19 @@ def func_postgres_environment(user, password, db):
     "POSTGRES_PASSWORD": password,
     "POSTGRES_DB": db
   }
+
+DEFAULT_CPUS = "4.0"
+DEFAULT_MEMORY = "8gb"
+
+def get_limits(data):
+  return {
+    "cpus": data.get("limits", {}).get("cpus", DEFAULT_CPUS),
+    "memory": data.get("limits", {}).get("memory", DEFAULT_MEMORY)
+  }
+
+def func_resources(data = {}):
+  return {
+    "resources": {
+      "limits": get_limits(data)
+    }
+  }

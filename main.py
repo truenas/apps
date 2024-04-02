@@ -14,7 +14,6 @@ items = [
 
 for item in items:
   for name, func in inspect.getmembers(item, inspect.isfunction):
-    print(name)
     if name.startswith("filter_"):
       env.filters[name.replace("filter_", "")] = func
     if name.startswith("func_"):
@@ -46,6 +45,12 @@ mock1 = {
         }
       }
     ]
+  },
+  "resources": {
+    "limits": {
+      "cpus": "2.0",
+      "memory": "4gb"
+    }
   },
   "minio": {
     "access_key": "minio",
