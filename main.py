@@ -6,16 +6,19 @@ env = Environment(
     loader=FileSystemLoader("ix-dev/enterprise/minio/templates"),
 )
 
-validators = importlib.import_module("library.common.validations")
-snippets = importlib.import_module("library.common.snippets")
-utils = importlib.import_module("library.common.utils")
+items = [
+  importlib.import_module("library.common.validations"),
+  importlib.import_module("library.common.snippets"),
+  importlib.import_module("library.common.utils")
+]
 
-for name, func in inspect.getmembers(validators, inspect.isfunction):
-    env.filters[name] = func
-for name, func in inspect.getmembers(snippets, inspect.isfunction):
-    env.globals.update({name: func})
-for name, func in inspect.getmembers(utils, inspect.isfunction):
-    env.globals.update({name: func})
+for item in items:
+  for name, func in inspect.getmembers(item, inspect.isfunction):
+    print(name)
+    if name.startswith("filter_"):
+      env.filters[name.replace("filter_", "")] = func
+    if name.startswith("func_"):
+      env.globals.update({name.replace("func_", ""): func})
 
 template = env.get_template("docker-compose.yaml.j2")
 
@@ -25,6 +28,24 @@ mock1 = {
     "api_port": 9000,
     "console_port": 9001,
     "certificateID": None
+  },
+  "storage": {
+    "data": [
+      {
+        "type": "hostPath",
+        "mountPath": "/data1",
+        "hostPathConfig": {
+          "path": "/mnt/test/data1",
+        }
+      },
+      {
+        "type": "hostPath",
+        "mountPath": "/data2",
+        "hostPathConfig": {
+          "path": "/mnt/test/data2",
+        }
+      }
+    ]
   },
   "minio": {
     "access_key": "minio",
@@ -86,4 +107,4 @@ mock2 = {
   }
 }
 
-print(template.render(data=mock2))
+print(template.render(data=mock1))

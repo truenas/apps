@@ -57,7 +57,7 @@ services:
       {% endif %}
       MC_HOST_health: {{ "http://localhost:%d" | format(data.network.api_port) }}
     healthcheck:
-      {{ health_check(test = "mc ready health") | indent(6) }}
+      {{ health_check(test = "mc ready health") | to_yaml | indent(6) }}
     {% if data.minio.logsearch.enabled %}
     depends_on:
       logsearch:
@@ -75,7 +75,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      {{ health_check(curl_test("http://localhost:8080/status")) | indent(6) }}
+      {{ health_check(curl_test("http://localhost:8080/status")) | to_yaml | indent(6) }}
     environment:
       LOGSEARCH_DISK_CAPACITY_GB: {{ data.minio.logsearch.disk_capacity_gb }}
       LOGSEARCH_PG_CONN_STR: postgresql://{{ pg_user }}:{{ data.minio.logsearch.postgres_password }}@postgres:5432/{{ pg_database }}?sslmode=disable
@@ -88,10 +88,9 @@ services:
     networks:
       - {{ minio_network }}
     healthcheck:
-      {{ health_check(pg_test(user = pg_user, db=pg_database))|indent(6) }}
+      {{ health_check(pg_test(user = pg_user, db=pg_database)) | to_yaml | indent(6) }}
     environment:
-      {{ postgres_environment(user = pg_user, db = pg_database,
-        password = data.minio.logsearch.postgres_password) }}
+      {{ postgres_environment(user = pg_user, db = pg_database, password = data.minio.logsearch.postgres_password) | to_yaml | indent(6) }}
     {# TODO: #}
     volumes:
       - postgres:/var/lib/postgresql/data

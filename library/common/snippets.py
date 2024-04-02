@@ -1,16 +1,10 @@
-import yaml
 
-YAML_OPTS = {
-  'default_flow_style': False,
-  'sort_keys': False,
-  'indent': 2,
-}
 
-def health_check(test="", interval=10, timeout=10, retries=5, start_period=30):
+def func_health_check(test="", interval=10, timeout=10, retries=5, start_period=30):
   if not test:
     raise ValueError("Healtcheck: [test] must be set")
 
-  hc = {
+  return {
     "test": test,
     "interval": f'{interval}s',
     "timeout": f'{timeout}s',
@@ -18,12 +12,10 @@ def health_check(test="", interval=10, timeout=10, retries=5, start_period=30):
     "start_period": f'{start_period}s'
   }
 
-  return yaml.dump(hc, **YAML_OPTS)
-
-def curl_test(url):
+def func_curl_test(url):
   return f"curl --silent --fail {url}"
 
-def pg_test(user, db, host="127.0.0.1", port=5432):
+def func_pg_test(user, db, host="127.0.0.1", port=5432):
   if not user:
     raise ValueError("Postgres container: [user] must be set")
 
@@ -32,10 +24,10 @@ def pg_test(user, db, host="127.0.0.1", port=5432):
 
   return f"pg_isready -h {host} -p {port} -d {db} -U {user}"
 
-def postgres_run_as():
+def func_postgres_run_as():
   return "999:999"
 
-def postgres_environment(user, password, db):
+def func_postgres_environment(user, password, db):
   if not user:
     raise ValueError("Postgres container: [user] must be set")
 
