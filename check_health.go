@@ -81,7 +81,7 @@ func main() {
 	// Spin go routines to check each container
 	for _, c := range containers {
 		wg.Add(1)
-		fmt.Print("Watching ", getContainerName(c.Names), " ... ")
+		fmt.Printf("Watching [%s] ...\n", getContainerName(c.Names))
 		go func(c d_types.Container) {
 			defer wg.Done()
 			checkContainer(c, checksCh)
@@ -103,20 +103,22 @@ func main() {
 
 	// Print the results
 	for name, res := range checkResults {
-		fmt.Println(strings.Repeat("=", 20), name, strings.Repeat("=", 20))
+		fmt.Println(strings.Repeat("=", 50), name, strings.Repeat("=", 20))
 		fmt.Printf("Container: %s\n", name)
 		fmt.Printf("Healthy: %t\n", res.Healthy)
 		fmt.Printf("Fatal: %t\n", res.Fatal)
 		if res.Logs != "" {
-			fmt.Printf("Logs: %s\n\n", res.Logs)
+			fmt.Printf("Logs: %s\n", res.Logs)
 		} else {
 			fmt.Println("Logs: No logs available")
 		}
-		fmt.Println(strings.Repeat("=", 40+len(name)))
 		if res.Fatal {
 			unhealthy++
-			fmt.Printf("Probe Logs: %s\n\n", res.ProbeLogs)
+			if res.ProbeLogs != "" {
+				fmt.Printf("Probe Logs: %s\n", res.ProbeLogs)
+			}
 		}
+		fmt.Println(strings.Repeat("=", 100+len(name)))
 	}
 
 	fmt.Println("Summary:")
