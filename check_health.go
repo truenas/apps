@@ -249,7 +249,7 @@ func getLogs(cID string) (string, error) {
 		d_container.LogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
-			Timestamps: true,
+			Timestamps: false,
 			Tail:       "any",
 		},
 	)
