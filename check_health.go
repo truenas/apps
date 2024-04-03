@@ -69,7 +69,10 @@ func main() {
 	}
 
 	// Get the container list
-	containers := getContainersFromProject(p.Name)
+	containers, err := getContainersFromProject(p.Name)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	checkResults := make(Results)
 	checksCh := make(chan Result, len(containers))
@@ -78,6 +81,7 @@ func main() {
 	// Spin go routines to check each container
 	for _, c := range containers {
 		wg.Add(1)
+		fmt.Print("Watching ", getContainerName(c.Names), " ... ")
 		go func(c d_types.Container) {
 			defer wg.Done()
 			checkContainer(c, checksCh)
@@ -96,6 +100,7 @@ func main() {
 	}
 
 	unhealthy := 0
+
 	// Print the results
 	for name, res := range checkResults {
 		fmt.Println(strings.Repeat("=", 20), name, strings.Repeat("=", 20))
@@ -123,11 +128,14 @@ func main() {
 	}
 }
 
+func getContainerName(n []string) string {
+	return strings.TrimLeft(n[0], "/")
+}
 func checkContainer(c d_types.Container, checksCh chan Result) {
 	start := time.Now()
 	var res Result
 	res.HasCheck, _ = hasHealthCheck(c.ID)
-	res.Name = c.Names[0]
+	res.Name = getContainerName(c.Names)
 	running, _ := isRunning(c.ID)
 	if !running {
 		res.Fatal = true
@@ -241,18 +249,20 @@ func getLogs(cID string) (string, error) {
 		d_container.LogsOptions{
 			ShowStdout: true,
 			ShowStderr: true,
+			Timestamps: true,
 			Tail:       "any",
 		},
 	)
 	if err != nil {
-		log.Fatal(err)
+		return "", fmt.Errorf("failed to get logs: %w", err)
 	}
 	defer body.Close()
-	out, _ := io.ReadAll(body)
-	return string(out), nil
+
+	out, err := io.ReadAll(body)
+	return string(out), err
 }
 
-func getContainersFromProject(composeName string) []d_types.Container {
+func getContainersFromProject(composeName string) ([]d_types.Container, error) {
 	containers, err := apiClient.ContainerList(
 		context.Background(),
 		d_container.ListOptions{All: true, Filters: d_filters.NewArgs(
@@ -261,8 +271,8 @@ func getContainersFromProject(composeName string) []d_types.Container {
 	)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
 
-	return containers
+	return containers, nil
 }
