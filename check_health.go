@@ -23,6 +23,8 @@ type Result struct {
 	Fatal     bool   // True if the container is exited with a non-zero exit code.
 	Healthy   bool   // True if the container is healthy, false if probe is failing
 	HasCheck  bool   // True if the container has a health check
+	TimedOut  bool   // True if the container timed out
+	ExitCode  int    // Exit code of the container
 	Logs      string // Logs of the container
 	ProbeLogs string // Logs of the probe
 }
@@ -101,11 +103,12 @@ func main() {
 	}
 
 	unhealthy := 0
-
 	// Print the results
 	for name, res := range checkResults {
 		fmt.Println(strings.Repeat("=", 50), name, strings.Repeat("=", 20))
 		fmt.Printf("Container: %s\n", name)
+		fmt.Printf("Health Check: %t\n", res.HasCheck)
+		fmt.Printf("Timed Out: %t\n", res.TimedOut)
 		fmt.Printf("Healthy: %t\n", res.Healthy)
 		fmt.Printf("Fatal: %t\n", res.Fatal)
 		if res.Logs != "" {
@@ -115,6 +118,7 @@ func main() {
 		}
 		if res.Fatal {
 			unhealthy++
+			fmt.Printf("Exit Code: %d\n", res.ExitCode)
 			if res.ProbeLogs != "" {
 				fmt.Printf("Probe Logs: %s\n", res.ProbeLogs)
 			}
@@ -145,6 +149,7 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 	if !running {
 		if exitCode != 0 {
 			res.Fatal = true
+			res.ExitCode = exitCode
 			res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
 		} else {
 			res.Healthy = false
@@ -174,6 +179,7 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 
 		if time.Since(start) > timeout {
 			res.Healthy = false
+			res.TimedOut = true
 			res.Logs, _ = getLogs(c.ID)
 			res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
 			checksCh <- res
