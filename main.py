@@ -33,14 +33,14 @@ mock1 = {
         "type": "hostPath",
         "mountPath": "/data1",
         "hostPathConfig": {
-          "path": "/mnt/test/data1",
+          "path": "./test/data1",
         }
       },
       {
         "type": "hostPath",
         "mountPath": "/data2",
         "hostPathConfig": {
-          "path": "/mnt/test/data2",
+          "path": "./test/data2",
         }
       }
     ]
