@@ -50,7 +50,7 @@ mock1 = {
     "limits": {
       "cpus": "2.0",
       "memory": "4gb"
-    }
+    },
   },
   "minio": {
     "access_key": "minio",

@@ -56,5 +56,5 @@ def func_resources(data = {}):
   return {
     "resources": {
       "limits": get_limits(data)
-    }
+    },
   }
