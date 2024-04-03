@@ -19,14 +19,15 @@ import (
 )
 
 type Result struct {
-	Name      string
-	Fatal     bool
-	Healthy   bool
-	HasCheck  bool
-	Logs      string
-	ProbeLogs string
+	Name      string // Name of the container
+	Fatal     bool   // True if the container is exited with a non-zero exit code.
+	Healthy   bool   // True if the container is healthy, false if probe is failing
+	HasCheck  bool   // True if the container has a health check
+	Logs      string // Logs of the container
+	ProbeLogs string // Logs of the probe
 }
 
+// map[container name]result
 type Results map[string]Result
 
 var flag_name string
@@ -140,10 +141,15 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 	res.HasCheck, _ = hasHealthCheck(c.ID)
 	res.Name = getContainerName(c.Names)
 	running, _ := isRunning(c.ID)
+	exitCode, _ := getExitCode(c.ID)
 	if !running {
-		res.Fatal = true
+		if exitCode != 0 {
+			res.Fatal = true
+			res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
+		} else {
+			res.Healthy = false
+		}
 		res.Logs, _ = getLogs(c.ID)
-		res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
 		checksCh <- res
 		return
 	}
@@ -200,6 +206,14 @@ func isRunning(cID string) (bool, error) {
 	}
 
 	return container.State.Running, nil
+}
+func getExitCode(cID string) (int, error) {
+	container, err := apiClient.ContainerInspect(context.Background(), cID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to inspect container: %w", err)
+	}
+
+	return container.State.ExitCode, nil
 }
 
 // getHealth returns the health status of the container
