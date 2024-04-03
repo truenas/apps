@@ -21,7 +21,6 @@ for item in items:
 
 template = env.get_template("docker-compose.yaml.j2")
 
-
 mock1 = {
   "network": {
     "api_port": 9000,
