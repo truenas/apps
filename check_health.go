@@ -55,7 +55,7 @@ func main() {
 
 	var err error
 	// Parse the docker-compose file
-	p, err := getProjectWithNameFromFiles(name, files)
+	p, err := createProjectWithNameFromFiles(name, files)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -130,6 +130,7 @@ func main() {
 	}
 }
 
+// Container names seem to have a leading slash
 func getContainerName(n []string) string {
 	return strings.TrimLeft(n[0], "/")
 }
@@ -177,6 +178,7 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 	}
 }
 
+// hasHealthCheck checks if the container has a health check
 func hasHealthCheck(cID string) (bool, error) {
 	container, err := apiClient.ContainerInspect(context.Background(), cID)
 	if err != nil {
@@ -190,6 +192,7 @@ func hasHealthCheck(cID string) (bool, error) {
 	return false, nil
 }
 
+// isRunning returns true if the container is in the "running" state
 func isRunning(cID string) (bool, error) {
 	container, err := apiClient.ContainerInspect(context.Background(), cID)
 	if err != nil {
@@ -199,6 +202,7 @@ func isRunning(cID string) (bool, error) {
 	return container.State.Running, nil
 }
 
+// getHealth returns the health status of the container
 func getHealth(cID string) (string, error) {
 	container, err := apiClient.ContainerInspect(context.Background(), cID)
 	if err != nil {
@@ -208,14 +212,11 @@ func getHealth(cID string) (string, error) {
 	return container.State.Health.Status, nil
 }
 
+// getFailedProbeLogs returns the logs of the failed probes
 func getFailedProbeLogs(cID string) (string, error) {
 	container, err := apiClient.ContainerInspect(context.Background(), cID)
 	if err != nil {
 		return "", fmt.Errorf("failed to inspect container: %w", err)
-	}
-
-	if container.State.Health == nil {
-		return "", nil
 	}
 
 	var buf strings.Builder
@@ -229,7 +230,8 @@ func getFailedProbeLogs(cID string) (string, error) {
 	return buf.String(), nil
 }
 
-func getProjectWithNameFromFiles(name string, files []string) (*c_types.Project, error) {
+// createProjectWithNameFromFiles creates a project from the given files and name
+func createProjectWithNameFromFiles(name string, files []string) (*c_types.Project, error) {
 	// Create the project options
 	composeOpts, err := c_cli.NewProjectOptions(
 		files, c_cli.WithName(name),
@@ -246,6 +248,7 @@ func getProjectWithNameFromFiles(name string, files []string) (*c_types.Project,
 	return project, nil
 }
 
+// getLogs returns the logs of the container
 func getLogs(cID string) (string, error) {
 	body, err := apiClient.ContainerLogs(context.Background(), cID,
 		d_container.LogsOptions{
@@ -264,6 +267,7 @@ func getLogs(cID string) (string, error) {
 	return string(out), err
 }
 
+// getContainersFromProject returns the containers from the project
 func getContainersFromProject(composeName string) ([]d_types.Container, error) {
 	containers, err := apiClient.ContainerList(
 		context.Background(),
