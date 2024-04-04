@@ -216,7 +216,9 @@ func hasHealthCheck(cID string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to inspect container: %w", err)
 	}
-
+	if container.Config.Healthcheck == nil {
+		return false, nil
+	}
 	if len(container.Config.Healthcheck.Test) > 0 {
 		return true, nil
 	}
