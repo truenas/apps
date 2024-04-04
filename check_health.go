@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -19,14 +20,15 @@ import (
 )
 
 type Result struct {
-	Name      string // Name of the container
-	Fatal     bool   // True if the container is exited with a non-zero exit code.
-	Healthy   bool   // True if the container is healthy, false if probe is failing
-	HasCheck  bool   // True if the container has a health check
-	TimedOut  bool   // True if the container timed out
-	ExitCode  int    // Exit code of the container
-	Logs      string // Logs of the container
-	ProbeLogs string // Logs of the probe
+	Name        string                // Name of the container
+	Fatal       bool                  // True if the container is exited with a non-zero exit code.
+	Healthy     bool                  // True if the container is healthy, false if probe is failing
+	HasCheck    bool                  // True if the container has a health check
+	TimedOut    bool                  // True if the container timed out
+	ExitCode    int                   // Exit code of the container
+	Logs        string                // Logs of the container
+	ProbeLogs   string                // Logs of the probe
+	InspectData d_types.ContainerJSON // The full inspect data of the container
 }
 
 // map[container name]result
@@ -123,6 +125,14 @@ func main() {
 				fmt.Printf("Probe Logs: %s\n", res.ProbeLogs)
 			}
 		}
+		if !res.Healthy {
+			data, err := json.MarshalIndent(res.InspectData, "", "  ")
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("Inspect Data: %s\n", string(data))
+		}
+
 		fmt.Println(strings.Repeat("=", 100+len(name)))
 	}
 
@@ -131,7 +141,7 @@ func main() {
 	fmt.Printf("Healthy: %d\n", len(containers)-unhealthy)
 	fmt.Printf("Unhealthy: %d\n", unhealthy)
 	if unhealthy > 0 {
-		log.Fatal("Unhealthy containers")
+		log.Fatal("\nUnhealthy containers\n")
 	}
 }
 
@@ -151,6 +161,7 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 			res.Fatal = true
 			res.ExitCode = exitCode
 			res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
+			res.InspectData, _ = getInspectData(c.ID)
 		} else {
 			res.Healthy = false
 		}
@@ -182,12 +193,21 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 			res.TimedOut = true
 			res.Logs, _ = getLogs(c.ID)
 			res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
+			res.InspectData, _ = getInspectData(c.ID)
 			checksCh <- res
 			return
 		}
 
 		time.Sleep(2 * time.Second)
 	}
+}
+
+func getInspectData(cID string) (d_types.ContainerJSON, error) {
+	container, err := apiClient.ContainerInspect(context.Background(), cID)
+	if err != nil {
+		return d_types.ContainerJSON{}, fmt.Errorf("failed to inspect container: %w", err)
+	}
+	return container, nil
 }
 
 // hasHealthCheck checks if the container has a health check
