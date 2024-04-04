@@ -107,7 +107,7 @@ func main() {
 	unhealthy := 0
 	// Print the results
 	for name, res := range checkResults {
-		fmt.Println(strings.Repeat("=", 50), name, strings.Repeat("=", 20))
+		fmt.Println(strings.Repeat("=", 50), name, strings.Repeat("=", 50))
 		fmt.Printf("Container: %s\n", name)
 		fmt.Printf("Health Check: %t\n", res.HasCheck)
 		fmt.Printf("Timed Out: %t\n", res.TimedOut)
