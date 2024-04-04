@@ -118,22 +118,21 @@ func main() {
 		} else {
 			fmt.Println("Logs: No logs available")
 		}
-		if res.Fatal {
-			unhealthy++
-			fmt.Printf("Exit Code: %d\n", res.ExitCode)
-			if res.ProbeLogs != "" {
-				fmt.Printf("Probe Logs: %s\n", res.ProbeLogs)
-			}
-		}
+
 		if !res.Healthy {
-			data, err := json.MarshalIndent(res.InspectData, "", "  ")
-			if err != nil {
-				log.Fatal(err)
+			unhealthy++
+			if res.Fatal {
+				fmt.Printf("Exit Code: %d\n", res.ExitCode)
+				if res.ProbeLogs != "" {
+					fmt.Printf("Probe Logs: %s\n", res.ProbeLogs)
+				}
 			}
+
+			data, _ := json.MarshalIndent(res.InspectData, "", "  ")
 			fmt.Printf("Inspect Data: %s\n", string(data))
 		}
 
-		fmt.Println(strings.Repeat("=", 100+len(name)))
+		fmt.Printf("%s\n\n", strings.Repeat("=", 100+len(name)))
 	}
 
 	fmt.Println("Summary:")
@@ -157,20 +156,28 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 	running, _ := isRunning(c.ID)
 	exitCode, _ := getExitCode(c.ID)
 
-	// If its not running, its most likely exited early
+	// If its not running,
 	if !running {
-		res.Healthy = false
-		res.Logs, _ = getLogs(c.ID)
-		res.InspectData, _ = getInspectData(c.ID)
-		if exitCode != 0 {
+		if res.ExitCode != 0 {
+			res.Healthy = false
+			res.Logs, _ = getLogs(c.ID)
+			res.InspectData, _ = getInspectData(c.ID)
 			res.Fatal = true
 			res.ExitCode = exitCode
+			if res.HasCheck {
+				res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
+			}
+			checksCh <- res
+			return
+		} else {
+			// This case is for example an "init" container
+			// that started, did a job and exited. eg permission fix
+			res.Healthy = true
+			res.Logs, _ = getLogs(c.ID)
+			res.InspectData, _ = getInspectData(c.ID)
+			checksCh <- res
+			return
 		}
-		if res.HasCheck {
-			res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
-		}
-		checksCh <- res
-		return
 	}
 
 	// If its running, and does not have a health check
@@ -271,7 +278,9 @@ func getHealth(cID string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to inspect container: %w", err)
 	}
-
+	if container.State.Health == nil {
+		return "", nil
+	}
 	return container.State.Health.Status, nil
 }
 
