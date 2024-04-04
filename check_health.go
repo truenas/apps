@@ -156,38 +156,57 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 	res.Name = getContainerName(c.Names)
 	running, _ := isRunning(c.ID)
 	exitCode, _ := getExitCode(c.ID)
+
+	// If its not running, its most likely exited early
 	if !running {
+		res.Healthy = false
+		res.Logs, _ = getLogs(c.ID)
+		res.InspectData, _ = getInspectData(c.ID)
 		if exitCode != 0 {
 			res.Fatal = true
 			res.ExitCode = exitCode
-			res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
-			res.InspectData, _ = getInspectData(c.ID)
-		} else {
-			res.Healthy = false
 		}
-		res.Logs, _ = getLogs(c.ID)
+		if res.HasCheck {
+			res.ProbeLogs, _ = getFailedProbeLogs(c.ID)
+		}
 		checksCh <- res
 		return
 	}
 
-	var health string
+	// If its running, and does not have a health check
+	// assume it is healthy and stop checking
+	health, _ := getHealth(c.ID)
+	if !res.HasCheck {
+		if health == "running" {
+			res.Healthy = true
+			res.Logs, _ = getLogs(c.ID)
+			checksCh <- res
+			return
+		} else {
+			// Log any other states so we can see how to handle them
+			fmt.Printf("Container [%s] has a health state of [%s]\n", res.Name, health)
+			res.Healthy = false
+			res.Logs, _ = getLogs(c.ID)
+			res.InspectData, _ = getInspectData(c.ID)
+			checksCh <- res
+			return
+		}
+	}
+
+	// If its running and has a health check, keep checking
+	// until it is healthy or timeout is reached
 	for {
 		health, _ = getHealth(c.ID)
 
-		if res.HasCheck && health == "healthy" {
+		// If its healthy, stop checking
+		if health == "healthy" {
 			res.Healthy = true
 			res.Logs, _ = getLogs(c.ID)
 			checksCh <- res
 			return
 		}
 
-		if !res.HasCheck && health == "running" {
-			res.Healthy = true
-			res.Logs, _ = getLogs(c.ID)
-			checksCh <- res
-			return
-		}
-
+		// Stop after the timeout is reached
 		if time.Since(start) > timeout {
 			res.Healthy = false
 			res.TimedOut = true
@@ -198,10 +217,12 @@ func checkContainer(c d_types.Container, checksCh chan Result) {
 			return
 		}
 
+		// Sleep for 2 seconds to avoid spamming the API
 		time.Sleep(2 * time.Second)
 	}
 }
 
+// getInspectData returns the inspect data of the container
 func getInspectData(cID string) (d_types.ContainerJSON, error) {
 	container, err := apiClient.ContainerInspect(context.Background(), cID)
 	if err != nil {
@@ -212,7 +233,7 @@ func getInspectData(cID string) (d_types.ContainerJSON, error) {
 
 // hasHealthCheck checks if the container has a health check
 func hasHealthCheck(cID string) (bool, error) {
-	container, err := apiClient.ContainerInspect(context.Background(), cID)
+	container, err := getInspectData(cID)
 	if err != nil {
 		return false, fmt.Errorf("failed to inspect container: %w", err)
 	}
@@ -228,7 +249,7 @@ func hasHealthCheck(cID string) (bool, error) {
 
 // isRunning returns true if the container is in the "running" state
 func isRunning(cID string) (bool, error) {
-	container, err := apiClient.ContainerInspect(context.Background(), cID)
+	container, err := getInspectData(cID)
 	if err != nil {
 		return false, fmt.Errorf("failed to inspect container: %w", err)
 	}
@@ -236,7 +257,7 @@ func isRunning(cID string) (bool, error) {
 	return container.State.Running, nil
 }
 func getExitCode(cID string) (int, error) {
-	container, err := apiClient.ContainerInspect(context.Background(), cID)
+	container, err := getInspectData(cID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to inspect container: %w", err)
 	}
@@ -246,7 +267,7 @@ func getExitCode(cID string) (int, error) {
 
 // getHealth returns the health status of the container
 func getHealth(cID string) (string, error) {
-	container, err := apiClient.ContainerInspect(context.Background(), cID)
+	container, err := getInspectData(cID)
 	if err != nil {
 		return "", fmt.Errorf("failed to inspect container: %w", err)
 	}
@@ -256,7 +277,7 @@ func getHealth(cID string) (string, error) {
 
 // getFailedProbeLogs returns the logs of the failed probes
 func getFailedProbeLogs(cID string) (string, error) {
-	container, err := apiClient.ContainerInspect(context.Background(), cID)
+	container, err := getInspectData(cID)
 	if err != nil {
 		return "", fmt.Errorf("failed to inspect container: %w", err)
 	}
