@@ -6,18 +6,21 @@ on:
 jobs:
   changed-files:
     runs-on: ubuntu-latest
+    outputs:
+      changed_apps: ${{ steps.changed-apps.outputs.changed_apps }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Get changed files
         id: changed-files
         uses: tj-actions/changed-files@v44
-      - name: Echo changed files
+      - name: Get changed apps
+        id: changed-apps
         env:
           CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
           apps=()
-
+          values=()
           for file in $CHANGED_FILES
           do
             # ix-dev/TRAIN/APP/
@@ -37,7 +40,16 @@ jobs:
           done
 
           echo "Apps: ${apps[@]}"
+          json_apps=$(printf '%s\n' "${apps[@]}" | jq -R . | jq -s .)
+          echo "changed_apps=${json_apps[@]}" >> $GITHUB_OUTPUT
 
+  test-apps:
+    needs: changed-files
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ${{ fromJson(needs.changed-files.outputs.changed_apps) }}
+    steps:
       - name: Environment Information
         run: |
           echo "====== Docker Info ======"
@@ -54,6 +66,8 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "1.22.2"
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Install Dependencies
         shell: bash
         run: |

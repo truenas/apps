@@ -6,15 +6,17 @@ import sys
 import os
 from jinja2 import Environment, FileSystemLoader
 
-if len(sys.argv) < 2:
-  raise ValueError("values path must be set")
+if len(sys.argv) < 3:
+  raise ValueError("path must be set")
 
 values_path = sys.argv[1]
-if not values_path:
-  raise ValueError("values path must be set")
+app_path = sys.argv[2]
 
-if not os.path.exists(values_path):
-  raise ValueError("values path does not exist")
+if not values_path or not app_path:
+  raise ValueError("path must be set")
+
+if not os.path.exists(values_path) or not os.path.exists(app_path):
+  raise ValueError("path does not exist")
 
 env = Environment(
     loader=FileSystemLoader("ix-dev/enterprise/minio/templates"),
