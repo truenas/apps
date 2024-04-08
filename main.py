@@ -12,8 +12,8 @@ if len(sys.argv) < 3:
 values_path = sys.argv[1]
 app_path = sys.argv[2]
 
-print("Values path: %s" % values_path)
-print("App path: %s" % app_path)
+print(f"Values path: {values_path}")
+print(f"App path: {app_path}")
 
 if not values_path:
   raise ValueError("values path must be set")
