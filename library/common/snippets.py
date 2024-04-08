@@ -43,8 +43,8 @@ def func_postgres_environment(user, password, db):
     "POSTGRES_DB": db
   }
 
-DEFAULT_CPUS = "4.0"
-DEFAULT_MEMORY = "8gb"
+DEFAULT_CPUS = "2.0"
+DEFAULT_MEMORY = "4gb"
 
 def get_limits(data):
   if not data:
