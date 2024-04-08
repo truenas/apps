@@ -16,20 +16,27 @@ jobs:
         env:
           CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
+          apps=()
+
           for file in $CHANGED_FILES
           do
             # ix-dev/TRAIN/APP/
             if [[ $file == ix-dev/*/* ]]; then
               app=$(echo $file | cut -d '/' -f 3)
               train=$(echo $file | cut -d '/' -f 2)
-              echo "APP: $app"
-              echo "TRAIN: $train"
+
+              if [[ ! " ${apps[@]} " =~ " ${train}/${app} " ]]; then
+                apps+=($train/$app)
+              fi
+
               if [[ ! -d ix-dev/$train/$app/ci ]]; then
                 echo "No values file found for $train/$app in ci directory."
                 exit 1
               fi
             fi
           done
+
+          echo "Apps: ${apps[@]}"
 
       - name: Environment Information
         run: |
