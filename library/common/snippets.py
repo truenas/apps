@@ -47,6 +47,11 @@ DEFAULT_CPUS = "4.0"
 DEFAULT_MEMORY = "8gb"
 
 def get_limits(data):
+  if not data:
+    return {
+      "cpus": DEFAULT_CPUS,
+      "memory": DEFAULT_MEMORY
+    }
   return {
     "cpus": str(data.get("limits", DEFAULT_CPUS).get("cpus", DEFAULT_CPUS)),
     "memory": data.get("limits", DEFAULT_MEMORY).get("memory", DEFAULT_MEMORY)
