@@ -19,7 +19,7 @@ if not os.path.exists(values_path) or not os.path.exists(app_path):
   raise ValueError("path does not exist")
 
 env = Environment(
-    loader=FileSystemLoader("ix-dev/enterprise/minio/templates"),
+    loader=FileSystemLoader(f"{app_path}/templates"),
 )
 
 items = [
