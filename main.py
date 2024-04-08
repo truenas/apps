@@ -1,7 +1,21 @@
 #!/usr/bin/env python3
 import importlib
 import inspect
+import yaml
+import sys
+import os
 from jinja2 import Environment, FileSystemLoader
+
+if len(sys.argv) < 2:
+  raise ValueError("values path must be set")
+
+values_path = sys.argv[1]
+if not values_path:
+  raise ValueError("values path must be set")
+
+if not os.path.exists(values_path):
+  raise ValueError("values path does not exist")
+
 env = Environment(
     loader=FileSystemLoader("ix-dev/enterprise/minio/templates"),
 )
@@ -21,94 +35,7 @@ for item in items:
 
 template = env.get_template("docker-compose.yaml.j2")
 
-mock1 = {
-  "network": {
-    "api_port": 9000,
-    "console_port": 9001,
-    "certificateID": None
-  },
-  "storage": {
-    "data": [
-      {
-        "type": "hostPath",
-        "mountPath": "/data1",
-        "hostPathConfig": {
-          "path": "./test/data1",
-        }
-      },
-      {
-        "type": "hostPath",
-        "mountPath": "/data2",
-        "hostPathConfig": {
-          "path": "./test/data2",
-        }
-      }
-    ]
-  },
-  "resources": {
-    "limits": {
-      "cpus": "2.0",
-      "memory": "4gb"
-    },
-  },
-  "minio": {
-    "access_key": "minio",
-    "secret_key": "minio123",
-    "server_url": "",
-    "console_url": "",
-    "user": 568,
-    "group": 568,
-    "logging": {
-      "quiet": True,
-      "anonymous": True
-    },
-    "logsearch": {
-      "enabled": True,
-      "disk_capacity_gb": 10,
-      "postgres_password": "minio"
-    }
-  }
-}
+with open(values_path) as f:
+  mock = yaml.safe_load(f)
 
-mock2 = {
-  "network": {
-    "api_port": 9000,
-    "console_port": 9001,
-    "certificateID": None
-  },
-  "storage": {
-    "data": [
-      {
-        "type": "hostPath",
-        "mountPath": "/data1",
-        "hostPathConfig": {
-          "path": "/mnt/test/data1",
-        }
-      },
-      {
-        "type": "hostPath",
-        "mountPath": "/data2",
-        "hostPathConfig": {
-          "path": "/mnt/test/data2",
-        }
-      }
-    ]
-  },
-  "minio": {
-    "access_key": "minio",
-    "secret_key": "minio123",
-    "server_url": "",
-    "console_url": "",
-    "user": 568,
-    "group": 568,
-    "logging": {
-      "quiet": True,
-      "anonymous": True
-    },
-    "logsearch": {
-      "enabled": False,
-    }
-  }
-}
-
-print(template.render(data=mock1))
+print(template.render(data=mock))
