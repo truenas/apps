@@ -78,27 +78,22 @@ jobs:
           go mod download
           go build -o ../../check_health cmd/main.go
           chmod +x ../../check_health
-      # TODO: Find changed files
-      # TODO: for each app, loop over the ci/ directory and do the below process
-      - name: Render template
+      - name: Run app
         shell: bash
         run: |
-          ./main.py ix-dev/${{ matrix.app }}/ci/basic-values.yaml ix-dev/${{ matrix.app }} > docker-compose.yaml
-      - name: Preview template
-        shell: bash
-        run: |
-          # Print the parsed, by compose, template
-          # (as it will also remove empty lines)
-          docker compose -f docker-compose.yaml config
-      - name: Generate random project name
-        shell: bash
-        run: |
-          echo "PROJECT_NAME=$(openssl rand -hex 12)" >> $GITHUB_ENV
-      - name: Up containers
-        shell: bash
-        run: |
-          docker compose -p $PROJECT_NAME -f docker-compose.yaml up -d
-      - name: Wait containers
-        shell: bash
-        run: |
-          ./check_health --project $PROJECT_NAME --files docker-compose.yaml
+          for values_file in ix-dev/${{ matrix.app }}/ci/*.yaml; do
+            ./main.py ix-dev/${{ matrix.app }}/ci/$values_file.yaml ix-dev/${{ matrix.app }} > docker-compose.yaml
+
+            # Print the parsed, by compose, template
+            # (as it will also remove empty lines)
+            docker compose -f docker-compose.yaml config
+
+            PROJECT_NAME=$(openssl rand -hex 12)"
+
+            docker compose -p $PROJECT_NAME -f docker-compose.yaml up -d
+
+            ./check_health --project $PROJECT_NAME --files docker-compose.yaml
+
+            docker compose -p $PROJECT_NAME -f docker-compose.yaml down --remove-orphans --volumes
+            docker compose -p $PROJECT_NAME -f docker-compose.yaml rm --force --stop --volumes
+          done
