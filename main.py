@@ -12,8 +12,6 @@ if len(sys.argv) < 3:
 values_path = sys.argv[1]
 app_path = sys.argv[2]
 
-print(f"Values path: {values_path}")
-print(f"App path: {app_path}")
 
 if not values_path:
   raise ValueError("values path must be set")
@@ -22,10 +20,10 @@ if not app_path:
   raise ValueError("app path must be set")
 
 if not os.path.exists(values_path):
-  raise ValueError("values path does not exist")
+  raise ValueError(f"values path [{values_path}] does not exist")
 
 if not os.path.exists(app_path):
-  raise ValueError("app path does not exist")
+  raise ValueError(f"app path [{app_path}] does not exist")
 
 env = Environment(
     loader=FileSystemLoader(f"{app_path}/templates"),
