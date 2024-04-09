@@ -11,7 +11,12 @@ import (
 	"strings"
 )
 
-type Apps map[string][]string
+type App struct {
+	Path  string   `json:"path"`
+	Files []string `json:"files"`
+}
+
+type Result []App
 
 // ix-dev/{train}/{app}
 var appRegex = regexp.MustCompile(`^ix-dev\/(.+)\/(.+)`)
@@ -50,17 +55,15 @@ func main() {
 
 	// Get the changed apps
 	result := getChangedApps(files)
-
-	// All apps must have at least one CI values file
-	for k := range result {
-		// Read the app directory
-		result[k] = getValuesFiles(fmt.Sprintf("ix-dev/%s/ci", k))
-	}
-
 	l.Printf("Result: %+v\n\n", result)
 
+	// Github's matrix want the result under an "include" key
+	matrix := map[string]Result{
+		"include": result,
+	}
+
 	// Marshal the result
-	result_json, err := json.Marshal(result)
+	result_json, err := json.Marshal(matrix)
 	if err != nil {
 		l.Fatal("Failed to marshal result: ", err)
 		return
@@ -70,8 +73,10 @@ func main() {
 	fmt.Println(string(result_json))
 }
 
-func getChangedApps(files []string) Apps {
-	result := make(Apps)
+func getChangedApps(files []string) Result {
+	result := Result{}
+
+	tracker := make(map[string]struct{})
 
 	for _, f := range files {
 		// Only look for apps
@@ -80,10 +85,17 @@ func getChangedApps(files []string) Apps {
 		}
 
 		parts := strings.Split(f, "/")
-		key := fmt.Sprintf("%s/%s", parts[1], parts[2])
-		if _, ok := result[key]; !ok {
-			result[key] = []string{}
+		path := fmt.Sprintf("%s/%s", parts[1], parts[2])
+
+		if _, ok := tracker[path]; ok {
+			continue
 		}
+
+		result = append(result, App{
+			Path:  path,
+			Files: getValuesFiles(fmt.Sprintf("ix-dev/%s/ci", path)),
+		})
+		tracker[path] = struct{}{}
 	}
 
 	return result
