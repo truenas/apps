@@ -37,7 +37,9 @@ func main() {
 		l.Printf("Environment variable %s is empty", envName)
 		return
 	}
-	l.Printf("Changed files: %s", json_files)
+	// Remove escaped backslashes coming from shell
+	json_files = strings.ReplaceAll(json_files, "\\", "")
+	l.Printf("Changed files: %s\n\n", json_files)
 
 	// Parse the json
 	var files []string
@@ -55,7 +57,7 @@ func main() {
 		result[k] = getValuesFiles(fmt.Sprintf("ix-dev/%s/ci", k))
 	}
 
-	l.Printf("Result: %+v", result)
+	l.Printf("Result: %+v\n\n", result)
 
 	// Marshal the result
 	result_json, err := json.Marshal(result)
