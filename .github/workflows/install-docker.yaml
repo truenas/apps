@@ -17,41 +17,17 @@ jobs:
         uses: tj-actions/changed-files@v44
         with:
           json: true
-      - name: Display json
-        run: echo ${{ steps.changed-files-json.outputs.all_changed_files }}
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v44
+      - name: Setup Go
+        uses: actions/setup-go@v4
         with:
-          json: true
+          go-version: "1.22.2"
       - name: Get changed apps
         id: changed-apps
         env:
           CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
-          apps=()
-          values=()
-          for file in $CHANGED_FILES
-          do
-            # ix-dev/TRAIN/APP/
-            if [[ $file == ix-dev/*/* ]]; then
-              app=$(echo $file | cut -d '/' -f 3)
-              train=$(echo $file | cut -d '/' -f 2)
-
-              if [[ ! " ${apps[@]} " =~ " ${train}/${app} " ]]; then
-                apps+=($train/$app)
-              fi
-
-              if [[ ! -d ix-dev/$train/$app/ci ]]; then
-                echo "No values file found for $train/$app in ci directory."
-                exit 1
-              fi
-            fi
-          done
-
-          echo "Apps: ${apps[@]}"
-          json_apps=$(echo "${apps[@]}" | jq -R . | jq -s . | jq -c .)
-          echo "changed_apps=${json_apps[@]}" >> $GITHUB_OUTPUT
+          out=$(go run ./tools/changed-apps/cmd/main.go)
+          echo "changed_apps=${out}" >> $GITHUB_OUTPUT
 
   test-apps:
     name: Test apps
