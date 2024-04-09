@@ -47,15 +47,20 @@ DEFAULT_CPUS = "2.0"
 DEFAULT_MEMORY = "4gb"
 
 def get_limits(data):
+  limits = {
+    "cpus": DEFAULT_CPUS,
+    "memory": DEFAULT_MEMORY
+  }
+
   if not data:
-    return {
-      "cpus": DEFAULT_CPUS,
-      "memory": DEFAULT_MEMORY
-    }
-  return {
+    return limits
+
+  limits.update({
     "cpus": str(data.get("limits", DEFAULT_CPUS).get("cpus", DEFAULT_CPUS)),
     "memory": data.get("limits", DEFAULT_MEMORY).get("memory", DEFAULT_MEMORY)
-  }
+  })
+
+  return data
 
 def func_resources(data = {}):
   return {
