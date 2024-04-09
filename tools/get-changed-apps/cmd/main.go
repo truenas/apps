@@ -4,19 +4,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
 	"regexp"
 	"strings"
 )
 
-type App struct {
-	Path  string   `json:"path"`
-	Files []string `json:"files"`
-}
-
-type Result []App
+type Result []string
 
 // ix-dev/{train}/{app}
 var appRegex = regexp.MustCompile(`^ix-dev\/(.+)\/(.+)`)
@@ -57,13 +51,8 @@ func main() {
 	result := getChangedApps(files)
 	l.Printf("Result: %+v\n\n", result)
 
-	// Github's matrix want the result under an "include" key
-	matrix := map[string]Result{
-		"include": result,
-	}
-
 	// Marshal the result
-	result_json, err := json.Marshal(matrix)
+	result_json, err := json.Marshal(result)
 	if err != nil {
 		l.Fatal("Failed to marshal result: ", err)
 		return
@@ -91,41 +80,8 @@ func getChangedApps(files []string) Result {
 			continue
 		}
 
-		result = append(result, App{
-			Path:  path,
-			Files: getValuesFiles(fmt.Sprintf("ix-dev/%s/ci", path)),
-		})
+		result = append(result, path)
 		tracker[path] = struct{}{}
-	}
-
-	return result
-}
-
-func getValuesFiles(path string) []string {
-	var result []string
-
-	fs, err := os.ReadDir(path)
-	if err != nil {
-		l.Fatal("Failed to read dir: ", err)
-	}
-
-	result = getYamlFiles(fs)
-
-	if len(result) == 0 {
-		l.Fatalf(fmt.Sprintf("No CI values found for %s", path))
-	}
-
-	return result
-}
-
-func getYamlFiles(fs []fs.DirEntry) []string {
-	var result []string
-	for _, f := range fs {
-		// Only look for .yaml files
-		if !strings.HasSuffix(f.Name(), ".yaml") {
-			continue
-		}
-		result = append(result, f.Name())
 	}
 
 	return result
