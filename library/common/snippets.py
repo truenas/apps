@@ -60,7 +60,7 @@ def get_limits(data):
     "memory": data.get("limits", DEFAULT_MEMORY).get("memory", DEFAULT_MEMORY)
   })
 
-  return data
+  return limits
 
 def func_resources(data = {}):
   return {
