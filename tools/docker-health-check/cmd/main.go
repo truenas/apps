@@ -104,6 +104,7 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 	// If its not running,
 	if !running {
 		if res.ExitCode != 0 {
+			fmt.Printf("Container [%s] is not running and has a non-zero exit code\nContainer will be marked unhealthy\n", res.Name)
 			res.Healthy = false
 			res.Logs, _ = utils.GetLogs(c.ID)
 			res.InspectData, _ = utils.GetInspectData(c.ID)
@@ -117,7 +118,7 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 		} else if !res.HasCheck {
 			// This case is for example an "init" container
 			// that started, did a job and exited. eg permission fix
-			fmt.Printf("Container [%s] is not running and has no health check\n", res.Name)
+			fmt.Printf("Container [%s] is not running and has no health check\nContainer will be marked health\n", res.Name)
 			res.Healthy = true
 			res.Logs, _ = utils.GetLogs(c.ID)
 			res.InspectData, _ = utils.GetInspectData(c.ID)
@@ -145,6 +146,7 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 			return
 		} else if health == "" {
 			// Ignore this case for now
+			fmt.Printf("Container [%s] has no health check and has an empty health state\n Doing nothing\n", res.Name)
 		} else {
 			// Log any other states so we can see how to handle them
 			fmt.Printf("Container [%s] has a health state of [%s]\n", res.Name, health)
@@ -172,6 +174,7 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 
 		// Stop after the timeout is reached
 		if time.Since(start) > timeout {
+			fmt.Printf("Container [%s] has timed out\nContainer will be marked unhealthy\n", res.Name)
 			res.Healthy = false
 			res.TimedOut = true
 			res.Logs, _ = utils.GetLogs(c.ID)
