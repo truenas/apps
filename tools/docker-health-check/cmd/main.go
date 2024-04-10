@@ -94,6 +94,10 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 	running, _ := utils.IsRunning(c.ID)
 	exitCode, _ := utils.GetExitCode(c.ID)
 
+	if !res.HasCheck {
+		fmt.Printf("[WARN] Container [%s] has no health check\n", res.Name)
+	}
+
 	// If its not running,
 	if !running {
 		if res.ExitCode != 0 {
