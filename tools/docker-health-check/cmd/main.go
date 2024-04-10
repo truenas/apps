@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -77,8 +78,10 @@ func main() {
 		checkResults[check.Name] = check
 	}
 
-	if utils.LogResultsAndReturnUnhealthy(checkResults) > 0 {
-		log.Fatal("Found unhealthy containers")
+	unhealthyContainers := utils.LogResultsAndReturnUnhealthy(checkResults)
+	if unhealthyContainers > 0 {
+		fmt.Println("Found unhealthy containers")
+		os.Exit(unhealthyContainers)
 	}
 }
 
@@ -114,6 +117,7 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 		} else if !res.HasCheck {
 			// This case is for example an "init" container
 			// that started, did a job and exited. eg permission fix
+			fmt.Printf("Container [%s] is not running and has no health check\n", res.Name)
 			res.Healthy = true
 			res.Logs, _ = utils.GetLogs(c.ID)
 			res.InspectData, _ = utils.GetInspectData(c.ID)
@@ -126,11 +130,21 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 	// assume it is healthy and stop checking
 	health, _ := utils.GetHealth(c.ID)
 	if !res.HasCheck {
+		count := 10
+		// There are cases where health is empty initially, so check a few times
+		for health == "" && count > 0 {
+			fmt.Printf("Container [%s] has an empty health state\n", res.Name)
+			health, _ = utils.GetHealth(c.ID)
+			time.Sleep(2 * time.Second)
+			count--
+		}
 		if health == "running" {
 			res.Healthy = true
 			res.Logs, _ = utils.GetLogs(c.ID)
 			checksCh <- res
 			return
+		} else if health == "" {
+			// Ignore this case for now
 		} else {
 			// Log any other states so we can see how to handle them
 			fmt.Printf("Container [%s] has a health state of [%s]\n", res.Name, health)
