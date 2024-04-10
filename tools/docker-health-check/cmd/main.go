@@ -107,7 +107,7 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 			}
 			checksCh <- res
 			return
-		} else {
+		} else if !res.HasCheck {
 			// This case is for example an "init" container
 			// that started, did a job and exited. eg permission fix
 			res.Healthy = true
