@@ -5,7 +5,7 @@ def filter_is_email(email):
   return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
 def filter_must_be_email(email):
-  if not is_email(email):
+  if not filter_is_email(email):
     raise ValueError("must be an email address")
 
   return email
@@ -28,7 +28,7 @@ def filter_is_password_secure(password):
   return all(c(password) for c in checks)
 
 def filter_must_be_password_secure(password):
-    if not is_password_secure(password):
+    if not filter_is_password_secure(password):
         raise ValueError("password must contain at least 8 characters, 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character")
 
     return password
