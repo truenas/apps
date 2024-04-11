@@ -101,19 +101,12 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 		exitCode, _ := utils.GetExitCode(c.ID)
 		if exited {
 			if exitCode == 0 {
-				fmt.Printf("Container [%s] has exited with a zero exit code, will be marked healthy\n", res.Name)
-				res.Healthy = true
-				res.Logs, _ = utils.GetLogs(c.ID)
-				res.InspectData, _ = utils.GetInspectData(c.ID)
+				fmt.Printf("Container [%s] has exited with a zero exit code\n", res.Name)
+				handleHealthy(&c, &res)
 				checksCh <- res
 				return
 			} else {
-				fmt.Printf("Container [%s] has exited with a non-zero exit code, will be marked unhealthy\n", res.Name)
-				res.Healthy = false
-				res.Logs, _ = utils.GetLogs(c.ID)
-				res.InspectData, _ = utils.GetInspectData(c.ID)
-				res.Fatal = true
-				res.ExitCode = exitCode
+				handleNonZeroExitCode(exitCode, &c, &res)
 				checksCh <- res
 				return
 			}
@@ -124,22 +117,12 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 	if !running {
 		exitCode, _ := utils.GetExitCode(c.ID)
 		if res.ExitCode != 0 {
-			fmt.Printf("Container [%s] is not running and has a non-zero exit code, will be marked unhealthy\n", res.Name)
-			res.Healthy = false
-			res.Logs, _ = utils.GetLogs(c.ID)
-			res.InspectData, _ = utils.GetInspectData(c.ID)
-			res.Fatal = true
-			res.ExitCode = exitCode
-			if res.HasCheck {
-				res.ProbeLogs, _ = utils.GetFailedProbeLogs(c.ID)
-			}
+			handleNonZeroExitCode(exitCode, &c, &res)
 			checksCh <- res
 			return
 		} else if !res.HasCheck {
-			fmt.Printf("Container [%s] is not running and has no health check, will be marked healthy\n", res.Name)
-			res.Healthy = true
-			res.Logs, _ = utils.GetLogs(c.ID)
-			res.InspectData, _ = utils.GetInspectData(c.ID)
+			fmt.Printf("Container [%s] is not running and has no health check\n", res.Name)
+			handleHealthy(&c, &res)
 			checksCh <- res
 			return
 		}
@@ -184,20 +167,14 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 
 		// If its healthy, stop checking
 		if health == "healthy" {
-			res.Healthy = true
-			res.Logs, _ = utils.GetLogs(c.ID)
+			handleHealthy(&c, &res)
 			checksCh <- res
 			return
 		}
 
 		// Stop after the timeout is reached
 		if time.Since(start) > timeout {
-			fmt.Printf("Container [%s] has timed out, Container will be marked unhealthy\n", res.Name)
-			res.Healthy = false
-			res.TimedOut = true
-			res.Logs, _ = utils.GetLogs(c.ID)
-			res.ProbeLogs, _ = utils.GetFailedProbeLogs(c.ID)
-			res.InspectData, _ = utils.GetInspectData(c.ID)
+			handleTimeout(&c, &res)
 			checksCh <- res
 			return
 		}
@@ -205,4 +182,32 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 		// Sleep for 2 seconds to avoid spamming the API
 		time.Sleep(2 * time.Second)
 	}
+}
+
+func handleNonZeroExitCode(exitCode int, c *types.Container, res *utils.Result) {
+	fmt.Printf("Container [%s] has a non-zero exit code, will be marked unhealthy\n", c.ID)
+	res.Healthy = false
+	res.Logs, _ = utils.GetLogs(c.ID)
+	res.InspectData, _ = utils.GetInspectData(c.ID)
+	res.Fatal = true
+	res.ExitCode = exitCode
+	if res.HasCheck {
+		res.ProbeLogs, _ = utils.GetFailedProbeLogs(c.ID)
+	}
+}
+
+func handleTimeout(c *types.Container, res *utils.Result) {
+	fmt.Printf("Container [%s] has timed out, Container will be marked unhealthy\n", c.ID)
+	res.Healthy = false
+	res.TimedOut = true
+	res.Logs, _ = utils.GetLogs(c.ID)
+	res.ProbeLogs, _ = utils.GetFailedProbeLogs(c.ID)
+	res.InspectData, _ = utils.GetInspectData(c.ID)
+}
+
+func handleHealthy(c *types.Container, res *utils.Result) {
+	fmt.Printf("Container [%s] is marked healthy\n", c.ID)
+	res.Healthy = true
+	res.Logs, _ = utils.GetLogs(c.ID)
+	res.InspectData, _ = utils.GetInspectData(c.ID)
 }
