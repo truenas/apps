@@ -100,12 +100,27 @@ func GetFailedProbeLogs(cID string) (string, error) {
 
 // IsRunning returns true if the container is in the "running" state
 func IsRunning(cID string) (bool, error) {
+	state, err := GetState(cID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get container state: %w", err)
+	}
+	return state == "running", nil
+}
+
+func IsExited(cID string) (bool, error) {
+	state, err := GetState(cID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get container state: %w", err)
+	}
+	return state == "exited", nil
+}
+
+func GetState(cID string) (string, error) {
 	container, err := GetInspectData(cID)
 	if err != nil {
-		return false, fmt.Errorf("failed to inspect container: %w", err)
+		return "", fmt.Errorf("failed to inspect container: %w", err)
 	}
-
-	return container.State.Running, nil
+	return container.State.Status, nil
 }
 
 // GetHealth returns the health status of the container

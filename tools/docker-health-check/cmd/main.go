@@ -92,19 +92,39 @@ func normalizeContainerName(n []string) string {
 func checkContainer(c types.Container, checksCh chan utils.Result) {
 	start := time.Now()
 	var res utils.Result
-	res.HasCheck, _ = utils.HasHealthCheck(c.ID)
 	res.Name = normalizeContainerName(c.Names)
-	running, _ := utils.IsRunning(c.ID)
-	exitCode, _ := utils.GetExitCode(c.ID)
 
-	if !res.HasCheck {
+	res.HasCheck, _ = utils.HasHealthCheck(c.ID)
+	if !res.HasCheck { // If there is no HC, and container exited with 0, mark it healthy
 		fmt.Printf("[WARN] Container [%s] has no health check\n", res.Name)
+		exited, _ := utils.IsExited(c.ID)
+		exitCode, _ := utils.GetExitCode(c.ID)
+		if exited {
+			if exitCode == 0 {
+				fmt.Printf("Container [%s] has exited with a zero exit code, will be marked healthy\n", res.Name)
+				res.Healthy = true
+				res.Logs, _ = utils.GetLogs(c.ID)
+				res.InspectData, _ = utils.GetInspectData(c.ID)
+				checksCh <- res
+				return
+			} else {
+				fmt.Printf("Container [%s] has exited with a non-zero exit code, will be marked unhealthy\n", res.Name)
+				res.Healthy = false
+				res.Logs, _ = utils.GetLogs(c.ID)
+				res.InspectData, _ = utils.GetInspectData(c.ID)
+				res.Fatal = true
+				res.ExitCode = exitCode
+				checksCh <- res
+				return
+			}
+		}
 	}
 
-	// If its not running,
+	running, _ := utils.IsRunning(c.ID)
 	if !running {
+		exitCode, _ := utils.GetExitCode(c.ID)
 		if res.ExitCode != 0 {
-			fmt.Printf("Container [%s] is not running and has a non-zero exit code, Container will be marked unhealthy\n", res.Name)
+			fmt.Printf("Container [%s] is not running and has a non-zero exit code, will be marked unhealthy\n", res.Name)
 			res.Healthy = false
 			res.Logs, _ = utils.GetLogs(c.ID)
 			res.InspectData, _ = utils.GetInspectData(c.ID)
@@ -116,9 +136,7 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 			checksCh <- res
 			return
 		} else if !res.HasCheck {
-			// This case is for example an "init" container
-			// that started, did a job and exited. eg permission fix
-			fmt.Printf("Container [%s] is not running and has no health check, Container will be marked healthy\n", res.Name)
+			fmt.Printf("Container [%s] is not running and has no health check, will be marked healthy\n", res.Name)
 			res.Healthy = true
 			res.Logs, _ = utils.GetLogs(c.ID)
 			res.InspectData, _ = utils.GetInspectData(c.ID)
