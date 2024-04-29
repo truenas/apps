@@ -14,34 +14,32 @@ import (
 	"github.com/docker/docker/api/types"
 )
 
-var flag_name string
-var flag_files string
-var flag_timeout int
+type CLIConfig struct {
+	ProjectName string
+	Files       string
+	Timeout     int
+}
 
-var name string
+var config CLIConfig
+
 var files []string
 var timeout time.Duration
 
 func main() {
-	flag.StringVar(&flag_name, "project", "", "project name")
-	flag.StringVar(&flag_files, "files", "", "docker-compose file(s). comma separated")
-	flag.IntVar(&flag_timeout, "timeout", 600, "timeout in seconds")
+	flag.StringVar(&config.ProjectName, "project", "", "project name")
+	flag.StringVar(&config.Files, "files", "", "docker-compose file(s). comma separated")
+	flag.IntVar(&config.Timeout, "timeout", 600, "timeout in seconds")
 	flag.Parse()
-	if flag_name == "" || flag_files == "" {
+	if config.ProjectName == "" || config.Files == "" {
 		flag.Usage()
 		log.Fatal("project and file are required")
 	}
 
-	name = flag_name
-	timeout = time.Duration(flag_timeout) * time.Second
-	files = append(files, strings.Split(flag_files, ",")...)
+	timeout = time.Duration(config.Timeout) * time.Second
+	files = append(files, strings.Split(config.Files, ",")...)
 
 	// Parse the docker-compose file
-	p, err := utils.CreateProjectWithNameFromFiles(name, files)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	p, err := utils.CreateProjectWithNameFromFiles(config.ProjectName, files)
 	if err != nil {
 		log.Fatal(err)
 	}
