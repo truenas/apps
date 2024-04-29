@@ -38,15 +38,15 @@ func LogResultsAndReturnUnhealthy(results Results) int {
 			fmt.Println("Logs: No logs available")
 		}
 
+		if res.Fatal {
+			fmt.Printf("Exit Code: %d\n", res.ExitCode)
+			if res.ProbeLogs != "" {
+				fmt.Printf("Probe Logs: %s\n", res.ProbeLogs)
+			}
+		}
+
 		if !res.Healthy {
 			unhealthy++
-			if res.Fatal {
-				fmt.Printf("Exit Code: %d\n", res.ExitCode)
-				if res.ProbeLogs != "" {
-					fmt.Printf("Probe Logs: %s\n", res.ProbeLogs)
-				}
-			}
-
 			data, _ := json.MarshalIndent(res.InspectData, "", "  ")
 			fmt.Printf("Inspect Data: %s\n", string(data))
 		}
@@ -58,5 +58,7 @@ func LogResultsAndReturnUnhealthy(results Results) int {
 	fmt.Printf("Containers: %d\n", len(results))
 	fmt.Printf("Healthy: %d\n", len(results)-unhealthy)
 	fmt.Printf("Unhealthy: %d\n", unhealthy)
+	fmt.Println(strings.Repeat("-", 100))
+
 	return unhealthy
 }
