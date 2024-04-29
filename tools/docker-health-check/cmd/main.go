@@ -88,110 +88,109 @@ func main() {
 func normalizeContainerName(n []string) string {
 	return strings.TrimLeft(n[0], "/")
 }
-func checkContainer(c types.Container, checksCh chan utils.Result) {
+
+func checkContainerWithHealthCheck(c types.Container) (utils.Result, error) {
 	start := time.Now()
-	var res utils.Result
-	res.Name = normalizeContainerName(c.Names)
 
-	res.HasCheck, _ = utils.HasHealthCheck(c.ID)
-	if !res.HasCheck { // If there is no HC, and container exited with 0, mark it healthy
-		fmt.Printf("[WARN] Container [%s] has no health check\n", res.Name)
-		exited, _ := utils.IsExited(c.ID)
-		exitCode, _ := utils.GetExitCode(c.ID)
-		if exited {
-			if exitCode == 0 {
-				fmt.Printf("Container [%s] has exited with a zero exit code\n", res.Name)
-				handleHealthy(&c, &res)
-				checksCh <- res
-				return
-			} else {
-				handleNonZeroExitCode(exitCode, &c, &res)
-				checksCh <- res
-				return
-			}
-		}
+	result := utils.Result{
+		Name:     normalizeContainerName(c.Names),
+		HasCheck: true,
 	}
 
-	running, _ := utils.IsRunning(c.ID)
-	if !running {
-		exitCode, _ := utils.GetExitCode(c.ID)
-		if res.ExitCode != 0 {
-			handleNonZeroExitCode(exitCode, &c, &res)
-			checksCh <- res
-			return
-		} else if !res.HasCheck {
-			fmt.Printf("Container [%s] is not running and has no health check\n", res.Name)
-			handleHealthy(&c, &res)
-			checksCh <- res
-			return
-		}
-	}
-
-	// If its running, and does not have a health check
-	// assume it is healthy and stop checking
-	health, _ := utils.GetHealth(c.ID)
-	if !res.HasCheck {
-		count := 10
-		// There are cases where health is empty initially, so check a few times
-		for health == "" && count > 0 {
-			fmt.Printf("Container [%s] has an empty health state\n", res.Name)
-			health, _ = utils.GetHealth(c.ID)
-			time.Sleep(2 * time.Second)
-			count--
-		}
-		if health == "running" {
-			res.Healthy = true
-			res.Logs, _ = utils.GetLogs(c.ID)
-			checksCh <- res
-			return
-		} else if health == "" {
-			// Ignore this case for now
-			fmt.Printf("Container [%s] has no health check and has an empty health state, Doing nothing\n", res.Name)
-		} else {
-			// Log any other states so we can see how to handle them
-			fmt.Printf("Container [%s] has a health state of [%s]\n", res.Name, health)
-			res.Healthy = false
-			res.ExitCode, _ = utils.GetExitCode(c.ID)
-			res.Logs, _ = utils.GetLogs(c.ID)
-			res.InspectData, _ = utils.GetInspectData(c.ID)
-			checksCh <- res
-			return
-		}
-	}
-
-	// If its running and has a health check, keep checking
-	// until it is healthy or timeout is reached
+	var err error
 	for {
-		health, _ = utils.GetHealth(c.ID)
-
-		// If its healthy, stop checking
-		if health == "healthy" {
-			handleHealthy(&c, &res)
-			checksCh <- res
-			return
+		result.InspectData, err = utils.GetInspectData(c.ID)
+		if err != nil {
+			return result, err
 		}
 
-		// Stop after the timeout is reached
+		result.ExitCode = utils.GetExitCode(result.InspectData)
+		if utils.IsHealthy(result.InspectData) {
+			handleHealthy(&c, &result)
+			return result, nil
+		}
+
 		if time.Since(start) > timeout {
-			handleTimeout(&c, &res)
-			checksCh <- res
-			return
+			handleTimeout(&c, &result)
+			return result, nil
 		}
 
-		// Sleep for 2 seconds to avoid spamming the API
+		// Wait 2 seconds to avoid spamming
 		time.Sleep(2 * time.Second)
 	}
 }
 
-func handleNonZeroExitCode(exitCode int, c *types.Container, res *utils.Result) {
-	fmt.Printf("Container [%s] has a non-zero exit code, will be marked unhealthy\n", c.ID)
+func checkContainerWithNoHealthCheck(c types.Container) (utils.Result, error) {
+	start := time.Now()
+
+	result := utils.Result{
+		Name:     normalizeContainerName(c.Names),
+		HasCheck: false,
+	}
+
+	var err error
+	for {
+		result.InspectData, err = utils.GetInspectData(c.ID)
+		if err != nil {
+			return result, err
+		}
+
+		result.ExitCode = utils.GetExitCode(result.InspectData)
+		if utils.IsExited(result.InspectData) {
+			if utils.IsZeroExitCode(result.InspectData) {
+				handleHealthy(&c, &result)
+				return result, nil
+			}
+
+			handleNonZeroExitCode(&c, &result)
+
+			return result, nil
+		}
+
+		// TODO: For a container without health check that has no exited
+		// we cannot really be sure if its a stuck init container or
+		// just a container that should run for ever but missing a health check
+		// For now we assume it is healthy
+		if utils.IsRunning(result.InspectData) {
+			result.Healthy = true
+			result.Logs, _ = utils.GetLogs(c.ID)
+			return result, nil
+		}
+
+		if time.Since(start) > timeout {
+			result.Healthy = false
+			result.Logs, _ = utils.GetLogs(c.ID)
+			return result, nil
+		}
+
+		// Wait 2 seconds to avoid spamming
+		time.Sleep(2 * time.Second)
+	}
+}
+
+func checkContainer(c types.Container, checksCh chan utils.Result) {
+	var result utils.Result
+
+	container, _ := utils.GetInspectData(c.ID)
+	hasCheck := utils.HasHealthCheck(container)
+
+	if hasCheck {
+		result, _ = checkContainerWithHealthCheck(c)
+	} else {
+		fmt.Printf("[WARN] Container [%s] has no health check\n", normalizeContainerName(c.Names))
+		result, _ = checkContainerWithNoHealthCheck(c)
+	}
+
+	checksCh <- result
+}
+
+func handleNonZeroExitCode(c *types.Container, res *utils.Result) {
+	fmt.Printf("Container [%s] has a non-zero [%d] exit code, will be marked unhealthy\n", c.ID, res.ExitCode)
 	res.Healthy = false
 	res.Logs, _ = utils.GetLogs(c.ID)
-	res.InspectData, _ = utils.GetInspectData(c.ID)
 	res.Fatal = true
-	res.ExitCode = exitCode
 	if res.HasCheck {
-		res.ProbeLogs, _ = utils.GetFailedProbeLogs(c.ID)
+		res.ProbeLogs, _ = utils.GetFailedProbeLogs(res.InspectData)
 	}
 }
 
@@ -200,13 +199,11 @@ func handleTimeout(c *types.Container, res *utils.Result) {
 	res.Healthy = false
 	res.TimedOut = true
 	res.Logs, _ = utils.GetLogs(c.ID)
-	res.ProbeLogs, _ = utils.GetFailedProbeLogs(c.ID)
-	res.InspectData, _ = utils.GetInspectData(c.ID)
+	res.ProbeLogs, _ = utils.GetFailedProbeLogs(res.InspectData)
 }
 
 func handleHealthy(c *types.Container, res *utils.Result) {
 	fmt.Printf("Container [%s] is marked healthy\n", c.ID)
 	res.Healthy = true
 	res.Logs, _ = utils.GetLogs(c.ID)
-	res.InspectData, _ = utils.GetInspectData(c.ID)
 }

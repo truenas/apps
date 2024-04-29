@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -35,22 +34,6 @@ func GetInspectData(cID string) (types.ContainerJSON, error) {
 	return container, nil
 }
 
-// HasHealthCheck checks if the container has a health check
-func HasHealthCheck(cID string) (bool, error) {
-	container, err := GetInspectData(cID)
-	if err != nil {
-		return false, fmt.Errorf("failed to check if container has a health check: %w", err)
-	}
-	if container.Config.Healthcheck == nil {
-		return false, nil
-	}
-	if len(container.Config.Healthcheck.Test) > 0 {
-		return true, nil
-	}
-
-	return false, nil
-}
-
 // GetLogs returns the logs of the container
 func GetLogs(cID string) (string, error) {
 	body, err := apiClient.ContainerLogs(context.Background(), cID,
@@ -68,71 +51,6 @@ func GetLogs(cID string) (string, error) {
 
 	out, err := io.ReadAll(body)
 	return string(out), err
-}
-
-// GetExitCode returns the exit code of the container
-func GetExitCode(cID string) (int, error) {
-	container, err := GetInspectData(cID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get exit code: %w", err)
-	}
-
-	return container.State.ExitCode, nil
-}
-
-// GetFailedProbeLogs returns the logs of the failed probes
-func GetFailedProbeLogs(cID string) (string, error) {
-	container, err := GetInspectData(cID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get failed probe logs: %w", err)
-	}
-
-	var buf strings.Builder
-	for _, log := range container.State.Health.Log {
-		if log.ExitCode != 0 && log.Output != "" {
-			buf.WriteString(log.Output)
-			buf.WriteString("\n")
-		}
-	}
-
-	return buf.String(), nil
-}
-
-// IsRunning returns true if the container is in the "running" state
-func IsRunning(cID string) (bool, error) {
-	state, err := GetState(cID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get running state: %w", err)
-	}
-	return state == "running", nil
-}
-
-func IsExited(cID string) (bool, error) {
-	state, err := GetState(cID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get exited status: %w", err)
-	}
-	return state == "exited", nil
-}
-
-func GetState(cID string) (string, error) {
-	container, err := GetInspectData(cID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get state of container: %w", err)
-	}
-	return container.State.Status, nil
-}
-
-// GetHealth returns the health status of the container
-func GetHealth(cID string) (string, error) {
-	container, err := GetInspectData(cID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get health status of container: %w", err)
-	}
-	if container.State.Health == nil {
-		return "", nil
-	}
-	return container.State.Health.Status, nil
 }
 
 // GetContainersFromProject returns the containers from the compose project based on the label
