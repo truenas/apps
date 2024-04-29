@@ -10,6 +10,10 @@ func IsHealthy(c types.ContainerJSON) bool {
 	return c.State.Health.Status == "healthy"
 }
 
+func IsUnhealthy(c types.ContainerJSON) bool {
+	return c.State.Health.Status == "unhealthy"
+}
+
 func IsExited(c types.ContainerJSON) bool {
 	return c.State.Status == "exited"
 }

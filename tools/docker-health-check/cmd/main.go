@@ -110,6 +110,10 @@ func checkContainerWithHealthCheck(c types.Container) (utils.Result, error) {
 			return result, nil
 		}
 
+		if utils.IsUnhealthy(result.InspectData) {
+			handleUnhealthy(&c, &result)
+		}
+
 		if time.Since(start) > timeout {
 			handleTimeout(&c, &result)
 			return result, nil
@@ -206,4 +210,11 @@ func handleHealthy(c *types.Container, res *utils.Result) {
 	fmt.Printf("Container [%s] is marked healthy\n", c.ID)
 	res.Healthy = true
 	res.Logs, _ = utils.GetLogs(c.ID)
+}
+
+func handleUnhealthy(c *types.Container, res *utils.Result) {
+	fmt.Printf("Container [%s] is marked unhealthy\n", c.ID)
+	res.Healthy = false
+	res.Logs, _ = utils.GetLogs(c.ID)
+	res.ProbeLogs, _ = utils.GetFailedProbeLogs(res.InspectData)
 }
