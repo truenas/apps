@@ -51,7 +51,7 @@ func LogResultsAndReturnUnhealthy(results Results) int {
 			fmt.Printf("Inspect Data: %s\n", string(data))
 		}
 
-		fmt.Printf("%s\n\n", strings.Repeat("=", 100+len(name)))
+		fmt.Printf("%s\n\n", strings.Repeat("=", 100+len(name)+2))
 	}
 
 	fmt.Println("Summary:")
