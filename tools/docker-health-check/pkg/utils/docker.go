@@ -39,7 +39,7 @@ func GetInspectData(cID string) (types.ContainerJSON, error) {
 func HasHealthCheck(cID string) (bool, error) {
 	container, err := GetInspectData(cID)
 	if err != nil {
-		return false, fmt.Errorf("failed to inspect container: %w", err)
+		return false, fmt.Errorf("failed to check if container has a health check: %w", err)
 	}
 	if container.Config.Healthcheck == nil {
 		return false, nil
@@ -74,7 +74,7 @@ func GetLogs(cID string) (string, error) {
 func GetExitCode(cID string) (int, error) {
 	container, err := GetInspectData(cID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to inspect container: %w", err)
+		return 0, fmt.Errorf("failed to get exit code: %w", err)
 	}
 
 	return container.State.ExitCode, nil
@@ -84,7 +84,7 @@ func GetExitCode(cID string) (int, error) {
 func GetFailedProbeLogs(cID string) (string, error) {
 	container, err := GetInspectData(cID)
 	if err != nil {
-		return "", fmt.Errorf("failed to inspect container: %w", err)
+		return "", fmt.Errorf("failed to get failed probe logs: %w", err)
 	}
 
 	var buf strings.Builder
@@ -102,7 +102,7 @@ func GetFailedProbeLogs(cID string) (string, error) {
 func IsRunning(cID string) (bool, error) {
 	state, err := GetState(cID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get container state: %w", err)
+		return false, fmt.Errorf("failed to get running state: %w", err)
 	}
 	return state == "running", nil
 }
@@ -110,7 +110,7 @@ func IsRunning(cID string) (bool, error) {
 func IsExited(cID string) (bool, error) {
 	state, err := GetState(cID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get container state: %w", err)
+		return false, fmt.Errorf("failed to get exited status: %w", err)
 	}
 	return state == "exited", nil
 }
@@ -118,7 +118,7 @@ func IsExited(cID string) (bool, error) {
 func GetState(cID string) (string, error) {
 	container, err := GetInspectData(cID)
 	if err != nil {
-		return "", fmt.Errorf("failed to inspect container: %w", err)
+		return "", fmt.Errorf("failed to get state of container: %w", err)
 	}
 	return container.State.Status, nil
 }
@@ -127,7 +127,7 @@ func GetState(cID string) (string, error) {
 func GetHealth(cID string) (string, error) {
 	container, err := GetInspectData(cID)
 	if err != nil {
-		return "", fmt.Errorf("failed to inspect container: %w", err)
+		return "", fmt.Errorf("failed to get health status of container: %w", err)
 	}
 	if container.State.Health == nil {
 		return "", nil

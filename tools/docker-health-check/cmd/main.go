@@ -36,7 +36,6 @@ func main() {
 	timeout = time.Duration(flag_timeout) * time.Second
 	files = append(files, strings.Split(flag_files, ",")...)
 
-	var err error
 	// Parse the docker-compose file
 	p, err := utils.CreateProjectWithNameFromFiles(name, files)
 	if err != nil {
