@@ -89,34 +89,29 @@ func normalizeContainerName(n []string) string {
 	return strings.TrimLeft(n[0], "/")
 }
 
-func checkContainerWithHealthCheck(c types.Container) (utils.Result, error) {
+func checkContainerWithHealthCheck(c types.Container, r *utils.Result) error {
 	start := time.Now()
-
-	result := utils.Result{
-		Name:     normalizeContainerName(c.Names),
-		HasCheck: true,
-	}
 
 	var err error
 	for {
-		result.InspectData, err = utils.GetInspectData(c.ID)
+		r.InspectData, err = utils.GetInspectData(c.ID)
 		if err != nil {
-			return result, err
+			return err
 		}
 
-		result.ExitCode = utils.GetExitCode(result.InspectData)
-		if utils.IsHealthy(result.InspectData) {
-			handleHealthy(&c, &result)
-			return result, nil
+		r.ExitCode = utils.GetExitCode(r.InspectData)
+		if utils.IsHealthy(r.InspectData) {
+			handleHealthy(&c, r)
+			return nil
 		}
 
-		if utils.IsUnhealthy(result.InspectData) {
-			handleUnhealthy(&c, &result)
+		if utils.IsUnhealthy(r.InspectData) {
+			handleUnhealthy(&c, r)
 		}
 
 		if time.Since(start) > timeout {
-			handleTimeout(&c, &result)
-			return result, nil
+			handleTimeout(&c, r)
+			return nil
 		}
 
 		// Wait 2 seconds to avoid spamming
@@ -124,47 +119,39 @@ func checkContainerWithHealthCheck(c types.Container) (utils.Result, error) {
 	}
 }
 
-func checkContainerWithNoHealthCheck(c types.Container) (utils.Result, error) {
+func checkContainerWithNoHealthCheck(c types.Container, r *utils.Result) error {
 	start := time.Now()
-
-	result := utils.Result{
-		Name:     normalizeContainerName(c.Names),
-		HasCheck: false,
-	}
 
 	var err error
 	for {
-		result.InspectData, err = utils.GetInspectData(c.ID)
+		r.InspectData, err = utils.GetInspectData(c.ID)
 		if err != nil {
-			return result, err
+			return err
 		}
 
-		result.ExitCode = utils.GetExitCode(result.InspectData)
-		if utils.IsExited(result.InspectData) {
-			if utils.IsZeroExitCode(result.InspectData) {
-				handleHealthy(&c, &result)
-				return result, nil
+		r.ExitCode = utils.GetExitCode(r.InspectData)
+		if utils.IsExited(r.InspectData) {
+			if utils.IsZeroExitCode(r.InspectData) {
+				handleHealthy(&c, r)
+				return nil
 			}
 
-			handleNonZeroExitCode(&c, &result)
-
-			return result, nil
+			handleNonZeroExitCode(&c, r)
+			return nil
 		}
 
 		// TODO: For a container without health check that has no exited
 		// we cannot really be sure if its a stuck init container or
 		// just a container that should run for ever but missing a health check
 		// For now we assume it is healthy
-		if utils.IsRunning(result.InspectData) {
-			result.Healthy = true
-			result.Logs, _ = utils.GetLogs(c.ID)
-			return result, nil
+		if utils.IsRunning(r.InspectData) {
+			handleHealthy(&c, r)
+			return nil
 		}
 
 		if time.Since(start) > timeout {
-			result.Healthy = false
-			result.Logs, _ = utils.GetLogs(c.ID)
-			return result, nil
+			handleTimeout(&c, r)
+			return nil
 		}
 
 		// Wait 2 seconds to avoid spamming
@@ -173,16 +160,32 @@ func checkContainerWithNoHealthCheck(c types.Container) (utils.Result, error) {
 }
 
 func checkContainer(c types.Container, checksCh chan utils.Result) {
-	var result utils.Result
+	result := utils.Result{
+		Name: normalizeContainerName(c.Names),
+	}
 
 	container, _ := utils.GetInspectData(c.ID)
 	hasCheck := utils.HasHealthCheck(container)
 
 	if hasCheck {
-		result, _ = checkContainerWithHealthCheck(c)
+		result.HasCheck = true
+		if err := checkContainerWithHealthCheck(c, &result); err != nil {
+			fmt.Println("Error checking container with health check:", err)
+		}
 	} else {
 		fmt.Printf("[WARN] Container [%s] has no health check\n", normalizeContainerName(c.Names))
-		result, _ = checkContainerWithNoHealthCheck(c)
+		result.HasCheck = false
+		err := checkContainerWithNoHealthCheck(c, &result)
+		if err != nil {
+			fmt.Println("Error checking container without health check:", err)
+		}
+	}
+
+	// Gather logs
+	result.Logs, _ = utils.GetLogs(c.ID)
+	// And probe logs
+	if !result.Healthy && result.HasCheck {
+		result.ProbeLogs, _ = utils.GetFailedProbeLogs(container)
 	}
 
 	checksCh <- result
@@ -191,30 +194,21 @@ func checkContainer(c types.Container, checksCh chan utils.Result) {
 func handleNonZeroExitCode(c *types.Container, res *utils.Result) {
 	fmt.Printf("Container [%s] has a non-zero [%d] exit code, will be marked unhealthy\n", c.ID, res.ExitCode)
 	res.Healthy = false
-	res.Logs, _ = utils.GetLogs(c.ID)
 	res.Fatal = true
-	if res.HasCheck {
-		res.ProbeLogs, _ = utils.GetFailedProbeLogs(res.InspectData)
-	}
 }
 
 func handleTimeout(c *types.Container, res *utils.Result) {
 	fmt.Printf("Container [%s] has timed out, Container will be marked unhealthy\n", c.ID)
 	res.Healthy = false
 	res.TimedOut = true
-	res.Logs, _ = utils.GetLogs(c.ID)
-	res.ProbeLogs, _ = utils.GetFailedProbeLogs(res.InspectData)
 }
 
 func handleHealthy(c *types.Container, res *utils.Result) {
 	fmt.Printf("Container [%s] is marked healthy\n", c.ID)
 	res.Healthy = true
-	res.Logs, _ = utils.GetLogs(c.ID)
 }
 
 func handleUnhealthy(c *types.Container, res *utils.Result) {
 	fmt.Printf("Container [%s] is marked unhealthy\n", c.ID)
 	res.Healthy = false
-	res.Logs, _ = utils.GetLogs(c.ID)
-	res.ProbeLogs, _ = utils.GetFailedProbeLogs(res.InspectData)
 }
