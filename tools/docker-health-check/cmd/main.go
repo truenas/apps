@@ -20,16 +20,16 @@ type CLIConfig struct {
 	Timeout     int
 }
 
-var config CLIConfig
-
 var files []string
 var timeout time.Duration
 
 func main() {
+	var config CLIConfig
 	flag.StringVar(&config.ProjectName, "project", "", "project name")
 	flag.StringVar(&config.Files, "files", "", "docker-compose file(s). comma separated")
 	flag.IntVar(&config.Timeout, "timeout", 600, "timeout in seconds")
 	flag.Parse()
+
 	if config.ProjectName == "" || config.Files == "" {
 		flag.Usage()
 		log.Fatal("project and file are required")
