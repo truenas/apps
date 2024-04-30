@@ -1,8 +1,12 @@
 {% set pg_database = "minio" %}
 {% set pg_user = "minio" %}
-{% set log_auth_token = secure_string(16) %}
-{% set log_audit_token = secure_string(16) %}
 {% set minio_network = "minio_internal" %}
+
+networks:
+  {{ minio_network }}: {}
+
+{% set log_auth_token = secure_string(16) %} {# Random string #}
+{% set log_audit_token = secure_string(16) %} {# Random string #}
 
 {% if data.network.certificateID %}
 configs:
@@ -20,7 +24,6 @@ services:
     user: {{ "%s:%s" | format(data.minio.user, data.minio.group) }}
     networks:
       - {{ minio_network }}
-    {# TODO: #}
     ports:
       - {{ "%d:%d" | format(data.network.api_port, data.network.api_port) }}
       - {{ "%d:%d" | format(data.network.console_port, data.network.console_port) }}
@@ -50,18 +53,17 @@ services:
       - --quiet
       {% endif %}
     volumes:
-      {% set ns = namespace(volumes=[]) %}
+      {% set v = namespace(volumes=[]) %}
       {% for data in data.storage.data %}
+        {% set v.volumes = v.volumes + [data.mountPath] %}
         {% if data.type == 'hostPath' %}
-          {% set ns.volumes = ns.volumes + [data.mountPath] %}
       - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
         {% endif %}
       {% endfor %}
     environment:
       MINIO_ROOT_USER: {{ data.minio.access_key }}
       MINIO_ROOT_PASSWORD: {{ data.minio.secret_key  }}
-
-      MINIO_VOLUMES: {{ ns.volumes | join(' ') }}
+      MINIO_VOLUMES: {{ v.volumes | join(' ') }}
       {% if data.minio.server_url %}
       MINIO_SERVER_URL: {{ data.minio.server_url }}
       {% endif %}
@@ -74,11 +76,7 @@ services:
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
       MINIO_LOG_QUERY_URL: http://logsearch:8080
       {% endif %}
-      {% if data.network.certificateID %}
-      MC_HOST_health: {{ "https://localhost:%d" | format(data.network.api_port) }}
-      {% else %}
-      MC_HOST_health: {{ "http://localhost:%d" | format(data.network.api_port) }}
-      {% endif %}
+      MC_HOST_health: {{ "%s://localhost:%d" | format("https" if data.network.certificateID else "http", data.network.api_port) }}
     healthcheck:
       {{ health_check(test = "mc ready --insecure --debug health") | to_yaml | indent(6) }}
     {% if data.minio.logsearch.enabled %}
@@ -86,29 +84,6 @@ services:
       logsearch:
         condition: service_healthy
     {% endif %}
-
-  {#
-    TODO: 1. make this optional
-    TODO: 2. make this configurable, eg different vols with different permissions
-    TODO: 3. make otehr containers "depend on it" when enabled
-    TODO: 4. make it a snippet
-  #}
-  permissions:
-    image: bash
-    volumes:
-      {% for data in data.storage.data %}
-        {% if data.type == 'hostPath' %}
-          {% set ns.volumes = ns.volumes + [data.mountPath] %}
-      - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
-        {% endif %}
-      {% endfor %}
-    entrypoint: bash
-    command:
-      - -c
-      - |
-        for vol in {{ ns.volumes | join(' ') }}; do
-          chown -R {{ data.minio.user }}:{{ data.minio.group }} $$vol
-        done
 
   {% if data.minio.logsearch.enabled %}
   logsearch:
@@ -141,21 +116,35 @@ services:
       {{ health_check(pg_test(user = pg_user, db=pg_database)) | to_yaml | indent(6) }}
     environment:
       {{ postgres_environment(user = pg_user, db = pg_database, password = data.minio.logsearch.postgres_password) | to_yaml | indent(6) }}
-    {# TODO: #}
     volumes:
-      - postgres:/var/lib/postgresql/data
+      - {{ "%s:/var/lib/postgresql/data" | format(data.storage.postgres.hostPathConfig.path) }}
   {% endif %}
+
+  {#
+    TODO: 1. make this optional
+    TODO: 2. make this configurable, eg different vols with different permissions
+    TODO: 3. make otehr containers "depend on it" when enabled
+    TODO: 4. make it a snippet
+  #}
+  permissions:
+    image: bash
+    volumes:
+      {% for data in data.storage.data %}
+        {% if data.type == 'hostPath' %}
+          {% set ns.volumes = ns.volumes + [data.mountPath] %}
+      - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
+        {% endif %}
+      {% endfor %}
+    entrypoint: bash
+    command:
+      - -c
+      - |
+        for vol in {{ ns.volumes | join(' ') }}; do
+          chown -R {{ data.minio.user }}:{{ data.minio.group }} $$vol
+        done
 
 {#
 TODO: add function for container that runs a pg backup on a schedule. Nice read
 https://wbarillon.medium.com/the-proper-and-easiest-way-to-set-cron-jobs-docker-version-1ef213578ad
 #}
-
 {# TODO: make a postgres snippet #}
-
-networks:
-  minio_internal: {}
-
-{# TODO: #}
-volumes:
-  postgres: {}
