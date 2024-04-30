@@ -24,8 +24,12 @@ def func_pg_test(user, db, host="127.0.0.1", port=5432):
 
   return f"pg_isready -h {host} -p {port} -d {db} -U {user}"
 
+def func_postgres_uid():
+  return "999"
+def func_postgres_gid():
+  return "999"
 def func_postgres_run_as():
-  return "999:999"
+  return f"{func_postgres_uid()}:{func_postgres_gid()}"
 
 def func_postgres_environment(user, password, db):
   if not user:

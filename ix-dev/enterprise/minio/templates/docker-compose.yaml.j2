@@ -54,9 +54,10 @@ services:
       {% endif %}
     volumes:
       {% set vols = namespace(items=[]) %}
-      {% for data in data.storage.data %}
+      {% for store in data.storage.data %}
         {% set vols.items = vols.items + [data.mountPath] %}
-      - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
+        {{ host_path_with_perms(store.hostPathConfig.path, perms={'user': data.minio.user, 'group': data.minio.group}) }}
+      - {{ "%s:%s" | format(store.hostPathConfig.path, store.mountPath) }}
       {% endfor %}
     environment:
       MINIO_ROOT_USER: {{ data.minio.access_key }}
@@ -118,34 +119,11 @@ services:
     environment:
       {{ postgres_environment(user = pg_user, db = pg_database, password = data.minio.logsearch.postgres_password) | to_yaml | indent(6) }}
     volumes:
+      {{ host_path_with_perms(data.storage.postgres.hostPathConfig.path, perms={'user': postgres_uid(), 'group': postgres_gid()}) }}
       - {{ "%s:/var/lib/postgresql/data" | format(data.storage.postgres.hostPathConfig.path) }}
   {% endif %}
 
-  {#
-    TODO: 1. make this optional
-    TODO: 2. make this configurable, eg different vols with different permissions
-    TODO: 3. make otehr containers "depend on it" when enabled
-    TODO: 4. make it a snippet
-  #}
-  permissions:
-    image: bash
-    volumes:
-      {% set hostVols = namespace(items=[]) %}
-      {% for data in data.storage.data %}
-        {% if data.type == 'hostPath' %}
-          {% set hostVols.items = hostVols.items + [data.mountPath] %}
-      - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
-        {% endif %}
-      {% endfor %}
-      - {{ "%s:%s" | format(data.storage.postgres.hostPathConfig.path, "/var/lib/postgresql/data") }}
-    entrypoint: bash
-    command:
-      - -c
-      - |
-        chown -R 999:999 /var/lib/postgresql/data
-        for vol in {{ hostVols.items | join(' ') }}; do
-          chown -R {{ data.minio.user }}:{{ data.minio.group }} $$vol
-        done
+
 
 {#
 TODO: add function for container that runs a pg backup on a schedule. Nice read
