@@ -106,6 +106,9 @@ services:
   postgres:
     image: postgres:15
     user: {{ postgres_run_as() }}
+    depends_on:
+      permissions:
+        condition: service_completed_successfully
     networks:
       - {{ minio_network }}
     deploy:
@@ -134,10 +137,12 @@ services:
       - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
         {% endif %}
       {% endfor %}
+      - {{ "%s:%s" | format(data.storage.postgres.hostPathConfig.path, "/var/lib/postgresql/data") }}
     entrypoint: bash
     command:
       - -c
       - |
+        chown -R 999:999 /var/lib/postgresql/data
         for vol in {{ hostVols.items | join(' ') }}; do
           chown -R {{ data.minio.user }}:{{ data.minio.group }} $$vol
         done
