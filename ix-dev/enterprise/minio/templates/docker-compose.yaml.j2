@@ -53,15 +53,15 @@ services:
       - --quiet
       {% endif %}
     volumes:
-      {% set vols = namespace([]) %}
+      {% set vols = namespace(items=[]) %}
       {% for data in data.storage.data %}
-        {% set vols = vols + [data.mountPath] %}
+        {% set vols.items = vols.items + [data.mountPath] %}
       - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
       {% endfor %}
     environment:
       MINIO_ROOT_USER: {{ data.minio.access_key }}
       MINIO_ROOT_PASSWORD: {{ data.minio.secret_key  }}
-      MINIO_VOLUMES: {{ vols | join(' ') }}
+      MINIO_VOLUMES: {{ vols.items | join(' ') }}
       {% if data.minio.server_url %}
       MINIO_SERVER_URL: {{ data.minio.server_url }}
       {% endif %}
@@ -127,10 +127,10 @@ services:
   permissions:
     image: bash
     volumes:
-      {% set hostVols = namespace([]) %}
+      {% set hostVols = namespace(items=[]) %}
       {% for data in data.storage.data %}
         {% if data.type == 'hostPath' %}
-          {% set hostVols = hostVols + [data.mountPath] %}
+          {% set hostVols.items = hostVols.items + [data.mountPath] %}
       - {{ "%s:%s" | format(data.hostPathConfig.path, data.mountPath) }}
         {% endif %}
       {% endfor %}
@@ -138,7 +138,7 @@ services:
     command:
       - -c
       - |
-        for vol in {{ hostVols | join(' ') }}; do
+        for vol in {{ hostVols.items | join(' ') }}; do
           chown -R {{ data.minio.user }}:{{ data.minio.group }} $$vol
         done
 
