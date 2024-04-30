@@ -2,6 +2,8 @@
 {% set pg_user = "minio" %}
 {% set minio_network = "minio_internal" %}
 
+{% set minio_vols = namespace(items=[]) %}
+
 networks:
   {{ minio_network }}: {}
 
@@ -53,16 +55,15 @@ services:
       - --quiet
       {% endif %}
     volumes:
-      {% set vols = namespace(items=[]) %}
       {% for store in data.storage.data %}
-        {% set vols.items = vols.items + [store.mountPath] %}
+        {% set minio_vols.items = minio_vols.items + [store.mountPath] %}
         {{ host_path_with_perms(store.hostPathConfig.path, perms={'user': data.minio.user, 'group': data.minio.group}) }}
       - {{ "%s:%s" | format(store.hostPathConfig.path, store.mountPath) }}
       {% endfor %}
     environment:
       MINIO_ROOT_USER: {{ data.minio.access_key }}
       MINIO_ROOT_PASSWORD: {{ data.minio.secret_key  }}
-      MINIO_VOLUMES: {{ vols.items | join(' ') }}
+      MINIO_VOLUMES: {{ minio_vols.items | join(' ') }}
       {% if data.minio.server_url %}
       MINIO_SERVER_URL: {{ data.minio.server_url }}
       {% endif %}
