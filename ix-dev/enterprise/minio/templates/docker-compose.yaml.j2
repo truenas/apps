@@ -10,14 +10,14 @@ networks:
 {% set log_auth_token = secure_string(16) %} {# Random string #}
 {% set log_audit_token = secure_string(16) %} {# Random string #}
 
-{% if data.network.certificateID %}
+{% if data.network.certificate_id %}
 configs:
   private:
     content: |
-      {{ data.ixCertificates[data.network.certificateID].privatekey | indent(6) }}
+      {{ data.ixCertificates[data.network.certificate_id].privatekey | indent(6) }}
   public:
     content: |
-      {{ data.ixCertificates[data.network.certificateID].certificate | indent(6) }}
+      {{ data.ixCertificates[data.network.certificate_id].certificate | indent(6) }}
 {% endif %}
 
 services:
@@ -31,7 +31,7 @@ services:
       - {{ "%d:%d" | format(data.network.console_port, data.network.console_port) }}
     deploy:
       {{ resources(data.resources) | to_yaml | indent(6) }}
-    {% if data.network.certificateID %}
+    {% if data.network.certificate_id %}
     configs:
       - source: private
         target: /.minio/certs/private.key
@@ -44,7 +44,7 @@ services:
       - {{ ":%d" | format(data.network.api_port) }}
       - --console-address
       - {{ ":%d" | format(data.network.console_port) }}
-      {% if data.network.certificateID %}
+      {% if data.network.certificate_id %}
       - --certs-dir
       - /.minio/certs
       {% endif %}
@@ -76,7 +76,7 @@ services:
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
       MINIO_LOG_QUERY_URL: http://logsearch:8080
       {% endif %}
-      MC_HOST_health: {{ "%s://localhost:%d" | format("https" if data.network.certificateID else "http", data.network.api_port) }}
+      MC_HOST_health: {{ "%s://localhost:%d" | format("https" if data.network.certificate_id else "http", data.network.api_port) }}
     healthcheck:
       {{ health_check(test = "mc ready --insecure --debug health") | to_yaml | indent(6) }}
     {% if data.minio.logsearch.enabled %}
