@@ -26,3 +26,5 @@ def func_host_path_with_perms(path, perms):
 
   # Set permissions
   os.chown(path, int(perms['user']), int(perms['group']))
+
+  return ''
