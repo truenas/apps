@@ -34,3 +34,33 @@ def filter_must_be_password_secure(password: str) -> str:
     return password
 
 # MinIO Validations (TODO: Move to directory under enterprise/MinIO)
+def func_validate(data: dict) -> str:
+  if not data['minio']['access_key']:
+     utils.throw_error("MinIO: [access_key] must be set")
+
+  if not data['minio']['secret_key']:
+     utils.throw_error("MinIO: [secret_key] must be set")
+
+  if len(data['storage']['data']) < 1:
+     utils.throw_error("MinIO: At least 1 storage item must be set")
+
+  if len(data['storage']['data']) > 1 and not data['minio']['multi_mode']['enabled']:
+     utils.throw_error("MinIO: [Multi Mode] must be enabled if more than 1 storage item is set")
+
+  # make sure mount_paths in data['storage']['data'] are unique
+  mount_paths = [item['mount_path'] for item in data['storage']['data']]
+  if len(mount_paths) != len(set(mount_paths)):
+    utils.throw_error(f"MinIO: Mount paths in MinIO storage must be unique, found duplicates: [{mount_paths.join(', ')}]")
+
+  if data['minio']['multi_mode']['enabled']:
+    disallowed_keys = ["server"]
+    for item in data['minio']['multi_mode']['items']:
+      if item in disallowed_keys:
+        utils.throw_error(f"MinIO: Value [{item}] is not allowed in [Multi Mode] items")
+
+      if item.startswith("/"):
+        # check if these charactes exist in item
+        if any(char in item for char in ["{", "}"]) and not "..." in item:
+          utils.throw_error("MinIO: [Multi Mode] items must have 3 dots when they are paths with expansion eg [/some_path{1...4}]")
+
+  return ''
