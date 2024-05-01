@@ -37,22 +37,6 @@ questions:
             min_length: 8
             required: true
             private: true
-        - variable: server_url
-          label: Server URL
-          description: |
-            The URL that console will use to reach API</br>
-            For example https://minio1.example.com.</br></br>
-          schema:
-            type: string
-            required: true
-        - variable: console_url
-          label: Console URL
-          description: |
-            The URL that console will provide as a redirect URL</br>
-            For example https://console.example.com.</br></br>
-          schema:
-            type: string
-            required: true
         - variable: user
           label: User ID
           description: The user id that MinIO will run as.
@@ -87,35 +71,6 @@ questions:
                 schema:
                   type: boolean
                   default: false
-        - variable: logsearch
-          label: LogSearch Configuration
-          description: LogSearch Configuration
-          schema:
-            type: dict
-            attrs:
-              - variable: enabled
-                label: Enabled
-                description: Enable LogSearch
-                schema:
-                  type: boolean
-                  default: false
-              - variable: disk_capacity_gb
-                label: Disk Capacity
-                description: The disk capacity for LogSearch
-                schema:
-                  type: int
-                  show_if: [["enabled", "=", true]]
-                  default: 10
-                  min: 1
-              - variable: postgres_password
-                label: Postgres Password
-                description: The password for Postgres
-                schema:
-                  type: string
-                  show_if: [["enabled", "=", true]]
-                  min_length: 8
-                  required: true
-                  private: true
 
   - variable: network
     label: ""
@@ -141,13 +96,29 @@ questions:
             min: 9000
             max: 65535
             required: true
-        #       - variable: hostNetwork
-        #         label: Host Network
-        #         description: |
-        #           Bind to the host network. It's recommended to keep this disabled.</br>
-        #         schema:
-        #           type: boolean
-        #           default: true
+        - variable: server_url
+          label: Server URL
+          description: |
+            The URL that console will use to reach API</br>
+            For example https://minio1.example.com.</br></br>
+          schema:
+            type: string
+            required: true
+        - variable: console_url
+          label: Console URL
+          description: |
+            The URL that console will provide as a redirect URL</br>
+            For example https://console.example.com.</br></br>
+          schema:
+            type: string
+            required: true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.</br>
+          schema:
+            type: boolean
+            default: true
         - variable: certificate_id
           label: Certificate
           description: The certificate to use for MinIO
@@ -156,6 +127,75 @@ questions:
             "null": true
             $ref:
               - "definitions/certificate"
+
+  - variable: logsearch
+    label: LogSearch Configuration
+    description: LogSearch Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enabled
+          label: Enabled
+          description: Enable LogSearch
+          schema:
+            type: boolean
+            default: false
+            show_subquestions_if: true
+            subquestions:
+              - variable: disk_capacity_gb
+                label: Disk Capacity
+                description: The disk capacity for LogSearch
+                schema:
+                  type: int
+                  default: 10
+                  min: 1
+              - variable: postgres_password
+                label: Postgres Password
+                description: The password for Postgres
+                schema:
+                  type: string
+                  min_length: 8
+                  required: true
+                  private: true
+              - variable: postgres_data
+                label: Postgres Data
+                description: Postgres Data Configuration
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.
+                      schema:
+                        type: string
+                        required: true
+                        default: host_path
+                        enum:
+                          - value: host_path
+                            description: Host Path (Path that already exists on the system)
+                          - value: ix_volume
+                            description: ixVolume (Dataset created automatically by the system)
+                    # TODO: Add knob(s) for auto-fixing permissions and ACLs
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: path
+                            label: Path
+                            description: Path on the host
+                            schema:
+                              type: hostpath
+                              required: true
+                    # TODO: Add ix_volume config
+                    # - variable: ix_volume_config
+                    #   label: iX Volume Configuration
+                    #   schema:
+                    #     type: dict
+                    #     attrs:
 
   # - variable: enableMultiMode
   #   label: Enable Multi Mode (SNMD or MNMD)
@@ -186,141 +226,97 @@ questions:
   #                 type: string
   #                 required: true
 
-  # - variable: minioStorage
-  #   label: ""
-  #   group: Storage Configuration
-  #   schema:
-  #     type: list
-  #     default: [{"type": "ixVolume", "mountPath": "/data1", "datasetName": "data1"}]
-  #     empty: false
-  #     required: true
-  #     items:
-  #       - variable: item
-  #         label: Storage Item
-  #         schema:
-  #           type: dict
-  #           attrs:
-  #             - variable: type
-  #               label: Type
-  #               description: |
-  #                 ixVolume: Is dataset created automatically by the system.</br>
-  #                 Host Path: Is a path that already exists on the system.
-  #               schema:
-  #                 type: string
-  #                 immutable: true
-  #                 required: true
-  #                 default: ixVolume
-  #                 enum:
-  #                   - value: hostPath
-  #                     description: Host Path (Path that already exists on the system)
-  #                   - value: ixVolume
-  #                     description: ixVolume (Dataset created automatically by the system)
-  #             - variable: mountPath
-  #               label: Mount Path
-  #               description: The path inside the container to mount the storage.
-  #               schema:
-  #                 type: path
-  #                 required: true
-  #                 immutable: true
-  #                 default: /data1
-  #             - variable: ixVolumeConfig
-  #               label: ixVolume Configuration
-  #               description: The configuration for the ixVolume dataset.
-  #               schema:
-  #                 type: dict
-  #                 show_if: [["type", "=", "ixVolume"]]
-  #                 $ref:
-  #                   - "normalize/ixVolume"
-  #                 attrs:
-  #                   - variable: aclEnable
-  #                     label: Enable ACL
-  #                     description: Enable ACL for the dataset.
-  #                     schema:
-  #                       type: boolean
-  #                       # Hide ACL for now
-  #                       hidden: true
-  #                       default: false
-  #                   - variable: datasetName
-  #                     label: Dataset Name
-  #                     description: The name of the dataset to use for storage.
-  #                     schema:
-  #                       type: string
-  #                       required: true
-  #                       immutable: true
-  #                       default: "data1"
-  #                   - variable: aclEntries
-  #                     label: ACL Configuration
-  #                     schema:
-  #                       type: dict
-  #                       show_if: [["aclEnable", "=", true]]
-  #                       attrs: []
-  #             - variable: hostPathConfig
-  #               label: Host Path Configuration
-  #               schema:
-  #                 type: dict
-  #                 show_if: [["type", "=", "hostPath"]]
-  #                 attrs:
-  #                   - variable: aclEnable
-  #                     label: Enable ACL
-  #                     description: Enable ACL for the dataset.
-  #                     schema:
-  #                       type: boolean
-  #                       # Hide ACL for now
-  #                       hidden: true
-  #                       default: false
-  #                   - variable: acl
-  #                     label: ACL Configuration
-  #                     schema:
-  #                       type: dict
-  #                       show_if: [["aclEnable", "=", true]]
-  #                       attrs: []
-  #                       $ref:
-  #                         - "normalize/acl"
-  #                   - variable: hostPath
-  #                     label: Host Path
-  #                     description: The host path to use for storage.
-  #                     schema:
-  #                       type: hostpath
-  #                       show_if: [["aclEnable", "=", false]]
-  #                       required: true
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: list
+      default:
+        [
+          {
+            "type": "ix_volume",
+            "mount_path": "/data1",
+            "dataset_name": "data1",
+          },
+        ]
+      empty: false
+      required: true
+      items:
+        - variable: item
+          label: ""
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: host_path
+                  enum:
+                    - value: host_path
+                      description: Host Path (Path that already exists on the system)
+                    - value: ix_volume
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: mount_path
+                label: Mount Path
+                description: The path inside the container to mount the storage.
+                schema:
+                  type: path
+                  required: true
+                  immutable: true
+                  default: /data1
+              # TODO: Add knob(s) for auto-fixing permissions and ACLs
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: path
+                      label: Path
+                      description: Path on the host
+                      schema:
+                        type: hostpath
+                        required: true
+              # TODO: Add ix_volume config
+              # - variable: ix_volume_config
+              #   label: iX Volume Configuration
+              #   schema:
+              #     type: dict
+              #     attrs:
 
-  # - variable: resources
-  #   label: ""
-  #   group: Resources Configuration
-  #   schema:
-  #     type: dict
-  #     attrs:
-  #       - variable: limits
-  #         label: Limits
-  #         schema:
-  #           type: dict
-  #           attrs:
-  #             - variable: cpu
-  #               label: CPU
-  #               description: CPU limit for MinIO.
-  #               schema:
-  #                 type: string
-  #                 max_length: 6
-  #                 valid_chars: '^(0\.[1-9]|[1-9][0-9]*)(\.[0-9]|m?)$'
-  #                 valid_chars_error: |
-  #                   Valid CPU limit formats are</br>
-  #                   - Plain Integer - eg. 1</br>
-  #                   - Float - eg. 0.5</br>
-  #                   - Milicpu - eg. 500m
-  #                 default: "4000m"
-  #                 required: true
-  #             - variable: memory
-  #               label: Memory
-  #               description: Memory limit for MinIO.
-  #               schema:
-  #                 type: string
-  #                 max_length: 12
-  #                 valid_chars: '^[1-9][0-9]*([EPTGMK]i?|e[0-9]+)?$'
-  #                 valid_chars_error: |
-  #                   Valid Memory limit formats are</br>
-  #                   - Suffixed with E/P/T/G/M/K - eg. 1G</br>
-  #                   - Suffixed with Ei/Pi/Ti/Gi/Mi/Ki - eg. 1Gi</br>
-  #                   - Plain Integer in bytes - eg. 1024</br>
-  #                   - Exponent - eg. 134e6
-  #                 default: "8Gi"
-  #                 required: true
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for MinIO.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory
+                description: Memory limit for MinIO.
+                schema:
+                  type: string
+                  max_length: 12
+                  valid_chars: "^[1-9][0-9]*(([GMK]B?)|([gmk]b?))$"
+                  valid_chars_error: |
+                    Valid Memory limit formats are</br>
+                    - Suffixed with G/M/K or g/m/k - eg. 1G or 1g</br>
+                    - Suffixed with G/M/K or g/m/k and ended with B/b - eg. 1gb or 1GB</br>
+                  default: "4gb"
+                  required: true

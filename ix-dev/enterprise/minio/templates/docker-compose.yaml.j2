@@ -6,6 +6,10 @@
 
 networks:
   {{ minio_network }}: {}
+  {% if data.network.host_network %}
+  host:
+    external: true
+  {% endif %}
 
 {% set log_auth_token = secure_string(16) %} {# Random string #}
 {% set log_audit_token = secure_string(16) %} {# Random string #}
@@ -26,6 +30,9 @@ services:
     user: {{ "%s:%s" | format(data.minio.user, data.minio.group) }}
     networks:
       - {{ minio_network }}
+      {% if data.network.host_network %}
+      - host
+      {% endif %}
     ports:
       - {{ "%d:%d" | format(data.network.api_port, data.network.api_port) }}
       - {{ "%d:%d" | format(data.network.console_port, data.network.console_port) }}
@@ -56,21 +63,21 @@ services:
       {% endif %}
     volumes:
       {% for store in data.storage.data %}
-        {% set minio_vols.items = minio_vols.items + [store.mountPath] %}
-        {{ host_path_with_perms(store.hostPathConfig.path, perms={'user': data.minio.user, 'group': data.minio.group}) }}
-      - {{ "%s:%s" | format(store.hostPathConfig.path, store.mountPath) }}
+        {% set minio_vols.items = minio_vols.items + [store.mount_path] %}
+        {{ host_path_with_perms(store.host_path_config.path, perms={'user': data.minio.user, 'group': data.minio.group}) }}
+      - {{ "%s:%s" | format(store.host_path_config.path, store.mount_path) }}
       {% endfor %}
     environment:
       MINIO_ROOT_USER: {{ data.minio.access_key }}
       MINIO_ROOT_PASSWORD: {{ data.minio.secret_key  }}
       MINIO_VOLUMES: {{ minio_vols.items | join(' ') }}
-      {% if data.minio.server_url %}
-      MINIO_SERVER_URL: {{ data.minio.server_url }}
+      {% if data.network.server_url %}
+      MINIO_SERVER_URL: {{ data.network.server_url }}
       {% endif %}
-      {% if data.minio.console_url %}
-      MINIO_BROWSER_REDIRECT_URL: {{ data.minio.console_url }}
+      {% if data.network.console_url %}
+      MINIO_BROWSER_REDIRECT_URL: {{ data.network.console_url }}
       {% endif %}
-      {% if data.minio.logsearch.enabled %}
+      {% if data.logsearch.enabled %}
       MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch: "on"
       MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://logsearch:8080/api/ingest?token=%s" | format(log_audit_token) }}
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
@@ -79,13 +86,13 @@ services:
       MC_HOST_health: {{ "%s://localhost:%d" | format("https" if data.network.certificate_id else "http", data.network.api_port) }}
     healthcheck:
       {{ health_check(test = "mc ready --insecure --debug health") | to_yaml | indent(6) }}
-    {% if data.minio.logsearch.enabled %}
+    {% if data.logsearch.enabled %}
     depends_on:
       logsearch:
         condition: service_healthy
     {% endif %}
 
-  {% if data.minio.logsearch.enabled %}
+  {% if data.logsearch.enabled %}
   logsearch:
     image: minio/operator:v4.5.8
     user: {{ "%s:%s" | format(data.minio.user, data.minio.group) }}
@@ -100,8 +107,8 @@ services:
     healthcheck:
       {{ health_check(curl_test("http://localhost:8080/status")) | to_yaml | indent(6) }}
     environment:
-      LOGSEARCH_DISK_CAPACITY_GB: {{ data.minio.logsearch.disk_capacity_gb }}
-      LOGSEARCH_PG_CONN_STR: postgresql://{{ pg_user }}:{{ data.minio.logsearch.postgres_password }}@postgres:5432/{{ pg_database }}?sslmode=disable
+      LOGSEARCH_DISK_CAPACITY_GB: {{ data.logsearch.disk_capacity_gb }}
+      LOGSEARCH_PG_CONN_STR: postgresql://{{ pg_user }}:{{ data.logsearch.postgres_password }}@postgres:5432/{{ pg_database }}?sslmode=disable
       LOGSEARCH_AUDIT_AUTH_TOKEN: {{ log_audit_token }}
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
 
@@ -115,10 +122,10 @@ services:
     healthcheck:
       {{ health_check(pg_test(user = pg_user, db=pg_database)) | to_yaml | indent(6) }}
     environment:
-      {{ postgres_environment(user = pg_user, db = pg_database, password = data.minio.logsearch.postgres_password) | to_yaml | indent(6) }}
+      {{ postgres_environment(user = pg_user, db = pg_database, password = data.logsearch.postgres_password) | to_yaml | indent(6) }}
     volumes:
-      {{ host_path_with_perms(data.storage.postgres.hostPathConfig.path, perms={'user': postgres_uid(), 'group': postgres_gid()}) }}
-      - {{ "%s:/var/lib/postgresql/data" | format(data.storage.postgres.hostPathConfig.path) }}
+      {{ host_path_with_perms(data.logsearch.postgres_data.host_path_config.path, perms={'user': postgres_uid(), 'group': postgres_gid()}) }}
+      - {{ "%s:/var/lib/postgresql/data" | format(data.logsearch.postgres_data.host_path_config.path) }}
   {% endif %}
 
 {#
