@@ -52,6 +52,12 @@ def func_validate(data: dict) -> str:
   if len(mount_paths) != len(set(mount_paths)):
     utils.throw_error(f"MinIO: Mount paths in MinIO storage must be unique, found duplicates: [{mount_paths.join(', ')}]")
 
+  if data['minio']['logsearch']['enabled']:
+    if not data['minio']['logsearch']['postgres_password']:
+      utils.throw_error("MinIO: [LogSearch] [postgres_password] must be set")
+    if not data['minio']['logsearch']['disk_capacity_gb']:
+      utils.throw_error("MinIO: [LogSearch] [disk_capacity_gb] must be set")
+
   if data['minio']['multi_mode']['enabled']:
     disallowed_keys = ["server"]
     for item in data['minio']['multi_mode']['items']:
