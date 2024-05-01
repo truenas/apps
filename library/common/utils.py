@@ -1,5 +1,6 @@
 import secrets
 import yaml
+import sys
 import os
 
 YAML_OPTS = {
@@ -7,6 +8,17 @@ YAML_OPTS = {
   'sort_keys': False,
   'indent': 2,
 }
+
+class TemplateException(Exception):
+  pass
+
+def throw_error(message):
+  # When throwing a known error, hide the traceback
+  # This is because the error is also shown in the UI
+  # and having a traceback makes it hard for user to read
+  sys.tracebacklimit = 0
+  raise TemplateException(message)
+
 
 def filter_to_yaml(data):
   return yaml.dump(data, **YAML_OPTS)
@@ -18,7 +30,7 @@ def func_secure_string(length):
 # TODO: once we have ixVolumes in update this func
 def func_host_path_with_perms(path, perms):
   if not path:
-    raise ValueError("path is required")
+      throw_error("Host Path Configuration: Path must be set")
 
   os.makedirs(path, exist_ok=True)
 

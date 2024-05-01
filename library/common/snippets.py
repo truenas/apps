@@ -1,8 +1,9 @@
+import library.common.utils as utils
 
 
 def func_health_check(test="", interval=10, timeout=10, retries=5, start_period=30):
   if not test:
-    raise ValueError("Healtcheck: [test] must be set")
+    utils.throw_error("Healtcheck: [test] must be set")
 
   return {
     "test": test,
@@ -17,10 +18,10 @@ def func_curl_test(url):
 
 def func_pg_test(user, db, host="127.0.0.1", port=5432):
   if not user:
-    raise ValueError("Postgres container: [user] must be set")
+    utils.throw_error("Postgres container: [user] must be set")
 
   if not db:
-    raise ValueError("Postgres container: [db] must be set")
+    utils.throw_error("Postgres container: [db] must be set")
 
   return f"pg_isready -h {host} -p {port} -d {db} -U {user}"
 
@@ -33,13 +34,13 @@ def func_postgres_run_as():
 
 def func_postgres_environment(user, password, db):
   if not user:
-    raise ValueError("Postgres container: [user] must be set")
+    utils.throw_error("Postgres container: [user] must be set")
 
   if not password:
-    raise ValueError("Postgres container: [password] must be set")
+    utils.throw_error("Postgres container: [password] must be set")
 
   if not db:
-    raise ValueError("Postgres container: [db] must be set")
+    utils.throw_error("Postgres container: [db] must be set")
 
   return {
     "POSTGRES_USER": user,
