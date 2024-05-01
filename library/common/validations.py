@@ -1,22 +1,22 @@
+import library.common.utils as utils
 import re
 
-
-def filter_is_email(email):
+def filter_is_email(email: str) -> bool:
   return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
-def filter_must_be_email(email):
+def filter_must_be_email(email: str) -> str:
   if not filter_is_email(email):
-    raise ValueError("must be an email address")
+    utils.throw_error("Value must be an email address")
 
   return email
 
-def filter_must_be_length(value, length):
+def filter_must_be_length(value: str, length: int) -> str:
   if len(value) < length:
-    raise ValueError("must be %d characters long" % length)
+    utils.throw_error(f"Value must be {length} characters long")
 
   return value
 
-def filter_is_password_secure(password):
+def filter_is_password_secure(password: str) -> bool:
   checks=[
     lambda p: len(p) >= 8,
     lambda p: re.search("[a-z]", p),
@@ -27,8 +27,8 @@ def filter_is_password_secure(password):
 
   return all(c(password) for c in checks)
 
-def filter_must_be_password_secure(password):
+def filter_must_be_password_secure(password: str) -> str:
     if not filter_is_password_secure(password):
-        raise ValueError("password must contain at least 8 characters, 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character")
+        utils.throw_error("Password must contain at least 8 characters, 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character")
 
     return password

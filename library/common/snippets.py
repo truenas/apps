@@ -1,8 +1,9 @@
+import library.common.utils as utils
 
 
-def func_health_check(test="", interval=10, timeout=10, retries=5, start_period=30):
+def func_health_check(test: str = "", interval: int = 10, timeout: int = 10, retries: int = 5, start_period: int = 30) -> dict:
   if not test:
-    raise ValueError("Healtcheck: [test] must be set")
+    utils.throw_error("Healtcheck: [test] must be set")
 
   return {
     "test": test,
@@ -12,30 +13,34 @@ def func_health_check(test="", interval=10, timeout=10, retries=5, start_period=
     "start_period": f'{start_period}s'
   }
 
-def func_curl_test(url):
+def func_curl_test(url: str) -> str:
   return f"curl --silent --fail {url}"
 
-def func_pg_test(user, db, host="127.0.0.1", port=5432):
+def func_pg_test(user: str, db: str, host: str = "127.0.0.1", port: int = 5432) -> str:
   if not user:
-    raise ValueError("Postgres container: [user] must be set")
+    utils.throw_error("Postgres container: [user] must be set")
 
   if not db:
-    raise ValueError("Postgres container: [db] must be set")
+    utils.throw_error("Postgres container: [db] must be set")
 
   return f"pg_isready -h {host} -p {port} -d {db} -U {user}"
 
-def func_postgres_run_as():
-  return "999:999"
+def func_postgres_uid() -> int:
+  return 999
+def func_postgres_gid() -> int:
+  return 999
+def func_postgres_run_as() -> str:
+  return f"{func_postgres_uid()}:{func_postgres_gid()}"
 
-def func_postgres_environment(user, password, db):
+def func_postgres_environment(user: str, password: str, db: str) -> dict:
   if not user:
-    raise ValueError("Postgres container: [user] must be set")
+    utils.throw_error("Postgres container: [user] must be set")
 
   if not password:
-    raise ValueError("Postgres container: [password] must be set")
+    utils.throw_error("Postgres container: [password] must be set")
 
   if not db:
-    raise ValueError("Postgres container: [db] must be set")
+    utils.throw_error("Postgres container: [db] must be set")
 
   return {
     "POSTGRES_USER": user,
@@ -46,7 +51,7 @@ def func_postgres_environment(user, password, db):
 DEFAULT_CPUS = "2.0"
 DEFAULT_MEMORY = "4gb"
 
-def get_limits(data):
+def get_limits(data: dict) -> dict:
   limits = {
     "cpus": DEFAULT_CPUS,
     "memory": DEFAULT_MEMORY
@@ -62,7 +67,7 @@ def get_limits(data):
 
   return limits
 
-def func_resources(data = {}):
+def func_resources(data: dict = {}) -> dict:
   return {
     "resources": {
       "limits": get_limits(data)
