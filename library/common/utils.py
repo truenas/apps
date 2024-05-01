@@ -12,7 +12,7 @@ YAML_OPTS = {
 class TemplateException(Exception):
   pass
 
-def throw_error(message):
+def throw_error(message: str) -> None:
   # When throwing a known error, hide the traceback
   # This is because the error is also shown in the UI
   # and having a traceback makes it hard for user to read
@@ -20,15 +20,15 @@ def throw_error(message):
   raise TemplateException(message)
 
 
-def filter_to_yaml(data):
+def filter_to_yaml(data: dict) -> str:
   return yaml.dump(data, **YAML_OPTS)
 
-def func_secure_string(length):
+def func_secure_string(length: int) -> str:
   return secrets.token_urlsafe(length)
 
 # TODO: maybe extend this with ACLs API?!
 # TODO: once we have ixVolumes in update this func
-def func_host_path_with_perms(data, perms):
+def func_host_path_with_perms(data: dict, perms: dict) -> str:
   if not data['type']:
     throw_error("Host Path Configuration: Type must be set")
   if data['type'] == 'host_path':
