@@ -28,7 +28,14 @@ def func_secure_string(length):
 
 # TODO: maybe extend this with ACLs API?!
 # TODO: once we have ixVolumes in update this func
-def func_host_path_with_perms(path, perms):
+def func_host_path_with_perms(data, perms):
+  if not data['type']:
+    throw_error("Host Path Configuration: Type must be set")
+  if data['type'] == 'host_path':
+    if not data['host_path_config']:
+      throw_error("Host Path Configuration: Host Path Config must be set")
+    path = data['host_path_config']['path']
+
   if not path:
       throw_error("Host Path Configuration: Path must be set")
 

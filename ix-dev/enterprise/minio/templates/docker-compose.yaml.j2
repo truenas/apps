@@ -2,13 +2,13 @@
 {% set pg_user = "minio" %}
 {% set minio_network = "minio_internal" %}
 
+{% set log_auth_token = secure_string(16) %} {# Random string #}
+{% set log_audit_token = secure_string(16) %} {# Random string #}
+
 {% set minio_vols = namespace(items=[]) %}
 
 networks:
   {{ minio_network }}: {}
-
-{% set log_auth_token = secure_string(16) %} {# Random string #}
-{% set log_audit_token = secure_string(16) %} {# Random string #}
 
 {% if data.network.certificate_id %}
 configs:
@@ -57,7 +57,7 @@ services:
     volumes:
       {% for store in data.storage.data %}
         {% set minio_vols.items = minio_vols.items + [store.mount_path] %}
-        {{ host_path_with_perms(store.host_path_config.path, perms={'user': data.minio.user, 'group': data.minio.group}) }}
+        {{ host_path_with_perms(data = store, perms = {'user': data.minio.user, 'group': data.minio.group}) }}
       - {{ "%s:%s" | format(store.host_path_config.path, store.mount_path) }}
       {% endfor %}
     environment:
@@ -117,7 +117,7 @@ services:
     environment:
       {{ postgres_environment(user = pg_user, db = pg_database, password = data.logsearch.postgres_password) | to_yaml | indent(6) }}
     volumes:
-      {{ host_path_with_perms(data.logsearch.postgres_data.host_path_config.path, perms={'user': postgres_uid(), 'group': postgres_gid()}) }}
+      {{ host_path_with_perms(data = data.logsearch.postgres_data, perms = {'user': postgres_uid(), 'group': postgres_gid()}) }}
       - {{ "%s:/var/lib/postgresql/data" | format(data.logsearch.postgres_data.host_path_config.path) }}
   {% endif %}
 
