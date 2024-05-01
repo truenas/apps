@@ -1,4 +1,4 @@
-import library.common.utils as utils
+from . import utils
 
 
 def func_health_check(test: str = "", interval: int = 10, timeout: int = 10, retries: int = 5, start_period: int = 30) -> dict:
