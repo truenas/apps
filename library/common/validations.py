@@ -35,32 +35,32 @@ def filter_must_be_password_secure(password: str) -> str:
 
 # MinIO Validations (TODO: Move to directory under enterprise/MinIO)
 def func_validate(data: dict) -> str:
-  if not data['minio']['access_key']:
+  if not data['minio'].get('access_key', ''):
      utils.throw_error("MinIO: [access_key] must be set")
 
-  if not data['minio']['secret_key']:
+  if not data['minio'].get('secret_key', ''):
      utils.throw_error("MinIO: [secret_key] must be set")
 
-  if len(data['storage']['data']) < 1:
+  if len(data['storage'].get('data', [])) < 1:
      utils.throw_error("MinIO: At least 1 storage item must be set")
 
-  if len(data['storage']['data']) > 1 and not data['minio']['multi_mode']['enabled']:
+  if len(data['storage']['data']) > 1 and not data['minio'].get('multi_mode', {}).get('enabled', False):
      utils.throw_error("MinIO: [Multi Mode] must be enabled if more than 1 storage item is set")
 
   # make sure mount_paths in data['storage']['data'] are unique
   mount_paths = [item['mount_path'] for item in data['storage']['data']]
   if len(mount_paths) != len(set(mount_paths)):
-    utils.throw_error(f"MinIO: Mount paths in MinIO storage must be unique, found duplicates: [{mount_paths.join(', ')}]")
+    utils.throw_error(f"MinIO: Mount paths in MinIO storage must be unique, found duplicates: [{', '.join(mount_paths)}]")
 
-  if data['logsearch']['enabled']:
-    if not data['logsearch']['postgres_password']:
+  if data['logsearch'].get('enabled', False):
+    if not data['logsearch'].get('postgres_password', ''):
       utils.throw_error("MinIO: [LogSearch] [postgres_password] must be set")
-    if not data['logsearch']['disk_capacity_gb']:
+    if not data['logsearch'].get('disk_capacity_gb', ''):
       utils.throw_error("MinIO: [LogSearch] [disk_capacity_gb] must be set")
 
-  if data['minio']['multi_mode']['enabled']:
+  if data['minio'].get('multi_mode', {}).get('enabled', False):
     disallowed_keys = ["server"]
-    for item in data['minio']['multi_mode']['items']:
+    for item in data['minio']['multi_mode'].get('items', []):
       if item in disallowed_keys:
         utils.throw_error(f"MinIO: Value [{item}] is not allowed in [Multi Mode] items")
 

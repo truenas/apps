@@ -58,8 +58,7 @@ services:
     volumes:
       {% for store in data.storage.data %}
         {% set minio_vols.items = minio_vols.items + [store.mount_path] %}
-        {{ host_path_with_perms(data = store, perms = {'user': data.minio.user, 'group': data.minio.group}) }}
-      - {{ "%s:%s" | format(store.host_path_config.path, store.mount_path) }}
+      - {{ "%s:%s" | format(host_path_with_perms(data = store, root = data, perms = {'user': data.minio.user, 'group': data.minio.group}), store.mount_path) }}
       {% endfor %}
     environment:
       MINIO_ROOT_USER: {{ data.minio.access_key }}
@@ -122,8 +121,7 @@ services:
     environment:
       {{ postgres_environment(user = pg_user, db = pg_database, password = data.logsearch.postgres_password) | to_yaml | indent(6) }}
     volumes:
-      {{ host_path_with_perms(data = data.logsearch.postgres_data, perms = {'user': postgres_uid(), 'group': postgres_gid()}) }}
-      - {{ "%s:/var/lib/postgresql/data" | format(data.logsearch.postgres_data.host_path_config.path) }}
+      - {{ "%s:/var/lib/postgresql/data" | format(host_path_with_perms(data = data.logsearch.postgres_data, root = data, perms = {'user': postgres_uid(), 'group': postgres_gid()})) }}
   {% endif %}
 
 {#
