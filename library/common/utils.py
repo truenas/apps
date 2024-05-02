@@ -43,7 +43,6 @@ def func_host_path_with_perms(data: dict, root: dict, perms: dict) -> str:
       throw_error("IX Volume Configuration: [ix_volume_config] must be set")
     if not data['ix_volume_config'].get('dataset_name', ''):
       throw_error("IX Volume Configuration: [ix_volume_config.dataset_name] must be set")
-    print(data)
     if not root.get('ixVolumes', []):
       throw_error("IX Volume Configuration: [ixVolumes] must be set")
     for item in root['ixVolumes']:
