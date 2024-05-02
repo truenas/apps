@@ -33,7 +33,7 @@ def filter_must_be_password_secure(password: str) -> str:
 
     return password
 
-def validate_path(path: str) -> str:
+def func_validate_path(path: str) -> str:
     if not path:
         utils.throw_error("Path must be set")
 
