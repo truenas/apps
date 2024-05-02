@@ -72,7 +72,7 @@ def process_ix_volume(data: dict, root: dict) -> dict:
 
     return path
 
-def process_host_path(data: dict, root: dict, perms: dict) -> str:
+def process_host_path(data: dict) -> str:
     if not data.get('host_path_config', {}):
       throw_error("Host Path Configuration: [host_path_config] must be set")
 
