@@ -26,34 +26,6 @@ def filter_to_yaml(data: dict) -> str:
 def func_secure_string(length: int) -> str:
   return secrets.token_urlsafe(length)
 
-import secrets
-import yaml
-import sys
-import os
-
-YAML_OPTS = {
-  'default_flow_style': False,
-  'sort_keys': False,
-  'indent': 2,
-}
-
-class TemplateException(Exception):
-  pass
-
-def throw_error(message: str) -> None:
-  # When throwing a known error, hide the traceback
-  # This is because the error is also shown in the UI
-  # and having a traceback makes it hard for user to read
-  sys.tracebacklimit = 0
-  raise TemplateException(message)
-
-
-def filter_to_yaml(data: dict) -> str:
-  return yaml.dump(data, **YAML_OPTS)
-
-def func_secure_string(length: int) -> str:
-  return secrets.token_urlsafe(length)
-
 # TODO: maybe extend this with ACLs API?!
 def func_host_path_with_perms(data: dict, root: dict, perms: dict) -> str:
   if not data.get('type', ''):
