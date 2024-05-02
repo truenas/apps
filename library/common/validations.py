@@ -33,6 +33,15 @@ def filter_must_be_password_secure(password: str) -> str:
 
     return password
 
+def validate_path(path: str) -> str:
+    if not path:
+        utils.throw_error("Path must be set")
+
+    if not path.startswith("/"):
+        utils.throw_error(f"Path [{path}] must start with [/]")
+
+    return ''
+
 # MinIO Validations (TODO: Move to directory under enterprise/MinIO)
 def func_validate(data: dict) -> str:
   if not data['minio'].get('access_key', ''):
