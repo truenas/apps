@@ -1,3 +1,4 @@
+from . import validations
 import secrets
 import yaml
 import sys
@@ -46,7 +47,7 @@ def func_host_path_with_perms(data: dict, root: dict, perms: dict) -> str:
     # Set permissions
     os.chown(path, int(perms['user']), int(perms['group']))
 
-  return path
+  return validations.func_validate_path(path)
 
 def process_ix_volume(data: dict, root: dict) -> dict:
     path = ''
