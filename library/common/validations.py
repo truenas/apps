@@ -32,3 +32,12 @@ def filter_must_be_password_secure(password: str) -> str:
         utils.throw_error("Password must contain at least 8 characters, 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character")
 
     return password
+
+def validate_path(path: str) -> str:
+    if not path:
+        utils.throw_error("Path must be set")
+
+    if not path.startswith("/"):
+        utils.throw_error(f"Path [{path}] must start with [/]")
+
+    return ''
