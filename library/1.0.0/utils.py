@@ -7,7 +7,7 @@ import os
 class TemplateException(Exception):
   pass
 
-def throw_error(message: str) -> None:
+def throw_error(message):
   # When throwing a known error, hide the traceback
   # This is because the error is also shown in the UI
   # and having a traceback makes it hard for user to read
@@ -29,13 +29,13 @@ def secure_string(length):
 
 
 # TODO: maybe extend this with ACLs API?!
-def host_path_with_perms(data: dict, root: dict, perms: dict) -> str:
+def host_path_with_perms(data, root, perms):
     if not data.get('type', ''):
         throw_error("Host Path Configuration: Type must be set")
 
     path = ''
     if data['type'] == 'host_path':
-        path = process_host_path(data, root, perms)
+        path = process_host_path(data)
     elif data['type'] == 'ix_volume':
         path = process_ix_volume(data, root)
     else:
@@ -49,9 +49,9 @@ def host_path_with_perms(data: dict, root: dict, perms: dict) -> str:
         # Set permissions
         os.chown(path, int(perms['user']), int(perms['group']))
 
-    return validations.func_validate_path(path)
+    return validations.validate_path(path)
 
-def process_ix_volume(data: dict, root: dict) -> dict:
+def process_ix_volume(data, root):
     path = ''
     if not data.get('ix_volume_config', {}):
       throw_error("IX Volume Configuration: [ix_volume_config] must be set")
@@ -75,7 +75,7 @@ def process_ix_volume(data: dict, root: dict) -> dict:
 
     return path
 
-def process_host_path(data: dict) -> str:
+def process_host_path(data):
     if not data.get('host_path_config', {}):
       throw_error("Host Path Configuration: [host_path_config] must be set")
 

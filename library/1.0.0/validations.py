@@ -40,10 +40,10 @@ def validate_path(path):
     if not path.startswith("/"):
         utils.throw_error(f"Path [{path}] must start with [/]")
 
-    return ''
+    return path
 
 # MinIO Validations (TODO: Move to directory under enterprise/MinIO)
-def func_validate(data: dict) -> str:
+def validate(data):
   if not data['minio'].get('access_key', ''):
      utils.throw_error("MinIO: [access_key] must be set")
 
