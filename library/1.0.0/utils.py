@@ -4,12 +4,6 @@ import yaml
 import sys
 import os
 
-YAML_OPTS = {
-  'default_flow_style': False,
-  'sort_keys': False,
-  'indent': 2,
-}
-
 class TemplateException(Exception):
   pass
 
@@ -20,34 +14,42 @@ def throw_error(message: str) -> None:
   sys.tracebacklimit = 0
   raise TemplateException(message)
 
+def get_yaml_opts():
+    return {
+        'default_flow_style': False,
+        'sort_keys': False,
+        'indent': 2,
+    }
 
-def filter_to_yaml(data: dict) -> str:
-  return yaml.dump(data, **YAML_OPTS)
+def to_yaml(data):
+    return yaml.dump(data, **get_yaml_opts())
 
-def func_secure_string(length: int) -> str:
-  return secrets.token_urlsafe(length)
+def secure_string(length):
+    return secrets.token_urlsafe(length)
+
 
 # TODO: maybe extend this with ACLs API?!
-def func_host_path_with_perms(data: dict, root: dict, perms: dict) -> str:
-  if not data.get('type', ''):
-    throw_error("Host Path Configuration: Type must be set")
+def host_path_with_perms(data: dict, root: dict, perms: dict) -> str:
+    if not data.get('type', ''):
+        throw_error("Host Path Configuration: Type must be set")
 
-  path = ''
-  if data['type'] == 'host_path':
-    path = process_host_path(data, root, perms)
-  elif data['type'] == 'ix_volume':
-    path = process_ix_volume(data, root)
-  else:
-    throw_error(f"Type [{data['type']}] is not supported")
+    path = ''
+    if data['type'] == 'host_path':
+        path = process_host_path(data, root, perms)
+    elif data['type'] == 'ix_volume':
+        path = process_ix_volume(data, root)
+    else:
+        throw_error(f"Type [{data['type']}] is not supported")
 
-  os.makedirs(path, exist_ok=True)
+    # FIXME: only use this on CI and not on prod
+    os.makedirs(path, exist_ok=True)
 
-  # FIXME: only do such things if user agreed or if its ixVolumes
-  if perms.get('user') and perms.get('group'):
-    # Set permissions
-    os.chown(path, int(perms['user']), int(perms['group']))
+    # FIXME: only do such things if user agreed or if its ixVolumes
+    if perms.get('user') and perms.get('group'):
+        # Set permissions
+        os.chown(path, int(perms['user']), int(perms['group']))
 
-  return validations.func_validate_path(path)
+    return validations.func_validate_path(path)
 
 def process_ix_volume(data: dict, root: dict) -> dict:
     path = ''

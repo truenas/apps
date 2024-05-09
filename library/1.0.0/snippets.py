@@ -1,7 +1,6 @@
 from . import utils
 
-
-def func_health_check(test: str = "", interval: int = 10, timeout: int = 10, retries: int = 5, start_period: int = 30) -> dict:
+def health_check(test = "", interval = 10, timeout = 10, retries = 5, start_period = 30):
   if not test:
     utils.throw_error("Healtcheck: [test] must be set")
 
@@ -13,10 +12,10 @@ def func_health_check(test: str = "", interval: int = 10, timeout: int = 10, ret
     "start_period": f'{start_period}s'
   }
 
-def func_curl_test(url: str) -> str:
+def curl_test(url):
   return f"curl --silent --fail {url}"
 
-def func_pg_test(user: str, db: str, host: str = "127.0.0.1", port: int = 5432) -> str:
+def pg_test(user, db, host = "127.0.0.1", port = 5432):
   if not user:
     utils.throw_error("Postgres container: [user] must be set")
 
@@ -25,14 +24,14 @@ def func_pg_test(user: str, db: str, host: str = "127.0.0.1", port: int = 5432) 
 
   return f"pg_isready -h {host} -p {port} -d {db} -U {user}"
 
-def func_postgres_uid() -> int:
+def postgres_uid():
   return 999
-def func_postgres_gid() -> int:
+def postgres_gid():
   return 999
-def func_postgres_run_as() -> str:
-  return f"{func_postgres_uid()}:{func_postgres_gid()}"
+def postgres_run_as():
+  return f"{postgres_uid()}:{postgres_gid()}"
 
-def func_postgres_environment(user: str, password: str, db: str) -> dict:
+def postgres_environment(user, password, db):
   if not user:
     utils.throw_error("Postgres container: [user] must be set")
 
@@ -48,26 +47,26 @@ def func_postgres_environment(user: str, password: str, db: str) -> dict:
     "POSTGRES_DB": db
   }
 
-DEFAULT_CPUS = "2.0"
-DEFAULT_MEMORY = "4gb"
-
-def get_limits(data: dict) -> dict:
-  limits = {
-    "cpus": DEFAULT_CPUS,
-    "memory": DEFAULT_MEMORY
+def get_default_limits():
+  return {
+    "cpus": "2.0",
+    "memory": "4gb"
   }
+
+def get_limits(data):
+  limits = get_default_limits()
 
   if not data:
     return limits
 
   limits.update({
-    "cpus": str(data.get("limits", DEFAULT_CPUS).get("cpus", DEFAULT_CPUS)),
-    "memory": data.get("limits", DEFAULT_MEMORY).get("memory", DEFAULT_MEMORY)
+    "cpus": str(data.get("limits", limits['cpus']).get("cpus", limits['cpus'])),
+    "memory": data.get("limits", limits['memory']).get("memory", limits['memory'])
   })
 
   return limits
 
-def func_resources(data: dict = {}) -> dict:
+def resources(data = {}):
   return {
     "resources": {
       "limits": get_limits(data)
