@@ -29,34 +29,36 @@ print(f"Changed files: {json_files}", file=sys.stderr)
 changed_files = json.loads(json_files)
 
 matrix = []
-result = {}
+tracker = {}
 for file in changed_files:
     match = APP_REGEX.match(file)
     if not match:
         continue
 
     full_name = f"{match.group(1)}/{match.group(2)}"
-    if full_name in result:
+    if full_name in tracker:
         continue
+    tracker[full_name] = True
 
-    result[full_name] = {
-        "train": match.group(1),
-        "app": match.group(2),
-        "test_values": [
-            file.name
-            for file in pathlib.Path(
-                # ix-dev/{train}/{app}/test_values/*.yaml
-                "ix-dev",
-                match.group(1),
-                match.group(2),
-                TEST_VALUES_DIR,
-            ).glob("*.yaml")
-        ],
-    }
+    matrix.append(
+        {
+            "train": match.group(1),
+            "app": match.group(2),
+            "test_values": [
+                file.name
+                for file in pathlib.Path(
+                    # ix-dev/{train}/{app}/test_values/*.yaml
+                    "ix-dev",
+                    match.group(1),
+                    match.group(2),
+                    TEST_VALUES_DIR,
+                ).glob("*.yaml")
+            ],
+        }
+    )
 
-    matrix.append(result[full_name])
     print(
-        f"Detected changed item for {full_name}: {json.dumps(result[full_name], indent=2)}",
+        f"Detected changed item for {full_name}: {json.dumps(matrix[full_name], indent=2)}",
         file=sys.stderr,
     )
 
