@@ -18,9 +18,10 @@ if json_files == "":
     print("Environment variable CHANGED_FILES is empty", file=sys.stderr)
     exit(1)
 
+print(f"Current working directory: {os.getcwd()}", file=sys.stderr)
+
 # Remove escaped backslashes coming from shell
 json_files = json_files.replace("\\", "")
-
 # Print to stderr, in order to keep stdout only for data
 print(f"Changed files: {json_files}", file=sys.stderr)
 
