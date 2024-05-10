@@ -28,19 +28,17 @@ print(f"Changed files: {json_files}", file=sys.stderr)
 # Parse the json
 changed_files = json.loads(json_files)
 
-tracker = {}
-
-result = []
+result = {}
 for file in changed_files:
     match = APP_REGEX.match(file)
     if not match:
         continue
 
-    if f"{match.group(1)}/{match.group(2)}" in tracker:
+    full_name = f"{match.group(1)}/{match.group(2)}"
+    if full_name in result:
         continue
-    tracker[f"{match.group(1)}/{match.group(2)}"] = True
 
-    item = {
+    result[full_name] = {
         "train": match.group(1),
         "app": match.group(2),
         "test_values": [
@@ -55,8 +53,10 @@ for file in changed_files:
         ],
     }
 
-    print(f"Detected changed item: {json.dumps(item, indent=2)}", file=sys.stderr)
-    result.append(item)
+    print(
+        f"Detected changed item for {full_name}: {json.dumps(result[full_name], indent=2)}",
+        file=sys.stderr,
+    )
 
 
 print(json.dumps(result))
