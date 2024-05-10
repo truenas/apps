@@ -28,6 +28,7 @@ print(f"Changed files: {json_files}", file=sys.stderr)
 # Parse the json
 changed_files = json.loads(json_files)
 
+matrix = []
 result = {}
 for file in changed_files:
     match = APP_REGEX.match(file)
@@ -53,11 +54,11 @@ for file in changed_files:
         ],
     }
 
+    matrix.append(result[full_name])
     print(
         f"Detected changed item for {full_name}: {json.dumps(result[full_name], indent=2)}",
         file=sys.stderr,
     )
 
 
-print(json.dumps(result), file=sys.stderr)
-print(json.dumps(result))
+print(json.dumps({"include": matrix}))
