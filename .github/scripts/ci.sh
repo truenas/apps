@@ -5,6 +5,7 @@ app_name="$2"
 test_file="$3"
 
 container_image="ghcr.io/truenas/apps_validation:latest"
+test_values_dir="templates/test_values"
 
 check_required_params() {
   required_params=("train_dir" "app_name" "test_file")
@@ -34,7 +35,7 @@ run_docker() {
   # Render the docker-compose file
   docker run --rm -v "$(pwd)":/workspace $container_image \
     /usr/bin/catalog_templating render --path /workspace/ix-dev/${train_dir}/${app_name} \
-    --values /workspace/ix-dev/${train_dir}/${app_name}/test_values/${test_file}
+    --values /workspace/ix-dev/${train_dir}/${app_name}/${test_values_dir}/${test_file}
 
   if [ $? -ne 0 ]; then
     echo "Failed to render docker-compose file"

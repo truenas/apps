@@ -7,7 +7,7 @@ import os
 import re
 
 APP_REGEX = re.compile(r"^ix-dev\/([-\w\.]+)\/([-\w\.]+)")
-TEST_VALUES_DIR = "test_values"
+TEST_VALUES_DIR = "templates/test_values"
 
 
 def get_changed_files():
