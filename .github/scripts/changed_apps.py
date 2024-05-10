@@ -26,8 +26,8 @@ changed_files = json.loads(json_files)
 # Print to stderr, in order to keep stdout only for data
 print(f"Changed files: {changed_files}", file=sys.stderr)
 
+seen = set()
 matrix = []
-tracker = {}
 for file in changed_files:
     match = APP_REGEX.match(file)
     if not match:
@@ -40,19 +40,21 @@ for file in changed_files:
         full_name,
         TEST_VALUES_DIR,
     ).glob("*.yaml"):
-        matrix.append(
-            {
-                "train": match.group(1),
-                "app": match.group(2),
-                "test_file": file.name,
-            }
-        )
-        print(
-            f"Detected changed item for {full_name}: {json.dumps(matrix[-1], indent=2)}",
-            file=sys.stderr,
-        )
+        item_tuple = (match.group(1), match.group(2), file.name)
+        if item_tuple not in seen:
+            seen.add(item_tuple)
+            matrix.append(
+                {
+                    "train": match.group(1),
+                    "app": match.group(2),
+                    "test_file": file.name,
+                }
+            )
+            print(
+                f"Detected changed item for {full_name}: {json.dumps(matrix[-1], indent=2)}",
+                file=sys.stderr,
+            )
 
-matrix = set(matrix)
 print(json.dumps({"include": matrix}))
 # This should look like:
 # {
