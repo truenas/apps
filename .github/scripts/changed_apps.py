@@ -6,61 +6,63 @@ import sys
 import os
 import re
 
-# Train and App name can contain:
-# - alphanumeric characters
-# - dots, dashes and underscores
 APP_REGEX = re.compile(r"^ix-dev\/([-\w\.]+)\/([-\w\.]+)")
 TEST_VALUES_DIR = "test_values"
 
-# Get the changed files (json formatted)
-json_files = os.getenv("CHANGED_FILES")
-if json_files == "":
-    print("Environment variable CHANGED_FILES is empty", file=sys.stderr)
-    exit(1)
 
-print(f"Current working directory: {os.getcwd()}", file=sys.stderr)
-# Remove escaped backslashes coming from shell
-json_files = json_files.replace("\\", "")
-# Parse the json
-changed_files = json.loads(json_files)
-# Print to stderr, in order to keep stdout only for data
-print(f"Changed files: {changed_files}", file=sys.stderr)
+def get_changed_files():
+    json_files = os.getenv("CHANGED_FILES", "")
+    if not json_files:
+        print("Environment variable CHANGED_FILES is empty", file=sys.stderr)
+        exit(1)
 
-seen = set()
-matrix = []
-for file in changed_files:
-    match = APP_REGEX.match(file)
-    if not match:
-        continue
+    try:
+        return json.loads(json_files.replace("\\", ""))
+    except json.JSONDecodeError:
+        print("Failed to decode JSON from CHANGED_FILES", file=sys.stderr)
+        exit(1)
 
-    full_name = f"{match.group(1)}/{match.group(2)}"
-    for file in pathlib.Path(
-        # ix-dev/{train}/{app}/test_values/*.yaml
-        "ix-dev",
-        full_name,
-        TEST_VALUES_DIR,
-    ).glob("*.yaml"):
-        item_tuple = (match.group(1), match.group(2), file.name)
-        if item_tuple not in seen:
-            seen.add(item_tuple)
-            matrix.append(
-                {
-                    "train": match.group(1),
-                    "app": match.group(2),
-                    "test_file": file.name,
-                }
-            )
-            print(
-                f"Detected changed item for {full_name}: {json.dumps(matrix[-1], indent=2)}",
-                file=sys.stderr,
-            )
 
-print(json.dumps({"include": matrix}))
-# This should look like:
-# {
-#   "include": [
-#     { "train": "enterprise", "app": "minio", "test_file": "basic-values.yaml" },
-#     { "train": "enterprise", "app": "minio", "test_file": "https-values.yaml" },
-#     ...
-#   ]
-# }
+def find_test_files(changed_files):
+    seen = set()
+    matrix = []
+    for file in changed_files:
+        match = APP_REGEX.match(file)
+        if not match:
+            continue
+
+        full_name = f"{match.group(1)}/{match.group(2)}"
+        print(f"Detected changed item for {full_name}", file=sys.stderr)
+
+        for file in pathlib.Path("ix-dev", full_name, TEST_VALUES_DIR).glob("*.yaml"):
+            item_tuple = (match.group(1), match.group(2), file.name)
+            if item_tuple not in seen:
+                seen.add(item_tuple)
+                matrix.append(
+                    {
+                        "train": match.group(1),
+                        "app": match.group(2),
+                        "test_file": file.name,
+                    }
+                )
+
+    return matrix
+
+
+def main():
+    changed_files = get_changed_files()
+    matrix = find_test_files(changed_files)
+    # This should look like:
+    # {
+    #   "include": [
+    #     { "train": "enterprise", "app": "minio", "test_file": "basic-values.yaml" },
+    #     { "train": "enterprise", "app": "minio", "test_file": "https-values.yaml" },
+    #     ...
+    #   ]
+    # }
+
+    print(json.dumps({"include": matrix}))
+
+
+if __name__ == "__main__":
+    main()
