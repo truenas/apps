@@ -44,45 +44,46 @@ jobs:
           echo "====== Docker Info ======"
           docker info
           echo "========================="
-      - name: Install Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: "1.22.2"
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install Dependencies
-        shell: bash
-        run: |
-          pip install -r requirements.txt
-      - name: Install Go Dependencies
-        run: |
-          cd tools/docker-health-check
-          go mod download
-          go build -o ../../check_health cmd/main.go
-          chmod +x ../../check_health
       - name: Run app
         shell: bash
         run: |
           for values_file in ix-dev/${{ matrix.app }}/ci/*.yaml; do
             echo "Testing [$values_file]"
-            sudo ./main.py $values_file ix-dev/${{ matrix.app }} > docker-compose.yaml
 
-            # Print the parsed, by compose, template
-            # (as it will also remove empty lines)
-            docker compose -f docker-compose.yaml config
+            docker run --rm -v ${pwd}:/workspace ghcr.io/truenas/apps_validation:latest \
+              /usr/bin/catalog_templating render --path /workspace/ix-dev/${{ matrix.app }} \
+              --values /workspace/${values_file}
 
             PROJECT_NAME="$(openssl rand -hex 12)"
+            docker_compose_project="docker compose -p $PROJECT_NAME -f ix-dev/${{ matrix.app }}/templates/rendered/docker-compose.yaml"
 
-            docker compose -p $PROJECT_NAME -f docker-compose.yaml up -d
+            echo "Printing docker compose config (parsed compose)"
+            ${docker_compose_project} config
 
-            ./check_health --project $PROJECT_NAME --files docker-compose.yaml
+            # Note that this will report failure if a container exits with a zero exit code too.
+            # https://github.com/docker/compose/issues/10596
+            ${docker_compose_project} up -d --wait --wait-timeout 600
 
-            docker compose -p $PROJECT_NAME -f docker-compose.yaml down --remove-orphans --volumes
-            docker compose -p $PROJECT_NAME -f docker-compose.yaml rm --force --stop --volumes
+            if [ $? -ne 0 ]; then
+              echo "Failed to start container(s)"
+
+              failed=$(${docker_compose_project} ps --status exited --all --format json)
+              for  container in $(echo $failed | jq -r '.[].ID'); do
+                echo "Container [$container] exited. Printing Inspect Data"
+                docker container inspect $container | jq
+              done
+
+              exit 1
+            fi
+
+            ${docker_compose_project} down --remove-orphans --volumes
+            ${docker_compose_project} rm --force --stop --volumes
 
             # Clean up the test directory used by the app
             echo "Cleaning up /mnt/test directory"
