@@ -59,4 +59,5 @@ for file in changed_files:
     )
 
 
+print(json.dumps(result), file=sys.stderr)
 print(json.dumps(result))
