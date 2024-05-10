@@ -60,15 +60,6 @@ run_docker() {
   $docker_compose_project rm --force --stop --volumes
 }
 
-cleanup() {
-  echo "Cleaning up /mnt/test directory"
-  # TODO: make something with this. I dont like the hardcoded /mnt/test
-  sudo rm -r /mnt/test || echo "Failed to clean up /mnt/test"
-}
-
-# Run the cleanup function on exit
-trap cleanup EXIT
-
 check_required_params
 check_required_commands
 run_docker
