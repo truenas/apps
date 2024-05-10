@@ -1,11 +1,11 @@
-name: Test App Install
+name: Apps Test Suite
 
 on:
   pull_request: {}
 
 jobs:
   changed-files:
-    name: Get changed apps
+    name: Generate matrix
     runs-on: ubuntu-latest
     outputs:
       changed-apps: ${{ steps.changed-apps.outputs.changed-apps }}
@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Get changed apps
+      - name: Matrix Output
         id: changed-apps
         env:
           CHANGED_FILES: ${{ steps.changed-files-json.outputs.all_changed_files }}
@@ -32,8 +32,8 @@ jobs:
           out=$(python3 .github/scripts/changed_apps.py)
           echo "changed-apps=${out}" >> $GITHUB_OUTPUT
 
-  test-apps:
-    name: Test apps
+  run-apps:
+    name: Run Docker Compose Render/Install
     needs: changed-files
     runs-on: ubuntu-latest
     strategy:
@@ -44,13 +44,12 @@ jobs:
           echo "====== Docker Info ======"
           docker info
           echo "========================="
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run app
+      - name: Test
         shell: bash
         run: |
-          echo "Running CI script"
-          train_dir=$(echo ${{ matrix.app }} | cut -d'/' -f1)
-          app_name=$(echo ${{ matrix.app }} | cut -d'/' -f2)
+          echo "Testing [${{matrix.train}}/${{matrix.app}}/test_values/${{matrix.test_file}}]"
           ./.github/scripts/ci.sh $train_dir $app_name
