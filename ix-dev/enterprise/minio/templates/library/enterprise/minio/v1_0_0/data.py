@@ -16,7 +16,8 @@ def validate(data):
     mount_paths = [item["mount_path"] for item in storage["data"]]
     if len(mount_paths) != len(set(mount_paths)):
         utils.throw_error(
-            f"Mount paths in storage items must be unique, found duplicates: [{', '.join(mount_paths)}]"
+            "Mount paths in storage items must be unique"
+            + f", found duplicates: [{', '.join(mount_paths)}]"
         )
 
     if multi_mode["enabled"]:
@@ -34,9 +35,10 @@ def validate(data):
             # /data{1...4}
             if item.startswith("/"):
                 # check if these characters exist in item
-                if any(char in item for char in ["{", "}"]) and not "..." in item:
+                if any(char in item for char in ["{", "}"]) and "..." not in item:
                     utils.throw_error(
-                        "MinIO: [Multi Mode] items must have 3 dots when they are paths with expansion eg [/some_path{1...4}]"
+                        "MinIO: [Multi Mode] items must have 3 dots when they are"
+                        + " paths with expansion eg [/some_path{1...4}]"
                     )
 
     return ""
