@@ -4,6 +4,8 @@ train_dir="$1"
 app_name="$2"
 test_file="$3"
 
+container_image="ghcr.io/truenas/apps_validation:latest"
+
 check_required_params() {
   required_params=("train_dir" "app_name" "test_file")
   for param in "${required_params[@]}"; do
@@ -30,7 +32,7 @@ run_docker() {
   local base_cmd="docker compose -p $project_name -f $rendered_path/docker-compose.yaml"
 
   # Render the docker-compose file
-  docker run --rm -v "$(pwd)":/workspace ghcr.io/truenas/apps_validation:latest \
+  docker run --rm -v "$(pwd)":/workspace $container_image \
     /usr/bin/catalog_templating render --path /workspace/ix-dev/${train_dir}/${app_name} \
     --values /workspace/ix-dev/${train_dir}/${app_name}/test_values/${test_file}
 
