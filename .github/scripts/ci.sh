@@ -27,27 +27,32 @@ check_required_commands() {
 run_docker() {
   local project_name="$(openssl rand -hex 12)"
   local rendered_path="/workspace/ix-dev/${train_dir}/${app_name}/templates/rendered"
-  local docker_compose_project="docker compose -p $project_name -f $rendered_path/docker-compose.yaml"
+  local base_cmd="docker compose -p $project_name -f $rendered_path/docker-compose.yaml"
 
   # Render the docker-compose file
   docker run --rm -v "$(pwd)":/workspace ghcr.io/truenas/apps_validation:latest \
     /usr/bin/catalog_templating render --path /workspace/ix-dev/${train_dir}/${app_name} \
     --values /workspace/ix-dev/${train_dir}/${app_name}/test_values/${test_file}
 
-  echo "Printing docker compose config (parsed compose)"
-  $docker_compose_project config
+  if [ $? -ne 0 ]; then
+    echo "Failed to render docker-compose file"
+    exit 1
+  fi
 
-  $docker_compose_project up -d --wait --wait-timeout 600
+  echo "Printing docker compose config (parsed compose)"
+  $base_cmd config
+
+  $base_cmd up -d --wait --wait-timeout 600
   local exit_code=$?
 
   # Print logs (for debugging)
-  $docker_compose_project logs
+  $base_cmd logs
   # Print docker compose processes (for debugging)
-  $docker_compose_project ps --all
+  $base_cmd ps --all
 
   if [ $exit_code -ne 0 ]; then
     echo "Failed to start container(s)"
-    local failed=$($docker_compose_project ps --status exited --all --format json)
+    local failed=$($base_cmd ps --status exited --all --format json)
     for container in $(echo $failed | jq -r '.[].ID'); do
       echo "Container [$container] exited. Printing Inspect Data"
       docker container inspect $container | jq
@@ -56,8 +61,8 @@ run_docker() {
     exit 1
   fi
 
-  $docker_compose_project down --remove-orphans --volumes
-  $docker_compose_project rm --force --stop --volumes
+  $base_cmd down --remove-orphans --volumes
+  $base_cmd rm --force --stop --volumes
 }
 
 check_required_params
