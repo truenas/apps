@@ -36,31 +36,31 @@ for file in changed_files:
         continue
 
     full_name = f"{match.group(1)}/{match.group(2)}"
-    if full_name in tracker:
-        continue
-    tracker[full_name] = True
-
-    matrix.append(
-        {
-            "train": match.group(1),
-            "app": match.group(2),
-            "test_values": [
-                file.name
-                for file in pathlib.Path(
-                    # ix-dev/{train}/{app}/test_values/*.yaml
-                    "ix-dev",
-                    match.group(1),
-                    match.group(2),
-                    TEST_VALUES_DIR,
-                ).glob("*.yaml")
-            ],
-        }
-    )
-
-    print(
-        f"Detected changed item for {full_name}: {json.dumps(matrix[full_name], indent=2)}",
-        file=sys.stderr,
-    )
+    for file in pathlib.Path(
+        # ix-dev/{train}/{app}/test_values/*.yaml
+        "ix-dev",
+        full_name,
+        TEST_VALUES_DIR,
+    ).glob("*.yaml"):
+        matrix.append(
+            {
+                "train": match.group(1),
+                "app": match.group(2),
+                "test_file": file.name,
+            }
+        )
+        print(
+            f"Detected changed item for {full_name}: {json.dumps(matrix[-1], indent=2)}",
+            file=sys.stderr,
+        )
 
 
 print(json.dumps({"include": matrix}))
+# This should look like:
+# {
+#   "include": [
+#     { "train": "enterprise", "app": "minio", "test_file": "basic-values.yaml" },
+#     { "train": "enterprise", "app": "minio", "test_file": "https-values.yaml" },
+#     ...
+#   ]
+# }
