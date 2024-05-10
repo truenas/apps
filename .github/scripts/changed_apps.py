@@ -19,14 +19,12 @@ if json_files == "":
     exit(1)
 
 print(f"Current working directory: {os.getcwd()}", file=sys.stderr)
-
 # Remove escaped backslashes coming from shell
 json_files = json_files.replace("\\", "")
-# Print to stderr, in order to keep stdout only for data
-print(f"Changed files: {json_files}", file=sys.stderr)
-
 # Parse the json
 changed_files = json.loads(json_files)
+# Print to stderr, in order to keep stdout only for data
+print(f"Changed files: {changed_files}", file=sys.stderr)
 
 matrix = []
 tracker = {}
@@ -54,7 +52,7 @@ for file in changed_files:
             file=sys.stderr,
         )
 
-
+matrix = set(matrix)
 print(json.dumps({"include": matrix}))
 # This should look like:
 # {
