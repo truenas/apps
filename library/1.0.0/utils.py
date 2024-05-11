@@ -42,6 +42,7 @@ def host_path_with_perms(data, root, perms):
     if data["type"] == "host_path":
         path = process_host_path(data)
     elif data["type"] == "ix_volume":
+        # FIXME: i'm broken, root is empty
         path = process_ix_volume(data, root)
     else:
         throw_error(f"Type [{data['type']}] is not supported")

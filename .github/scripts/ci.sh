@@ -57,6 +57,9 @@ run_docker() {
   echo "Printing docker compose config (parsed compose)"
   $base_cmd config
 
+  ls -lah /mnt
+  ls -lah /mnt/test
+
   $base_cmd up -d --wait --wait-timeout 600
   local exit_code=$?
 
@@ -68,6 +71,8 @@ run_docker() {
   if [ $exit_code -ne 0 ]; then
     echo "Failed to start container(s)"
     local failed=$($base_cmd ps --status exited --all --format json)
+    echo "Failed containers: [$failed]"
+
     for container in $(echo $failed | jq -r '.[].ID'); do
       echo "Container [$container] exited. Printing Inspect Data"
       docker container inspect $container | jq
