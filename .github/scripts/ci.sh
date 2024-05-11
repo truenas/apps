@@ -37,12 +37,13 @@ check_required_commands() {
 
 run_docker() {
   local project_name="$(openssl rand -hex 12)"
-  local rendered_path="/workspace/ix-dev/${train_dir}/${app_name}/templates/rendered"
+  local rendered_path="ix-dev/${train_dir}/${app_name}/templates/rendered"
   local base_cmd="docker compose -p $project_name -f $rendered_path/docker-compose.yaml"
 
   # TODO: make it better later
   ./copy_lib.sh $train_dir $app_name || echo "Failed to copy lib"
 
+  echo "Rendering docker-compose file"
   # Render the docker-compose file
   docker run --rm -v "$(pwd)":/workspace $container_image \
     $render_cmd --path /workspace/ix-dev/${train_dir}/${app_name} \
