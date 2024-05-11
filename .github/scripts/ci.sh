@@ -6,6 +6,8 @@ test_file="$3"
 
 # TODO: container_image="ghcr.io/truenas/apps_validation:latest"
 container_image="sonicaj/a_v:latest"
+# render_cmd="catalog_templating render"
+render_cmd="python3 /app/catalog_templating/scripts/render_compose.py render"
 test_values_dir="templates/test_values"
 
 check_required_params() {
@@ -35,7 +37,7 @@ run_docker() {
 
   # Render the docker-compose file
   docker run --rm -v "$(pwd)":/workspace $container_image \
-    /usr/bin/catalog_templating render --path /workspace/ix-dev/${train_dir}/${app_name} \
+    $render_cmd --path /workspace/ix-dev/${train_dir}/${app_name} \
     --values /workspace/ix-dev/${train_dir}/${app_name}/${test_values_dir}/${test_file}
 
   if [ $? -ne 0 ]; then
