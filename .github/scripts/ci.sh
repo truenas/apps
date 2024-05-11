@@ -5,9 +5,9 @@ app_name="$2"
 test_file="$3"
 
 echo "Parameters:"
-echo "\t train_dir: [$train_dir]"
-echo "\t app_name: [$app_name]"
-echo "\t test_file: [$test_file]"
+echo "  - train_dir: [$train_dir]"
+echo "  - app_name: [$app_name]"
+echo "  - test_file: [$test_file]"
 
 # TODO: container_image="ghcr.io/truenas/apps_validation:latest"
 container_image="sonicaj/a_v:latest"
@@ -43,19 +43,19 @@ run_docker() {
   # TODO: make it better later
   ./copy_lib.sh $train_dir $app_name || echo "Failed to copy lib"
 
-  echo -n "Rendering docker-compose file ..."
+  echo -n "Rendering docker-compose file..."
   # Render the docker-compose file
   docker run --rm -v "$(pwd)":/workspace $container_image \
     $render_cmd --path /workspace/ix-dev/${train_dir}/${app_name} \
     --values /workspace/ix-dev/${train_dir}/${app_name}/${test_values_dir}/${test_file}
 
   if [ $? -ne 0 ]; then
-    echo "Failed."
+    echo " Failed."
     exit 1
   fi
-  echo "Done!"
+  echo " Done!"
 
-  echo "\nPrinting docker compose config (parsed compose)"
+  echo "Printing docker compose config (parsed compose)"
   $base_cmd config
 
   # FIXME:
@@ -73,7 +73,10 @@ run_docker() {
   if [ $exit_code -ne 0 ]; then
     echo "Failed to start container(s)"
     local failed="$($base_cmd ps --status exited --all --format json)"
-    echo "Failed containers: [$failed]"
+    # if failed starts with { put it inside []
+    if [[ $failed == "{"* ]]; then
+      failed="[$failed]"
+    fi
 
     for container in $(echo ${failed} | jq -r '.[].ID'); do
       echo "Container [$container] exited. Printing Inspect Data"
