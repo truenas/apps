@@ -53,16 +53,15 @@ run_docker() {
   # TODO: make it better later
   ./copy_lib.sh $train_dir $app_name || echo "Failed to copy lib"
 
+  echo -n "Pulling container image..."
+  docker pull --quiet $container_image || echo " Failed." && exit 1
+  echo " Done!"
+
   echo -n "Rendering docker-compose file..."
   # Render the docker-compose file
   docker run --quiet --rm -v "$(pwd)":/workspace $container_image \
     $render_cmd --path /workspace/ix-dev/${train_dir}/${app_name} \
-    --values /workspace/ix-dev/${train_dir}/${app_name}/${test_values_dir}/${test_file}
-
-  if [ $? -ne 0 ]; then
-    echo " Failed."
-    exit 1
-  fi
+    --values /workspace/ix-dev/${train_dir}/${app_name}/${test_values_dir}/${test_file} || echo " Failed." && exit 1
   echo " Done!"
 
   echo -e "\nPrinting docker compose config (parsed compose)"
