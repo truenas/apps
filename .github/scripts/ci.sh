@@ -26,7 +26,7 @@ check_required_params() {
 }
 
 separator() {
-  echo -e "\n================================================\n"
+  echo -e "================================================"
 }
 
 check_required_commands() {
@@ -71,9 +71,9 @@ run_docker() {
   separator
 
   # FIXME:
-  mkdir -p /mnt/test
-  chown -R nobody:nogroup /mnt/test
-  chmod 777 /mnt/test
+  sudo mkdir -p /mnt/test
+  sudo chown -R nobody:nogroup /mnt/test
+  sudo chmod 777 /mnt/test
 
   $base_cmd up --detach --quiet-pull --wait --wait-timeout 600
   local exit_code=$?
