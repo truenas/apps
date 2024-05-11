@@ -47,6 +47,7 @@ def host_path_with_perms(data, root, perms):
     else:
         throw_error(f"Type [{data['type']}] is not supported")
 
+    # OFC this doesn't work when the render runs in a container
     # FIXME: only use this on CI and not on prod
     os.makedirs(path, exist_ok=True)
 

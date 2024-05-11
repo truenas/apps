@@ -57,8 +57,9 @@ run_docker() {
   echo "Printing docker compose config (parsed compose)"
   $base_cmd config
 
-  ls -lah /mnt
-  ls -lah /mnt/test
+  # FIXME:
+  mkdir -p /mnt/test
+  chmod 777 /mnt/test
 
   $base_cmd up -d --wait --wait-timeout 600
   local exit_code=$?
