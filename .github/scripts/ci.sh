@@ -4,7 +4,8 @@ train_dir="$1"
 app_name="$2"
 test_file="$3"
 
-container_image="ghcr.io/truenas/apps_validation:latest"
+# TODO: container_image="ghcr.io/truenas/apps_validation:latest"
+container_image="sonicaj/a_v:latest"
 test_values_dir="templates/test_values"
 
 check_required_params() {
