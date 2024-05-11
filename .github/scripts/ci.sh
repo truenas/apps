@@ -45,7 +45,7 @@ run_docker() {
 
   echo -n "Rendering docker-compose file..."
   # Render the docker-compose file
-  docker run --rm -v "$(pwd)":/workspace $container_image \
+  docker run --quiet --rm -v "$(pwd)":/workspace $container_image \
     $render_cmd --path /workspace/ix-dev/${train_dir}/${app_name} \
     --values /workspace/ix-dev/${train_dir}/${app_name}/${test_values_dir}/${test_file}
 
@@ -55,11 +55,14 @@ run_docker() {
   fi
   echo " Done!"
 
-  echo "Printing docker compose config (parsed compose)"
+  echo -e "\nPrinting docker compose config (parsed compose)"
+  echo "================================================"
   $base_cmd config
+  echo -e "================================================\n"
 
   # FIXME:
   mkdir -p /mnt/test
+  chown -R nobody:nogroup /mnt/test
   chmod 777 /mnt/test
 
   $base_cmd up --detach --quiet-pull --wait --wait-timeout 600
