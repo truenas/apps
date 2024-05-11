@@ -25,6 +25,10 @@ check_required_params() {
   done
 }
 
+separator() {
+  echo -e "\n================================================\n"
+}
+
 check_required_commands() {
   required_commands=("docker" "jq" "openssl")
   for command in "${required_commands[@]}"; do
@@ -33,6 +37,12 @@ check_required_commands() {
       exit 1
     fi
   done
+}
+
+cleanup() {
+  local base_cmd="$1"
+  $base_cmd down --remove-orphans --volumes
+  $base_cmd rm --force --stop --volumes
 }
 
 run_docker() {
@@ -56,9 +66,9 @@ run_docker() {
   echo " Done!"
 
   echo -e "\nPrinting docker compose config (parsed compose)"
-  echo "================================================"
+  separator
   $base_cmd config
-  echo -e "================================================\n"
+  separator
 
   # FIXME:
   mkdir -p /mnt/test
@@ -68,10 +78,14 @@ run_docker() {
   $base_cmd up --detach --quiet-pull --wait --wait-timeout 600
   local exit_code=$?
 
+  separator
   # Print logs (for debugging)
   $base_cmd logs
+  separator
+  echo ''
   # Print docker compose processes (for debugging)
   $base_cmd ps --all
+  separator
 
   if [ $exit_code -ne 0 ]; then
     echo "Failed to start container(s)"
@@ -86,11 +100,11 @@ run_docker() {
       docker container inspect $container | jq
     done
 
+    cleanup $base_cmd
     exit 1
   fi
 
-  $base_cmd down --remove-orphans --volumes
-  $base_cmd rm --force --stop --volumes
+  cleanup $base_cmd
 }
 
 check_required_params
