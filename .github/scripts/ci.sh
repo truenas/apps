@@ -35,6 +35,9 @@ run_docker() {
   local rendered_path="/workspace/ix-dev/${train_dir}/${app_name}/templates/rendered"
   local base_cmd="docker compose -p $project_name -f $rendered_path/docker-compose.yaml"
 
+  # TODO: make it better later
+  ./copy_lib.sh $train_dir $app_name
+
   # Render the docker-compose file
   docker run --rm -v "$(pwd)":/workspace $container_image \
     $render_cmd --path /workspace/ix-dev/${train_dir}/${app_name} \
