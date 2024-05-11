@@ -4,6 +4,11 @@ train_dir="$1"
 app_name="$2"
 test_file="$3"
 
+echo "Parameters:"
+echo "train_dir: [$train_dir]"
+echo "app_name: [$app_name]"
+echo "test_file: [$test_file]"
+
 # TODO: container_image="ghcr.io/truenas/apps_validation:latest"
 container_image="sonicaj/a_v:latest"
 # render_cmd="catalog_templating render"
@@ -36,7 +41,7 @@ run_docker() {
   local base_cmd="docker compose -p $project_name -f $rendered_path/docker-compose.yaml"
 
   # TODO: make it better later
-  ./copy_lib.sh $train_dir $app_name
+  ./copy_lib.sh $train_dir $app_name || echo "Failed to copy lib"
 
   # Render the docker-compose file
   docker run --rm -v "$(pwd)":/workspace $container_image \
