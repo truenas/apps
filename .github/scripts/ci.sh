@@ -40,7 +40,7 @@ check_required_commands() {
 }
 
 cleanup() {
-  local base_cmd="$1"
+  local base_cmd="$@"
   $base_cmd down --remove-orphans --volumes
   $base_cmd rm --force --stop --volumes
 }
@@ -71,9 +71,9 @@ run_docker() {
   separator
 
   # FIXME:
-  sudo mkdir -p /mnt/test
-  sudo chown -R nobody:nogroup /mnt/test
-  sudo chmod 777 /mnt/test
+  sudo mkdir -p /mnt/test/{data1,data2,data3,data4,postgres}
+  sudo chown -R 568:568 /mnt/test/{data1,data2,data3,data4}
+  sudo chown -R 999:999 /mnt/test/postgres
 
   $base_cmd up --detach --quiet-pull --wait --wait-timeout 600
   local exit_code=$?
