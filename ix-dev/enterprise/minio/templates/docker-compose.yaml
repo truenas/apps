@@ -35,14 +35,14 @@ services:
     command:
       - -c
       - |
-        {{ ix_lib.base.permissions.chown(path="/data/pgdata",user=999,group=999) }}
+        {{ ix_lib.base.permissions.chown("/data/pgdata", 999, 999) }}
         {% for store in storage.data %}
-          {{ ix_lib.base.permissions.chown(path=store.mount_path,user=minio.user,group=minio.group) }}
+          {{ ix_lib.base.permissions.chown(store.mount_path, minio.user, minio.group) }}
         {% endfor %}
     volumes:
-      - {{ "%s:/data/pgdata" | format(ix_lib.base.utils.host_path_with_perms(data = logsearch.postgres_data, root = data, perms = {'user': ix_lib.base.snippets.postgres_uid(), 'group': ix_lib.base.snippets.postgres_gid()})) }}
+      - {{ "%s:/data/pgdata" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
       {% for store in storage.data %}
-        - {{ "%s:%s" | format(ix_lib.base.utils.host_path_with_perms(data = store, root = data, perms = {'user': minio.user, 'group': minio.group}), ix_lib.base.validations.validate_path(store.mount_path)) }}
+        - {{ "%s:%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), ix_lib.base.validations.validate_path(store.mount_path)) }}
       {% endfor %}
     healthcheck: # TODO: fix later
       test: ["CMD", "true"]
@@ -83,7 +83,7 @@ services:
     volumes:
       {% for store in storage.data %}
         {% set minio_vols.items = minio_vols.items + [store.mount_path] %}
-      - {{ "%s:%s" | format(ix_lib.base.utils.host_path_with_perms(data = store, root = data, perms = {'user': minio.user, 'group': minio.group}), ix_lib.base.validations.validate_path(store.mount_path)) }}
+      - {{ "%s:%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), ix_lib.base.validations.validate_path(store.mount_path)) }}
       {% endfor %}
     environment:
       MINIO_ROOT_USER: {{ minio.access_key }}
@@ -146,7 +146,7 @@ services:
     environment:
       {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.postgres_environment(user = pg_user, db = pg_database, password = logsearch.postgres_password)) | indent(6) }}
     volumes:
-      - {{ "%s:/var/lib/postgresql/data" | format(ix_lib.base.utils.host_path_with_perms(data = logsearch.postgres_data, root = data, perms = {'user': ix_lib.base.snippets.postgres_uid(), 'group': ix_lib.base.snippets.postgres_gid()})) }}
+      - {{ "%s:/var/lib/postgresql/data" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data,ix_vols=ixVolumes)) }}
   {% endif %}
 
 {#
