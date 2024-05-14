@@ -185,12 +185,12 @@ def main():
     print_state()
     check_required_commands()
     pull_app_catalog_container()
-
+    # FIXME: replace this copy lib script
     res = subprocess.run(f"./copy_lib.sh {args['train']} {args['app']}", shell=True)
     if res.returncode != 0:
         print("Failed to copy lib")
         exit(1)
-    # TODO: copy lib
+
     render_compose()
     print_docker_compose_config()
     res = run_app()
