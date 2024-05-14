@@ -34,7 +34,7 @@ def print_info():
     print(f"  - train: [{args['train']}]")
     print(f"  - project: [{args['project']}]")
     print(f"  - test_file: [{args['test_file']}]")
-    print(f"  - lib_version: [{args['lib_version']}]")
+    print(f"  - lib_version: [{get_lib_version()}]")
 
 
 def command_exists(command):
