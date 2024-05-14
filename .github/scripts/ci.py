@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import subprocess
 import argparse
+import pathlib
 import secrets
 import shutil
 import json
-import re
+import yaml
+import sys
 import os
 
 CONTAINER_IMAGE = "sonicaj/a_v:latest"
@@ -26,12 +28,13 @@ def parse_args():
     }
 
 
-def print_state():
+def print_info():
     print("Parameters:")
     print(f"  - app: [{args['app']}]")
     print(f"  - train: [{args['train']}]")
-    print(f"  - test_file: [{args['test_file']}]")
     print(f"  - project: [{args['project']}]")
+    print(f"  - test_file: [{args['test_file']}]")
+    print(f"  - lib_version: [{args['lib_version']}]")
 
 
 def command_exists(command):
@@ -43,7 +46,7 @@ def check_required_commands():
     for command in required_commands:
         if not command_exists(command):
             print(f"Error: command [{command}] is not installed")
-            exit(1)
+            sys.exit(1)
 
 
 def get_base_cmd():
@@ -61,7 +64,7 @@ def pull_app_catalog_container():
     res = subprocess.run(f"docker pull --quiet {CONTAINER_IMAGE}", shell=True)
     if res.returncode != 0:
         print(f"Failed to pull container image [{CONTAINER_IMAGE}]")
-        exit(1)
+        sys.exit(1)
     print(f"Done pulling container image [{CONTAINER_IMAGE}]")
 
 
@@ -83,7 +86,7 @@ def render_compose():
     separator_start()
     if res.returncode != 0:
         print("Failed to render docker-compose file")
-        exit(1)
+        sys.exit(1)
     print("Done rendering docker-compose file")
 
 
@@ -96,7 +99,7 @@ def print_docker_compose_config():
     separator_start()
     if res.returncode != 0:
         print("Failed to print docker compose config")
-        exit(1)
+        sys.exit(1)
 
 
 def separator_start():
@@ -184,36 +187,42 @@ def run_app():
 def check_app_dir_exists():
     if not os.path.exists(f"ix-dev/{args['train']}/{args['app']}"):
         print(f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist")
-        exit(1)
+        sys.exit(1)
 
 
-def get_latest_lib_version():
-    libs = [
-        lib
-        for lib in os.listdir("library")
-        if os.path.isdir(os.path.join("library", lib))
-    ]
+def get_lib_version():
+    app_file = f"ix-dev/{args['train']}/{args['app']}/app.yaml"
+    if not os.path.exists(app_file):
+        print(f"App file [{app_file}] does not exist")
+        sys.exit(1)
 
-    def version_key(version):
-        return [int(part) for part in re.split(r"\.", version)]
+    with open(app_file, "r") as f:
+        app = yaml.safe_load(f)
 
-    sorted_libs = sorted(libs, key=version_key)
-    return sorted_libs[-1] if sorted_libs else None
+    lib_version = app["lib_version"]
+    if not lib_version:
+        print("Failed to get lib version")
+        sys.exit(1)
+
+    return lib_version
 
 
 def copy_lib():
     # get latest lib version
-    lib_version = get_latest_lib_version()
-    if not lib_version:
-        print("Failed to get latest lib version")
-        exit(1)
+    lib_version = get_lib_version()
+    if not os.path.exists(f"library/{lib_version}"):
+        print(f"Library directory [library/{lib_version}] does not exist")
+        sys.exit(1)
+
     print(f"Copying lib version [{lib_version}]")
     lib = f"base_v{lib_version.replace('.', '_')}"
-    if os.path.exists(f"ix-dev/{args['train']}/{args['app']}/templates/library/{lib}"):
-        shutil.rmtree(f"ix-dev/{args['train']}/{args['app']}/templates/library/{lib}")
-    os.makedirs(
-        f"ix-dev/{args['train']}/{args['app']}/templates/library/{lib}", exist_ok=True
-    )
+
+    app_lib_dir = f"ix-dev/{args['train']}/{args['app']}/templates/library"
+    os.makedirs(app_lib_dir, exist_ok=True)
+    for dir in pathlib.Path(app_lib_dir).iterdir():
+        if dir.name.startswith("base_v"):
+            dir.rmdir()
+
     try:
         shutil.copytree(
             f"library/{lib_version}",
@@ -222,11 +231,11 @@ def copy_lib():
         )
     except shutil.Error:
         print(f"Failed to copy lib [{lib_version}]")
-        exit(1)
+        sys.exit(1)
 
 
 def main():
-    print_state()
+    print_info()
     check_app_dir_exists()
     copy_lib()
     check_required_commands()
@@ -236,7 +245,7 @@ def main():
     res = run_app()
     docker_cleanup()
 
-    exit(res)
+    sys.exit(res)
 
 
 args = parse_args()
