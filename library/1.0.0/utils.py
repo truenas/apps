@@ -2,7 +2,6 @@ from . import validations
 import secrets
 import yaml
 import sys
-import os
 
 
 class TemplateException(Exception):
@@ -33,8 +32,7 @@ def secure_string(length):
     return secrets.token_urlsafe(length)
 
 
-# TODO: maybe extend this with ACLs API?!
-def host_path_with_perms(data, root, perms):
+def get_host_path(data, ix_volumes):
     if not data.get("type", ""):
         throw_error("Host Path Configuration: Type must be set")
 
@@ -42,25 +40,14 @@ def host_path_with_perms(data, root, perms):
     if data["type"] == "host_path":
         path = process_host_path(data)
     elif data["type"] == "ix_volume":
-        # FIXME: i'm broken, root is empty
-        path = process_ix_volume(data, root)
+        path = process_ix_volume(data, ix_volumes)
     else:
         throw_error(f"Type [{data['type']}] is not supported")
-
-    # TODO: make this in a container.
-    # OFC this doesn't work when the render runs in a container
-    # FIXME: only use this on CI and not on prod
-    os.makedirs(path, exist_ok=True)
-
-    # FIXME: only do such things if user agreed or if its ixVolumes
-    if perms.get("user") and perms.get("group"):
-        # Set permissions
-        os.chown(path, int(perms["user"]), int(perms["group"]))
 
     return validations.validate_path(path)
 
 
-def process_ix_volume(data, root):
+def process_ix_volume(data, ix_volumes):
     path = ""
     if not data.get("ix_volume_config", {}):
         throw_error("IX Volume Configuration: [ix_volume_config] must be set")
@@ -70,10 +57,10 @@ def process_ix_volume(data, root):
             "IX Volume Configuration: [ix_volume_config.dataset_name] must be set"
         )
 
-    if not root.get("ixVolumes", []):
+    if not ix_volumes:
         throw_error("IX Volume Configuration: [ixVolumes] must be set")
 
-    for item in root["ixVolumes"]:
+    for item in ix_volumes:
         if not item.get("hostPath", ""):
             throw_error(
                 "IX Volume Configuration: [ixVolumes] item must contain [hostPath]"
