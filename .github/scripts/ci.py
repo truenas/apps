@@ -163,7 +163,12 @@ def get_failed_containers():
     if failed.startswith("{"):
         failed = f"[{failed}]"
 
-    return json.loads(failed)
+    data = json.loads(failed)
+    for container in data:
+        # Skip containers that are exited with 0 (eg init containers)
+        if container.get("Health", "") == "" and container.get("ExitCode", 0) == 0:
+            data.remove(container)
+    return data
 
 
 def get_container_name(container):
@@ -185,8 +190,8 @@ def run_app():
     print_cmd(cmd)
     res = subprocess.run(cmd, shell=True)
 
-    print_logs()
     print_docker_processes()
+    print_logs()
 
     if res.returncode != 0:
         print("Failed to start container(s)")
