@@ -7,9 +7,15 @@ RE_ID = re.compile(r"^[0-9]+$")
 RE_MODE = re.compile(r"^(0o)?([0-7]{3})$")
 
 
-def chown(path, uid, gid):
+def chown(path, uid, gid, force=False):
     if not pathlib.Path(path).exists():
         utils.throw_error(f"Path [{path}] does not exist")
+
+    if any(pathlib.Path(path).iterdir()):
+        if not force:
+            utils.throw_error(
+                f"Path [{path}] is not empty, skipping... Use [force=True] to override"
+            )
 
     if not RE_ID.match(uid):
         utils.throw_error(f"User ID must be a number, but got [{uid}]")
@@ -20,9 +26,15 @@ def chown(path, uid, gid):
     return ""
 
 
-def chmod(path, mode):
+def chmod(path, mode, force=False):
     if not pathlib.Path(path).exists():
         utils.throw_error(f"Path [{path}] does not exist")
+
+    if any(pathlib.Path(path).iterdir()):
+        if not force:
+            utils.throw_error(
+                f"Path [{path}] is not empty, skipping... Use [force=True] to override"
+            )
 
     if not RE_MODE.match(mode):
         utils.throw_error(
