@@ -149,7 +149,7 @@ def get_failed_containers():
     print(f"Failed containers: {failed}")
     # if failed starts with { put it inside []
     if failed.startswith("{"):
-        failed = [failed]
+        failed = f"[{failed}]"
 
     return json.loads(failed)
 
