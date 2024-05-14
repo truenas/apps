@@ -1,0 +1,61 @@
+name: Apps Test Suite
+
+on:
+  pull_request: {}
+
+jobs:
+  changed-files:
+    name: Generate matrix
+    runs-on: ubuntu-latest
+    outputs:
+      changed-apps: ${{ steps.changed-apps.outputs.changed-apps }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get changed files
+        id: changed-files-json
+        uses: tj-actions/changed-files@v44
+        with:
+          json: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Matrix Output
+        id: changed-apps
+        env:
+          CHANGED_FILES: ${{ steps.changed-files-json.outputs.all_changed_files }}
+        run: |
+          out=$(python3 .github/scripts/changed_apps.py)
+          echo "changed-apps=${out}" >> $GITHUB_OUTPUT
+
+  run-apps:
+    name: Run Docker Compose Render/Install
+    needs: changed-files
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.changed-files.outputs.changed-apps) }}
+      fail-fast: false
+      max-parallel: 10
+    steps:
+      - name: Environment Information
+        run: |
+          echo "====== Docker Info ======"
+          docker info
+          echo "========================="
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test
+        shell: bash
+        run: |
+          echo "Testing [${{matrix.train}}/${{matrix.app}}/templates/test_values/${{matrix.test_file}}]"
+          # FIXME: remove
+          sudo mkdir -p /mnt/test/{data1,data2,data3,data4,postgres}
+          sudo chown -R 568:568 /mnt/test/{data1,data2,data3,data4}
+          sudo chown -R 999:999 /mnt/test/postgres
+          python3 ./.github/scripts/ci.py --train ${{matrix.train}} --app ${{matrix.app}} --test_file ${{matrix.test_file}}
