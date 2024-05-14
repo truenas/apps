@@ -264,6 +264,11 @@ def main():
     res = run_app()
     docker_cleanup()
 
+    if res == 0:
+        print("Successfully rendered and run docker-compose file")
+    else:
+        print("Failed to render and run docker-compose file")
+
     sys.exit(res)
 
 
