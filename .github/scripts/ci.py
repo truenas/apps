@@ -146,7 +146,6 @@ def get_failed_containers():
     print_cmd(cmd)
     failed = subprocess.run(cmd, shell=True, capture_output=True)
     failed = failed.stdout.decode("utf-8")
-    print(f"Failed containers: {failed}")
     # if failed starts with { put it inside []
     if failed.startswith("{"):
         failed = f"[{failed}]"
