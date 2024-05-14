@@ -87,6 +87,16 @@ def render_compose():
     if res.returncode != 0:
         print("Failed to render docker-compose file")
         sys.exit(1)
+
+    with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
+        try:
+            yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            print(f"Failed to parse rendered docker-compose file [{e}]")
+            with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
+                print(f"Rendered docker-compose file:\n{f.read()}")
+            sys.exit(1)
+
     print("Done rendering docker-compose file")
 
 
@@ -156,9 +166,13 @@ def get_failed_containers():
     return json.loads(failed)
 
 
+def get_container_name(container):
+    return container["Name"].replace(args["project"] + "-", "")
+
+
 def print_inspect_data(container):
     cmd = f"docker container inspect {container['ID']}"
-    print_cmd(cmd)
+    print_cmd(cmd + f". Container: [{get_container_name(container)}]]")
     res = subprocess.run(cmd, shell=True, capture_output=True)
     data = json.loads(res.stdout.decode("utf-8"))
     separator_start()
@@ -221,7 +235,7 @@ def copy_lib():
     os.makedirs(app_lib_dir, exist_ok=True)
     for dir in pathlib.Path(app_lib_dir).iterdir():
         if dir.name.startswith("base_v"):
-            dir.rmdir()
+            shutil.rmtree(dir, ignore_errors=True)
 
     try:
         shutil.copytree(
