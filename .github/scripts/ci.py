@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-
 import subprocess
 import argparse
 import secrets
 import shutil
 import json
+import re
 import os
 
 CONTAINER_IMAGE = "sonicaj/a_v:latest"
@@ -111,7 +111,7 @@ def print_cmd(cmd):
     print(f"Running command [{cmd}]")
 
 
-def cleanup():
+def docker_cleanup():
     cmd = f"{get_base_cmd()} down --remove-orphans --volumes"
     print_cmd(cmd)
     separator_start()
@@ -181,20 +181,60 @@ def run_app():
     print("Containers started successfully")
 
 
-def main():
-    print_state()
-    check_required_commands()
-    pull_app_catalog_container()
-    # FIXME: replace this copy lib script
-    res = subprocess.run(f"./copy_lib.sh {args['train']} {args['app']}", shell=True)
-    if res.returncode != 0:
-        print("Failed to copy lib")
+def check_app_dir_exists():
+    if not os.path.exists(f"ix-dev/{args['train']}/{args['app']}"):
+        print(f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist")
         exit(1)
 
+
+def get_latest_lib_version():
+    libs = [
+        lib
+        for lib in os.listdir("library")
+        if os.path.isdir(os.path.join("library", lib))
+    ]
+
+    def version_key(version):
+        return [int(part) for part in re.split(r"\.", version)]
+
+    sorted_libs = sorted(libs, key=version_key)
+    return sorted_libs[-1] if sorted_libs else None
+
+
+def copy_lib():
+    # get latest lib version
+    lib_version = get_latest_lib_version()
+    if not lib_version:
+        print("Failed to get latest lib version")
+        exit(1)
+    print(f"Copying lib version [{lib_version}]")
+    lib = f"base_v{lib_version.replace('.', '_')}"
+    if os.path.exists(f"ix-dev/{args['train']}/{args['app']}/templates/library/{lib}"):
+        shutil.rmtree(f"ix-dev/{args['train']}/{args['app']}/templates/library/{lib}")
+    os.makedirs(
+        f"ix-dev/{args['train']}/{args['app']}/templates/library/{lib}", exist_ok=True
+    )
+    try:
+        shutil.copytree(
+            f"library/{lib_version}",
+            f"ix-dev/{args['train']}/{args['app']}/templates/library/{lib}",
+            dirs_exist_ok=True,
+        )
+    except shutil.Error:
+        print(f"Failed to copy lib [{lib_version}]")
+        exit(1)
+
+
+def main():
+    print_state()
+    check_app_dir_exists()
+    copy_lib()
+    check_required_commands()
+    pull_app_catalog_container()
     render_compose()
     print_docker_compose_config()
     res = run_app()
-    cleanup()
+    docker_cleanup()
 
     exit(res)
 
