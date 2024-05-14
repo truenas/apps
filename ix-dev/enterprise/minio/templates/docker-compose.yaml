@@ -1,0 +1,134 @@
+{{ ix_lib.enterprise.minio.data.validate(data = {
+  'multi_mode': minio.multi_mode,
+  'storage': storage,
+}) }}
+
+{% set pg_database = "logsearch" %}
+{% set pg_user = "logsearch" %}
+{% set minio_network = "minio_internal" %}
+
+{% set log_auth_token = ix_lib.base.utils.secure_string(16) %} {# Random string #}
+{% set log_audit_token = ix_lib.base.utils.secure_string(16) %} {# Random string #}
+
+{% set minio_vols = namespace(items=[]) %}
+
+networks:
+  {{ minio_network }}: {}
+
+{% if network.certificate_id %}
+configs:
+  private:
+    content: |
+      {{ ixCertificates[network.certificate_id].privatekey | indent(6) }}
+  public:
+    content: |
+      {{ ixCertificates[network.certificate_id].certificate | indent(6) }}
+{% endif %}
+services:
+  minio:
+    image: minio/minio:RELEASE.2023-12-07T04-16-00Z
+    user: {{ "%s:%s" | format(minio.user, minio.group) }}
+    networks:
+      - {{ minio_network }}
+    ports:
+      - {{ "%d:%d" | format(network.api_port, network.api_port) }}
+      - {{ "%d:%d" | format(network.console_port, network.console_port) }}
+    deploy:
+      {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.resources(resources)) | indent(6) }}
+    {% if network.certificate_id %}
+    configs:
+      - source: private
+        target: /.minio/certs/private.key
+      - source: public
+        target: /.minio/certs/public.crt
+    {% endif %}
+    command:
+      - server
+      - --address
+      - {{ ":%d" | format(network.api_port) }}
+      - --console-address
+      - {{ ":%d" | format(network.console_port) }}
+      {% if network.certificate_id %}
+      - --certs-dir
+      - /.minio/certs
+      {% endif %}
+      {% if minio.logging.anonymous %}
+      - --anonymous
+      {% endif %}
+      {% if minio.logging.quiet %}
+      - --quiet
+      {% endif %}
+    volumes:
+      {% for store in storage.data %}
+        {% set minio_vols.items = minio_vols.items + [store.mount_path] %}
+      - {{ "%s:%s" | format(ix_lib.base.utils.host_path_with_perms(data = store, root = data, perms = {'user': minio.user, 'group': minio.group}), ix_lib.base.validations.validate_path(store.mount_path)) }}
+      {% endfor %}
+    environment:
+      MINIO_ROOT_USER: {{ minio.access_key }}
+      MINIO_ROOT_PASSWORD: {{ minio.secret_key  }}
+      {% if multi_mode %}
+      MINIO_VOLUMES: {{ minio_vols.items | join(' ') }}
+      {% else %}
+      MINIO_VOLUMES: {{ minio_vols.items | join(' ') }}
+      {% endif %}
+      {% if network.server_url %}
+      MINIO_SERVER_URL: {{ network.server_url }}
+      {% endif %}
+      {% if network.console_url %}
+      MINIO_BROWSER_REDIRECT_URL: {{ network.console_url }}
+      {% endif %}
+      {% if logsearch.enabled %}
+      MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch: "on"
+      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://logsearch:8080/api/ingest?token=%s" | format(log_audit_token) }}
+      MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
+      MINIO_LOG_QUERY_URL: http://logsearch:8080
+      {% endif %}
+      MC_HOST_health: {{ "%s://localhost:%d" | format("https" if network.certificate_id else "http", network.api_port) }}
+    healthcheck:
+      {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.health_check(test = "mc ready --insecure --debug health")) | indent(6) }}
+    {% if logsearch.enabled %}
+    depends_on:
+      logsearch:
+        condition: service_healthy
+    {% endif %}
+
+  {% if logsearch.enabled %}
+  logsearch:
+    image: minio/operator:v4.5.8
+    user: {{ "%s:%s" | format(minio.user, minio.group) }}
+    networks:
+      - {{ minio_network }}
+    entrypoint: /logsearchapi
+    deploy:
+      {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.resources(resources))| indent(6) }}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.health_check(ix_lib.base.snippets.curl_test("http://localhost:8080/status"))) | indent(6) }}
+    environment:
+      LOGSEARCH_DISK_CAPACITY_GB: {{ logsearch.disk_capacity_gb }}
+      LOGSEARCH_PG_CONN_STR: postgresql://{{ pg_user }}:{{ logsearch.postgres_password }}@postgres:5432/{{ pg_database }}?sslmode=disable
+      LOGSEARCH_AUDIT_AUTH_TOKEN: {{ log_audit_token }}
+      MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
+
+  postgres:
+    image: postgres:15
+    user: {{ ix_lib.base.snippets.postgres_run_as() }}
+    networks:
+      - {{ minio_network }}
+    deploy:
+      {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.resources(resources)) | indent(6) }}
+    healthcheck:
+      {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.health_check(ix_lib.base.snippets.pg_test(user = pg_user, db=pg_database))) | indent(6) }}
+    environment:
+      {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.postgres_environment(user = pg_user, db = pg_database, password = logsearch.postgres_password)) | indent(6) }}
+    volumes:
+      - {{ "%s:/var/lib/postgresql/data" | format(ix_lib.base.utils.host_path_with_perms(data = logsearch.postgres_data, root = data, perms = {'user': ix_lib.base.snippets.postgres_uid(), 'group': ix_lib.base.snippets.postgres_gid()})) }}
+  {% endif %}
+
+{#
+TODO: add function for container that runs a pg backup on a schedule. Nice read
+https://wbarillon.medium.com/the-proper-and-easiest-way-to-set-cron-jobs-docker-version-1ef213578ad
+#}
+{# TODO: make a postgres snippet #}
