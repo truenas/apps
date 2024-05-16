@@ -215,7 +215,11 @@ def get_failed_containers():
     if failed.startswith("{"):
         failed = f"[{failed}]"
 
-    data = json.loads(failed)
+    try:
+        data = json.loads(failed)
+    except json.JSONDecodeError:
+        print_stderr(f"Failed to parse container status output [{failed}]")
+        sys.exit(1)
     for container in data:
         # Skip containers that are exited with 0 (eg init containers)
         if container.get("Health", "") == "" and container.get("ExitCode", 0) == 0:
@@ -253,6 +257,7 @@ def run_app():
         return res.returncode
 
     print_stderr("Containers started successfully")
+    return 0
 
 
 def check_app_dir_exists():
