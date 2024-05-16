@@ -1,11 +1,9 @@
+{% from "macros/global/permissions.yaml.jinja" import permissions_container %}
+
 {{ ix_lib.enterprise.minio.data.validate(data = {
   'multi_mode': minio.multi_mode,
   'storage': storage,
 }) }}
-
-{% from "macros/global/test.sh.jinja" import test %}
-
-x-out: | {{ test('test') | indent(2, first=True) }}
 
 {% set pg_database = "logsearch" %}
 {% set pg_user = "logsearch" %}
@@ -15,9 +13,7 @@ x-out: | {{ test('test') | indent(2, first=True) }}
 {% set log_audit_token = ix_lib.base.utils.secure_string(16) %} {# Random string #}
 
 {% set minio_vols = namespace(items=[]) %}
-
-networks:
-  {{ minio_network }}: {}
+{% set perm_paths = namespace(items=[]) %}
 
 {% if network.certificate_id %}
 configs:
@@ -29,37 +25,35 @@ configs:
       {{ ixCertificates[network.certificate_id].certificate | indent(6) }}
 {% endif %}
 
-{# TODO: instead of using a network, use a service (eg service:postgres) #}
+{# Get paths to apply permissions to #}
+{% for store in storage.data %}
+  {%- if store.auto_permissions %}
+  {% set perm_paths.items = perm_paths.items +
+    [{
+      'host_path': ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes),
+      'mount_path': store.mount_path, 'uid': ix_lib.base.permissions.validate_id(minio.user),
+      'gid': ix_lib.base.permissions.validate_id(minio.group)
+    }]
+  %}
+  {% endif %}
+{% endfor %}
+{% if logsearch.enabled and logsearch.postgres_data.auto_permissions %}
+  {% set perm_paths.items = perm_paths.items +
+    [{
+      'host_path': ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes),
+      'mount_path': '/data/pgdata', 'uid': ix_lib.base.permissions.validate_id(logsearch.postgres_data.user),
+      'gid': ix_lib.base.permissions.validate_id(logsearch.postgres_data.group)
+    }]
+  %}
+{% endif %}
 
 services:
-  permissions:
-    image: python:3.11
-    user: root
-    entrypoint: python
-    command:
-      - -c
-      - |
-        import os
-        import pathlib
-        {% if logsearch.enabled %}
-          {{- ix_lib.base.permissions.chown(path="/data/pgdata", uid=999, gid=999) | indent(8) }}
-        {% endif %}
-        {% for store in storage.data %}
-          {{- ix_lib.base.permissions.chown(path=store.mount_path, uid=minio.user, gid=minio.group) | indent(8) }}
-        {% endfor %}
-    volumes:
-      {% if logsearch.enabled %}
-      - {{ "%s:/data/pgdata" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
-      {% endif %}
-      {% for store in storage.data %}
-      - {{ "%s:%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), ix_lib.base.validations.validate_path(store.mount_path)) }}
-      {% endfor %}
-
+  {% if perm_paths.items %}
+    {{- permissions_container(paths=perm_paths.items) | indent(2) }}
+  {% endif %}
   minio:
     image: minio/minio:RELEASE.2023-12-07T04-16-00Z
     user: {{ "%s:%s" | format(minio.user, minio.group) }}
-    networks:
-      - {{ minio_network }}
     ports:
       - {{ "%d:%d" | format(network.api_port, network.api_port) }}
       - {{ "%d:%d" | format(network.console_port, network.console_port) }}
@@ -116,20 +110,28 @@ services:
       MC_HOST_health: {{ "%s://localhost:%d" | format("https" if network.certificate_id else "http", network.api_port) }}
     healthcheck:
       {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.health_check(test = "mc ready --insecure --debug health")) | indent(6) }}
+    {% if perm_paths.items or logsearch.enabled %}
     depends_on:
+      {% if perm_paths.items %}
       permissions:
         condition: service_completed_successfully
-    {% if logsearch.enabled %}
+      {% endif %}
+      {% if logsearch.enabled %}
       logsearch:
         condition: service_healthy
+      {% endif %}
+    {% endif %}
+    {% if logsearch.enabled %}
+    links:
+      - logsearch
     {% endif %}
 
   {% if logsearch.enabled %}
   logsearch:
     image: minio/operator:v4.5.8
     user: {{ "%s:%s" | format(minio.user, minio.group) }}
-    networks:
-      - {{ minio_network }}
+    links:
+      - postgres
     entrypoint: /logsearchapi
     deploy:
       {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.resources(resources))| indent(6) }}
@@ -147,11 +149,11 @@ services:
   postgres:
     image: postgres:15
     user: {{ ix_lib.base.snippets.postgres_run_as() }}
-    depends_on: # TODO: do this on minio too
+    {% if perm_paths.items %}
+    depends_on:
       permissions:
         condition: service_completed_successfully
-    networks:
-      - {{ minio_network }}
+    {% endif %}
     deploy:
       {{ ix_lib.base.utils.to_yaml(ix_lib.base.snippets.resources(resources)) | indent(6) }}
     healthcheck:
