@@ -13,28 +13,61 @@ CONTAINER_IMAGE = "sonicaj/a_v:latest"
 # CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 
 
+# Used to print mostly structured data, like yaml or json
+# so they can be piped to a file or jq, etc
+def print_stdout(msg):
+    print(msg)
+
+
+# Prints to stderr so the output is not mixed with stdout
+def print_stderr(msg):
+    print(msg, file=sys.stderr)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--app", required=True, help="App name")
-    parser.add_argument("--train", required=True, help="Train name")
-    parser.add_argument("--test_file", required=True, help="Test file")
+    parser.add_argument("--app", required=True, help="The name of the app")
+    parser.add_argument(
+        "--train", required=True, help="The name of the train for the app"
+    )
+    parser.add_argument(
+        "--test_file", required=True, help="Name of the test file to use as values"
+    )
+    parser.add_argument(
+        "--render_only",
+        required=False,
+        default=False,
+        type=bool,
+        help="Prints the rendered docker-compose file",
+    )
+    parser.add_argument(
+        "--render_only_debug",
+        required=False,
+        default=False,
+        type=bool,
+        help="Prints the rendered docker-compose file even if it's not a valid yaml",
+    )
     parsed = parser.parse_args()
 
     return {
         "app": parsed.app,
         "train": parsed.train,
         "test_file": parsed.test_file,
+        "render_only": parsed.render_only,
+        "render_only_debug": parsed.render_only_debug,
         "project": secrets.token_hex(16),
     }
 
 
 def print_info():
-    print("Parameters:")
-    print(f"  - app: [{args['app']}]")
-    print(f"  - train: [{args['train']}]")
-    print(f"  - project: [{args['project']}]")
-    print(f"  - test_file: [{args['test_file']}]")
-    print(f"  - lib_version: [{get_lib_version()}]")
+    print_stderr("Parameters:")
+    print_stderr(f"  - app: [{args['app']}]")
+    print_stderr(f"  - train: [{args['train']}]")
+    print_stderr(f"  - project: [{args['project']}]")
+    print_stderr(f"  - test_file: [{args['test_file']}]")
+    print_stderr(f"  - render_only: [{args['render_only']}]")
+    print_stderr(f"  - render_only_debug: [{args['render_only_debug']}]")
+    print_stderr(f"  - lib_version: [{get_lib_version()}]")
 
 
 def command_exists(command):
@@ -45,7 +78,7 @@ def check_required_commands():
     required_commands = ["docker", "jq", "openssl"]
     for command in required_commands:
         if not command_exists(command):
-            print(f"Error: command [{command}] is not installed")
+            print_stderr(f"Error: command [{command}] is not installed")
             sys.exit(1)
 
 
@@ -60,16 +93,18 @@ def get_base_cmd():
 
 
 def pull_app_catalog_container():
-    print(f"Pulling container image [{CONTAINER_IMAGE}]")
-    res = subprocess.run(f"docker pull --quiet {CONTAINER_IMAGE}", shell=True)
+    print_stderr(f"Pulling container image [{CONTAINER_IMAGE}]")
+    res = subprocess.run(
+        f"docker pull --quiet {CONTAINER_IMAGE}", shell=True, capture_output=True
+    )
     if res.returncode != 0:
-        print(f"Failed to pull container image [{CONTAINER_IMAGE}]")
+        print_stderr(f"Failed to pull container image [{CONTAINER_IMAGE}]")
         sys.exit(1)
-    print(f"Done pulling container image [{CONTAINER_IMAGE}]")
+    print_stderr(f"Done pulling container image [{CONTAINER_IMAGE}]")
 
 
 def render_compose():
-    print("Rendering docker-compose file")
+    print_stderr("Rendering docker-compose file")
     test_values_dir = "templates/test_values"
     app_dir = f"ix-dev/{args['train']}/{args['app']}"
     cmd = " ".join(
@@ -85,43 +120,60 @@ def render_compose():
     res = subprocess.run(cmd, shell=True)
     separator_start()
     if res.returncode != 0:
-        print("Failed to render docker-compose file")
+        print_stderr("Failed to render docker-compose file")
         sys.exit(1)
 
     with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
         try:
-            yaml.safe_load(f)
+            out = yaml.safe_load(f)
         except yaml.YAMLError as e:
-            print(f"Failed to parse rendered docker-compose file [{e}]")
+            print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
             with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
-                print(f"Rendered docker-compose file:\n{f.read()}")
+                print_stderr(
+                    f"Syntax Error in rendered docker-compose file:\n{f.read()}"
+                )
             sys.exit(1)
 
-    print("Done rendering docker-compose file")
+        if args["render_only_debug"]:
+            print_stderr("Successfully rendered docker-compose file:")
+            print_stdout(yaml.dump(out))
+            sys.exit(0)
+
+    print_stderr("Done rendering docker-compose file")
 
 
 def print_docker_compose_config():
-    print("Printing docker compose config (parsed compose)")
+    print_stderr("Printing docker compose config (parsed compose)")
     cmd = f"{get_base_cmd()} config"
     print_cmd(cmd)
     separator_start()
-    res = subprocess.run(cmd, shell=True)
-    separator_start()
+    res = subprocess.run(cmd, shell=True, capture_output=True)
+    separator_end()
     if res.returncode != 0:
-        print("Failed to print docker compose config")
+        print_stderr("Failed to print docker compose config")
+        if res.stdout:
+            print_stderr(res.stdout.decode("utf-8"))
+        if res.stderr:
+            print_stderr(res.stderr.decode("utf-8"))
         sys.exit(1)
+
+    if args["render_only"]:
+        print_stdout(res.stdout.decode("utf-8"))
+        sys.exit(0)
+
+    print_stderr(res.stdout.decode("utf-8"))
 
 
 def separator_start():
-    print("=" * 40 + "+++++" + "=" * 40)
+    print_stderr("=" * 40 + "+++++" + "=" * 40)
 
 
 def separator_end():
-    print("=" * 40 + "-----" + "=" * 40)
+    print_stderr("=" * 40 + "-----" + "=" * 40)
 
 
 def print_cmd(cmd):
-    print(f"Running command [{cmd}]")
+    print_stderr(f"Running command [{cmd}]")
 
 
 def docker_cleanup():
@@ -181,7 +233,7 @@ def print_inspect_data(container):
     res = subprocess.run(cmd, shell=True, capture_output=True)
     data = json.loads(res.stdout.decode("utf-8"))
     separator_start()
-    print(json.dumps(data, indent=4))
+    print_stdout(json.dumps(data, indent=4))
     separator_end()
 
 
@@ -194,25 +246,27 @@ def run_app():
     print_logs()
 
     if res.returncode != 0:
-        print("Failed to start container(s)")
+        print_stderr("Failed to start container(s)")
         for container in get_failed_containers():
-            print(f"Container [{container['ID']}] exited. Printing Inspect Data")
+            print_stderr(f"Container [{container['ID']}] exited. Printing Inspect Data")
             print_inspect_data(container)
         return res.returncode
 
-    print("Containers started successfully")
+    print_stderr("Containers started successfully")
 
 
 def check_app_dir_exists():
     if not os.path.exists(f"ix-dev/{args['train']}/{args['app']}"):
-        print(f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist")
+        print_stderr(
+            f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist"
+        )
         sys.exit(1)
 
 
 def get_lib_version():
     app_file = f"ix-dev/{args['train']}/{args['app']}/app.yaml"
     if not os.path.exists(app_file):
-        print(f"App file [{app_file}] does not exist")
+        print_stderr(f"App file [{app_file}] does not exist")
         sys.exit(1)
 
     with open(app_file, "r") as f:
@@ -220,20 +274,22 @@ def get_lib_version():
 
     lib_version = app["lib_version"]
     if not lib_version:
-        print("Failed to get lib version")
-        sys.exit(1)
+        print_stderr("No lib version found in app.yaml")
 
     return lib_version
 
 
 def copy_lib():
-    # get latest lib version
     lib_version = get_lib_version()
+    if not lib_version:
+        print_stderr("No lib version found in app.yaml, skipping lib copy")
+        return
+
     if not os.path.exists(f"library/{lib_version}"):
-        print(f"Library directory [library/{lib_version}] does not exist")
+        print_stderr(f"Library directory [library/{lib_version}] does not exist")
         sys.exit(1)
 
-    print(f"Copying lib version [{lib_version}]")
+    print_stderr(f"Copying lib version [{lib_version}]")
     lib = f"base_v{lib_version.replace('.', '_')}"
 
     app_lib_dir = f"ix-dev/{args['train']}/{args['app']}/templates/library"
@@ -249,7 +305,29 @@ def copy_lib():
             dirs_exist_ok=True,
         )
     except shutil.Error:
-        print(f"Failed to copy lib [{lib_version}]")
+        print_stderr(f"Failed to copy lib [{lib_version}]")
+        sys.exit(1)
+
+
+def copy_macros():
+    if not os.path.exists("macros"):
+        print_stderr("Macros directory does not exist. Skipping macros copy")
+        return
+
+    print_stderr("Copying macros")
+    target_macros_dir = f"ix-dev/{args['train']}/{args['app']}/templates/macros/global"
+    os.makedirs(target_macros_dir, exist_ok=True)
+    if pathlib.Path(target_macros_dir).exists():
+        shutil.rmtree(target_macros_dir, ignore_errors=True)
+
+    try:
+        shutil.copytree(
+            "macros",
+            target_macros_dir,
+            dirs_exist_ok=True,
+        )
+    except shutil.Error:
+        print_stderr("Failed to copy macros")
         sys.exit(1)
 
 
@@ -257,6 +335,7 @@ def main():
     print_info()
     check_app_dir_exists()
     copy_lib()
+    copy_macros()
     check_required_commands()
     pull_app_catalog_container()
     render_compose()
@@ -265,9 +344,9 @@ def main():
     docker_cleanup()
 
     if res == 0:
-        print("Successfully rendered and run docker-compose file")
+        print_stderr("Successfully rendered and run docker-compose file")
     else:
-        print("Failed to render and run docker-compose file")
+        print_stderr("Failed to render and run docker-compose file")
 
     sys.exit(res)
 
