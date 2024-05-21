@@ -1,0 +1,54 @@
+{% macro perms_shell(mode, uid, gid, chmod) %}
+for dir in /mnt/directories/*; do
+  if [ ! -d "$$dir" ]; then
+    echo "Path [$$dir] does is not a directory, skipping..."
+    continue
+  fi
+
+  echo "Current Ownership and Permissions on ["$$dir"]:"
+  echo "chown: $$(stat -c "%u %g" "$$dir")"
+  echo "chmod: $$(stat -c "%a" "$$dir")"
+
+  {%- if mode == "always" %}
+  fix_owner="true"
+  fix_perms="true"
+  {%- endif %}
+
+  {% if mode == "check" %}
+  if [ $$(stat -c %u "$$dir") -eq {{ uid }} ] && [ $$(stat -c %g "$$dir") -eq {{ gid }} ]; then
+    echo "Ownership is correct. Skipping..."
+    fix_owner="false"
+  else
+    echo "Ownership is incorrect. Fixing..."
+    fix_owner="true"
+  fi
+  {%- if chmod %}
+  if [ $$(stat -c %a "$$dir") -eq {{ chmod }} ]; then
+    echo "Permissions are correct. Skipping..."
+    fix_perms="false"
+  else
+    echo "Permissions are incorrect. Fixing..."
+    fix_perms="true"
+  fi
+  {%- endif %}
+  {%- endif %}
+
+  if [ "$$fix_owner" = "true" ]; then
+    echo "Changing ownership to {{ uid }}:{{ gid }} on: ["$$dir"]"
+    chown -R {{ uid }}:{{ gid }} "$$dir"
+    echo "Finished changing ownership"
+    echo "Ownership after changes:"
+    stat -c "%u %g" "$$dir"
+  fi
+
+  {%- if chmod %}
+  if [ "$$fix_perms" = "true" ]; then
+    echo "Changing permissions to {{ chmod }} on: ["$$dir"]"
+    chmod -R {{ chmod }} "$$dir"
+    echo "Finished changing permissions"
+    echo "Permissions after changes:"
+    stat -c "%a" "$$dir"
+  fi
+  {%- endif %}
+done
+{% endmacro %}
