@@ -27,26 +27,10 @@ def print_stderr(msg):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--app", required=True, help="The name of the app")
-    parser.add_argument(
-        "--train", required=True, help="The name of the train for the app"
-    )
-    parser.add_argument(
-        "--test_file", required=True, help="Name of the test file to use as values"
-    )
-    parser.add_argument(
-        "--render_only",
-        required=False,
-        default=False,
-        type=bool,
-        help="Prints the rendered docker-compose file",
-    )
-    parser.add_argument(
-        "--render_only_debug",
-        required=False,
-        default=False,
-        type=bool,
-        help="Prints the rendered docker-compose file even if it's not a valid yaml",
-    )
+    parser.add_argument("--train", required=True, help="The name of the train for the app")
+    parser.add_argument("--test-file", required=True, help="Name of the test file to use as values")
+    parser.add_argument("--render-only", required=False, default=False, type=bool, help="Prints the rendered docker-compose file")
+    parser.add_argument("--render-only-debug", required=False, default=False, type=bool, help="Prints the rendered docker-compose file even if it's not a valid yaml")
     parsed = parser.parse_args()
 
     return {
@@ -64,9 +48,9 @@ def print_info():
     print_stderr(f"  - app: [{args['app']}]")
     print_stderr(f"  - train: [{args['train']}]")
     print_stderr(f"  - project: [{args['project']}]")
-    print_stderr(f"  - test_file: [{args['test_file']}]")
-    print_stderr(f"  - render_only: [{args['render_only']}]")
-    print_stderr(f"  - render_only_debug: [{args['render_only_debug']}]")
+    print_stderr(f"  - test-file: [{args['test_file']}]")
+    print_stderr(f"  - render-only: [{args['render_only']}]")
+    print_stderr(f"  - render-only-debug: [{args['render_only_debug']}]")
     print_stderr(f"  - lib_version: [{get_lib_version()}]")
 
 
@@ -94,9 +78,7 @@ def get_base_cmd():
 
 def pull_app_catalog_container():
     print_stderr(f"Pulling container image [{CONTAINER_IMAGE}]")
-    res = subprocess.run(
-        f"docker pull --quiet {CONTAINER_IMAGE}", shell=True, capture_output=True
-    )
+    res = subprocess.run(f"docker pull --quiet {CONTAINER_IMAGE}", shell=True, capture_output=True)
     if res.returncode != 0:
         print_stderr(f"Failed to pull container image [{CONTAINER_IMAGE}]")
         sys.exit(1)
@@ -129,9 +111,7 @@ def render_compose():
         except yaml.YAMLError as e:
             print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
             with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
-                print_stderr(
-                    f"Syntax Error in rendered docker-compose file:\n{f.read()}"
-                )
+                print_stderr(f"Syntax Error in rendered docker-compose file:\n{f.read()}")
             sys.exit(1)
 
         if args["render_only_debug"]:
@@ -262,9 +242,7 @@ def run_app():
 
 def check_app_dir_exists():
     if not os.path.exists(f"ix-dev/{args['train']}/{args['app']}"):
-        print_stderr(
-            f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist"
-        )
+        print_stderr(f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist")
         sys.exit(1)
 
 
