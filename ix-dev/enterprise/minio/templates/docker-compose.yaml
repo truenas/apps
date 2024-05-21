@@ -1,4 +1,4 @@
-{% from "macros/global/perms.sh.jinja" import perms_shell %}
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 {% set _ = ix_lib.enterprise.minio.data.validate(data = {
   'multi_mode': minio.multi_mode,
   'storage': storage,
@@ -46,28 +46,13 @@ services:
     volumes:
       - {{ "%s:/var/lib/postgresql/data" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(ix_lib.base.healthchecks.pg_test(pg_user, pg_database)) }}
-  pg_perms:
-    image: bash
-    user: root
-    entrypoint:
-      - bash
-      - -c
-    command:
-      - |
-        {{- perms_shell(mode="check", uid="999", gid="999", chmod="") | indent(8) }}
+
+  {{ perms_container("pg_perms", "check", "999", "999", "") | indent(2) }}
     volumes:
       - {{ "%s:/mnt/directories/data" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
   {% endif %}
 
-  minio_perms:
-    image: bash
-    user: root
-    entrypoint:
-      - bash
-      - -c
-    command:
-      - |
-        {{- perms_shell(mode="check", uid=minio.user, gid=minio.group, chmod="") | indent(8) }}
+  {{ perms_container("minio_perms", "check", minio.user, minio.group, "") | indent(2) }}
     volumes:
       {% for store in storage.data %}
       - {{ "%s:/mnt/directories/data%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), loop.index) }}
