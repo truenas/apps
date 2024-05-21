@@ -19,8 +19,11 @@ configs:
 {% set log_auth_token = ix_lib.base.utils.secure_string(16) %}
 {% set log_audit_token = ix_lib.base.utils.secure_string(16) %}
 {% set minio_vols = namespace(items=[]) %}
+{% set auto_permissions_list = storage.data | map(attribute='auto_permissions') %}
+{% set minio_perms = auto_permissions_list | select('equalto', True) | list | length > 0 %}
+
 services:
-  {% if logsearch.enabled %}
+{% if logsearch.enabled %}
   logsearch:
     image: minio/operator:v4.5.8
     user: {{ "%s:%s" | format(minio.user, minio.group) }}
@@ -39,24 +42,30 @@ services:
   postgres:
     image: postgres:15
     user: "999:999"
+    {% if logsearch.postgres_data.auto_permissions %}
     depends_on:
       pg_perms:
         condition: service_completed_successfully
+    {% endif %}
     environment: {{ ix_lib.base.snippets.postgres_environment(pg_user, logsearch.postgres_password, pg_database,) }}
     volumes:
       - {{ "%s:/var/lib/postgresql/data" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(ix_lib.base.healthchecks.pg_test(pg_user, pg_database)) }}
 
+  {% if logsearch.postgres_data.auto_permissions %}
   {{ perms_container("pg_perms", "check", "999", "999", "") | indent(2) }}
     volumes:
       - {{ "%s:/mnt/directories/data" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
   {% endif %}
+{% endif %}
 
+  {% if minio_perms %}
   {{ perms_container("minio_perms", "check", minio.user, minio.group, "") | indent(2) }}
     volumes:
-      {% for store in storage.data %}
+      {% for store in storage.data if store.auto_permissions %}
       - {{ "%s:/mnt/directories/data%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), loop.index) }}
       {% endfor %}
+  {% endif %}
   minio:
     image: minio/minio:RELEASE.2023-12-07T04-16-00Z
     user: {{ "%s:%s" | format(minio.user, minio.group) }}
@@ -91,13 +100,17 @@ services:
         {% set minio_vols.items = minio_vols.items + [store.mount_path] %}
       - {{ "%s:%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), ix_lib.base.validations.validate_path(store.mount_path)) }}
       {% endfor %}
+    {% if logsearch.enabled or minio_perms %}
     depends_on:
+      {% if minio_perms %}
       minio_perms:
         condition: service_completed_successfully
+      {% endif %}
       {% if logsearch.enabled %}
       logsearch:
         condition: service_healthy
       {% endif %}
+    {% endif %}
     environment:
       MINIO_ROOT_USER: {{ minio.access_key }}
       MINIO_ROOT_PASSWORD: {{ minio.secret_key  }}
