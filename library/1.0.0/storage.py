@@ -79,10 +79,9 @@ def volume(data, ix_volumes=[]):
         "type": vol_type,
         "target": valid_path(data.get("mount_path", "")),
         "read_only": data.get("read_only", False),
-        "create_host_path": True,  # This is what docker has as default on short-syntax
     }
 
-    if vol_type == "bind":
-        volume.update({"source": host_path(data, ix_volumes)})
+    if vol_type == "bind":  # Default create_host_path is true in short-syntax
+        volume.update({"source": host_path(data, ix_volumes), "bind": {"create_host_path": True}})
 
     return volume
