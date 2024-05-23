@@ -59,3 +59,29 @@ def process_ix_volume(data, ix_volumes):
         utils.throw_error(f"Expected [ix_volumes] to contain path for dataset with name [{ds}]")
 
     return path
+
+
+def get_volume_type(data):
+    if not data.get("type"):
+        utils.throw_error("Expected [type] to be set for storage")
+    if data["type"] in ["host_path", "ix_volume"]:
+        return "bind"
+    elif data["type"] == "tmpfs":
+        return "tmpfs"
+    else:
+        utils.throw_error(f"Expected storage type to be one of [host_path, ix_volume], got {data['type']}")
+
+
+def volume(data, ix_volumes=[]):
+    vol_type = get_volume_type(data)
+
+    volume = {
+        "type": vol_type,
+        "target": valid_path(data.get("mount_path", "")),
+        "read_only": data.get("read_only", False),
+    }
+
+    if vol_type == "bind":
+        volume.update({"source": host_path(data, ix_volumes)})
+
+    return volume

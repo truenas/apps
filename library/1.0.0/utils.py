@@ -23,6 +23,10 @@ def get_yaml_opts():
     }
 
 
+def merge(a, b):
+    return {**a, **b}
+
+
 def to_yaml(data):
     return yaml.dump(data, **get_yaml_opts())
 
