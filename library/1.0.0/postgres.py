@@ -1,27 +1,31 @@
+from . import utils
+
+
 def pg_url(variant, host, user, password, dbname, port=5432):
     if not host:
-        raise ValueError("host is required")
+        utils.throw_error("Expected [host] to be set")
     if not user:
-        raise ValueError("user is required")
+        utils.throw_error("Expected [user] to be set")
     if not password:
-        raise ValueError("password is required")
+        utils.throw_error("Expected [password] to be set")
     if not dbname:
-        raise ValueError("dbname is required")
+        utils.throw_error("Expected [dbname] to be set")
+
     if variant == "postgresql":
         return f"postgresql://{user}:{password}@{host}:{port}/{dbname}?sslmode=disable"
     elif variant == "postgres":
         return f"postgres://{user}:{password}@{host}:{port}/{dbname}?sslmode=disable"
     else:
-        raise ValueError(f"Unknown variant {variant}")
+        utils.throw_error(f"Expected [variant] to be one of [postgresql, postgres], got [{variant}]")
 
 
 def pg_env(user, password, dbname, port=5432):
     if not user:
-        raise ValueError("user is required")
+        utils.throw_error("Expected [user] to be set for postgres")
     if not password:
-        raise ValueError("password is required")
+        utils.throw_error("Expected [password] to be set for postgres")
     if not dbname:
-        raise ValueError("dbname is required")
+        utils.throw_error("Expected [dbname] to be set for postgres")
     return {
         "POSTGRES_USER": user,
         "POSTGRES_PASSWORD": password,
