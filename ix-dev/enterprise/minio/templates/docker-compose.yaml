@@ -54,14 +54,14 @@ services:
     {% endif %}
     environment: {{ ix_lib.base.postgres.pg_env(pg_user, logsearch.postgres_password, pg_database) }}
     volumes:
-      - {{ ix_lib.base.storage.volume(ix_lib.base.utils.merge(logsearch.postgres_data, {"mount_path": "/var/lib/postgresql/data"}), ix_volumes=ixVolumes) }}
+      - {{ ix_lib.base.storage.volume(dict(logsearch.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}), ix_volumes=ixVolumes) }}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(ix_lib.base.healthchecks.pg_test(pg_user, pg_database)) }}
 
   {# Postgres Permissions #}
   {% if logsearch.postgres_data.auto_permissions %}
   {{ perms_container("pg_perms", "check", "999", "999", "") | indent(2) }}
     volumes:
-      - {{ ix_lib.base.storage.volume(ix_lib.base.utils.merge(logsearch.postgres_data, {"mount_path": "/mnt/directories/data"}), ix_volumes=ixVolumes) }}
+      - {{ ix_lib.base.storage.volume(dict(logsearch.postgres_data, **{"mount_path": "/mnt/directories/data"}), ix_volumes=ixVolumes) }}
   {% endif %}
 {% endif %}
 
@@ -71,7 +71,7 @@ services:
   {{ perms_container("minio_perms", "check", minio.user, minio.group, "") | indent(2) }}
     volumes:
       {% for store in storage.data if store.auto_permissions %}
-      - {{ ix_lib.base.storage.volume(ix_lib.base.utils.merge(store, {"mount_path": "/mnt/directories/data%s" | format(loop.index)}), ix_volumes=ixVolumes) }}
+      - {{ ix_lib.base.storage.volume(dict(store, **{"mount_path": "/mnt/directories/data%s" | format(loop.index)}), ix_volumes=ixVolumes) }}
       {% endfor %}
 {% endif %}
 
