@@ -1,4 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+
 {% set _ = ix_lib.enterprise.minio.data.validate(data = {
   'multi_mode': minio.multi_mode,
   'storage': storage,
@@ -24,6 +25,7 @@ configs:
 
 services:
 {% if logsearch.enabled %}
+  {# Logsearch API #}
   logsearch:
     image: minio/operator:v4.5.8
     user: {{ "%s:%s" | format(minio.user, minio.group) }}
@@ -34,11 +36,14 @@ services:
       postgres:
         condition: service_healthy
     healthcheck: {{ ix_lib.base.healthchecks.check_health(ix_lib.base.healthchecks.curl_test("http://localhost:8080/status")) }}
-    environment:
-      LOGSEARCH_DISK_CAPACITY_GB: {{ logsearch.disk_capacity_gb }}
-      LOGSEARCH_PG_CONN_STR: postgresql://{{ pg_user }}:{{ logsearch.postgres_password }}@postgres:5432/{{ pg_database }}?sslmode=disable
-      LOGSEARCH_AUDIT_AUTH_TOKEN: {{ log_audit_token }}
-      MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
+    environment: {{ ix_lib.base.env.envs({
+      "LOGSEARCH_DISK_CAPACITY_GB": logsearch.disk_capacity_gb,
+      "LOGSEARCH_PG_CONN_STR": ix_lib.base.postgres.pg_url("postgresql", "postgres", pg_user, logsearch.postgres_password, pg_database),
+      "LOGSEARCH_AUDIT_AUTH_TOKEN": log_audit_token,
+      "MINIO_LOG_QUERY_AUTH_TOKEN": log_auth_token,
+    }) }}
+
+  {# Postgres #}
   postgres:
     image: postgres:15
     user: "999:999"
@@ -47,11 +52,12 @@ services:
       pg_perms:
         condition: service_completed_successfully
     {% endif %}
-    environment: {{ ix_lib.base.snippets.postgres_environment(pg_user, logsearch.postgres_password, pg_database,) }}
+    environment: {{ ix_lib.base.postgres.pg_env(pg_user, logsearch.postgres_password, pg_database) }}
     volumes:
       - {{ "%s:/var/lib/postgresql/data" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(ix_lib.base.healthchecks.pg_test(pg_user, pg_database)) }}
 
+  {# Postgres Permissions #}
   {% if logsearch.postgres_data.auto_permissions %}
   {{ perms_container("pg_perms", "check", "999", "999", "") | indent(2) }}
     volumes:
@@ -59,19 +65,23 @@ services:
   {% endif %}
 {% endif %}
 
-  {% if minio_perms %}
+
+{% if minio_perms %}
+  {# MinIO Permissions #}
   {{ perms_container("minio_perms", "check", minio.user, minio.group, "") | indent(2) }}
     volumes:
       {% for store in storage.data if store.auto_permissions %}
       - {{ "%s:/mnt/directories/data%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), loop.index) }}
       {% endfor %}
-  {% endif %}
+{% endif %}
+
+  {# MinIO #}
   minio:
     image: minio/minio:RELEASE.2023-12-07T04-16-00Z
     user: {{ "%s:%s" | format(minio.user, minio.group) }}
     ports:
-      - {{ "%d:%d" | format(network.api_port, network.api_port) }}
-      - {{ "%d:%d" | format(network.console_port, network.console_port) }}
+      - {{ ix_lib.base.ports.port(network.api_port) }}
+      - {{ ix_lib.base.ports.port(network.console_port) }}
     {% if network.certificate_id %}
     configs:
       - source: private
@@ -111,29 +121,23 @@ services:
         condition: service_healthy
       {% endif %}
     {% endif %}
-    environment:
-      MINIO_ROOT_USER: {{ minio.access_key }}
-      MINIO_ROOT_PASSWORD: {{ minio.secret_key  }}
-      {% if multi_mode %}
-      MINIO_VOLUMES: {{ multi_mode.items | join(' ') }}
-      {% else %}
-      MINIO_VOLUMES: {{ minio_vols.items | join(' ') }}
-      {% endif %}
-      {% if network.server_url %}
-      MINIO_SERVER_URL: {{ network.server_url }}
-      {% endif %}
-      {% if network.console_url %}
-      MINIO_BROWSER_REDIRECT_URL: {{ network.console_url }}
-      {% endif %}
-      {% if logsearch.enabled %}
-      MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch: "on"
-      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://logsearch:8080/api/ingest?token=%s" | format(log_audit_token) }}
-      MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
-      MINIO_LOG_QUERY_URL: http://logsearch:8080
-      {% endif %}
-      MC_HOST_health: {{ "%s://localhost:%d" | format("https" if network.certificate_id else "http", network.api_port) }}
     healthcheck: {{ ix_lib.base.healthchecks.check_health("mc ready --insecure --debug health") }}
     {% if logsearch.enabled %}
     links:
       - logsearch
     {% endif %}
+    {% set dev_env = {
+      "MINIO_ROOT_USER": minio.access_key,
+      "MINIO_ROOT_PASSWORD": minio.secret_key,
+      "MINIO_VOLUMES": multi_mode.items | join(' ') if multi_mode else minio_vols.items | join(' '),
+      "MC_HOST_health": "%s://localhost:%d" | format("https" if network.certificate_id else "http", network.api_port),
+    } %}
+    {% if network.server_url and dev_env.update({"MINIO_SERVER_URL": network.server_url}) %}{% endif %}
+    {% if network.console_url and dev_env.update({"MINIO_BROWSER_REDIRECT_URL": network.console_url}) %}{% endif %}
+    {% if logsearch.enabled and dev_env.update({
+        "MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch": "on",
+        "MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch": "http://logsearch:8080/api/ingest?token=%s" | format(log_audit_token),
+        "MINIO_LOG_QUERY_AUTH_TOKEN": log_auth_token,
+        "MINIO_LOG_QUERY_URL": "http://logsearch:8080",
+    }) %}{% endif %}
+    environment: {{ ix_lib.base.env.envs(dev_env) }}
