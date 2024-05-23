@@ -54,14 +54,14 @@ services:
     {% endif %}
     environment: {{ ix_lib.base.postgres.pg_env(pg_user, logsearch.postgres_password, pg_database) }}
     volumes:
-      - {{ "%s:/var/lib/postgresql/data" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
+      - {{ "%s:/var/lib/postgresql/data" | format(ix_lib.base.storage.host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(ix_lib.base.healthchecks.pg_test(pg_user, pg_database)) }}
 
   {# Postgres Permissions #}
   {% if logsearch.postgres_data.auto_permissions %}
   {{ perms_container("pg_perms", "check", "999", "999", "") | indent(2) }}
     volumes:
-      - {{ "%s:/mnt/directories/data" | format(ix_lib.base.utils.get_host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
+      - {{ "%s:/mnt/directories/data" | format(ix_lib.base.storage.host_path(data=logsearch.postgres_data, ix_volumes=ixVolumes)) }}
   {% endif %}
 {% endif %}
 
@@ -71,7 +71,7 @@ services:
   {{ perms_container("minio_perms", "check", minio.user, minio.group, "") | indent(2) }}
     volumes:
       {% for store in storage.data if store.auto_permissions %}
-      - {{ "%s:/mnt/directories/data%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), loop.index) }}
+      - {{ "%s:/mnt/directories/data%s" | format(ix_lib.base.storage.host_path(data=store, ix_volumes=ixVolumes), loop.index) }}
       {% endfor %}
 {% endif %}
 
@@ -108,7 +108,7 @@ services:
     volumes:
       {% for store in storage.data %}
         {% set minio_vols.items = minio_vols.items + [store.mount_path] %}
-      - {{ "%s:%s" | format(ix_lib.base.utils.get_host_path(data=store, ix_volumes=ixVolumes), ix_lib.base.validations.validate_path(store.mount_path)) }}
+      - {{ "%s:%s" | format(ix_lib.base.storage.host_path(data=store, ix_volumes=ixVolumes), ix_lib.base.storage.valid_path(store.mount_path)) }}
       {% endfor %}
     {% if logsearch.enabled or minio_perms %}
     depends_on:
