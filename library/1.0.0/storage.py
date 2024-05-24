@@ -20,7 +20,7 @@ def host_path(data, ix_volumes=[]):
     elif data["type"] == "ix_volume":
         path = process_ix_volume(data, ix_volumes)
     else:
-        utils.throw_error(f"Expected storage type to be one of [host_path, ix_volume], got {data['type']}")
+        utils.throw_error(f"Expected storage type to be one of [host_path, ix_volume], got [{data['type']}]")
 
     return valid_path(path)
 
@@ -64,15 +64,22 @@ def process_ix_volume(data, ix_volumes):
 def get_volume_type(data):
     if not data.get("type"):
         utils.throw_error("Expected [type] to be set for storage")
+
+    valid_types = ["host_path", "ix_volume", "tmpfs", "volume"]
+    if not data["type"] in valid_types:
+        utils.throw_error(f"Expected storage type to be one of {valid_types}, got [{data['type']}]")
+
     if data["type"] in ["host_path", "ix_volume"]:
         return "bind"
-    elif data["type"] == "tmpfs":
-        return "tmpfs"
     else:
-        utils.throw_error(f"Expected storage type to be one of [host_path, ix_volume], got {data['type']}")
+        return data["type"]
 
 
-def volume(data, ix_volumes=[]):
+def get_valid_propagation():
+    return ["shared", "slave", "private", "rshared", "rslave", "rprivate"]
+
+
+def volume_mount(data, ix_volumes=[]):
     vol_type = get_volume_type(data)
 
     volume = {
@@ -83,5 +90,18 @@ def volume(data, ix_volumes=[]):
 
     if vol_type == "bind":  # Default create_host_path is true in short-syntax
         volume.update({"source": host_path(data, ix_volumes), "bind": {"create_host_path": True}})
+        if not data.get("propagation"):
+            # https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation
+            volume["bind"].update({"propagation": "rprivate"})
+        else:
+            if not data["propagation"] in get_valid_propagation():
+                utils.throw_error(f"Expected [propagation] to be one of {get_valid_propagation()}, got [{data['propagation']}]")
+            volume["bind"].update({"propagation": data["propagation"]})
+
+    elif vol_type == "volume":
+        if not data.get("volume_name"):
+            utils.throw_error("Expected [volume_name] to be set for [volume] type")
+        volume.update({"source": data["volume_name"]})
+        pass
 
     return volume
