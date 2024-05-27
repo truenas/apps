@@ -76,6 +76,8 @@ def vol(data):
 def volumes(*items):
     to_process = []
     for item in items:
+        if not item:
+            continue
         if isinstance(item, dict):
             to_process.append(item)
         elif isinstance(item, list):
