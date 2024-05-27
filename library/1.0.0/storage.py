@@ -10,7 +10,7 @@ def valid_path(path=""):
 
 
 # Returns the host path for a for either a host_path or ix_volume
-def host_path(data, ix_volumes=[]):
+def _host_path(data, ix_volumes=[]):
     if not data.get("type"):
         utils.throw_error("Expected [type] to be set for storage")
 
@@ -20,7 +20,7 @@ def host_path(data, ix_volumes=[]):
     elif data["type"] == "ix_volume":
         path = _process_ix_volume(data, ix_volumes)
     else:
-        utils.throw_error(f"Expected storage type to be one of [host_path, ix_volume], got [{data['type']}]")
+        utils.throw_error(f"Expected [_host_path] to be called only for types [host_path, ix_volume], got [{data['type']}]")
 
     return valid_path(path)
 
@@ -36,7 +36,7 @@ def vol_mount(data, ix_volumes=[]):
     }
 
     if vol_type == "bind":  # Default create_host_path is true in short-syntax
-        volume.update({"source": host_path(data, ix_volumes), "bind": {"create_host_path": True}})
+        volume.update({"source": _host_path(data, ix_volumes), "bind": {"create_host_path": True}})
         if data.get("propagation"):
             if not data["propagation"] in _get_valid_propagations():
                 utils.throw_error(f"Expected [propagation] to be one of {_get_valid_propagations()}, got [{data['propagation']}]")
@@ -56,36 +56,19 @@ def vol_mount(data, ix_volumes=[]):
 # Returns a volume object (Used in top "volumes" level)
 def vol(data):
     if _get_vol_mount_type(data) != "volume":
-        return {}
+        return None
 
     if not data.get("volume_name"):
         utils.throw_error("Expected [volume_name] to be set for [volume] type")
 
     if data["type"] == "nfs":
-        volume = _process_nfs(data)
+        volume = {data["volume_name"]: _process_nfs(data)}
     elif data["type"] == "cifs":
-        volume = _process_cifs(data)
+        volume = {data["volume_name"]: _process_cifs(data)}
     else:
-        volume = {}
+        volume = {data["volume_name"]: {}}
 
     return volume
-
-
-# Takes a variable number of items (either dictionaries or
-# lists of dictionaries) and returns a dictionary of volumes
-def volumes(*items):
-    to_process = []
-    for item in [item for item in items if item]:
-        if isinstance(item, dict):
-            if not item.get("type"):
-                continue
-            to_process.append(item)
-        elif isinstance(item, list):
-            for subitem in item:
-                if not subitem.get("type"):
-                    continue
-                to_process.append(subitem)
-    return {item["volume_name"]: vol(item) for item in to_process if _get_vol_mount_type(item) == "volume"}
 
 
 def _process_host_path(data):
@@ -120,7 +103,7 @@ def _get_vol_mount_type(data):
         utils.throw_error("Expected [type] to be set for storage")
 
     bind_types = ["host_path", "ix_volume", "tmpfs"]
-    vol_types = ["volume", "nfs"]
+    vol_types = ["volume", "nfs", "cifs"]
     all_types = bind_types + vol_types + ["tmpfs"]
 
     if not data["type"] in all_types:
@@ -166,15 +149,13 @@ def _process_cifs(data):
 
     server = data["cifs_config"]["server"].lstrip("/")
     path = data["cifs_config"]["path"]
-    volume = (
-        {
-            "driver_opts": {
-                "type": "cifs",
-                "device": f"//{server}/{path}",
-                "o": f"{','.join(opts)}",
-            },
+    volume = {
+        "driver_opts": {
+            "type": "cifs",
+            "device": f"//{server}/{path}",
+            "o": f"{','.join(opts)}",
         },
-    )
+    }
 
     return volume
 
@@ -205,14 +186,12 @@ def _process_nfs(data):
 
             opts.append(opt)
 
-    volume = (
-        {
-            "driver_opts": {
-                "type": "nfs",
-                "device": f":{data['nfs_config']['path']}",
-                "o": f"{','.join(opts)}",
-            },
+    volume = {
+        "driver_opts": {
+            "type": "nfs",
+            "device": f":{data['nfs_config']['path']}",
+            "o": f"{','.join(opts)}",
         },
-    )
+    }
 
     return volume
