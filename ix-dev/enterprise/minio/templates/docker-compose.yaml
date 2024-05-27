@@ -127,24 +127,24 @@ services:
     links:
       - logsearch
     {% endif %}
-    {% set dev_env = {
+    {% set app_env = {
       "MINIO_ROOT_USER": minio.access_key,
       "MINIO_ROOT_PASSWORD": minio.secret_key,
       "MINIO_VOLUMES": multi_mode.items | join(' ') if multi_mode else minio_vols.items | join(' '),
       "MC_HOST_health": "%s://localhost:%d" | format("https" if network.certificate_id else "http", network.api_port),
     } %}
-    {% if network.server_url and dev_env.update({"MINIO_SERVER_URL": network.server_url}) %}{% endif %}
-    {% if network.console_url and dev_env.update({"MINIO_BROWSER_REDIRECT_URL": network.console_url}) %}{% endif %}
-    {% if logsearch.enabled and dev_env.update({
+    {% if network.server_url and app_env.update({"MINIO_SERVER_URL": network.server_url}) %}{% endif %}
+    {% if network.console_url and app_env.update({"MINIO_BROWSER_REDIRECT_URL": network.console_url}) %}{% endif %}
+    {% if logsearch.enabled and app_env.update({
         "MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch": "on",
         "MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch": "http://logsearch:8080/api/ingest?token=%s" | format(log_audit_token),
         "MINIO_LOG_QUERY_AUTH_TOKEN": log_auth_token,
         "MINIO_LOG_QUERY_URL": "http://logsearch:8080",
     }) %}{% endif %}
-    environment: {{ ix_lib.base.env.envs(dev_env) }}
+    environment: {{ ix_lib.base.env.envs(app_env) }}
 
 {% set volumes = ix_lib.base.storage.volumes(
-  logsearch.postgres_data if logsearch.enabled else {},
+  logsearch.postgres_data,
   storage.data
 ) %}
 {% if volumes %}
