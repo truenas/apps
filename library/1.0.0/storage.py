@@ -55,7 +55,7 @@ def vol_mount(data, ix_volumes=[]):
 
 # Returns a volume object (Used in top "volumes" level)
 def vol(data):
-    if _get_vol_mount_type(data) != "volume":
+    if not data or _get_vol_mount_type(data) != "volume":
         return None
 
     if not data.get("volume_name"):
