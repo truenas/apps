@@ -75,13 +75,16 @@ def vol(data):
 # lists of dictionaries) and returns a dictionary of volumes
 def volumes(*items):
     to_process = []
-    for item in items:
-        if not item:
-            continue
+    for item in [item for item in items if item]:
         if isinstance(item, dict):
+            if not item.get("type"):
+                continue
             to_process.append(item)
         elif isinstance(item, list):
-            to_process.extend(item)
+            for subitem in item:
+                if not subitem.get("type"):
+                    continue
+                to_process.append(subitem)
     return {item["volume_name"]: vol(item) for item in to_process if _get_vol_mount_type(item) == "volume"}
 
 
