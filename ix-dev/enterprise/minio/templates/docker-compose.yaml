@@ -143,10 +143,15 @@ services:
     }) %}{% endif %}
     environment: {{ ix_lib.base.env.envs(app_env) }}
 
-{% set volumes = ix_lib.base.storage.volumes(
-  logsearch.postgres_data,
-  storage.data
-) %}
-{% if volumes %}
-volumes: {{ volumes }}
+{% set x_vols = {} %}
+{% set v = ix_lib.base.storage.vol(logsearch.postgres_data) %}
+{% if v and x_vols.update(v) %}{% endif %}
+
+{% for store in storage.data %}
+  {% set v = ix_lib.base.storage.vol(store) %}
+  {% if v and x_vols.update(v) %}{% endif %}
+{% endfor %}
+
+{% if x_vols %}
+volumes: {{ x_vols }}
 {% endif %}
