@@ -80,7 +80,7 @@ def volumes(*items):
             to_process.append(item)
         elif isinstance(item, list):
             to_process.extend(item)
-    return {item["volume_name"]: vol(item) for item in to_process if item.get("volume_name")}
+    return {item["volume_name"]: vol(item) for item in to_process if _get_vol_mount_type(item) == "volume"}
 
 
 def _process_host_path(data):
