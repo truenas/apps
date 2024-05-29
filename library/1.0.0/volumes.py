@@ -170,6 +170,18 @@ def get_nfs_config(config: Dict[str, Any], vol_name: str = "") -> Dict[str, Any]
     return nfs_driver_opts
 
 
+def get_actual_vol_type(vol_type: str) -> str:
+    """
+    Returns the actual volume type based on the given volume type.
+    """
+    if vol_type in ["nfs", "cifs", "volume"]:
+        return "volume"
+    elif vol_type in ["host_path", "ix_volume"]:
+        return "bind"
+    elif vol_type == "tmpfs":
+        return "tmpfs"
+
+
 def get_selected_volumes_for_container(container: str, values: Dict[str, Any] = {}) -> List[Dict[str, Any]]:
     """
     Returns a list of volume configs to apply to the given container.
@@ -197,7 +209,7 @@ def get_selected_volumes_for_container(container: str, values: Dict[str, Any] = 
             utils.throw_error(f"Expected [mount_path] to be set for volume [{item['name']}]")
 
         vol = {
-            "type": item["type"],
+            "type": get_actual_vol_type(item["type"]),
             "source": item["volume_name"] if item.get("volume_name") else item["name"],
             "target": target_container["mount_path"],
             "read_only": target_container.get("read_only", False),
