@@ -1,6 +1,4 @@
 from . import utils
-import ipaddress
-import re
 from typing import Dict, Any
 
 # item_format = {
@@ -139,70 +137,23 @@ def get_ipam_config(config: Dict[str, Any], net_name: str = "") -> Dict[str, Any
     ipam_config = {}
 
     if config.get("subnet"):
-        if not is_valid_range(config["subnet"]):
-            utils.throw_error(f"Invalid subnet [{config['subnet']}] for network [{net_name}]")
-
-        ipam_config["subnet"] = config["subnet"]
+        ipam_config["subnet"] = utils.must_valid_range(config["subnet"], f"Expected [subnet] to be a valid IP network range for network [{net_name}], got [{config['subnet']}]")
 
     if config.get("gateway"):
-        if not is_valid_ip(config["gateway"]):
-            utils.throw_error(f"Invalid gateway [{config['gateway']}] for network [{net_name}]")
-
-        ipam_config["gateway"] = config["gateway"]
+        ipam_config["gateway"] = utils.must_valid_ip(config["gateway"], f"Expected [gateway] to be a valid IP address for network [{net_name}], got [{config['gateway']}]")
 
     if config.get("ip_range"):
-        if not is_valid_range(config["ip_range"]):
-            utils.throw_error(f"Invalid IP range [{config['ip_range']}] for network [{net_name}]")
-
-        ipam_config["ip_range"] = config["ip_range"]
+        ipam_config["ip_range"] = utils.must_valid_range(config["ip_range"], f"Expected [ip_range] to be a valid IP network range for network [{net_name}], got [{config['ip_range']}]")
 
     if config.get("aux_addresses"):
         ipam_config["aux_addresses"] = {}
         for key, value in config["aux_addresses"].items():
             if key in ipam_config["aux_addresses"]:
                 utils.throw_error(f"Duplicate aux address [{key}] for network [{net_name}]")
-            if not is_valid_ip(value):
-                utils.throw_error(f"Invalid aux address [{value}] for network [{net_name}]")
 
-            ipam_config["aux_addresses"][key] = value
+            ipam_config["aux_addresses"][key] = utils.must_valid_ip(value, f"Expected [aux_addresses] to be a valid IP address for network [{net_name}], got [{value}]")
 
     return ipam_config
-
-
-def is_valid_range(range: str) -> bool:
-    """
-    Validates if the given range is a valid IP network range.
-    """
-    try:
-        ipaddress.ip_network(range)
-        return True
-    except ValueError:
-        return False
-
-
-def is_valid_mac(mac: str) -> bool:
-    """
-    Validates if the given MAC address is valid.
-    """
-    re_mac_part = r"^[0-9a-fA-F]{2}$"
-    parts = mac.split(":")
-    if len(parts) != 6:
-        return False
-    for part in parts:
-        if not re.match(re_mac_part, part):
-            return False
-    return True
-
-
-def is_valid_ip(ip: str) -> bool:
-    """
-    Validates if the given IP address is valid.
-    """
-    try:
-        ipaddress.ip_address(ip)
-        return True
-    except ValueError:
-        return False
 
 
 def get_selected_networks_for_container(container: str, values: Dict[str, Any] = {}) -> Dict[str, Any]:
@@ -235,21 +186,12 @@ def get_selected_networks_for_container(container: str, values: Dict[str, Any] =
             networks[item["name"]]["aliases"].append(alias)
 
         if target_container.get("ipv4_address"):
-            ipv4 = target_container["ipv4_address"]
-            if not is_valid_ip(ipv4):
-                utils.throw_error(f"Invalid IPv4 address [{ipv4}] for network [{item['name']}]")
-            networks[item["name"]]["ipv4_address"] = ipv4
+            networks[item["name"]]["ipv4_address"] = utils.must_valid_ip(target_container["ipv4_address"], f"Expected [ipv4_address] to be a valid IP address for network [{item['name']}], got [{target_container['ipv4_address']}]")
 
         if target_container.get("ipv6_address"):
-            ipv6 = target_container["ipv6_address"]
-            if not is_valid_ip(ipv6):
-                utils.throw_error(f"Invalid IPv6 address [{ipv6}] for network [{item['name']}]")
-            networks[item["name"]]["ipv6_address"] = ipv6
+            networks[item["name"]]["ipv6_address"] = utils.must_valid_ip(target_container["ipv6_address"], f"Expected [ipv6_address] to be a valid IP address for network [{item['name']}], got [{target_container['ipv6_address']}]")
 
         if target_container.get("mac_address"):
-            mac = target_container["mac_address"]
-            if not is_valid_mac(mac):
-                utils.throw_error(f"Invalid MAC address [{mac}] for network [{item['name']}]")
-            networks[item["name"]]["mac_address"] = mac
+            networks[item["name"]]["mac_address"] = utils.must_valid_mac(target_container["mac_address"], f"Expected [mac_address] to be a valid MAC address for network [{item['name']}], got [{target_container['mac_address']}]")
 
     return networks
