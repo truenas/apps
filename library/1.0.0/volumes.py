@@ -211,19 +211,16 @@ def get_selected_volumes_for_container(container: str, values: Dict[str, Any] = 
         vol = {
             "type": get_actual_vol_type(item["type"]),
             "source": item["volume_name"] if item.get("volume_name") else item["name"],
-            "target": target_container["mount_path"],
+            "target": utils.must_valid_path(target_container["mount_path"]),
             "read_only": target_container.get("read_only", False),
         }
         if item["type"] in ["host_path", "ix_volume"]:
+            if not target_container.get("host_path"):
+                utils.throw_error(f"Expected [host_path] to be set for volume [{item['name']}]")
+            # TODO: handle ix_volume's host_path
+            vol["source"] = utils.must_valid_path(target_container["host_path"])
             bind_opts = target_container.get("bind", {})
-            vol.update(
-                {
-                    "bind": {
-                        "create_host_path": bind_opts.get("create_host_path", True),
-                        "propagation": bind_opts.get("propagation", "rprivate"),
-                    }
-                }
-            )
+            vol.update({"bind": {"create_host_path": bind_opts.get("create_host_path", True), "propagation": bind_opts.get("propagation", "rprivate")}})
         elif item["type"] == "volume":
             vol_opts = target_container.get("volume", {})
             vol_config = {}
@@ -232,6 +229,7 @@ def get_selected_volumes_for_container(container: str, values: Dict[str, Any] = 
             if vol_opts.get("subPath"):
                 vol_config["subPath"] = vol_opts.get("subPath")
         elif item["type"] == "tmpfs":
+            vol.pop("source", None)
             tmpfs_opts = target_container.get("tmpfs", {})
             tmpfs_config = {}
             if tmpfs_opts.get("size"):
