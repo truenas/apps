@@ -4,14 +4,14 @@ from base_v1_0_0 import utils
 def validate(data):
     multi_mode = data["multi_mode"]
     storage = data["storage"]
-    if len(storage["data"]) == 0:
+    if len(storage["data_dirs"]) == 0:
         utils.throw_error("At least 1 storage item must be set")
 
-    if len(storage["data"]) > 1 and not multi_mode["enabled"]:
+    if len(storage["data_dirs"]) > 1 and not multi_mode["enabled"]:
         utils.throw_error("[Multi Mode] must be enabled if more than 1 storage item is set")
 
-    # make sure mount_paths in data['storage']['data'] are unique
-    mount_paths = [item["mount_path"] for item in storage["data"]]
+    # make sure mount_paths in data["storage"]["data_dirs"] are unique
+    mount_paths = [item["mount_path"] for item in storage["data_dirs"]]
     if len(mount_paths) != len(set(mount_paths)):
         utils.throw_error("Mount paths in storage items must be unique" + f", found duplicates: [{', '.join(mount_paths)}]")
 
