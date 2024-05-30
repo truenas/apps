@@ -20,6 +20,8 @@
 {# Get all the rendered values #}
 {% set all = ix_lib.base.spec.spec(values) %}
 
+services: {{ all.services | tojson }}
+
 {% if all.networks %}
 networks: {{ all.networks | tojson }}
 {% endif %}
@@ -27,68 +29,47 @@ networks: {{ all.networks | tojson }}
 {% if all.configs %}
 configs: {{ all.configs | tojson }}
 {% endif %}
+
 {% if all.volumes %}
 volumes: {{ all.volumes | tojson }}
 {% endif %}
 
-{# {% if all.volumes %}
-volumes: {{ all.volumes | tojson }}
-{% endif %} #}
-
-ix-minio: {{ all.services.minio | tojson }}
-
-{% set auto_permissions_list = app_storage.data_dirs | map(attribute='auto_permissions') %}
-{% set minio_perms = auto_permissions_list | select('equalto', True) | list | length > 0 %}
-
-services:
-{% if app_logsearch.enabled %}
-  {# Logsearch API #}
-  logsearch: {{ all.services.logsearch | tojson }}
-    {# depends_on:
-      postgres:
-        condition: service_healthy #}
-    {# healthcheck: {{ ix_lib.base.healthchecks.check_health(ix_lib.base.healthchecks.curl_test("http://localhost:8080/status")) }} #}
 
 
-  {# Postgres #}
-  postgres: {{ all.services.postgres | tojson }}
+{# {% set auto_permissions_list = app_storage.data_dirs | map(attribute='auto_permissions') %}
+{% set minio_perms = auto_permissions_list | select('equalto', True) | list | length > 0 %} #}
+  {# postgres: {{ all.services.postgres | tojson }} #}
     {# {% if app_logsearch.postgres_data['auto_permissions'] %}
     depends_on:
       pg_perms:
         condition: service_completed_successfully
-    {% endif %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(ix_lib.base.healthchecks.pg_test(pg_user, pg_database)) }} #}
+    {% endif %} #}
 
   {# Postgres Permissions #}
-  {% if app_logsearch.postgres_data['auto_permissions'] %}
+  {# {% if app_logsearch.postgres_data['auto_permissions'] %}
   pg_perms:
     {{ perms_container("check", "999", "999", "") | indent(4) }}
     volumes:
       - {{ ix_lib.base.storage.vol_mount(dict(app_logsearch.postgres_data, **{"mount_path": "/mnt/directories/data"}), ixVolumes) }}
   {% endif %}
-{% endif %}
+{% endif %} #}
 
-{% if minio_perms %}
+{# {% if minio_perms %} #}
   {# MinIO Permissions #}
-  minio_perms:
+  {# minio_perms:
     {{ perms_container("check", app_minio.user, app_minio.group, "") | indent(4) }}
     volumes:
       {% for store in app_storage.data_dirs if store.auto_permissions %}
       - {{ ix_lib.base.storage.vol_mount(dict(store, **{"mount_path": "/mnt/directories/data%s" | format(loop.index)}), ixVolumes) }}
       {% endfor %}
-{% endif %}
+{% endif %} #}
 
   {# MinIO #}
-  minio:
+  {# minio:
     {% if app_logsearch.enabled or minio_perms %}
     depends_on:
       {% if minio_perms %}
       minio_perms:
         condition: service_completed_successfully
       {% endif %}
-      {% if app_logsearch.enabled %}
-      logsearch:
-        condition: service_healthy
-      {% endif %}
-    {% endif %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health("mc ready --insecure --debug health") }}
+    {% endif %} #}
