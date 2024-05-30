@@ -3,8 +3,6 @@ from typing import Dict, Any, List
 
 item_format = {
     "enabled": True,
-    # The key name for the port
-    "name": "some-port",
     # The container port
     "container_port": 80,
     # The published port
@@ -47,9 +45,6 @@ def get_selected_ports_for_container(container: str, values: Dict[str, Any] = {}
             continue
 
         port = {}
-        if item.get("name"):
-            port["name"] = item["name"]
-
         if not item.get("host_port"):
             utils.throw_error(f"Expected [host_port] to be set for port [{item['name']}]")
 
