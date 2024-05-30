@@ -15,6 +15,7 @@ def prepare(values={}):
     pg_database = "logsearch"
 
     result = {
+        "containers": [],
         "volumes": [],
         "ports": [
             {"enabled": True, "target": minio_container_name, "host_port": values["app_network"]["api_port"]},
@@ -26,6 +27,7 @@ def prepare(values={}):
     multi_mode_items = values["app_minio"].get("multi_mode").get("items")
     for idx, store in enumerate(values["app_storage"]["data_dirs"]):
         minio_vols.append(store["mount_path"])
+        # TODO: transform things like host_path_config etc to the correct schema
         result["volumes"].append(
             {
                 "enabled": True,
@@ -80,7 +82,7 @@ def prepare(values={}):
             {
                 "enabled": True,
                 "name": "public",
-                "content": certs["publickey"],
+                "content": certs["certificate"],
                 "targets": [{"container_name": minio_container_name, "container_path": "/.minio/certs/public.crt"}],
             },
         ]
@@ -98,6 +100,7 @@ def prepare(values={}):
                 "MINIO_LOG_QUERY_URL": f"http://{logsearch_container_name}:8080",
             }
         )
+        # TODO: transform things like host_path_config etc to the correct schema
         result["volumes"].append(
             {
                 "enabled": True,
