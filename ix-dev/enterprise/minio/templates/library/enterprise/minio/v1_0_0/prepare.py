@@ -117,7 +117,7 @@ def prepare(values={}):
                 "image": "postgres:15",
                 "user": "999:999",
                 "environment": pg_env(pg_user, values["app_logsearch"]["postgres_password"], pg_database),
-                "healthcheck": {"test": healthchecks.pg_test(pg_user, values["app_logsearch"]["postgres_password"], pg_database)},
+                "healthcheck": {"test": healthchecks.pg_test(pg_user, pg_database)},
             },
             {
                 "enabled": True,
