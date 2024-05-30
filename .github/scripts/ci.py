@@ -9,8 +9,7 @@ import yaml
 import sys
 import os
 
-CONTAINER_IMAGE = "sonicaj/a_v:latest"
-# CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
+CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 
 
 # Used to print mostly structured data, like yaml or json
