@@ -17,8 +17,8 @@ def prepare(values={}):
     result = {
         "volumes": [],
         "ports": [
-            {"enabled": True, "name": "api", "target": minio_container_name, "host_port": values["app_network"]["api_port"]},
-            {"enabled": True, "name": "console", "target": minio_container_name, "host_port": values["app_network"]["console_port"]},
+            {"enabled": True, "target": minio_container_name, "host_port": values["app_network"]["api_port"]},
+            {"enabled": True, "target": minio_container_name, "host_port": values["app_network"]["console_port"]},
         ],
     }
 
