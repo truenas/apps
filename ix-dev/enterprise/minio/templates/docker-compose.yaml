@@ -5,100 +5,17 @@
   'multi_mode': app_minio.multi_mode,
   'storage': app_storage,
 }) %}
-{% set pg_database = "logsearch" %}
-{% set pg_user = "logsearch" %}
-{% set minio_container_name = "minio" %}
-{% set pg_container_name = "postgres" %}
-{% set logsearch_container_name = "logsearch" %}
-{% set log_auth_token = ix_lib.base.utils.secure_string(16) %}
-{% set log_audit_token = ix_lib.base.utils.secure_string(16) %}
 
 {# Prepare the payload #}
 {# TODO: massage values into the volumes below. replace manual volume mounts with get_selected_volumes_for_container #}
-{% set values = {
-  "configs": [
-    {
-      "enabled": True,
-      "name": "private",
-      "content": ixCertificates[app_network.certificate_id].privatekey,
-      "targets": [
-        {"container_name": minio_container_name, "mount_path": "/.minio/certs/private.key"},
-      ],
-    },
-    {
-      "enabled": True,
-      "name": "public",
-      "content": ixCertificates[app_network.certificate_id].certificate,
-      "targets": [
-        {"container_name": minio_container_name, "mount_path": "/.minio/certs/public.crt"},
-      ],
-    }
-  ] if app_network.certificate_id else [],
-  "volumes": [
-    {"enabled": True, "name": "pg_data", "type": app_logsearch.postgres_data["type"], "targets": [
-      {"container_name": pg_container_name, "mount_path": "/var/lib/postgresql/data"}
-    ]} if app_logsearch.enabled else {}
-  ],
-  "ports": [
-    {"enabled": True, "name": "api", "target": minio_container_name, "host_port": app_network.api_port},
-    {"enabled": True, "name": "console", "target": minio_container_name, "host_port": app_network.console_port},
-  ],
-  "containers": [
-    {
-      "enabled": True,
-      "name": minio_container_name,
-      "image": "minio/minio:RELEASE.2023-12-07T04-16-00Z",
-      "user": "%s:%s" | format(app_minio.user, app_minio.group),
-      "command": [
-        "server",
-        "--address",
-        ":%d" | format(app_network.api_port),
-        "--console-address",
-        ":%d" | format(app_network.console_port),
-        "--certs-dir" if app_network.certificate_id else "",
-        "/.minio/certs" if app_network.certificate_id else "",
-        "--quiet" if app_minio.logging.quiet else "",
-        "--anonymous" if app_minio.logging.anonymous else "",
-      ],
-      "links": [
-        logsearch_container_name,
-      ] if app_logsearch.enabled else [],
-      "environment": {
-        "MINIO_ROOT_USER": app_minio.access_key,
-        "MINIO_ROOT_PASSWORD": app_minio.secret_key,
-        "MINIO_VOLUMES": "TODO:!",
-        "MC_HOST_health": "%s://localhost:%d" | format("https" if app_network.certificate_id else "http", app_network.api_port),
-        "MINIO_SERVER_URL": app_network.server_url if app_network.server_url else "",
-        "MINIO_BROWSER_REDIRECT_URL": app_network.console_url if app_network.console_url else "",
-        "MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch": "on" if app_logsearch.enabled else "",
-        "MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch": "http://%s:8080/api/ingest?token=%s" | format(logsearch_container_name, log_audit_token),
-        "MINIO_LOG_QUERY_AUTH_TOKEN": log_auth_token,
-        "MINIO_LOG_QUERY_URL": "http://%s:8080" | format(logsearch_container_name),
-      },
-    },
-    {
-      "enabled": True,
-      "name": pg_container_name,
-      "image": "postgres:15",
-      "user": "999:999",
-      "environment": ix_lib.base.postgres.pg_env(pg_user, app_logsearch.postgres_password, pg_database),
-    } if app_logsearch.enabled else {},
-    {
-      "enabled": True,
-      "name": logsearch_container_name,
-      "image": "minio/operator:v4.5.8",
-      "user": "%s:%s" | format(app_minio.user, app_minio.group),
-      "entrypoint": ["/logsearchapi"],
-      "links": [pg_container_name],
-      "environment": {
-        "LOGSEARCH_DISK_CAPACITY_GB": app_logsearch.disk_capacity_gb,
-        "LOGSEARCH_PG_CONN_STR": ix_lib.base.postgres.pg_url("postgresql", pg_container_name, pg_user, app_logsearch.postgres_password, pg_database),
-        "LOGSEARCH_AUDIT_AUTH_TOKEN": log_audit_token,
-        "MINIO_LOG_QUERY_AUTH_TOKEN": log_auth_token,
-      }
-    } if app_logsearch.enabled else {},
-  ]
-} %}
+{% set values = ix_lib.enterprise.minio.prepare.prepare({
+  "app_minio": app_minio,
+  "app_logsearch": app_logsearch,
+  "app_network": app_network,
+  "app_storage": app_storage,
+  "ixCertificates": ixCertificates,
+  "ixVolumes": ixVolumes,
+}) %}
 
 {# Get all the rendered values #}
 {% set all = ix_lib.base.spec.spec(values) %}
@@ -110,6 +27,9 @@ networks: {{ all.networks | tojson }}
 {% if all.configs %}
 configs: {{ all.configs | tojson }}
 {% endif %}
+{% if all.volumes %}
+volumes: {{ all.volumes | tojson }}
+{% endif %}
 
 {# {% if all.volumes %}
 volumes: {{ all.volumes | tojson }}
@@ -117,7 +37,6 @@ volumes: {{ all.volumes | tojson }}
 
 ix-minio: {{ all.services.minio | tojson }}
 
-{% set minio_vols = namespace(items=[]) %}
 {% set auto_permissions_list = app_storage.data_dirs | map(attribute='auto_permissions') %}
 {% set minio_perms = auto_permissions_list | select('equalto', True) | list | length > 0 %}
 
@@ -161,11 +80,6 @@ services:
 
   {# MinIO #}
   minio:
-    volumes:
-      {% for store in app_storage.data_dirs %}
-        {% set minio_vols.items = minio_vols.items + [store.mount_path] %}
-      - {{ ix_lib.base.storage.vol_mount(store, ixVolumes) }}
-      {% endfor %}
     {% if app_logsearch.enabled or minio_perms %}
     depends_on:
       {% if minio_perms %}
@@ -178,19 +92,3 @@ services:
       {% endif %}
     {% endif %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health("mc ready --insecure --debug health") }}
-    {# {% set app_env = {
-      "MINIO_VOLUMES": multi_mode.items | join(' ') if multi_mode else minio_vols.items | join(' '),
-    } %} #}
-
-{% set x_vols = {} %}
-{% set v = ix_lib.base.storage.vol(app_logsearch.postgres_data) %}
-{% if v and x_vols.update(v) %}{% endif %}
-
-{% for store in app_storage.data_dirs %}
-  {% set v = ix_lib.base.storage.vol(store) %}
-  {% if v and x_vols.update(v) %}{% endif %}
-{% endfor %}
-
-{% if x_vols %}
-volumes: {{ dict(x_vols, **all.volumes) }}
-{% endif %}
