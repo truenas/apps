@@ -34,7 +34,7 @@ volumes: {{ vols.volumes | tojson }}
 services:
   {{ minio_container_name }}:
     image: minio/minio:RELEASE.2023-12-07T04-16-00Z
-    user: {{ "{}:{}".format(app_minio.user, app_minio.group) }}
+    user: {{ "%s:%s" | format(app_minio.user, app_minio.group) }}
     {% if app_network.certificate_id %}
     configs:
       - source: private
@@ -45,9 +45,9 @@ services:
     command:
       - server
       - --address
-      - {{ ":{}".format(app_network.api_port) }}
+      - {{ ":%d" | format(app_network.api_port) }}
       - --console-address
-      - {{ ":{}".format(app_network.console_port) }}
+      - {{ ":%d" | format(app_network.console_port) }}
     {% if app_network.certificate_id %}
       - --certs-dir
       - /.minio/certs
@@ -73,7 +73,7 @@ services:
     {% endfor %}
     environment:
       {% set proto = "https" if app_network.certificate_id else "http" %}
-      MC_HOST_health: {{ "{}://localhost:{}".format(proto, app_network.api_port) }}
+      MC_HOST_health: {{ "%s://localhost:%d" | format(proto, app_network.api_port) }}
       MINIO_ROOT_USER: {{ app_minio.access_key }}
       MINIO_ROOT_PASSWORD: {{ app_minio.secret_key }}
     {% if app_network.server_url %}
@@ -84,16 +84,16 @@ services:
     {% endif %}
     {% if app_logsearch.enabled %}
       MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch: "on"
-      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://{}:8080/api/ingest?token={}".format(logsearch_container_name, log_audit_token) }}
+      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://%s:8080/api/ingest?token=%s" | format(logsearch_container_name, log_audit_token) }}
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_audit_token }}
-      MINIO_LOG_QUERY_URL: {{ "http://{}:8080".format(logsearch_container_name) }}
+      MINIO_LOG_QUERY_URL: {{ "http://%s:8080" | format(logsearch_container_name) }}
     {% endif %}
 
 {% if app_logsearch.enabled %}
   {# Logsearch container #}
   {{ logsearch_container_name }}:
     image: minio/operator:v4.5.8
-    user: {{ "{}:{}".format(app_minio.user, app_minio.group) }}
+    user: {{ "%s:%s" | format(app_minio.user, app_minio.group) }}
     entrypoint: ["/logsearch"]
     links:
       - {{ pg_container_name }}
