@@ -56,19 +56,17 @@ def vol_mount(data, ix_volumes=[]):
 # Returns a volume object (Used in top "volumes" level)
 def vol(data):
     if not data or _get_vol_mount_type(data) != "volume":
-        return None
+        return {}
 
     if not data.get("volume_name"):
         utils.throw_error("Expected [volume_name] to be set for [volume] type")
 
     if data["type"] == "nfs":
-        volume = {data["volume_name"]: _process_nfs(data)}
+        return {data["volume_name"]: _process_nfs(data)}
     elif data["type"] == "cifs":
-        volume = {data["volume_name"]: _process_cifs(data)}
+        return {data["volume_name"]: _process_cifs(data)}
     else:
-        volume = {data["volume_name"]: {}}
-
-    return volume
+        return {data["volume_name"]: {}}
 
 
 def _process_host_path(data):
