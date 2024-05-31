@@ -140,10 +140,6 @@ services:
     depends_on:
       {{ pg_container_name }}:
         condition: service_healthy
-      {% if app_logsearch.postgres_data.auto_permissions %}
-      {{ pg_perms_container_name }}:
-        condition: service_completed_successfully
-      {% endif %}
     {% set test = ix_lib.base.healthchecks.curl_test("http://localhost:8080/status") %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     environment:
@@ -159,6 +155,11 @@ services:
     environment: {{ ix_lib.base.postgres.pg_env(pg_user, app_logsearch.postgres_password, pg_database) | tojson }}
     {% set test = ix_lib.base.healthchecks.pg_test(pg_user, pg_database) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    {% if app_logsearch.postgres_data.auto_permissions %}
+    depends_on:
+      {{ pg_perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
     volumes:
       - {{ ix_lib.base.storage.vol_mount(dict(app_logsearch.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}), ixVolumes) }}
   {% if app_logsearch.postgres_data.auto_permissions %}
