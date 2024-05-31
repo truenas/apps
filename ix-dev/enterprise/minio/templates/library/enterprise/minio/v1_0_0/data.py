@@ -7,7 +7,7 @@ def validate(data):
     if len(storage["data_dirs"]) == 0:
         utils.throw_error("At least 1 storage item must be set")
 
-    if len(storage["data_dirs"]) > 1 and not multi_mode.get("items", []) > 0:
+    if len(storage["data_dirs"]) > 1 and not multi_mode.get("entries", []) > 0:
         utils.throw_error("[Multi Mode] must be enabled if more than 1 storage item is set")
 
     # make sure mount_paths in data["storage"]["data_dirs"] are unique
@@ -15,9 +15,9 @@ def validate(data):
     if len(mount_paths) != len(set(mount_paths)):
         utils.throw_error(f"Mount paths in storage items must be unique, found duplicates: [{', '.join(mount_paths)}]")
 
-    if len(multi_mode["items"]) > 0:
+    if len(multi_mode.get("entries", [])) > 0:
         disallowed_keys = ["server"]
-        for item in multi_mode["items"]:
+        for item in multi_mode["entries"]:
             if item in disallowed_keys:
                 utils.throw_error(f"MinIO: Value [{item}] is not allowed in [Multi Mode] items")
 
