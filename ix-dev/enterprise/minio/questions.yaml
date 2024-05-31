@@ -1,23 +1,25 @@
-# groups:
-#   - name: MinIO Credentials
-#     description: Configure Credentials for MinIO
-#   - name: User and Group Configuration
-#     description: Configure User and Group for MinIO
-#   - name: Network Configuration
-#     description: Configure Network for MinIO
-#   - name: Storage Configuration
-#     description: Configure Storage for MinIO
-#   - name: MultiMode Configuration
-#     description: Configure MultiMode for MinIO
-#   - name: MinIO Logging
-#     description: Configure Logging for MinIO
-#   - name: Resources Configuration
-#     description: Configure Resources for MinIO
+groups:
+  - name: MinIO Credentials
+    description: Configure Credentials for MinIO
+  - name: User and Group Configuration
+    description: Configure User and Group for MinIO
+  - name: MinIO Logging
+    description: Configure Logging for MinIO
+  - name: MinIO Logsearch
+    description: Configure Logsearch for MinIO
+  - name: Network Configuration
+    description: Configure Network for MinIO
+  - name: MultiMode Configuration
+    description: Configure MultiMode for MinIO
+  - name: Storage Configuration
+    description: Configure Storage for MinIO
+  - name: Resources Configuration
+    description: Configure Resources for MinIO
 
 questions:
-  - variable: app_minio
+  - variable: creds
     label: ""
-    group: MinIO Configuration
+    group: MinIO Credentials
     schema:
       type: dict
       attrs:
@@ -37,6 +39,12 @@ questions:
             min_length: 8
             required: true
             private: true
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
         - variable: user
           label: User ID
           description: The user id that MinIO will run as.
@@ -53,76 +61,28 @@ questions:
             min: 568
             default: 568
             required: true
-        - variable: logging
-          label: Logging
-          description: Logging configuration
-          schema:
-            type: dict
-            attrs:
-              - variable: quiet
-                label: Quiet
-                description: Disables startup information.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: anonymous
-                label: Anonymous
-                description: Hides sensitive information from logging.
-                schema:
-                  type: boolean
-                  default: false
-
-  - variable: app_network
+  - variable: logging
     label: ""
-    group: Network Configuration
+    group: MinIO Logging
+    description: Logging configuration
     schema:
       type: dict
       attrs:
-        - variable: api_port
-          label: API Port
-          description: The port for the MinIO API.
+        - variable: quiet
+          label: Quiet
+          description: Disables startup information.
           schema:
-            type: int
-            default: 30000
-            min: 9000
-            max: 65535
-            required: true
-        - variable: console_port
-          label: Console Port (Web UI)
-          description: The port for the MinIO Web UI.
+            type: boolean
+            default: false
+        - variable: anonymous
+          label: Anonymous
+          description: Hides sensitive information from logging.
           schema:
-            type: int
-            default: 30001
-            min: 9000
-            max: 65535
-            required: true
-        - variable: server_url
-          label: Server URL
-          description: |
-            The URL that console will use to reach API</br>
-            For example https://minio1.example.com.</br></br>
-          schema:
-            type: string
-            required: true
-        - variable: console_url
-          label: Console URL
-          description: |
-            The URL that console will provide as a redirect URL</br>
-            For example https://console.example.com.</br></br>
-          schema:
-            type: string
-            required: true
-        - variable: certificate_id
-          label: Certificate
-          description: The certificate to use for MinIO
-          schema:
-            type: int
-            "null": true
-            $ref:
-              - "definitions/certificate"
-
-  - variable: app_logsearch
-    label: LogSearch Configuration
+            type: boolean
+            default: false
+  - variable: logsearch
+    group: MinIO Logsearch
+    label: ""
     description: LogSearch Configuration
     schema:
       type: dict
@@ -170,7 +130,6 @@ questions:
                             description: Host Path (Path that already exists on the system)
                           - value: ix_volume
                             description: ixVolume (Dataset created automatically by the system)
-                    # TODO: Add knob(s) for auto-fixing permissions and ACLs
                     - variable: host_path_config
                       label: Host Path Configuration
                       schema:
@@ -199,8 +158,55 @@ questions:
                               default: "postgres-data"
                               $ref:
                                 - "normalize/ixVolume"
-
-  - variable: app_multi_mode
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: api_port
+          label: API Port
+          description: The port for the MinIO API.
+          schema:
+            type: int
+            default: 30000
+            min: 9000
+            max: 65535
+            required: true
+        - variable: console_port
+          label: Console Port (Web UI)
+          description: The port for the MinIO Web UI.
+          schema:
+            type: int
+            default: 30001
+            min: 9000
+            max: 65535
+            required: true
+        - variable: server_url
+          label: Server URL
+          description: |
+            The URL that console will use to reach API</br>
+            For example https://minio1.example.com.</br></br>
+          schema:
+            type: string
+            required: true
+        - variable: console_url
+          label: Console URL
+          description: |
+            The URL that console will provide as a redirect URL</br>
+            For example https://console.example.com.</br></br>
+          schema:
+            type: string
+            required: true
+        - variable: certificate_id
+          label: Certificate
+          description: The certificate to use for MinIO
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - "definitions/certificate"
+  - variable: multi_mode
     label: Multi Mode (SNMD or MNMD) Configuration
     group: MultiMode Configuration
     description: |
@@ -232,20 +238,15 @@ questions:
                 schema:
                   type: string
                   required: true
-
-  - variable: app_storage
+  - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: list
       default:
-        [
-          {
-            "type": "ix_volume",
-            "mount_path": "/data1",
-            "dataset_name": "data1",
-          },
-        ]
+        - type: ix_volume
+          mount_path: /data1
+          dataset_name: data1
       empty: false
       required: true
       items:
@@ -282,7 +283,6 @@ questions:
                         required: true
                         immutable: true
                         default: /data1
-                    # TODO: Add knob(s) for auto-fixing permissions and ACLs
                     - variable: host_path_config
                       label: Host Path Configuration
                       schema:
@@ -310,8 +310,7 @@ questions:
                               default: "data1"
                               $ref:
                                 - "normalize/ixVolume"
-
-  - variable: app_resources
+  - variable: resources
     label: ""
     group: Resources Configuration
     schema:
