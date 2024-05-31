@@ -15,9 +15,7 @@ def validate(data):
     if len(mount_paths) != len(set(mount_paths)):
         utils.throw_error(f"Mount paths in storage items must be unique, found duplicates: [{', '.join(mount_paths)}]")
 
-    if multi_mode["enabled"]:
-        if len(multi_mode["items"]) == 0:
-            utils.throw_error("When [Multi Mode] is enabled, at least 1 item in must be defined.")
+    if len(multi_mode["items"]) > 0:
         disallowed_keys = ["server"]
         for item in multi_mode["items"]:
             if item in disallowed_keys:
