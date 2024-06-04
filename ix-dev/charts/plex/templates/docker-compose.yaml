@@ -1,0 +1,32 @@
+{% set plex_container_name = "plex" %}
+{% set plex_image = "plexinc/pms-docker:1.40.2.8395-c67dce28e" %}
+{% set plex_pass_image = "plexinc/pms-docker:plexpass" %}
+{% set plex_images = {
+  "plex": plex_image,
+  "plexpass": plex_pass_image
+} %}
+
+{# Containers #}
+services:
+  {{ plex_container_name }}:
+    image: {{ plex_images[plex.image] }}
+    {% if network.host_network %}
+    network_mode: host
+    {% endif %}
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+      - KILL
+    {% set test = "/healthcheck.sh" %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    environment:
+      TZ: "{{ TZ }}"
+      PLEX_CLAIM: "{{ plex.claim }}"
+      PLEX_UID: "{{ run_as.user }}"
+      PLEX_GID: "{{ run_as.group }}"
+      {# additional envs #}
