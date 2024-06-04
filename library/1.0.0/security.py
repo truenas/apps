@@ -6,7 +6,7 @@ def get_caps(add=[], drop=[]):
 
 
 def get_sec_opts(add=[], remove=[]):
-    result = ["no-new-privileges", "seccomp=builtin"]
+    result = ["no-new-privileges"]
     for opt in add:
         if opt not in result:
             result.append(opt)
