@@ -1,7 +1,7 @@
 def get_caps(add=[], drop=[]):
-    result = {"cap_drop": drop or ["ALL"]}
+    result = {"drop": drop or ["ALL"]}
     if add:
-        result["cap_add"] = add
+        result["add"] = add
     return result
 
 
