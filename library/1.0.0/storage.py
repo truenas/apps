@@ -1,34 +1,26 @@
 from . import utils
 
+BIND_TYPES = ["host_path", "ix_volume"]
+VOL_TYPES = ["volume", "nfs", "cifs", "tmpfs"]
+ALL_TYPES = BIND_TYPES + VOL_TYPES + ["tmpfs"]
+PROPAGATION_TYPES = ["shared", "slave", "private", "rshared", "rslave", "rprivate"]
+
 
 # Basic validation for a path (Expand later)
 def valid_path(path=""):
     if not path.startswith("/"):
         utils.throw_error(f"Expected path [{path}] to start with /")
 
+    # There is no reason to allow / as a path, either on host or in a container
+    if path == "/":
+        utils.throw_error(f"Expected path [{path}] to not be /")
+
     return path
-
-
-# Returns the host path for a for either a host_path or ix_volume
-def _host_path(data, ix_volumes=[]):
-    if not data.get("type"):
-        utils.throw_error("Expected [type] to be set for storage")
-
-    path = ""
-
-    if data["type"] == "host_path":
-        path = _process_host_path(data)
-    elif data["type"] == "ix_volume":
-        path = _process_ix_volume(data, ix_volumes)
-    else:
-        utils.throw_error(f"Expected [_host_path] to be called only for types [host_path, ix_volume], got [{data['type']}]")
-
-    return valid_path(path)
 
 
 # Returns a volume mount object (Used in container's "volumes" level)
 def vol_mount(data, ix_volumes=[]):
-    vol_type = _get_vol_mount_type(data)
+    vol_type = _get_docker_vol_type(data)
 
     volume = {
         "type": vol_type,
@@ -37,39 +29,48 @@ def vol_mount(data, ix_volumes=[]):
     }
 
     if vol_type == "bind":  # Default create_host_path is true in short-syntax
-        volume.update({"source": _host_path(data, ix_volumes), "bind": {"create_host_path": True}})
-        if data.get("propagation"):
-            if not data["propagation"] in _get_valid_propagations():
-                utils.throw_error(f"Expected [propagation] to be one of {_get_valid_propagations()}, got [{data['propagation']}]")
-            volume["bind"].update({"propagation": data["propagation"]})
-        else:
-            # https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation
-            volume["bind"].update({"propagation": "rprivate"})
-
+        volume.update(_get_bind_vol_config(data, ix_volumes))
     elif vol_type == "volume":
-        if not data.get("volume_name"):
-            utils.throw_error("Expected [volume_name] to be set for [volume] type")
-        volume.update({"source": data["volume_name"]})
+        volume.update(_get_volume_vol_config(data))
     elif vol_type == "tmpfs":
-        tmpfs = {}
-        if data.get("size"):
-            if not isinstance(data["size"], int):
-                utils.throw_error("Expected [size] to be an integer for [tmpfs] type")
-            if not data["size"] > 0:
-                utils.throw_error("Expected [size] to be greater than 0 for [tmpfs] type")
-            tmpfs.update({"size": data["size"]})
-        if data.get("mode"):
-            if not isinstance(data["mode"], str):
-                utils.throw_error("Expected [mode] to be a string for [tmpfs] type")
-            tmpfs.update({"mode": data["mode"]})
-        volume.update({"tmpfs": tmpfs})
+        volume.update(_get_tmpfs_vol_config(data))
 
     return volume
 
 
+def _get_bind_vol_config(data, ix_volumes=[]):
+    path = _host_path(data, ix_volumes)
+    if data.get("propagation", "rprivate") not in PROPAGATION_TYPES:
+        utils.throw_error(f"Expected [propagation] to be one of [{', '.join(PROPAGATION_TYPES)}], got [{data['propagation']}]")
+
+    # https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation
+    return {"source": path, "bind": {"create_host_path": True, "propagation": _get_valid_propagation(data)}}
+
+
+def _get_volume_vol_config(data):
+    if not data.get("volume_name"):
+        utils.throw_error("Expected [volume_name] to be set for [volume] type")
+    return {"source": data["volume_name"]}
+
+
+def _get_tmpfs_vol_config(data):
+    tmpfs = {}
+    if data.get("size"):
+        if not isinstance(data["size"], int):
+            utils.throw_error("Expected [size] to be an integer for [tmpfs] type")
+        if not data["size"] > 0:
+            utils.throw_error("Expected [size] to be greater than 0 for [tmpfs] type")
+        tmpfs.update({"size": data["size"]})
+    if data.get("mode"):
+        if not isinstance(data["mode"], str):
+            utils.throw_error("Expected [mode] to be a string for [tmpfs] type")
+        tmpfs.update({"mode": data["mode"]})
+    return {"tmpfs": tmpfs}
+
+
 # Returns a volume object (Used in top "volumes" level)
 def vol(data):
-    if not data or _get_vol_mount_type(data) != "volume":
+    if not data or _get_docker_vol_type(data) != "volume":
         return {}
 
     if not data.get("volume_name"):
@@ -81,6 +82,51 @@ def vol(data):
         return {data["volume_name"]: _process_cifs(data)}
     else:
         return {data["volume_name"]: {}}
+
+
+def _is_host_path(data):
+    return data.get("type") == "host_path"
+
+
+def _get_valid_propagation(data):
+    if not data.get("propagation"):
+        return "rprivate"
+    if not data["propagation"] in PROPAGATION_TYPES:
+        utils.throw_error(f"Expected [propagation] to be one of [{', '.join(PROPAGATION_TYPES)}], got [{data['propagation']}]")
+    return data["propagation"]
+
+
+def _is_ix_volume(data):
+    return data.get("type") == "ix_volume"
+
+
+# Returns the host path for a for either a host_path or ix_volume
+def _host_path(data, ix_volumes=[]):
+    path = ""
+    if _is_host_path(data):
+        path = _process_host_path(data)
+    elif _is_ix_volume(data):
+        path = _process_ix_volume(data, ix_volumes)
+    else:
+        utils.throw_error(f"Expected [_host_path] to be called only for types [host_path, ix_volume], got [{data['type']}]")
+
+    return valid_path(path)
+
+
+# Returns the type of storage as used in docker-compose
+def _get_docker_vol_type(data):
+    if not data.get("type"):
+        utils.throw_error("Expected [type] to be set for storage")
+
+    if data["type"] not in ALL_TYPES:
+        utils.throw_error(f"Expected storage [type] to be one of {ALL_TYPES}, got [{data['type']}]")
+
+    if data["type"] in BIND_TYPES:
+        return "bind"
+    elif data["type"] in VOL_TYPES:
+        return "volume"
+    else:
+        return data["type"]
 
 
 def _process_host_path(data):
@@ -100,6 +146,8 @@ def _process_ix_volume(data, ix_volumes):
 
     ds = data["ix_volume_config"]["dataset_name"]
     for item in ix_volumes:
+        # TODO: verify the "hostPath" key is the correct from middleware side
+        # Ideally we would want to have the "dataset_name" in the dict, instead of doing this check below
         if item.get("hostPath", "").split("/")[-1] == ds:
             path = item["hostPath"]
             break
@@ -108,29 +156,6 @@ def _process_ix_volume(data, ix_volumes):
         utils.throw_error(f"Expected [ix_volumes] to contain path for dataset with name [{ds}]")
 
     return path
-
-
-def _get_vol_mount_type(data):
-    if not data.get("type"):
-        utils.throw_error("Expected [type] to be set for storage")
-
-    bind_types = ["host_path", "ix_volume"]
-    vol_types = ["volume", "nfs", "cifs"]
-    all_types = bind_types + vol_types + ["tmpfs"]
-
-    if not data["type"] in all_types:
-        utils.throw_error(f"Expected storage [type] to be one of {all_types}, got [{data['type']}]")
-
-    if data["type"] in bind_types:
-        return "bind"
-    elif data["type"] in vol_types:
-        return "volume"
-    else:
-        return data["type"]
-
-
-def _get_valid_propagations():
-    return ["shared", "slave", "private", "rshared", "rslave", "rprivate"]
 
 
 # Constructs a volume object for a cifs type
