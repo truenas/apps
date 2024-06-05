@@ -63,6 +63,7 @@ def _get_anonymous_vol_config(data):
 def _get_tmpfs_vol_config(data):
     tmpfs = {}
     config = data.get("tmpfs_config", {})
+
     if config.get("size"):
         if not isinstance(config["size"], int):
             utils.throw_error("Expected [size] to be an integer for [tmpfs] type")
@@ -70,10 +71,12 @@ def _get_tmpfs_vol_config(data):
             utils.throw_error("Expected [size] to be greater than 0 for [tmpfs] type")
         # Convert Gigabytes to Bytes
         tmpfs.update({"size": config["size"] * 1024 * 1024 * 1024})
+
     if config.get("mode"):
         if not isinstance(config["mode"], str):
             utils.throw_error("Expected [mode] to be a string for [tmpfs] type")
         tmpfs.update({"mode": config["mode"]})
+
     return {"tmpfs": tmpfs}
 
 
