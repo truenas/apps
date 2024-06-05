@@ -144,7 +144,7 @@ def _process_host_path_config(data):
 
 
 def _process_volume_config(data):
-    return {"nocopy": data.get("nocopy", False), "subpath": data.get("subpath", "")}
+    return {"nocopy": data.get("nocopy", False)}
 
 
 def _process_ix_volume_config(data, ix_volumes):
