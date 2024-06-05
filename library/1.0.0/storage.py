@@ -1,8 +1,8 @@
 from . import utils
 
 BIND_TYPES = ["host_path", "ix_volume"]
-VOL_TYPES = ["volume", "nfs", "cifs", "tmpfs"]
-ALL_TYPES = BIND_TYPES + VOL_TYPES + ["tmpfs"]
+VOL_TYPES = ["volume", "nfs", "cifs"]
+ALL_TYPES = BIND_TYPES + VOL_TYPES + ["tmpfs", "anonymous"]
 PROPAGATION_TYPES = ["shared", "slave", "private", "rshared", "rslave", "rprivate"]
 
 
@@ -27,13 +27,15 @@ def vol_mount(data, ix_volumes=[]):
         "target": valid_path(data.get("mount_path", "")),
         "read_only": data.get("read_only", False),
     }
-
     if vol_type == "bind":  # Default create_host_path is true in short-syntax
         volume.update(_get_bind_vol_config(data, ix_volumes))
     elif vol_type == "volume":
         volume.update(_get_volume_vol_config(data))
     elif vol_type == "tmpfs":
         volume.update(_get_tmpfs_vol_config(data))
+    elif vol_type == "anonymous":
+        volume["type"] = "volume"
+        volume.update(_get_anonymous_vol_config(data))
 
     return volume
 
@@ -50,7 +52,12 @@ def _get_bind_vol_config(data, ix_volumes=[]):
 def _get_volume_vol_config(data):
     if not data.get("volume_name"):
         utils.throw_error("Expected [volume_name] to be set for [volume] type")
-    return {"source": data["volume_name"]}
+
+    return {"source": data["volume_name"], "volume": _process_volume_config(data)}
+
+
+def _get_anonymous_vol_config(data):
+    return {"volume": _process_volume_config(data)}
 
 
 def _get_tmpfs_vol_config(data):
@@ -104,9 +111,9 @@ def _is_ix_volume(data):
 def _host_path(data, ix_volumes=[]):
     path = ""
     if _is_host_path(data):
-        path = _process_host_path(data)
+        path = _process_host_path_config(data)
     elif _is_ix_volume(data):
-        path = _process_ix_volume(data, ix_volumes)
+        path = _process_ix_volume_config(data, ix_volumes)
     else:
         utils.throw_error(f"Expected [_host_path] to be called only for types [host_path, ix_volume], got [{data['type']}]")
 
@@ -129,14 +136,18 @@ def _get_docker_vol_type(data):
         return data["type"]
 
 
-def _process_host_path(data):
+def _process_host_path_config(data):
     if not data.get("host_path_config", {}).get("path"):
         utils.throw_error("Expected [host_path_config.path] to be set for [host_path] type")
 
     return data["host_path_config"]["path"]
 
 
-def _process_ix_volume(data, ix_volumes):
+def _process_volume_config(data):
+    return {"nocopy": data.get("nocopy", False), "subpath": data.get("subpath", "")}
+
+
+def _process_ix_volume_config(data, ix_volumes):
     path = ""
     if not data.get("ix_volume_config", {}).get("dataset_name"):
         utils.throw_error("Expected [ix_volume_config.dataset_name] to be set for [ix_volume] type")
