@@ -61,8 +61,8 @@ def _get_anonymous_vol_config(data):
 
 
 def _get_tmpfs_vol_config(data):
-    config = data.get("tmpfs_config", {})
     tmpfs = {}
+    config = data.get("tmpfs_config", {})
     if config.get("size"):
         if not isinstance(config["size"], int):
             utils.throw_error("Expected [size] to be an integer for [tmpfs] type")
