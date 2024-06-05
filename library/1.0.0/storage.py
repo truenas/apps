@@ -4,7 +4,7 @@ from . import utils
 # Basic validation for a path (Expand later)
 def valid_path(path=""):
     if not path.startswith("/"):
-        utils.throw_error("Expected [path] to start with /")
+        utils.throw_error(f"Expected path [{path}] to start with /")
 
     return path
 
@@ -15,6 +15,7 @@ def _host_path(data, ix_volumes=[]):
         utils.throw_error("Expected [type] to be set for storage")
 
     path = ""
+
     if data["type"] == "host_path":
         path = _process_host_path(data)
     elif data["type"] == "ix_volume":
@@ -49,6 +50,19 @@ def vol_mount(data, ix_volumes=[]):
         if not data.get("volume_name"):
             utils.throw_error("Expected [volume_name] to be set for [volume] type")
         volume.update({"source": data["volume_name"]})
+    elif vol_type == "tmpfs":
+        tmpfs = {}
+        if data.get("size"):
+            if not isinstance(data["size"], int):
+                utils.throw_error("Expected [size] to be an integer for [tmpfs] type")
+            if not data["size"] > 0:
+                utils.throw_error("Expected [size] to be greater than 0 for [tmpfs] type")
+            tmpfs.update({"size": data["size"]})
+        if data.get("mode"):
+            if not isinstance(data["mode"], str):
+                utils.throw_error("Expected [mode] to be a string for [tmpfs] type")
+            tmpfs.update({"mode": data["mode"]})
+        volume.update({"tmpfs": tmpfs})
 
     return volume
 
@@ -100,7 +114,7 @@ def _get_vol_mount_type(data):
     if not data.get("type"):
         utils.throw_error("Expected [type] to be set for storage")
 
-    bind_types = ["host_path", "ix_volume", "tmpfs"]
+    bind_types = ["host_path", "ix_volume"]
     vol_types = ["volume", "nfs", "cifs"]
     all_types = bind_types + vol_types + ["tmpfs"]
 
