@@ -1,6 +1,16 @@
-{% from "macros/global/perms/script.sh.jinja" import perms_shell %}
+{% from "macros/global/perms/script.sh.jinja" import process_dir_func %}
 
-{% macro perms_container(mode, uid, gid, chmod) %}
+{# Takes a list of items to process #}
+{# Each item is a dictionary with the following keys: #}
+{# - dir: directory to process #}
+{# - mode: always, check. (
+    always: Always changes ownership and permissions,
+    check: Checks the top level dir, and only applies if there is a mismatch.
+) #}
+{# - uid: uid to change to #}
+{# - gid: gid to change to #}
+{# - chmod: chmod to change to (Optional, default is no change) #}
+{% macro perms_container(items=[]) %}
 image: bash
 user: root
 deploy:
@@ -13,5 +23,26 @@ entrypoint:
   - -c
 command:
   - |
-    {{- perms_shell(mode=mode, uid=uid, gid=gid, chmod=chmod) | indent(4) }}
+    {{- process_dir_func() | indent(4) }}
+    {% for item in items %}
+    process_dir {{ item.dir }} {{ item.mode }} {{ item.uid }} {{ item.gid }} {{ item.chmod }}
+    {% endfor %}
 {% endmacro %}
+
+{# Examples #}
+{# perms_shell([
+  {
+    "dir": "/mnt/directories/dir1",
+    "mode": "always",
+    "uid": 500,
+    "gid": 500,
+    "chmod": "755",
+  },
+  {
+    "dir": "/mnt/directories/dir2",
+    "mode": "check",
+    "uid": 500,
+    "gid": 500,
+    "chmod": "755",
+  },
+])
