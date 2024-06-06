@@ -3,57 +3,66 @@ Don't forget to use double $ for shell variables,
 otherwise docker-compose will try to expand them
 #}
 
-{% macro perms_shell(mode, uid, gid, chmod) %}
-for dir in /mnt/directories/*; do
+{% macro process_dir_func() %}
+function process_dir() {
+  local dir=$$1
+  local mode=$$2
+  local uid=$$3
+  local gid=$$4
+  local chmod=$$5
+
+  local fix_owner="false"
+  local fix_perms="false"
+  local is_empty="false"
+
   if [ ! -d "$$dir" ]; then
     echo "Path [$$dir] does is not a directory, skipping..."
-    continue
+    exit 0
   fi
 
   echo "Current Ownership and Permissions on ["$$dir"]:"
   echo "chown: $$(stat -c "%u %g" "$$dir")"
   echo "chmod: $$(stat -c "%a" "$$dir")"
 
-  {%- if mode == "always" %}
-  fix_owner="true"
-  fix_perms="true"
-  {%- endif %}
-
-  {% if mode == "check" %}
-  if [ $$(stat -c %u "$$dir") -eq {{ uid }} ] && [ $$(stat -c %g "$$dir") -eq {{ gid }} ]; then
-    echo "Ownership is correct. Skipping..."
-    fix_owner="false"
-  else
-    echo "Ownership is incorrect. Fixing..."
+  if [ "$$mode" = "always" ]; then
     fix_owner="true"
-  fi
-  {%- if chmod %}
-  if [ $$(stat -c %a "$$dir") -eq {{ chmod }} ]; then
-    echo "Permissions are correct. Skipping..."
-    fix_perms="false"
-  else
-    echo "Permissions are incorrect. Fixing..."
     fix_perms="true"
   fi
-  {%- endif %}
-  {%- endif %}
+
+  if [ "$$mode" = "check" ]; then
+    if [ $$(stat -c %u "$$dir") -eq $$uid ] && [ $$(stat -c %g "$$dir") -eq $$gid ]; then
+      echo "Ownership is correct. Skipping..."
+      fix_owner="false"
+    else
+      echo "Ownership is incorrect. Fixing..."
+      fix_owner="true"
+    fi
+
+    if [ $$(stat -c %a "$$dir") -eq $$chmod ]; then
+      echo "Permissions are correct. Skipping..."
+      fix_perms="false"
+    else
+      echo "Permissions are incorrect. Fixing..."
+      fix_perms="true"
+    fi
+  fi
 
   if [ "$$fix_owner" = "true" ]; then
-    echo "Changing ownership to {{ uid }}:{{ gid }} on: ["$$dir"]"
-    chown -R {{ uid }}:{{ gid }} "$$dir"
+    echo "Changing ownership to $$uid:$$gid on: ["$$dir"]"
+    chown -R $$uid:$$gid "$$dir"
     echo "Finished changing ownership"
     echo "Ownership after changes:"
     stat -c "%u %g" "$$dir"
   fi
 
-  {%- if chmod %}
-  if [ "$$fix_perms" = "true" ]; then
-    echo "Changing permissions to {{ chmod }} on: ["$$dir"]"
-    chmod -R {{ chmod }} "$$dir"
-    echo "Finished changing permissions"
-    echo "Permissions after changes:"
-    stat -c "%a" "$$dir"
+  if [ -n "$$chmod" ]; then
+    if [ "$$fix_perms" = "true" ]; then
+      echo "Changing permissions to $$chmod on: ["$$dir"]"
+      chmod -R $$chmod "$$dir"
+      echo "Finished changing permissions"
+      echo "Permissions after changes:"
+      stat -c "%a" "$$dir"
+    fi
   fi
-  {%- endif %}
-done
+}
 {% endmacro %}
