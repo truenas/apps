@@ -189,13 +189,14 @@ def _process_cifs(data):
         if not isinstance(data["cifs_config"]["options"], list):
             utils.throw_error("Expected [cifs_config.options] to be a list for [cifs] type")
 
-        disallowed_opts = ["user=", "password="]
+        disallowed_opts = ["user", "password"]
         for opt in data["cifs_config"]["options"]:
             if not isinstance(opt, str):
                 utils.throw_error("Expected [cifs_config.options] to be a list of strings for [cifs] type")
 
+            key = opt.split("=")[0]
             for disallowed in disallowed_opts:
-                if opt.startswith(disallowed):
+                if key == disallowed:
                     utils.throw_error(f"Expected [cifs_config.options] to not start with [{disallowed}] for [cifs] type")
 
             opts.append(opt)
@@ -228,13 +229,14 @@ def _process_nfs(data):
         if not isinstance(data["nfs_config"]["options"], list):
             utils.throw_error("Expected [nfs_config.options] to be a list for [nfs] type")
 
-        disallowed_opts = ["addr="]
+        disallowed_opts = ["addr"]
         for opt in data["nfs_config"]["options"]:
             if not isinstance(opt, str):
                 utils.throw_error("Expected [nfs_config.options] to be a list of strings for [nfs] type")
 
+            key = opt.split("=")[0]
             for disallowed in disallowed_opts:
-                if opt.startswith(disallowed):
+                if key == disallowed:
                     utils.throw_error(f"Expected [nfs_config.options] to not start with [{disallowed}] for [nfs] type")
 
             opts.append(opt)
