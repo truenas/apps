@@ -12,7 +12,7 @@
 {% if ix_lib.base.storage.vol(data=storage.config) %}
   {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=storage.config)) %}
   {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes)) %}
-  {% if storage.config.auto_permissions %}
+  {% if storage.config.auto_permissions %} {# TODO: make this a func #}
     {% set x = ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/mnt/sonarr/config"}), ix_volumes=ixVolumes) %}
     {% set _ = perms_mounts.items.append(x) %}
     {% set _ = perms_dirs.items.append({"dir": x.target, "mode": "check", "uid": run_as.user, "gid": run_as.group}) %}
@@ -47,7 +47,7 @@ services:
     {% if network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
     {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test("/ping") %}
+    {% set test = ix_lib.base.healthchecks.curl_test("http://localhost:%s/ping" | format(network.web_port)) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     environment: {{ ix_lib.base.environment.envs(app={
       "SONARR__PORT": network.web_port,
