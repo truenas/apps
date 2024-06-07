@@ -40,6 +40,32 @@ def vol_mount(data, ix_volumes=[]):
     return volume
 
 
+def perms_item(data, ix_volumes, opts={}):
+    if not data.get("auto_permissions"):
+        return {}
+    if not ix_volumes:
+        ix_volumes = []
+
+    req_keys = ["mount_path", "mode", "uid", "gid"]
+    for key in req_keys:
+        if not opts.get(key):
+            utils.throw_error(f"Expected opts passed to [perms_item] to have [{key}] key")
+
+    data.update({"mount_path": opts["mount_path"]})
+    volume_mount = vol_mount(data, ix_volumes)
+
+    return {
+        "vol_mount": volume_mount,
+        "perm_dir": {
+            "dir": volume_mount["target"],
+            "mode": opts["mode"],
+            "uid": opts["uid"],
+            "gid": opts["gid"],
+            "chmod": opts.get("chmod", ""),
+        },
+    }
+
+
 def _get_bind_vol_config(data, ix_volumes=[]):
     path = _host_path(data, ix_volumes)
     if data.get("propagation", "rprivate") not in PROPAGATION_TYPES:
