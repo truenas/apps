@@ -1,13 +1,24 @@
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+
+{% set perms_container_name = "permissions" %}
 {% set sonarr_container_name = "sonarr" %}
 {% set sonarr_image = "ghcr.io/onedr0p/sonarr:4.0.5.1710" %}
 
 {% set volumes = namespace(items={}) %}
 {% set volume_mounts = namespace(items=[]) %}
+{% set perms_mounts = namespace(items=[]) %}
+{% set perms_dirs = namespace(items=[]) %}
 
 {% if ix_lib.base.storage.vol(data=storage.config) %}
   {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=storage.config)) %}
   {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes)) %}
+  {% if storage.config.auto_permissions %}
+    {% set x = ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/mnt/sonarr/config"}), ix_volumes=ixVolumes) %}
+    {% set _ = perms_mounts.items.append(x) %}
+    {% set _ = perms_dirs.items.append({"dir": x.target, "mode": "check", "uid": run_as.user, "gid": run_as.group}) %}
+  {% endif %}
 {% endif %}
+
 {% for store in storage.additional_storage %}
   {% if ix_lib.base.storage.vol(data=store) %}
     {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=store)) %}
@@ -23,6 +34,11 @@ services:
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
+    {% if perms_dirs.items %}
+    depends_on:
+      {{ perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
     {% if network.host_network %}
     network_mode: host
     {% endif %}
@@ -42,6 +58,14 @@ services:
       - {{ ix_lib.base.ports.get_port(port={"target": network.web_port, "published": network.web_port}) | tojson }}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
+  {% if perms_dirs.items %}
+  {{ perms_container_name }}:
+    {{ perms_container(items=perms_dirs.items) | indent(4) }}
+    volumes:
+      {% for item in perms_mounts.items %}
+      - {{ item | tojson }}
+      {% endfor %}
+  {% endif %}
 
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
