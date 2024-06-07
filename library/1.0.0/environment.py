@@ -3,14 +3,12 @@ from . import utils
 
 def envs(app={}, user=[]):
     track_env = {**app}
-    result = {}
+    result = {**app}
 
     if not user:
         user = []
     elif isinstance(user, dict):
         user = [{"name": k, "value": v} for k, v in user.items()]
-    elif isinstance(user, list):
-        user = user
     else:
         utils.throw_error(f"Unsupported type for user environment variables [{type(user)}]")
 
