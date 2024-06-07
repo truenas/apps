@@ -9,20 +9,16 @@
 {% set perms_mounts = namespace(items=[]) %}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% if ix_lib.base.storage.vol(data=storage.config) %}
-  {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=storage.config)) %}
-  {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes)) %}
-  {% if storage.config.auto_permissions %} {# TODO: make this a func #}
-    {% set x = ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/mnt/sonarr/config"}), ix_volumes=ixVolumes) %}
-    {% set _ = perms_mounts.items.append(x) %}
-    {% set _ = perms_dirs.items.append({"dir": x.target, "mode": "check", "uid": run_as.user, "gid": run_as.group}) %}
-  {% endif %}
+{# TODO: we have to create the volume_mount regardeless if vol is truthy or not #}
+{% if ix_lib.base.storage.vol(data=storage.config) and (volumes.items.update(ix_lib.base.storage.vol(data=storage.config)), volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes))) %}
+  {% set x = ix_lib.base.storage.perms_item(data=storage.config, ix_volumes=ixVolumes, opts={"mount_path": "/mnt/sonarr/config", "mode": "check", "uid": run_as.user, "gid": run_as.group}) %}
+  {% if x and (perms_mounts.items.append(x.vol_mount),perms_dirs.items.append(x.perm_dir)) %}  {% endif %}
 {% endif %}
 
 {% for store in storage.additional_storage %}
-  {% if ix_lib.base.storage.vol(data=store) %}
-    {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=store)) %}
-    {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=store, ix_volumes=ixVolumes)) %}
+  {% if ix_lib.base.storage.vol(data=store) and (volumes.items.update(ix_lib.base.storage.vol(data=store)), volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=store, ix_volumes=ixVolumes))) %}
+    {% set x = ix_lib.base.storage.perms_item(data=store, ix_volumes=ixVolumes, opts={"mount_path": "/mnt/sonarr/%s"|format(loop.index0), "mode": "check", "uid": run_as.user, "gid": run_as.group}) %}
+    {% if x and (perms_mounts.items.append(x.vol_mount),perms_dirs.items.append(x.perm_dir)) %}  {% endif %}
   {% endif %}
 {% endfor %}
 
