@@ -40,6 +40,14 @@ def vol_mount(data, ix_volumes=[]):
     return volume
 
 
+def storage_item(data, ix_volumes=[], perm_opts={}):
+    return {
+        "vol_mount": vol_mount(data, ix_volumes),
+        "vol": vol(data),
+        "perms_item": perms_item(data, ix_volumes, perm_opts) if perm_opts else {},
+    }
+
+
 def perms_item(data, ix_volumes, opts={}):
     if not data.get("auto_permissions"):
         return {}
