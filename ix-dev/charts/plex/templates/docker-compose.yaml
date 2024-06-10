@@ -6,30 +6,26 @@
   "plex_pass": plex_pass_image
 } %}
 
+{# Stores storage items that contains info for volumes, vol mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
 {% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% if ix_lib.base.storage.vol(data=storage.data) %}
-  {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=storage.data)) %}
-  {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.data, **{"mount_path": "/data"}), ix_volumes=ixVolumes)) %}
-{% endif %}
-{% if ix_lib.base.storage.vol(data=storage.config) %}
-  {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=storage.config)) %}
-  {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes)) %}
-{% endif %}
-{% if ix_lib.base.storage.vol(data=storage.logs) %}
-  {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=storage.logs)) %}
-  {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.logs, **{"mount_path": "/config/Library/Application Support/Plex Media Server/Logs"}), ix_volumes=ixVolumes)) %}
-{% endif %}
-{% if ix_lib.base.storage.vol(data=storage.transcode) %}
-  {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=storage.transcode)) %}
-  {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.transcode, **{"mount_path": "/transcode"}), ix_volumes=ixVolumes)) %}
-{% endif %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.data, **{"mount_path": "/data"}), ix_volumes=ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.logs, **{"mount_path": "/config/Library/Application Support/Plex Media Server/Logs"}), ix_volumes=ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.transcode, **{"mount_path": "/transcode"}), ix_volumes=ixVolumes)) %}
+
 {% for store in storage.additional_storage %}
-  {% if ix_lib.base.storage.vol(data=store) %}
-    {% set _ = volumes.items.update(ix_lib.base.storage.vol(data=store)) %}
-    {% set _ = volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=store, ix_volumes=ixVolumes)) %}
-  {% endif %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
 {% endfor %}
 
 {# Containers #}
