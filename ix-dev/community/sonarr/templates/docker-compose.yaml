@@ -4,22 +4,33 @@
 {% set sonarr_container_name = "sonarr" %}
 {% set sonarr_image = "ghcr.io/onedr0p/sonarr:4.0.5.1710" %}
 
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
 {% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
 {% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{# TODO: we have to create the volume_mount regardeless if vol is truthy or not #}
-{% if ix_lib.base.storage.vol(data=storage.config) and (volumes.items.update(ix_lib.base.storage.vol(data=storage.config)), volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes))) %}
-  {% set x = ix_lib.base.storage.perms_item(data=storage.config, ix_volumes=ixVolumes, opts={"mount_path": "/mnt/sonarr/config", "mode": "check", "uid": run_as.user, "gid": run_as.group}) %}
-  {% if x and (perms_mounts.items.append(x.vol_mount),perms_dirs.items.append(x.perm_dir)) %}  {% endif %}
-{% endif %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(
+  data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes,
+  perm_opts={"mount_path": "/mnt/sonarr/config", "mode": "check", "uid": run_as.user, "gid": run_as.group}
+)) %}
 
 {% for store in storage.additional_storage %}
-  {% if ix_lib.base.storage.vol(data=store) and (volumes.items.update(ix_lib.base.storage.vol(data=store)), volume_mounts.items.append(ix_lib.base.storage.vol_mount(data=store, ix_volumes=ixVolumes))) %}
-    {% set x = ix_lib.base.storage.perms_item(data=store, ix_volumes=ixVolumes, opts={"mount_path": "/mnt/sonarr/%s"|format(loop.index0), "mode": "check", "uid": run_as.user, "gid": run_as.group}) %}
-    {% if x and (perms_mounts.items.append(x.vol_mount),perms_dirs.items.append(x.perm_dir)) %}  {% endif %}
-  {% endif %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(
+    data=store, ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/sonarr/dir_%s"|format(loop.index0), "mode": "check", "uid": run_as.user, "gid": run_as.group}
+  )) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
 {# Containers #}
