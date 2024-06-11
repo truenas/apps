@@ -75,12 +75,12 @@ def perms_item(data, ix_volumes, opts={}):
 
 
 def _get_bind_vol_config(data, ix_volumes=[]):
-    path = _host_path(data, ix_volumes)
+    path = host_path(data, ix_volumes)
     if data.get("propagation", "rprivate") not in PROPAGATION_TYPES:
         utils.throw_error(f"Expected [propagation] to be one of [{', '.join(PROPAGATION_TYPES)}], got [{data['propagation']}]")
 
     # https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation
-    return {"source": path, "bind": {"create_host_path": True, "propagation": _get_valid_propagation(data)}}
+    return {"source": path, "bind": {"create_host_path": data.get("host_path_config", {}).get("create_host_path", True), "propagation": _get_valid_propagation(data)}}
 
 
 def _get_volume_vol_config(data):
@@ -147,7 +147,7 @@ def _is_ix_volume(data):
 
 
 # Returns the host path for a for either a host_path or ix_volume
-def _host_path(data, ix_volumes=[]):
+def host_path(data, ix_volumes=[]):
     path = ""
     if _is_host_path(data):
         path = _process_host_path_config(data)
