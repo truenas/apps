@@ -24,3 +24,9 @@ def curl_test(url):
     if not url:
         utils.throw_error("Curl test: [url] must be set")
     return f"curl --silent --fail {url}"
+
+
+def wget_test(url):
+    if not url:
+        utils.throw_error("Wget test: [url] must be set")
+    return f"wget --spider --quiet {url}"
