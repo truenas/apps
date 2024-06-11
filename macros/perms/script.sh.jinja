@@ -13,7 +13,6 @@ function process_dir() {
 
   local fix_owner="false"
   local fix_perms="false"
-  local is_empty="false"
 
   if [ ! -d "$$dir" ]; then
     echo "Path [$$dir] does is not a directory, skipping..."
@@ -38,15 +37,16 @@ function process_dir() {
       fix_owner="true"
     fi
 
-    if [ $$(stat -c %a "$$dir") -eq $$chmod ]; then
-      echo "Permissions are correct. Skipping..."
-      fix_perms="false"
-    else
-      echo "Permissions are incorrect. Fixing..."
-      fix_perms="true"
+    if [ -n "$$chmod" ]; then
+      if [ $$(stat -c %a "$$dir") -eq $$chmod ]; then
+        echo "Permissions are correct. Skipping..."
+        fix_perms="false"
+      else
+        echo "Permissions are incorrect. Fixing..."
+        fix_perms="true"
+      fi
     fi
   fi
-
   if [ "$$fix_owner" = "true" ]; then
     echo "Changing ownership to $$uid:$$gid on: [$$dir]"
     chown -R "$$uid:$$gid" "$$dir"
