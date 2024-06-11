@@ -1,0 +1,110 @@
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+
+{% set perms_container_name = "permissions" %}
+{% set dockge_container_name = "dockge" %}
+{% set dockge_image = "louislam/dockge:1.4.2" %}
+
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
+{% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+
+{% set data_path = "/app/data" %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.data, **{"mount_path": data_path}),
+  ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/dockge/data", "mode": "check", "uid": run_as.user, "gid": run_as.group}
+)) %}
+{# Note that the DOCKGE_STACKS_DIR (container path) must be the SAME path as the host path #}
+{% set stacks_host_path = ix_lib.base.storage.host_path(data=storage.stacks, ix_volumes=ixVolumes) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.stacks, **{"mount_path": stacks_host_path}),
+  ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/dockge/stacks", "mode": "check", "uid": run_as.user, "gid": run_as.group}
+)) %}
+
+{# Docker socket #}
+{% set socket_path = "/var/run/docker.sock" %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(
+  data={"type": "host_path", "mount_path": socket_path, "host_path_config": {"path": socket_path, "create_host_path": false} },
+)) %}
+
+{% for store in storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes,
+  perm_opts={"mount_path": "/mnt/dockge/dir_%s"|format(loop.index0), "mode": "check", "uid": run_as.user, "gid": run_as.group}
+  )) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% set ssl_key_path = "/app/ssl/key.pem" %}
+{% set ssl_cert_path = "/app/ssl/cert.pem" %}
+{% if network.certificate_id %}
+configs:
+  private:
+    content: {{ ixCertificates[network.certificate_id].privatekey | tojson }}
+  public:
+    content: {{ ixCertificates[network.certificate_id].certificate | tojson }}
+{% endif %}
+
+{# Containers #}
+services:
+  {{ dockge_container_name }}:
+    user: {{ "%d:%d" | format(run_as.user, run_as.group) }}
+    image: {{ dockge_image }}
+    restart: unless-stopped
+    {% if network.certificate_id %}
+    configs:
+      - source: private
+        target: {{ ssl_key_path }}
+      - source: public
+        target: {{ ssl_cert_path }}
+    {% endif %}
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
+    {% if perms_dirs.items %}
+    depends_on:
+      {{ perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    {% if network.host_network %}
+    network_mode: host
+    {% endif %}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = "/app/extra/healthcheck" %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app=dict({
+      "NODE_ENV": "production",
+      "DOCKGE_PORT": network.web_port,
+      "DOCKGE_STACKS_DIR": stacks_host_path,
+      "DOCKGE_DATA_DIR": data_path
+    }, **{"DOCKGE_SSL_KEY": ssl_key_path, "DOCKGE_SSL_CERT": ssl_cert_path} if not network.certificate_id else {}
+    ),user=dockge.additional_envs) | tojson }}
+    {% if not network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": network.web_port, "published": network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+  {% if perms_dirs.items %}
+  {{ perms_container_name }}:
+    {{ perms_container(items=perms_dirs.items) | indent(4) }}
+    volumes:
+      {% for item in perms_mounts.items %}
+      - {{ item | tojson }}
+      {% endfor %}
+  {% endif %}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
