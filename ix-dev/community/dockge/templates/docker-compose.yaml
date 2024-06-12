@@ -1,29 +1,19 @@
-{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
-
-{% set perms_container_name = "permissions" %}
 {% set dockge_container_name = "dockge" %}
 {% set dockge_image = "louislam/dockge:1.4.2" %}
 
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{# Stores storage items that contains info for volumes, vol mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
 {% set volumes = namespace(items={}) %}
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
-{# Stores the perms container volume mounts #}
-{% set perms_mounts = namespace(items=[]) %}
-{# Stores the perms container dirs #}
-{% set perms_dirs = namespace(items=[]) %}
 
 {% set data_path = "/app/data" %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.data, **{"mount_path": data_path}),
-  ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/dockge/data", "mode": "check", "uid": run_as.user, "gid": run_as.group}
-)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.data, **{"mount_path": data_path}),ix_volumes=ixVolumes)) %}
+
 {# Note that the DOCKGE_STACKS_DIR (container path) must be the SAME path as the host path #}
 {% set stacks_host_path = ix_lib.base.storage.host_path(data=storage.stacks, ix_volumes=ixVolumes) %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.stacks, **{"mount_path": stacks_host_path}),
-  ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/dockge/stacks", "mode": "check", "uid": run_as.user, "gid": run_as.group}
-)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.stacks, **{"mount_path": stacks_host_path}), ix_volumes=ixVolumes)) %}
 
 {# Docker socket #}
 {% set socket_path = "/var/run/docker.sock" %}
@@ -32,16 +22,13 @@
 )) %}
 
 {% for store in storage.additional_storage %}
-  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes,
-  perm_opts={"mount_path": "/mnt/dockge/dir_%s"|format(loop.index0), "mode": "check", "uid": run_as.user, "gid": run_as.group}
-  )) %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
 {% for item in storage_items.items %}
   {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
   {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
 {% set ssl_key_path = "/app/ssl/key.pem" %}
@@ -57,7 +44,7 @@ configs:
 {# Containers #}
 services:
   {{ dockge_container_name }}:
-    user: {{ "%d:%d" | format(run_as.user, run_as.group) }}
+    user: "0:0"
     image: {{ dockge_image }}
     restart: unless-stopped
     {% if network.certificate_id %}
@@ -69,15 +56,12 @@ services:
     {% endif %}
     deploy:
       resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
-    {% if perms_dirs.items %}
-    depends_on:
-      {{ perms_container_name }}:
-        condition: service_completed_successfully
-    {% endif %}
     {% if network.host_network %}
     network_mode: host
     {% endif %}
-    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "SETPCAP", "SETFCAP"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
     {% if network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
@@ -96,14 +80,6 @@ services:
       - {{ ix_lib.base.ports.get_port(port={"target": network.web_port, "published": network.web_port}) | tojson }}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
-  {% if perms_dirs.items %}
-  {{ perms_container_name }}:
-    {{ perms_container(items=perms_dirs.items) | indent(4) }}
-    volumes:
-      {% for item in perms_mounts.items %}
-      - {{ item | tojson }}
-      {% endfor %}
-  {% endif %}
 
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
