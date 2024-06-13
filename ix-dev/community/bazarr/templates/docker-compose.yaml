@@ -1,0 +1,79 @@
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+
+{% set perms_container_name = "permissions" %}
+{% set bazarr_container_name = "bazarr" %}
+{% set bazarr_image = "ghcr.io/onedr0p/bazarr:1.4.3" %}
+
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
+{% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.config, **{"mount_path": "/config"}),
+  ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/bazarr/config", "mode": "check", "uid": run_as.user, "gid": run_as.group}
+)) %}
+
+{% for store in storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes,
+  perm_opts={"mount_path": "/mnt/bazarr/dir_%s"|format(loop.index0), "mode": "check", "uid": run_as.user, "gid": run_as.group}
+  )) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{# Containers #}
+services:
+  {{ bazarr_container_name }}:
+    user: {{ "%d:%d" | format(run_as.user, run_as.group) }}
+    image: {{ bazarr_image }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
+    {% if perms_dirs.items %}
+    depends_on:
+      {{ perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    {% if network.host_network %}
+    network_mode: host
+    {% endif %}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.curl_test("http://localhost:%s/api/swagger.json" | format(network.web_port)) %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={}, user=bazarr.additional_envs) | tojson }}
+    entrypoint: ["/entrypoint.sh"]
+    command:
+      - --port
+      - "{{ network.web_port }}"
+    {% if not network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": network.web_port, "published": network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+  {% if perms_dirs.items %}
+  {{ perms_container_name }}:
+    {{ perms_container(items=perms_dirs.items) | indent(4) }}
+    volumes:
+      {% for item in perms_mounts.items %}
+      - {{ item | tojson }}
+      {% endfor %}
+  {% endif %}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
