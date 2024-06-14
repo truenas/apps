@@ -30,3 +30,10 @@ def wget_test(url):
     if not url:
         utils.throw_error("Wget test: [url] must be set")
     return f"wget --spider --quiet {url}"
+
+
+def http_test(port, path, host="127.0.0.1"):
+    if not port or not path:
+        utils.throw_error("Expected [port] and [path] to be set")
+
+    return f"/bin/bash -c 'exec {{health_check_fd}}<>/dev/tcp/{host}/{port} && echo -e \"GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n\" >&$${{health_check_fd}} && cat <&$${{health_check_fd}}'"
