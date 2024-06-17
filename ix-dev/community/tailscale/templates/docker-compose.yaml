@@ -20,6 +20,7 @@
   ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/tailscale/state", "mode": "always", "uid": 568, "gid": 568}
 )) %}
 {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"tmpfs", "mount_path": "/var/run/tailscale", "tmpfs_config": {"mode": "0755"} })) %}
 
 {% if not tailscale.userspace %}
   {% set tun_dev = "/dev/net/tun" %}
@@ -38,9 +39,6 @@
 {# Containers #}
 services:
   {{ tailscale_container_name }}:
-    {% if tailscale.userspace %}
-    user: "568:568"
-    {% endif %}
     image: {{ tailscale_image }}
     restart: unless-stopped
     deploy:
@@ -53,7 +51,7 @@ services:
     {% if network.host_network %}
     network_mode: host
     {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["NET_ADMIN", "NET_RAW", "SYS_MODULE"]) %}
+    {% set caps = ix_lib.base.security.get_caps(add=["NET_ADMIN", "NET_RAW", "SYS_MODULE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
     cap_add: {{ caps.add | tojson }}
     cap_drop: {{ caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
