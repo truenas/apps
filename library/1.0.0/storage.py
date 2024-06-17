@@ -1,4 +1,5 @@
 from . import utils
+import re
 
 BIND_TYPES = ["host_path", "ix_volume"]
 VOL_TYPES = ["volume", "nfs", "cifs"]
@@ -94,6 +95,9 @@ def _get_anonymous_vol_config(data):
     return {"volume": _process_volume_config(data)}
 
 
+mode_regex = re.compile(r"^0[0-7]{3}$")
+
+
 def _get_tmpfs_vol_config(data):
     tmpfs = {}
     config = data.get("tmpfs_config", {})
@@ -107,9 +111,9 @@ def _get_tmpfs_vol_config(data):
         tmpfs.update({"size": config["size"] * 1024 * 1024 * 1024})
 
     if config.get("mode"):
-        if not isinstance(config["mode"], str):
-            utils.throw_error("Expected [mode] to be a string for [tmpfs] type")
-        tmpfs.update({"mode": config["mode"]})
+        if not mode_regex.match(str(config["mode"])):
+            utils.throw_error(f"Expected [mode] to be a octal string for [tmpfs] type, got [{config['mode']}]")
+        tmpfs.update({"mode": int(config["mode"], 8)})
 
     return {"tmpfs": tmpfs}
 
