@@ -23,7 +23,7 @@ def pg_test(user, db, host="127.0.0.1", port=5432):
 def curl_test(url):
     if not url:
         utils.throw_error("Curl test: [url] must be set")
-    return f"curl --silent --fail {url}"
+    return f"curl --silent --output /dev/null --show-error --fail {url}"
 
 
 def wget_test(url):
