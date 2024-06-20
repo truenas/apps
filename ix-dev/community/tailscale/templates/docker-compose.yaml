@@ -16,13 +16,13 @@
 {% set perms_dirs = namespace(items=[]) %}
 
 {% set state_path = "/var/lib/tailscale" %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.state, **{"mount_path": state_path}),
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.state, **{"mount_path": state_path}),
   ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/tailscale/state", "mode": "always", "uid": 568, "gid": 568}
 )) %}
 {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"tmpfs", "mount_path": "/var/run/tailscale", "tmpfs_config": {"mode": "0755"} })) %}
 
-{% if not tailscale.userspace %}
+{% if not values.tailscale.userspace %}
   {% set tun_dev = "/dev/net/tun" %}
   {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(
     data={"type": "host_path", "mount_path": tun_dev, "host_path_config": {"path": tun_dev, "create_host_path": false} },
@@ -42,41 +42,41 @@ services:
     image: {{ tailscale_image }}
     restart: unless-stopped
     deploy:
-      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
-    {% if tailscale.userspace and perms_dirs.items %}
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.tailscale.userspace and perms_dirs.items %}
     depends_on:
       {{ perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
-    {% if network.host_network %}
+    {% if values.network.host_network %}
     network_mode: host
     {% endif %}
     {% set caps = ix_lib.base.security.get_caps(add=["NET_ADMIN", "NET_RAW", "SYS_MODULE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
     cap_add: {{ caps.add | tojson }}
     cap_drop: {{ caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health("tailscale status") | tojson }}
-    {% set args = ix_lib.community.tailscale.util.get_args(tailscale) %}
+    {% set args = ix_lib.community.tailscale.util.get_args(values.tailscale) %}
     {% set app_env = {
       "TS_STATE_DIR": state_path,
-      "TS_ACCEPT_DNS": tailscale.accept_dns,
-      "TS_HOSTNAME": tailscale.hostname,
-      "TS_USERSPACE": tailscale.userspace,
-      "TS_AUTH_ONCE": tailscale.auth_once,
-      "TS_AUTHKEY": tailscale.auth_key,
+      "TS_ACCEPT_DNS": values.tailscale.accept_dns,
+      "TS_HOSTNAME": values.tailscale.hostname,
+      "TS_USERSPACE": values.tailscale.userspace,
+      "TS_AUTH_ONCE": values.tailscale.auth_once,
+      "TS_AUTHKEY": values.tailscale.auth_key,
       "TS_SOCKET": "/var/run/tailscale/tailscaled.sock",
     } %}
-    {% if tailscale.hostname and app_env.update({"TS_HOSTNAME": tailscale.hostname}) %}{% endif %}
+    {% if values.tailscale.hostname and app_env.update({"TS_HOSTNAME": values.tailscale.hostname}) %}{% endif %}
     {% if args and app_env.update({"TS_EXTRA_ARGS": args}) %}{% endif %}
-    {% if tailscale.tailscaled_args and app_env.update({"TS_TAILSCALED_ARGS": tailscale.tailscaled_args|unique|list|join(" ")}) %}{% endif %}
-    {% if tailscale.advertise_routes and app_env.update({"TS_ADVERTISE_ROUTES": tailscale.advertise_routes|unique|list|join(",")}) %}{% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=tailscale.additional_envs) | tojson }}
+    {% if values.tailscale.tailscaled_args and app_env.update({"TS_TAILSCALED_ARGS": values.tailscale.tailscaled_args|unique|list|join(" ")}) %}{% endif %}
+    {% if values.tailscale.advertise_routes and app_env.update({"TS_ADVERTISE_ROUTES": values.tailscale.advertise_routes|unique|list|join(",")}) %}{% endif %}
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.tailscale.additional_envs) | tojson }}
     volumes: {{ volume_mounts.items | tojson }}
 
-  {% if tailscale.userspace and perms_dirs.items %}
+  {% if values.tailscale.userspace and perms_dirs.items %}
   {{ perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
