@@ -229,11 +229,19 @@ def run_app():
     print_logs()
 
     if res.returncode != 0:
-        print_stderr("Failed to start container(s)")
+        failed_containers = get_failed_containers()
+        if failed_containers:
+            print_stderr("Failed to start container(s):")
         for container in get_failed_containers():
-            print_stderr(f"Container [{container['ID']}] exited. Printing Inspect Data")
+            print_stderr(f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data")
             print_inspect_data(container)
-        return res.returncode
+
+        # https://github.com/docker/compose/issues/10596
+        # `--wait` will return 1 even if a container exits with 0.
+        # Although it seems that it only happens on specific compose files, while on others it is not.
+
+        # Cases that a container exits with 0 that are expected is for example an init container.
+        return res.returncode if failed_containers else 0
 
     print_stderr("Containers started successfully")
     return 0
