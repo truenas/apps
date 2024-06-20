@@ -15,14 +15,14 @@
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.config, **{"mount_path": "/app/config"}),
-  ix_volumes=ixVolumes, perm_opts={"mount_path": "/mnt/jellyseerr/config", "mode": "check", "uid": run_as.user, "gid": run_as.group}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/app/config"}),
+  ix_volumes=values.ixVolumes, perm_opts={"mount_path": "/mnt/jellyseerr/config", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
 {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
-{% for store in storage.additional_storage %}
-  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes,
-  perm_opts={"mount_path": "/mnt/jellyseerr/dir_%s"|format(loop.index0), "mode": "check", "uid": run_as.user, "gid": run_as.group}
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes,
+  perm_opts={"mount_path": "/mnt/jellyseerr/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
   )) %}
 {% endfor %}
 
@@ -36,30 +36,30 @@
 {# Containers #}
 services:
   {{ jellyseerr_container_name }}:
-    user: {{ "%d:%d" | format(run_as.user, run_as.group) }}
+    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
     image: {{ jellyseerr_image }}
     restart: unless-stopped
     deploy:
-      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     {% if perms_dirs.items %}
     depends_on:
       {{ perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
-    {% if network.host_network %}
+    {% if values.network.host_network %}
     network_mode: host
     {% endif %}
     cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
-    {% set test = ix_lib.base.healthchecks.wget_test("http://localhost:%s/api/v1/status" | format(network.web_port)) %}
+    {% set test = ix_lib.base.healthchecks.wget_test("http://localhost:%s/api/v1/status" | format(values.network.web_port)) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    environment: {{ ix_lib.base.environment.envs(app={"PORT": network.web_port}, user=jellyseerr.additional_envs) | tojson }}
-    {% if not network.host_network %}
+    environment: {{ ix_lib.base.environment.envs(app={"PORT": values.network.web_port}, user=values.jellyseerr.additional_envs) | tojson }}
+    {% if not values.network.host_network %}
     ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": network.web_port, "published": network.web_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
