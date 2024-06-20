@@ -8,10 +8,7 @@
   - Add "ports" back in
   
  #}
-{% set _ = ix_lib.enterprise.minio.data.validate(data = {
-  'multi_mode': multi_mode,
-  'storage': storage,
-}) %}
+{% set _ = ix_lib.enterprise.minio.data.validate(data=values) %}
 
 {% set pg_container_name = "postgres" %}
 {% set logsearch_container_name = "logsearch" %}
@@ -29,26 +26,26 @@
 {% set log_audit_token = ix_lib.base.utils.secure_string(16) %}
 
 {# Configs #}
-{% if network.certificate_id %}
+{% if values.network.certificate_id %}
 configs:
   private:
-    content: {{ ixCertificates[network.certificate_id].privatekey | tojson }}
+    content: {{ values.ixCertificates[values.network.certificate_id].privatekey | tojson }}
   public:
-    content: {{ ixCertificates[network.certificate_id].certificate | tojson }}
+    content: {{ values.ixCertificates[values.network.certificate_id].certificate | tojson }}
 {% endif %}
 
 {% set minio_vols = namespace(volumes=[]) %}
-{% for dir in storage.data_dirs %}
+{% for dir in values.storage.data_dirs %}
   {% set _ = minio_vols.volumes.append(dir.mount_path) %}
 {% endfor %}
 
 {# Volumes #}
 {% set vols = namespace(volumes={}) %}
-{% for dir in storage.data_dirs %}
+{% for dir in values.storage.data_dirs %}
   {% set vols.volumes = dict(vols.volumes, **ix_lib.base.storage.vol(dir)) %}
 {% endfor %}
-{% if logsearch.enabled %}
-  {% set vols.volumes = dict(vols.volumes, **ix_lib.base.storage.vol(logsearch.postgres_data)) %}
+{% if values.logsearch.enabled %}
+  {% set vols.volumes = dict(vols.volumes, **ix_lib.base.storage.vol(values.logsearch.postgres_data)) %}
 {% endif %}
 
 {% if vols.volumes %}
@@ -57,9 +54,9 @@ volumes: {{ vols.volumes | tojson }}
 
 {# Permissions #}
 {% set minio_perms = namespace(vols=[]) %}
-{% for dir in storage.data_dirs %}
+{% for dir in values.storage.data_dirs %}
   {% if dir.type in ["ix_volume", "host_path", "volume"] and dir.auto_permissions %}
-    {% set _ = minio_perms.vols.append(ix_lib.base.storage.vol_mount(dict(dir, **{"mount_path": "/mnt/directories/data%s" | format(loop.index)}), ixVolumes)) %}
+    {% set _ = minio_perms.vols.append(ix_lib.base.storage.vol_mount(dict(dir, **{"mount_path": "/mnt/directories/data%s" | format(loop.index)}), values.ixVolumes)) %}
   {% endif %}
 {% endfor %}
 
@@ -67,10 +64,10 @@ volumes: {{ vols.volumes | tojson }}
 services:
   {{ minio_container_name }}:
     image: {{ minio_image }}
-    user: {{ "%s:%s" | format(run_as.user, run_as.group) }}
+    user: {{ "%s:%s" | format(values.run_as.user, values.run_as.group) }}
     deploy:
-      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
-    {% if network.certificate_id %}
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.certificate_id %}
     configs:
       - source: private
         target: /.minio/certs/private.key
@@ -80,30 +77,30 @@ services:
     command:
       - server
       - --address
-      - {{ ":%d" | format(network.api_port) }}
+      - {{ ":%d" | format(values.network.api_port) }}
       - --console-address
-      - {{ ":%d" | format(network.console_port) }}
-    {% if network.certificate_id %}
+      - {{ ":%d" | format(values.network.console_port) }}
+    {% if values.network.certificate_id %}
       - --certs-dir
       - /.minio/certs
     {% endif %}
-    {% if logging.quiet %}
+    {% if values.logging.quiet %}
       - --quiet
     {% endif %}
-    {% if logging.anonymous %}
+    {% if values.logging.anonymous %}
       - --anonymous
     {% endif %}
-    {% if logsearch.enabled %}
+    {% if values.logsearch.enabled %}
     links:
       - {{ logsearch_container_name }}
     {% endif %}
-    {% if logsearch.enabled or minio_perms.vols %}
+    {% if values.logsearch.enabled or minio_perms.vols %}
     depends_on:
       {% if minio_perms.vols %}
       {{ minio_perms_container_name }}:
         condition: service_completed_successfully
       {% endif %}
-      {% if logsearch.enabled %}
+      {% if values.logsearch.enabled %}
       {{ logsearch_container_name }}:
         condition: service_healthy
       {% endif %}
@@ -111,44 +108,44 @@ services:
     {% set test = "mc ready --insecure health" %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     volumes:
-    {% for dir in storage.data_dirs %}
-      - {{ ix_lib.base.storage.vol_mount(dict(dir), ixVolumes) }}
+    {% for dir in values.storage.data_dirs %}
+      - {{ ix_lib.base.storage.vol_mount(dict(dir), values.ixVolumes) }}
     {% endfor %}
     environment:
-      {% set proto = "https" if network.certificate_id else "http" %}
-      MC_HOST_health: {{ "%s://localhost:%d" | format(proto, network.api_port) }}
-      MINIO_ROOT_USER: {{ creds.access_key }}
-      MINIO_ROOT_PASSWORD: {{ creds.secret_key }}
-      MINIO_VOLUMES: {{ (multi_mode.entries if multi_mode.entries else minio_vols.volumes) | join(' ') }}
-    {% if network.server_url %}
-      MINIO_SERVER_URL: {{ network.server_url }}
+      {% set proto = "https" if values.network.certificate_id else "http" %}
+      MC_HOST_health: {{ "%s://localhost:%d" | format(proto, values.network.api_port) }}
+      MINIO_ROOT_USER: {{ values.creds.access_key }}
+      MINIO_ROOT_PASSWORD: {{ values.creds.secret_key }}
+      MINIO_VOLUMES: {{ (values.multi_mode.entries if values.multi_mode.entries else minio_vols.volumes) | join(' ') }}
+    {% if values.network.server_url %}
+      MINIO_SERVER_URL: {{ values.network.server_url }}
     {% endif %}
-    {% if network.console_url %}
-      MINIO_BROWSER_REDIRECT_URL: {{ network.console_url }}
+    {% if values.network.console_url %}
+      MINIO_BROWSER_REDIRECT_URL: {{ values.network.console_url }}
     {% endif %}
-    {% if logsearch.enabled %}
+    {% if values.logsearch.enabled %}
       MINIO_AUDIT_WEBHOOK_ENABLE_ix_logsearch: "on"
-      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://%s:8080/api/ingest?token=%s" | format(logsearch_container_name, log_audit_token) }}
+      MINIO_AUDIT_WEBHOOK_ENDPOINT_ix_logsearch: {{ "http://%s:8080/api/ingest?token=%s" | format(values.logsearch_container_name, log_audit_token) }}
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
       MINIO_LOG_QUERY_URL: {{ "http://%s:8080" | format(logsearch_container_name) }}
     {% endif %}
 
   {% if minio_perms.vols %}
   {{ minio_perms_container_name }}:
-    {{ perms_container("check", run_as.user, run_as.group, "") | indent(4) }}
+    {{ perms_container("check", values.run_as.user, values.run_as.group, "") | indent(4) }}
     volumes:
       {% for store in minio_perms.vols %}
       - {{ store | tojson }}
       {% endfor %}
   {% endif %}
 
-{% if logsearch.enabled %}
+{% if values.logsearch.enabled %}
   {# Logsearch container #}
   {{ logsearch_container_name }}:
     image: {{ logsearch_image }}
-    user: {{ "%s:%s" | format(run_as.user, run_as.group) }}
+    user: {{ "%s:%s" | format(values.run_as.user, values.run_as.group) }}
     deploy:
-      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     entrypoint: ["/logsearchapi"]
     links:
       - {{ pg_container_name }}
@@ -158,8 +155,8 @@ services:
     {% set test = ix_lib.base.healthchecks.curl_test("http://localhost:8080/status") %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     environment:
-      LOGSEARCH_DISK_CAPACITY_GB: {{ logsearch.disk_capacity_gb }}
-      LOGSEARCH_PG_CONN_STR: {{ ix_lib.base.postgres.pg_url("postgresql", pg_container_name, pg_user, logsearch.postgres_password, pg_database) }}
+      LOGSEARCH_DISK_CAPACITY_GB: {{ values.logsearch.disk_capacity_gb }}
+      LOGSEARCH_PG_CONN_STR: {{ ix_lib.base.postgres.pg_url("postgresql", pg_container_name, pg_user, values.logsearch.postgres_password, pg_database) }}
       LOGSEARCH_AUDIT_AUTH_TOKEN: {{ log_audit_token }}
       MINIO_LOG_QUERY_AUTH_TOKEN: {{ log_auth_token }}
 
@@ -168,21 +165,21 @@ services:
     image: {{ pg_image }}
     user: 999:999
     deploy:
-      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
-    environment: {{ ix_lib.base.postgres.pg_env(pg_user, logsearch.postgres_password, pg_database) | tojson }}
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    environment: {{ ix_lib.base.postgres.pg_env(pg_user, values.logsearch.postgres_password, pg_database) | tojson }}
     {% set test = ix_lib.base.healthchecks.pg_test(pg_user, pg_database) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    {% if logsearch.postgres_data.auto_permissions %}
+    {% if values.logsearch.postgres_data.auto_permissions %}
     depends_on:
       {{ pg_perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     volumes:
-      - {{ ix_lib.base.storage.vol_mount(dict(logsearch.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}), ixVolumes) }}
-  {% if logsearch.postgres_data.auto_permissions %}
+      - {{ ix_lib.base.storage.vol_mount(dict(values.logsearch.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}), ixVolumes) }}
+  {% if values.logsearch.postgres_data.auto_permissions %}
   {{ pg_perms_container_name }}:
     {{ perms_container("check", 999, 999, "") | indent(4) }}
     volumes:
-      - {{ ix_lib.base.storage.vol_mount(dict(logsearch.postgres_data, **{"mount_path": "/mnt/directories/data"}), ixVolumes) }}
+      - {{ ix_lib.base.storage.vol_mount(dict(values.logsearch.postgres_data, **{"mount_path": "/mnt/directories/data"}), ixVolumes) }}
   {% endif %}
 {% endif %}
