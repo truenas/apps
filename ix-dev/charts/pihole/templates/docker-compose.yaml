@@ -8,12 +8,12 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.config, **{"mount_path": "/etc/pihole"}), ix_volumes=ixVolumes)) %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.dnsmasq, **{"mount_path": "/etc/dnsmasq.d"}), ix_volumes=ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/etc/pihole"}), ix_volumes=ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.dnsmasq, **{"mount_path": "/etc/dnsmasq.d"}), ix_volumes=ixVolumes)) %}
 {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
-{% for store in storage.additional_storage %}
-  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes)) %}
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -28,37 +28,37 @@ services:
     image: {{ pihole_image }}
     restart: unless-stopped
     deploy:
-      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
-    {% if network.host_network or network.dhcp_enabled %}
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.host_network or values.network.dhcp_enabled %}
     network_mode: host
     {% endif %}
     {% set caps = ix_lib.base.security.get_caps(add=["NET_ADMIN","NET_RAW","NET_BIND_SERVICE","CHOWN","DAC_OVERRIDE","FOWNER","SETGID","SETUID","SETFCAP","SETPCAP","KILL","SYS_NICE"]) %}
     cap_add: {{ caps.add | tojson }}
     cap_drop: {{ caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test("http://localhost:%s/admin/login.php" | format(network.web_port)) %}
+    {% set test = ix_lib.base.healthchecks.curl_test("http://localhost:%s/admin/login.php" | format(values.network.web_port)) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     {% set app_env = {
-      "WEB_PORT": network.web_port,
-      "WEBPASSWORD": pihole.web_password,
+      "WEB_PORT": values.network.web_port,
+      "WEBPASSWORD": values.pihole.web_password,
     } %}
-    {% if network.dhcp_enabled %}
+    {% if values.network.dhcp_enabled %}
       {% set _ = app_env.update({
         "DHCP_ACTIVE": "true",
-        "DHCP_START": network.dhcp_config.start,
-        "DHCP_END": network.dhcp_config.end,
-        "DHCP_ROUTER": network.dhcp_config.gateway,
+        "DHCP_START": values.network.dhcp_config.start,
+        "DHCP_END": values.network.dhcp_config.end,
+        "DHCP_ROUTER": values.network.dhcp_config.gateway,
       }) %}
     {% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=pihole.additional_envs) | tojson }}
-    {% if not network.host_network and not network.dhcp_enabled %}
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.pihole.additional_envs) | tojson }}
+    {% if not values.network.host_network and not values.network.dhcp_enabled %}
     ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": network.web_port, "published": network.web_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": 53, "published": network.dns_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": 53, "published": network.dns_port, "protocol": "udp"}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": 53, "published": values.network.dns_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": 53, "published": values.network.dns_port, "protocol": "udp"}) | tojson }}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
