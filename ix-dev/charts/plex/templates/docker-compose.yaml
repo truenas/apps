@@ -13,14 +13,14 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.data, **{"mount_path": "/data"}), ix_volumes=ixVolumes)) %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.config, **{"mount_path": "/config"}), ix_volumes=ixVolumes)) %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.logs, **{"mount_path": "/config/Library/Application Support/Plex Media Server/Logs"}), ix_volumes=ixVolumes)) %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.transcode, **{"mount_path": "/transcode"}), ix_volumes=ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": "/data"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.logs, **{"mount_path": "/config/Library/Application Support/Plex Media Server/Logs"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.transcode, **{"mount_path": "/transcode"}), ix_volumes=values.ixVolumes)) %}
 {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
-{% for store in storage.additional_storage %}
-  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes)) %}
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -33,31 +33,31 @@
 services:
   {{ plex_container_name }}:
     user: "0:0"
-    image: {{ plex_images[plex.image_selector] }}
+    image: {{ plex_images[values.plex.image_selector] }}
     restart: unless-stopped
     deploy:
-      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
-    {% if network.host_network %}
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.host_network %}
     network_mode: host
     {% endif %}
     {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID", "KILL"]) %}
     cap_add: {{ caps.add | tojson }}
     cap_drop: {{ caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
     {% set test = "/healthcheck.sh" %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     environment: {{ ix_lib.base.environment.envs(app={
-      "TZ": TZ,
-      "PLEX_UID": run_as.user,
-      "PLEX_GID": run_as.group,
-      "PLEX_CLAIM": plex.claim_token,
-    }, user=plex.additional_envs) | tojson }}
-    {% if not network.host_network %}
+      "TZ": values.TZ,
+      "PLEX_UID": values.run_as.user,
+      "PLEX_GID": values.run_as.group,
+      "PLEX_CLAIM": values.plex.claim_token,
+    }, user=values.plex.additional_envs) | tojson }}
+    {% if not values.network.host_network %}
     ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": 32400, "published": network.web_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": 32400, "published": values.network.web_port}) | tojson }}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
