@@ -12,12 +12,12 @@
 
 {% set work_path = "/opt/adguardhome/work" %}
 {% set config_path = "/opt/adguardhome/conf" %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.config, **{"mount_path": config_path}), ix_volumes=ixVolumes)) %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(storage.work, **{"mount_path": work_path}), ix_volumes=ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": config_path}), ix_volumes=ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.work, **{"mount_path": work_path}), ix_volumes=ixVolumes)) %}
 {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
-{% for store in storage.additional_storage %}
-  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=ixVolumes)) %}
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -32,8 +32,8 @@ services:
     image: {{ adguard_image }}
     restart: unless-stopped
     deploy:
-      resources: {{ ix_lib.base.resources.resources(resources) | tojson }}
-    {% if network.host_network or network.dhcp_enabled %}
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.host_network or values.network.dhcp_enabled %}
     network_mode: host
     {% endif %}
     command:
@@ -45,24 +45,24 @@ services:
       - --work-dir
       - {{ work_path }}
       - --port
-      - "{{ network.web_port }}"
+      - "{{ values.network.web_port }}"
     {% set add_caps = ["NET_BIND_SERVICE","CHOWN","FOWNER","DAC_OVERRIDE"] %}
-    {% if network.dhcp_enabled and add_caps.append("NET_ADMIN") %}{% endif %}
+    {% if values.network.dhcp_enabled and add_caps.append("NET_ADMIN") %}{% endif %}
     {% set caps = ix_lib.base.security.get_caps(add=add_caps) %}
     cap_add: {{ caps.add | tojson }}
     cap_drop: {{ caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
-    {% set test = ix_lib.base.healthchecks.wget_test("http://localhost:%s/" | format(network.web_port)) %}
+    {% set test = ix_lib.base.healthchecks.wget_test("http://localhost:%s/" | format(values.network.web_port)) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    environment: {{ ix_lib.base.environment.envs(app={}, user=adguard.additional_envs) | tojson }}
-    {% if not network.host_network and not network.dhcp_enabled %}
+    environment: {{ ix_lib.base.environment.envs(app={}, user=values.adguard.additional_envs) | tojson }}
+    {% if not values.network.host_network and not values.network.dhcp_enabled %}
     ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": network.web_port, "published": network.web_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": 53, "published": network.dns_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": 53, "published": network.dns_port, "protocol": "udp"}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": 53, "published": values.network.dns_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": 53, "published": values.network.dns_port, "protocol": "udp"}) | tojson }}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
