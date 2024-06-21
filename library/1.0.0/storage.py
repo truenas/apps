@@ -52,6 +52,14 @@ def storage_item(data, ix_volumes=[], perm_opts={}):
 def perms_item(data, ix_volumes, opts={}):
     if not data.get("auto_permissions"):
         return {}
+
+    if data.get("type") == "host_path":
+        if data.get("host_path_config", {}).get("aclEnabled", False):
+            return {}
+    if data.get("type") == "ix_volume":
+        if data.get("ix_volume_config", {}).get("aclEnabled", False):
+            return {}
+
     if not ix_volumes:
         ix_volumes = []
 
@@ -180,6 +188,11 @@ def _get_docker_vol_type(data):
 
 
 def _process_host_path_config(data):
+    if data.get("host_path_config", {}).get("aclEnabled", False):
+        if not data["host_path_config"].get("acl", {}).get("path"):
+            utils.throw_error("Expected [host_path_config.acl.path] to be set for [host_path] type with ACL enabled")
+        return data["host_path_config"]["acl"]["path"]
+
     if not data.get("host_path_config", {}).get("path"):
         utils.throw_error("Expected [host_path_config.path] to be set for [host_path] type")
 
