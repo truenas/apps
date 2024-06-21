@@ -54,10 +54,10 @@ def perms_item(data, ix_volumes, opts={}):
         return {}
 
     if data.get("type") == "host_path":
-        if data.get("host_path_config", {}).get("aclEnabled", False):
+        if data.get("host_path_config", {}).get("aclEnable", False):
             return {}
     if data.get("type") == "ix_volume":
-        if data.get("ix_volume_config", {}).get("aclEnabled", False):
+        if data.get("ix_volume_config", {}).get("aclEnable", False):
             return {}
 
     if not ix_volumes:
@@ -188,7 +188,7 @@ def _get_docker_vol_type(data):
 
 
 def _process_host_path_config(data):
-    if data.get("host_path_config", {}).get("aclEnabled", False):
+    if data.get("host_path_config", {}).get("aclEnable", False):
         if not data["host_path_config"].get("acl", {}).get("path"):
             utils.throw_error("Expected [host_path_config.acl.path] to be set for [host_path] type with ACL enabled")
         return data["host_path_config"]["acl"]["path"]
