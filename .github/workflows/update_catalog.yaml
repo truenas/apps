@@ -1,0 +1,40 @@
+name: catalog_update
+
+on:
+  push:
+    branches:
+      - 'master'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/truenas/apps_validation:latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Add catalog json as a safe directory
+        run: |
+          /bin/bash -c "PWD=${pwd}; git config --global --add safe.directory $PWD"
+      - name: Publish catalog
+        run: |
+          /bin/bash -c "PWD=${pwd}; /usr/local/bin/apps_catalog_update publish --path $PWD"
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+            commit_message: Publish new changes in catalog
+            commit_user_name: sonicaj
+            commit_user_email: waqarsonic1@gmail.com
+            commit_author: sonicaj <waqarsonic1@gmail.com>
+      - name: Update catalog
+        run: |
+          /bin/bash -c "PWD=${pwd}; /usr/local/bin/apps_catalog_update update --path $PWD"
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+            commit_message: Update catalog changes
+            commit_user_name: sonicaj
+            commit_user_email: waqarsonic1@gmail.com
+            commit_author: sonicaj <waqarsonic1@gmail.com>
