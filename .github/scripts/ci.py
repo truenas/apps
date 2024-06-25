@@ -291,11 +291,27 @@ def copy_macros():
         sys.exit(1)
 
 
+def generate_item_file():
+    with open(f"ix-dev/{args['train']}/{args['app']}/app.yaml", "r") as f:
+        app_yaml = yaml.safe_load(f)
+
+    item_file = f"ix-dev/{args['train']}/{args['app']}/item.yaml"
+    item_data = {
+        "icon_url": app_yaml.get("icon", ""),
+        "categories": app_yaml.get("categories", []),
+        "screenshots": app_yaml.get("screenshots", []),
+        "tags": app_yaml.get("keywords", []),
+    }
+    with open(item_file, "w") as f:
+        yaml.dump(item_data, f)
+
+
 def main():
     print_info()
     check_app_dir_exists()
     copy_lib()
     copy_macros()
+    generate_item_file()
     check_required_commands()
     pull_app_catalog_container()
     render_compose()
