@@ -50,7 +50,6 @@ def print_info():
     print_stderr(f"  - test-file: [{args['test_file']}]")
     print_stderr(f"  - render-only: [{args['render_only']}]")
     print_stderr(f"  - render-only-debug: [{args['render_only_debug']}]")
-    print_stderr(f"  - lib_version: [{get_lib_version()}]")
 
 
 def command_exists(command):
@@ -91,7 +90,7 @@ def render_compose():
     cmd = " ".join(
         [
             f"docker run --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
-            "python3 /app/catalog_templating/scripts/render_compose.py render",
+            "apps_render_app render",
             f"--path /workspace/{app_dir}",
             f"--values /workspace/{app_dir}/{test_values_dir}/{args['test_file']}",
         ]
@@ -253,49 +252,20 @@ def check_app_dir_exists():
         sys.exit(1)
 
 
-def get_lib_version():
-    app_file = f"ix-dev/{args['train']}/{args['app']}/app.yaml"
-    if not os.path.exists(app_file):
-        print_stderr(f"App file [{app_file}] does not exist")
-        sys.exit(1)
-
-    with open(app_file, "r") as f:
-        app = yaml.safe_load(f)
-
-    lib_version = app["lib_version"]
-    if not lib_version:
-        print_stderr("No lib version found in app.yaml")
-
-    return lib_version
-
-
 def copy_lib():
-    lib_version = get_lib_version()
-    if not lib_version:
-        print_stderr("No lib version found in app.yaml, skipping lib copy")
-        return
-
-    if not os.path.exists(f"library/{lib_version}"):
-        print_stderr(f"Library directory [library/{lib_version}] does not exist")
-        sys.exit(1)
-
-    print_stderr(f"Copying lib version [{lib_version}]")
-    lib = f"base_v{lib_version.replace('.', '_')}"
-
-    app_lib_dir = f"ix-dev/{args['train']}/{args['app']}/templates/library"
-    os.makedirs(app_lib_dir, exist_ok=True)
-    for dir in pathlib.Path(app_lib_dir).iterdir():
-        if dir.name.startswith("base_v"):
-            shutil.rmtree(dir, ignore_errors=True)
-
-    try:
-        shutil.copytree(
-            f"library/{lib_version}",
-            f"ix-dev/{args['train']}/{args['app']}/templates/library/{lib}",
-            dirs_exist_ok=True,
-        )
-    except shutil.Error:
-        print_stderr(f"Failed to copy lib [{lib_version}]")
+    cmd = " ".join(
+        [
+            f"docker run --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
+            "apps_catalog_hash_generate --path /workspace",
+        ]
+    )
+    print_cmd(cmd)
+    separator_start()
+    res = subprocess.run(cmd, shell=True, capture_output=True)
+    print_stderr(res.stdout.decode("utf-8"))
+    separator_start()
+    if res.returncode != 0:
+        print_stderr("Failed to generate hashes and copy lib")
         sys.exit(1)
 
 
