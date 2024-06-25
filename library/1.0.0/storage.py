@@ -115,8 +115,8 @@ def _get_tmpfs_vol_config(data):
             utils.throw_error("Expected [size] to be an integer for [tmpfs] type")
         if not config["size"] > 0:
             utils.throw_error("Expected [size] to be greater than 0 for [tmpfs] type")
-        # Convert Gigabytes to Bytes
-        tmpfs.update({"size": config["size"] * 1024 * 1024 * 1024})
+        # Convert Mebibytes to Bytes
+        tmpfs.update({"size": config["size"] * 1024 * 1024})
 
     if config.get("mode"):
         if not mode_regex.match(str(config["mode"])):
