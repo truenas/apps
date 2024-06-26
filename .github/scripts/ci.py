@@ -309,11 +309,11 @@ def generate_item_file():
 def main():
     print_info()
     check_app_dir_exists()
+    pull_app_catalog_container()
     copy_lib()
     copy_macros()
     generate_item_file()
     check_required_commands()
-    pull_app_catalog_container()
     render_compose()
     print_docker_compose_config()
     res = run_app()
