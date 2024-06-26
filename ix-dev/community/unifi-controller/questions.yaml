@@ -1,18 +1,16 @@
 groups:
-  - name: Audiobookshelf Configuration
-    description: Configure Audiobookshelf
-  - name: User and Group Configuration
-    description: Configure User and Group for Audiobookshelf
+  - name: Unifi Controller Configuration
+    description: Configure Unifi Controller
   - name: Network Configuration
-    description: Configure Network for Audiobookshelf
+    description: Configure Network for Unifi Controller
   - name: Storage Configuration
-    description: Configure Storage for Audiobookshelf
+    description: Configure Storage for Unifi Controller
   - name: Resources Configuration
-    description: Configure Resources for Audiobookshelf
+    description: Configure Resources for Unifi Controller
 
 questions:
   - variable: TZ
-    group: Audiobookshelf Configuration
+    group: Unifi Controller Configuration
     label: Timezone
     schema:
       type: string
@@ -21,15 +19,15 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: audiobookshelf
+  - variable: unifi
     label: ""
-    group: Audiobookshelf Configuration
+    group: Unifi Controller Configuration
     schema:
       type: dict
       attrs:
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Audiobookshelf.
+          description: Configure additional environment variables for Unifi Controller.
           schema:
             type: list
             default: []
@@ -49,28 +47,6 @@ questions:
                       schema:
                         type: string
                         required: true
-  - variable: run_as
-    label: ""
-    group: User and Group Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: user
-          label: User ID
-          description: The user id that Audiobookshelf files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
-        - variable: group
-          label: Group ID
-          description: The group id that Audiobookshelf files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
 
   - variable: network
     label: ""
@@ -78,15 +54,64 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
-          description: The port for Audiobookshelf WebUI
+        - variable: web_https_port
+          label: WebUI HTTPS Port
+          description: The HTTPS port for Unifi Controller WebUI
           schema:
             type: int
-            default: 30067
+            default: 30072
             required: true
             $ref:
               - definitions/port
+        - variable: enable_portal_http
+          label: Enable Portal HTTP
+          description: Enable Portal HTTP
+          schema:
+            type: boolean
+            default: true
+        - variable: web_http_port
+          label: WebUI HTTP Port
+          description: The HTTP port for Unifi Controller WebUI
+          schema:
+            type: int
+            default: 30073
+            show_if: [["enable_web_http", "=", true]]
+            required: true
+            $ref:
+              - definitions/port
+        - variable: portal_https_port
+          label: Portal HTTPS Port
+          description: The HTTPS port for Unifi Controller Portal
+          schema:
+            type: int
+            default: 30074
+            required: true
+            $ref:
+              - definitions/port
+        - variable: enable_portal_http
+          label: Enable Portal HTTP
+          description: Enable Portal HTTP
+          schema:
+            type: boolean
+            default: true
+        - variable: portal_http_port
+          label: Portal HTTP Port
+          description: The HTTP port for Unifi Controller Portal
+          schema:
+            type: int
+            default: 30075
+            show_if: [["enable_portal_http", "=", true]]
+            required: true
+            $ref:
+              - definitions/port
+        - variable: certificate_id
+          label: Certificate ID
+          description: The ID of the certificate to use for Unifi Controller
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - "definitions/certificate"
         - variable: host_network
           label: Host Network
           description: |
@@ -94,15 +119,16 @@ questions:
           schema:
             type: boolean
             default: false
+
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: config
-          label: Audiobookshelf Config Storage
-          description: The path to store Audiobookshelf Config.
+        - variable: data
+          label: Unifi Controller Data Storage
+          description: The path to store Unifi Controller Data.
           schema:
             type: dict
             attrs:
@@ -144,85 +170,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
-                    - variable: aclEntries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["aclEnable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: aclEnable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["aclEnable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: host_path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["aclEnable", "=", false]]
-                        required: true
-        - variable: metadata
-          label: Audiobookshelf Metadata Storage
-          description: The path to store Audiobookshelf Metadata.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  immutable: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ixVolume"
-                  attrs:
-                    - variable: aclEnable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        immutable: true
-                        hidden: true
-                        default: "metadata"
+                        default: "data"
                     - variable: aclEntries
                       label: ACL Configuration
                       schema:
@@ -258,7 +206,7 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Audiobookshelf.
+          description: Additional storage for Unifi Controller.
           schema:
             type: list
             default: []
