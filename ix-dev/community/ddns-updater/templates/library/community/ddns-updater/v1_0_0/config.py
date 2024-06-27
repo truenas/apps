@@ -9,42 +9,42 @@ valid_providers = [
     "digitalocean",
     "dnsomatic",
     "dnspod",
-    "dondominio",
-    "dreamhost",
-    "duckdns",
-    "dyn",
-    "dynu",
-    "dynv6",
-    "freedns",
-    "gandi",
-    "gcp",
-    "godaddy",
-    "google",
-    "he",
-    "infomaniak",
-    "inwx",
-    "linode",
-    "luadns",
-    "namecheap",
-    "njalla",
-    "noip",
-    "opendns",
-    "ovh",
-    "porkbun",
-    "selfhost.de",
-    "servercow",
-    "spdyn",
-    "strato",
-    "variomedia",
-    "ionos",
-    "desec",
-    "easydns",
-    "goip",
-    "hetzner",
-    "name.com",
-    "netcup",
-    "nowdns",
-    "zoneedit",
+    # "dondominio",
+    # "dreamhost",
+    # "duckdns",
+    # "dyn",
+    # "dynu",
+    # "dynv6",
+    # "freedns",
+    # "gandi",
+    # "gcp",
+    # "godaddy",
+    # "google",
+    # "he",
+    # "infomaniak",
+    # "inwx",
+    # "linode",
+    # "luadns",
+    # "namecheap",
+    # "njalla",
+    # "noip",
+    # "opendns",
+    # "ovh",
+    # "porkbun",
+    # "selfhost.de",
+    # "servercow",
+    # "spdyn",
+    # "strato",
+    # "variomedia",
+    # "ionos",
+    # "desec",
+    # "easydns",
+    # "goip",
+    # "hetzner",
+    # "name.com",
+    # "netcup",
+    # "nowdns",
+    # "zoneedit",
 ]
 valid_ip_dns_providers = [
     "all",
@@ -193,6 +193,10 @@ def get_provider_config(item={}):
         return {"token": required_key(item, "desec_token")}
     elif item["provider"] == "digitalocean":
         return {"token": required_key(item, "digital_ocean_token")}
+    elif item["provider"] == "dnspod":
+        return {"token": required_key(item, "dnspod_token")}
+    elif item["provider"] == "dnsomatic":
+        return {"username": required_key(item, "dnsomatic_username"), "password": required_key(item, "dnsomatic_password"), "provider_ip": item.get("dnsomatic_provider_ip", False)}
 
 
 # - provider: aliyun                                    - Required
@@ -251,3 +255,17 @@ def get_provider_config(item={}):
 #   host: "@"                                           - Required - Valid value ("@" or subdomain)
 #   ip_version: ""                                      - Required - Valid values (ipv4/ipv6/"")
 #   digital_ocean_token: token                          - Required
+
+# - provider: dnspod                                    - Required
+#   domain: "example.com"                               - Required
+#   host: "@"                                           - Required - Valid value ("@" or subdomain)
+#   ip_version: ""                                      - Required - Valid values (ipv4/ipv6/"")
+#   dnspod_token: token                                 - Required
+
+# - provider: dnsomatic                                 - Required
+#   domain: "example.com"                               - Required
+#   host: "@"                                           - Required - Valid value ("@" or subdomain)
+#   ip_version: ""                                      - Required - Valid values (ipv4/ipv6/"")
+#   dnsomatic_username: user                            - Required
+#   dnsomatic_password: pass                            - Required
+#   dnsomatic_provider_ip: true                         - Required - Valid values (true/false)
