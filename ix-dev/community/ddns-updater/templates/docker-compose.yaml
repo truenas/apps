@@ -1,0 +1,93 @@
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+{% set app_funcs = ix_lib.community["ddns-updater"] %}
+{% set perms_container_name = "permissions" %}
+{% set ddns_container_name = "ddns" %}
+{% set ddns_image = "qmcgaw/ddns-updater:v2.7.0" %}
+
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
+{% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+
+{% set data_path = "/updater/data" %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": data_path}),
+  ix_volumes=values.ixVolumes, perm_opts={"mount_path": "/mnt/ddns-updater/data", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes,
+  perm_opts={"mount_path": "/mnt/ddns-updater/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+  )) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{# Containers #}
+services:
+  {{ ddns_container_name }}:
+    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
+    image: {{ ddns_image }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if perms_dirs.items %}
+    depends_on:
+      {{ perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    {% if values.network.host_network %}
+    network_mode: host
+    {% endif %}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health("/updater/app healthcheck") | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={
+      "TZ": values.TZ,
+      "LISTENING_ADDRESS": ":%s" | format(values.network.web_port),
+      "DATADIR": data_path,
+      "BACKUP_DIRECTORY": data_path,
+      "PERIOD": values.ddns.period,
+      "BACKUP_PERIOD": values.ddns.backup_period,
+      "HTTP_TIMEOUT": values.ddns.http_timeout,
+      "UPDATE_COOLDOWN_PERIOD": values.ddns.update_cooldown_period,
+      "SHOUTRRR_ADDRESSES": values.ddns.shoutrrr_addresses | join(","),
+      "PUBLIC_DNS_TIMEOUT": values.ddns.public_dns_timeout,
+      "PUBLICIP_DNS_PROVIDERS": app_funcs.config.get_public_ip_providers(values.ddns.public_ip_dns_providers),
+      "PUBLICIP_HTTP_PROVIDERS": app_funcs.config.get_public_ip_providers(values.ddns.public_ip_http_providers),
+      "PUBLICIPV4_HTTP_PROVIDERS": app_funcs.config.get_public_ip_providers(values.ddns.public_ipv4_http_providers),
+      "PUBLICIPV6_HTTP_PROVIDERS": app_funcs.config.get_public_ip_providers(values.ddns.public_ipv6_http_providers),
+      "PUBLICIP_FETCHERS": app_funcs.config.get_public_ip_providers(values.ddns.public_ip_fetchers),
+      "CONFIG": "TODO:",
+    }, user=values.ddns.additional_envs) | tojson }}
+    {% if not values.network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+  {% if perms_dirs.items %}
+  {{ perms_container_name }}:
+    {{ perms_container(items=perms_dirs.items) | indent(4) }}
+    volumes:
+      {% for item in perms_mounts.items %}
+      - {{ item | tojson }}
+      {% endfor %}
+  {% endif %}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
