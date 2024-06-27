@@ -182,7 +182,7 @@ def get_provider_config(item={}):
         elif item.get("cloudflare_user_service_key"):
             return {**cf, "user_service_key": required_key(item, "cloudflare_user_service_key")}
         elif item.get("cloudflare_email") and item.get("cloudflare_api_key"):
-            return {**cf, "email": required_key(item, "cloudflare_email"), "api_key": required_key(item, "cloudflare_api_key")}
+            return {**cf, "email": required_key(item, "cloudflare_email"), "key": required_key(item, "cloudflare_api_key")}
         else:
             utils.throw_error("Expected either [cloudflare_token], [cloudflare_user_service_key] or [cloudflare_email, cloudflare_api_key] to be set for [cloudflare]")
     elif item["provider"] == "dd24":
