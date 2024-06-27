@@ -185,24 +185,35 @@ def print_docker_processes():
 
 
 def get_failed_containers():
-    cmd = f"{get_base_cmd()} ps --status exited --all --format json"
+    # Outputs one container per line, in json format
+    cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
-    failed = subprocess.run(cmd, shell=True, capture_output=True)
-    failed = failed.stdout.decode("utf-8")
-    # if failed starts with { put it inside []
-    if failed.startswith("{"):
-        failed = f"[{failed}]"
+    failed = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
+    failed_containers = []
+    for line in failed.split("\n"):
+        if not line:
+            continue
+        try:
+            failed_containers.append(json.loads(line))
+        except json.JSONDecodeError:
+            print_stderr(f"Failed to parse container status output:\n {line}")
+            sys.exit(1)
 
-    try:
-        data = json.loads(failed)
-    except json.JSONDecodeError:
-        print_stderr(f"Failed to parse container status output [{failed}]")
-        sys.exit(1)
-    for container in data:
-        # Skip containers that are exited with 0 (eg init containers)
-        if container.get("Health", "") == "" and container.get("ExitCode", 0) == 0:
-            data.remove(container)
-    return data
+    actual_failed = []
+    for container in failed_containers:
+        # Skip containers that are exited with 0 (eg init containers), but not restarting (during a restart exit code is 0)
+        if all(
+            [
+                container.get("Health", "") == "",
+                container.get("ExitCode", 0) == 0,
+                not container.get("State", "") == "restarting",
+            ]
+        ):
+            print_stderr(f"Skipping container [{container['Name']}({container['ID']})] with status [{container.get('State')}] because it exited with 0 and has no health status")
+            continue
+        actual_failed.append(container)
+
+    return actual_failed
 
 
 def get_container_name(container):
@@ -227,11 +238,13 @@ def run_app():
     print_docker_processes()
     print_logs()
 
+    print_stderr(f"Exit code: {res.returncode}")
     if res.returncode != 0:
         failed_containers = get_failed_containers()
+        print_stderr(f"Found [{len(failed_containers)}] failed containers")
         if failed_containers:
             print_stderr("Failed to start container(s):")
-        for container in get_failed_containers():
+        for container in failed_containers:
             print_stderr(f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data")
             print_inspect_data(container)
 
@@ -240,7 +253,7 @@ def run_app():
         # Although it seems that it only happens on specific compose files, while on others it is not.
 
         # Cases that a container exits with 0 that are expected is for example an init container.
-        return res.returncode if failed_containers else 0
+        return res.returncode if len(failed_containers) > 0 else 0
 
     print_stderr("Containers started successfully")
     return 0
