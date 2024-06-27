@@ -55,7 +55,12 @@ services:
     {% if values.network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health("/updater/ddns-updater healthcheck") | tojson }}
+    {% if values.ci %}
+    healthcheck:
+      disable: true
+    {% else %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(["CMD","/updater/ddns-updater", "healthcheck"]) | tojson }}
+    {% endif %}
     environment: {{ ix_lib.base.environment.envs(app={
       "TZ": values.TZ,
       "LISTENING_ADDRESS": ":%s" | format(values.network.web_port),
