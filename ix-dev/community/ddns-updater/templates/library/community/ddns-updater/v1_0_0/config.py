@@ -172,36 +172,36 @@ def required_key(item={}, key=""):
 
 data = {
     "aliyun": {
-        "required": [{"provider_key": "access_key_id", "user_key": "aliyun_access_key"}, {"provider_key": "secret_key", "user_key": "aliyun_secret_key"}],
+        "required": [{"provider_key": "access_key_id", "ui_key": "aliyun_access_key"}, {"provider_key": "secret_key", "ui_key": "aliyun_secret_key"}],
         "optional": [],
     },
     "allinkl": {
-        "required": [{"provider_key": "username", "user_key": "allinkl_username"}, {"provider_key": "password", "user_key": "allinkl_password"}],
+        "required": [{"provider_key": "username", "ui_key": "allinkl_username"}, {"provider_key": "password", "ui_key": "allinkl_password"}],
         "optional": [],
     },
     "cloudflare": {
-        "required": [{"provider_key": "zone_identifier", "user_key": "cloudflare_zone_id"}, {"provider_key": "ttl", "user_key": "cloudflare_ttl"}],
-        "optional": [{"provider_key": "proxied", "user_key": "cloudflare_proxied"}],
+        "required": [{"provider_key": "zone_identifier", "ui_key": "cloudflare_zone_id"}, {"provider_key": "ttl", "ui_key": "cloudflare_ttl"}],
+        "optional": [{"provider_key": "proxied", "ui_key": "cloudflare_proxied"}],
         "combos": [
-            {"required": [{"provider_key": "token", "user_key": "cloudflare_token"}], "optional": []},
-            {"required": [{"provider_key": "user_service_key", "user_key": "cloudflare_user_service_key"}], "optional": []},
-            {"required": [{"provider_key": "email", "user_key": "cloudflare_email"}, {"provider_key": "key", "user_key": "cloudflare_api_key"}], "optional": []},
+            {"required": [{"provider_key": "token", "ui_key": "cloudflare_token"}], "optional": []},
+            {"required": [{"provider_key": "user_service_key", "ui_key": "cloudflare_user_service_key"}], "optional": []},
+            {"required": [{"provider_key": "email", "ui_key": "cloudflare_email"}, {"provider_key": "key", "ui_key": "cloudflare_api_key"}], "optional": []},
         ],
     },
-    "dd24": {"required": [{"provider_key": "password", "user_key": "dd24_password"}], "optional": [], "combos": []},
+    "dd24": {"required": [{"provider_key": "password", "ui_key": "dd24_password"}], "optional": [], "combos": []},
     "ddnss": {
-        "required": [{"provider_key": "username", "user_key": "ddnss_username"}, {"provider_key": "password", "user_key": "ddnss_password"}],
-        "optional": [{"provider_key": "provider_ip", "user_key": "ddnss_provider_ip", "default": False}, {"provider_key": "dual_stack", "user_key": "ddnss_dual_stack", "default": False}],
+        "required": [{"provider_key": "username", "ui_key": "ddnss_username"}, {"provider_key": "password", "ui_key": "ddnss_password"}],
+        "optional": [{"provider_key": "provider_ip", "ui_key": "ddnss_provider_ip", "default": False}, {"provider_key": "dual_stack", "ui_key": "ddnss_dual_stack", "default": False}],
         "combos": [],
     },
-    "desec": {"required": [{"provider_key": "token", "user_key": "desec_token"}], "optional": [], "combos": []},
-    "digitalocean": {"required": [{"provider_key": "token", "user_key": "digital_ocean_token"}], "optional": [], "combos": []},
+    "desec": {"required": [{"provider_key": "token", "ui_key": "desec_token"}], "optional": [], "combos": []},
+    "digitalocean": {"required": [{"provider_key": "token", "ui_key": "digital_ocean_token"}], "optional": [], "combos": []},
     "dnsomatic": {
-        "required": [{"provider_key": "username", "user_key": "dnsomatic_username"}, {"provider_key": "password", "user_key": "dnsomatic_password"}],
-        "optional": [{"provider_key": "provider_ip", "user_key": "dnsomatic_provider_ip", "default": False}],
+        "required": [{"provider_key": "username", "ui_key": "dnsomatic_username"}, {"provider_key": "password", "ui_key": "dnsomatic_password"}],
+        "optional": [{"provider_key": "provider_ip", "ui_key": "dnsomatic_provider_ip", "default": False}],
         "combos": [],
     },
-    "dnspod": {"required": [{"provider_key": "token", "user_key": "dnspod_token"}], "optional": [], "combos": []},
+    "dnspod": {"required": [{"provider_key": "token", "ui_key": "dnspod_token"}], "optional": [], "combos": []},
 }
 
 
@@ -213,7 +213,7 @@ def get_provider_config(item={}):
     provider_data = data[item["provider"]]
 
     for required in provider_data["required"]:
-        result[required["provider_key"]] = required_key(item, required["user_key"])
+        result[required["provider_key"]] = required_key(item, required["ui_key"])
     result.update(get_optional_data(item, provider_data))
 
     combo_data = {}
@@ -238,17 +238,17 @@ def get_provider_config(item={}):
 def get_combo_data(item={}, combo={}):
     result = {}
     for required in combo["required"]:
-        if required["user_key"] not in item:
+        if required["ui_key"] not in item:
             return {}
-        result[required["provider_key"]] = required_key(item, required["user_key"])
+        result[required["provider_key"]] = required_key(item, required["ui_key"])
     return result
 
 
 def get_optional_data(item={}, data={}):
     result = {}
     for optional in data["optional"]:
-        if optional["user_key"] in item:
-            result[optional["provider_key"]] = item[optional["user_key"]]
+        if optional["ui_key"] in item:
+            result[optional["provider_key"]] = item[optional["ui_key"]]
         elif optional.get("default") is not None:
             result[optional["provider_key"]] = optional["default"]
     return result
