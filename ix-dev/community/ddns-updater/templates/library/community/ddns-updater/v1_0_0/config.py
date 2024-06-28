@@ -196,7 +196,7 @@ providers_schema = {
             },
         ],
     },
-    "porkbun": {"required": [{"provider_key": "api_key", "ui_key": "porkbun_api_key"}, {"provider_key": "secret_api_key", "ui_key": "porkbun_secret_api_key"}], "optional": [{"provider_key": "ttl", "ui_key": "porkbun_ttl", "default": False}]},
+    "porkbun": {"required": [{"provider_key": "api_key", "ui_key": "porkbun_api_key"}, {"provider_key": "secret_api_key", "ui_key": "porkbun_secret_api_key"}], "optional": [{"provider_key": "ttl", "ui_key": "porkbun_ttl"}]},
     "selfhost.de": {
         "required": [{"provider_key": "username", "ui_key": "selfhostde_username"}, {"provider_key": "password", "ui_key": "selfhostde_password"}],
         "optional": [{"provider_key": "provider_ip", "ui_key": "selfhostde_provider_ip", "default": False}],
@@ -210,7 +210,7 @@ providers_schema = {
         "optional": [{"provider_key": "provider_ip", "ui_key": "spdyn_provider_ip", "default": False}],
         "combos": [
             {"required": [{"provider_key": "token", "ui_key": "spdyn_token"}], "optional": []},
-            {"required": [{"provider_key": "username", "ui_key": "spdyn_username"}, {"provider_key": "password", "ui_key": "spdyn_password"}], "optional": []},
+            {"required": [{"provider_key": "user", "ui_key": "spdyn_username"}, {"provider_key": "password", "ui_key": "spdyn_password"}], "optional": []},
         ],
     },
     "strato": {"required": [{"provider_key": "password", "ui_key": "strato_password"}], "optional": [{"provider_key": "provider_ip", "ui_key": "strato_provider_ip", "default": False}]},
