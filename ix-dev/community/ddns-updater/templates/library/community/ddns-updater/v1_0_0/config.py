@@ -156,7 +156,7 @@ providers_schema = {
         "required": [{"provider_key": "username", "ui_key": "dynu_username"}, {"provider_key": "password", "ui_key": "dynu_password"}],
         "optional": [{"provider_key": "group", "ui_key": "dynu_group"}, {"provider_key": "provider_ip", "ui_key": "dynu_provider_ip", "default": False}],
     },
-    "dyn6": {"required": [{"provider_key": "token", "ui_key": "dyn6_token"}], "optional": [{"provider_key": "provider_ip", "ui_key": "dyn6_provider_ip", "default": False}], "combos": []},
+    "dynv6": {"required": [{"provider_key": "token", "ui_key": "dyn6_token"}], "optional": [{"provider_key": "provider_ip", "ui_key": "dyn6_provider_ip", "default": False}], "combos": []},
     "easydns": {"required": [{"provider_key": "username", "ui_key": "easydns_username"}, {"provider_key": "token", "ui_key": "easydns_token"}], "optional": []},
     "gandi": {"required": [{"provider_key": "key", "ui_key": "gandi_key"}, {"provider_key": "ttl", "ui_key": "gandi_ttl"}], "optional": [], "combos": []},
     "gcp": {"required": [{"provider_key": "project", "ui_key": "gcp_project"}, {"provider_key": "zone", "ui_key": "gcp_zone"}, {"provider_key": "credentials", "ui_key": "gcp_credentials"}], "optional": [], "combos": []},
