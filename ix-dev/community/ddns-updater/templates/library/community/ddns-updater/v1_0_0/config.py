@@ -1,4 +1,5 @@
 from base_v1_0_0 import utils
+import json
 
 valid_ip_dns_providers = [
     "all",
@@ -160,7 +161,7 @@ providers_schema = {
     "easydns": {"required": [{"provider_key": "username", "ui_key": "easydns_username"}, {"provider_key": "token", "ui_key": "easydns_token"}], "optional": []},
     "freedns": {"required": [{"provider_key": "token", "ui_key": "freedns_token"}], "optional": []},
     "gandi": {"required": [{"provider_key": "key", "ui_key": "gandi_key"}, {"provider_key": "ttl", "ui_key": "gandi_ttl"}], "optional": [], "combos": []},
-    "gcp": {"required": [{"provider_key": "project", "ui_key": "gcp_project"}, {"provider_key": "zone", "ui_key": "gcp_zone"}, {"provider_key": "credentials", "ui_key": "gcp_credentials"}], "optional": [], "combos": []},
+    "gcp": {"required": [{"provider_key": "project", "ui_key": "gcp_project"}, {"provider_key": "zone", "ui_key": "gcp_zone"}, {"provider_key": "credentials", "ui_key": "gcp_credentials", "func": lambda x: json.loads(x)}], "optional": []},
     "godaddy": {"required": [{"provider_key": "key", "ui_key": "godaddy_key"}, {"provider_key": "secret", "ui_key": "godaddy_secret"}], "optional": [], "combos": []},
     "goip": {"required": [{"provider_key": "username", "ui_key": "goip_username"}, {"provider_key": "password", "ui_key": "goip_password"}], "optional": [], "combos": []},
     "he": {"required": [{"provider_key": "password", "ui_key": "he_password"}], "optional": [{"provider_key": "provider_ip", "ui_key": "he_provider_ip", "default": False}]},
@@ -230,7 +231,10 @@ def get_provider_config(item={}):
     provider_data = providers_schema[item["provider"]]
 
     for required in provider_data["required"]:
-        result[required["provider_key"]] = required_key(item, required["ui_key"])
+        if required.get("func"):
+            result[required["provider_key"]] = required["func"](required_key(item, required["ui_key"]))
+        else:
+            result[required["provider_key"]] = required_key(item, required["ui_key"])
     result.update(get_optional_data(item, provider_data))
 
     combo_data = {}
@@ -257,7 +261,10 @@ def get_combo_data(item={}, combo={}):
     for required in combo["required"]:
         if required["ui_key"] not in item:
             return {}
-        result[required["provider_key"]] = required_key(item, required["ui_key"])
+        if required.get("func"):
+            result[required["provider_key"]] = required["func"](required_key(item, required["ui_key"]))
+        else:
+            result[required["provider_key"]] = required_key(item, required["ui_key"])
     return result
 
 
@@ -265,7 +272,10 @@ def get_optional_data(item={}, data={}):
     result = {}
     for optional in data["optional"]:
         if optional["ui_key"] in item:
-            result[optional["provider_key"]] = item[optional["ui_key"]]
+            if optional.get("func"):
+                result[optional["provider_key"]] = optional["func"](item[optional["ui_key"]])
+            else:
+                result[optional["provider_key"]] = item[optional["ui_key"]]
         elif optional.get("default") is not None:
             result[optional["provider_key"]] = optional["default"]
     return result
