@@ -125,7 +125,7 @@ def required_key(item={}, key=""):
 
 
 providers_schema = {
-    "aliyun": {"required": [{"provider_key": "access_key_id", "ui_key": "aliyun_access_key"}, {"provider_key": "secret_key", "ui_key": "aliyun_secret_key"}], "optional": []},
+    "aliyun": {"required": [{"provider_key": "access_key_id", "ui_key": "aliyun_access_key"}, {"provider_key": "access_secret", "ui_key": "aliyun_secret_key"}], "optional": []},
     "allinkl": {"required": [{"provider_key": "username", "ui_key": "allinkl_username"}, {"provider_key": "password", "ui_key": "allinkl_password"}], "optional": []},
     "cloudflare": {
         "required": [{"provider_key": "zone_identifier", "ui_key": "cloudflare_zone_id"}, {"provider_key": "ttl", "ui_key": "cloudflare_ttl"}],
