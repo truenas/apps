@@ -7,6 +7,8 @@ def envs(app={}, user=[]):
 
     if not user:
         user = []
+    elif isinstance(user, list):
+        pass
     elif isinstance(user, dict):
         user = [{"name": k, "value": v} for k, v in user.items()]
     else:
