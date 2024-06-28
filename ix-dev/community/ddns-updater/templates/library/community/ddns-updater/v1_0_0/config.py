@@ -217,7 +217,7 @@ def get_provider_config(item={}):
     result.update(get_optional_data(item, provider_data))
 
     combo_data = {}
-    for combo in provider_data["combos"]:
+    for combo in provider_data.get("combos", []):
         if combo_data:
             break
 
@@ -229,7 +229,7 @@ def get_provider_config(item={}):
         result.update(combo_data)
         result.update(get_optional_data(item, combo))
 
-    if not combo_data:
+    if not combo_data and provider_data.get("combos", []):
         utils.throw_error(f"Expected provider [{item['provider']}] to have at least one of the following combinations: {', '.join(get_combos_printout(provider_data['combos']))}")
 
     return result
@@ -330,3 +330,11 @@ def get_combos_printout(combos=[]):
 #   dnsomatic_username: user                            - Required
 #   dnsomatic_password: pass                            - Required
 #   dnsomatic_provider_ip: true                         - Required - Valid values (true/false)
+
+# - provider: dondominio                                - Required
+#   domain: "example.com"                               - Required
+#   host: "@"                                           - Required - Valid value ("@" or subdomain)
+#   ip_version: ""                                      - Required - Valid values (ipv4/ipv6/"")
+#   dondominio_username: user                           - Required
+#   dondominio_password: pass                           - Required
+#   dondominio_name: name                               - Required
