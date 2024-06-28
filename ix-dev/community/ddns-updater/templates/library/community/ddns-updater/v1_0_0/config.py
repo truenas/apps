@@ -174,7 +174,7 @@ providers_schema = {
     "linode": {"required": [{"provider_key": "token", "ui_key": "linode_token"}], "optional": []},
     "luadns": {"required": [{"provider_key": "token", "ui_key": "luadns_token"}, {"provider_key": "email", "ui_key": "luadns_email"}], "optional": []},
     "namecheap": {"required": [{"provider_key": "password", "ui_key": "namecheap_password"}], "optional": [{"provider_key": "provider_ip", "ui_key": "namecheap_provider_ip", "default": False}]},
-    "namecom": {"required": [{"provider_key": "token", "ui_key": "namecom_token"}, {"provider_key": "username", "ui_key": "namecom_username"}, {"provider_key": "ttl", "ui_key": "namecom_ttl"}], "optional": []},
+    "name.com": {"required": [{"provider_key": "token", "ui_key": "namecom_token"}, {"provider_key": "username", "ui_key": "namecom_username"}, {"provider_key": "ttl", "ui_key": "namecom_ttl"}], "optional": []},
     "netcup": {"required": [{"provider_key": "api_key", "ui_key": "netcup_api_key"}, {"provider_key": "password", "ui_key": "netcup_password"}, {"provider_key": "customer_number", "ui_key": "netcup_customer_number"}], "optional": []},
     "njalla": {"required": [{"provider_key": "key", "ui_key": "njalla_key"}], "optional": [{"provider_key": "provider_ip", "ui_key": "njalla_provider_ip", "default": False}]},
     "noip": {"required": [{"provider_key": "username", "ui_key": "noip_username"}, {"provider_key": "password", "ui_key": "noip_password"}], "optional": [{"provider_key": "provider_ip", "ui_key": "noip_provider_ip", "default": False}]},
