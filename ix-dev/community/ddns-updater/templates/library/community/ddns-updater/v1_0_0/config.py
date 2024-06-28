@@ -185,7 +185,13 @@ providers_schema = {
         "required": [{"provider_key": "mode", "ui_key": "ovh_mode"}],
         "optional": [{"provider_key": "provider_ip", "ui_key": "ovh_provider_ip", "default": False}],
         "combos": [
-            {"required": [{"provider_key": "username", "ui_key": "ovh_username"}, {"provider_key": "password", "ui_key": "ovh_password"}], "optional": []},
+            {
+                "required": [
+                    {"provider_key": "username", "ui_key": "ovh_username"},
+                    {"provider_key": "password", "ui_key": "ovh_password"},
+                ],
+                "optional": [],
+            },
             {
                 "required": [
                     {"provider_key": "api_endpoint", "ui_key": "ovh_api_endpoint"},
