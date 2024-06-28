@@ -197,9 +197,9 @@ providers_schema = {
         ],
     },
     "porkbun": {"required": [{"provider_key": "api_key", "ui_key": "porkbun_api_key"}, {"provider_key": "secret_api_key", "ui_key": "porkbun_secret_api_key"}], "optional": [{"provider_key": "ttl", "ui_key": "porkbun_ttl", "default": False}]},
-    "selfhosted.de": {
-        "required": [{"provider_key": "username", "ui_key": "selfhosted_de_username"}, {"provider_key": "password", "ui_key": "selfhosted_de_password"}],
-        "optional": [{"provider_key": "provider_ip", "ui_key": "selfhosted_de_provider_ip", "default": False}],
+    "selfhost.de": {
+        "required": [{"provider_key": "username", "ui_key": "selfhostde_username"}, {"provider_key": "password", "ui_key": "selfhostde_password"}],
+        "optional": [{"provider_key": "provider_ip", "ui_key": "selfhostde_provider_ip", "default": False}],
     },
     "servercow": {
         "required": [{"provider_key": "username", "ui_key": "servercow_username"}, {"provider_key": "password", "ui_key": "servercow_password"}, {"provider_key": "ttl", "ui_key": "servercow_ttl"}],
