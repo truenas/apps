@@ -1,0 +1,59 @@
+{% set emby_container_name = "emby" %}
+{% set emby_image = "emby/embyserver:4.8.8.0" %}
+
+{# Stores storage items that contains info for volumes, vol mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+{% endfor %}
+
+{# Containers #}
+services:
+  {{ emby_container_name }}:
+    user: "0:0"
+    image: {{ emby_image }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.host_network %}
+    network_mode: host
+    {% endif %}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID", "KILL"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.wget_test("http://localhost:8096/emby/System/Ping") %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    {% set app_env = {
+      "TZ": values.TZ,
+      "UID": values.run_as.user,
+      "GID": values.run_as.group,
+    } %}
+    {# {% set _ = app_env.update({"GIDLIST": "TODO:!, Add GPU Groups when gpu is added, eg (44,107)"}) %} #}
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.emby.additional_envs) | tojson }}
+    {% if not values.network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": 8096, "published": values.network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
