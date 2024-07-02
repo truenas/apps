@@ -20,16 +20,28 @@ def pg_test(user, db, host="127.0.0.1", port=5432):
     return f"pg_isready -h {host} -p {port} -d {db} -U {user}"
 
 
-def curl_test(url):
-    if not url:
-        utils.throw_error("Curl test: [url] must be set")
-    return f"curl --silent --output /dev/null --show-error --fail {url}"
+def curl_test(port, path, headers=[], scheme="http", host="127.0.0.1"):
+    if not port or not path or not host or not scheme:
+        utils.throw_error("Expected [port], [path], [host] and [scheme] to be set")
+    header_opts = []
+    for header in headers:
+        if not header[0] or not header[1]:
+            utils.throw_error("Expected [header] to be a list of two items")
+        header_opts.append(f"--header {header[0]}: {header[1]}")
+    return f"curl --silent --output /dev/null --show-error --fail {' '.join(header_opts)} {scheme}://{host}:{port}{path}"
 
 
-def wget_test(url):
-    if not url:
-        utils.throw_error("Wget test: [url] must be set")
-    return f"wget --spider --quiet {url}"
+def wget_test(port, path, headers=[], scheme="http", host="127.0.0.1"):
+    if not port or not path or not host or not scheme:
+        utils.throw_error("Expected [port], [path], [host] and [scheme] to be set")
+
+    header_opts = []
+    for header in headers:
+        if not header[0] or not header[1]:
+            utils.throw_error("Expected [header] to be a list of two items")
+        header_opts.append(f"--header {header[0]}: {header[1]}")
+
+    return f"wget --spider --quiet {' '.join(header_opts)} {scheme}://{host}:{port}{path}"
 
 
 def http_test(port, path, host="127.0.0.1"):
