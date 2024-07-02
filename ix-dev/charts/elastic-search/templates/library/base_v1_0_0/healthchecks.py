@@ -23,25 +23,30 @@ def pg_test(user, db, host="127.0.0.1", port=5432):
 def curl_test(port, path, headers=[], scheme="http", host="127.0.0.1"):
     if not port or not path or not host or not scheme:
         utils.throw_error("Expected [port], [path], [host] and [scheme] to be set")
-    header_opts = []
+
+    opts = []
+    if scheme == "https":
+        opts.append("--insecure")
     for header in headers:
         if not header[0] or not header[1]:
             utils.throw_error("Expected [header] to be a list of two items")
-        header_opts.append(f'--header "{header[0]}: {header[1]}"')
-    return f"curl --silent --output /dev/null --show-error --fail {' '.join(header_opts)} {scheme}://{host}:{port}{path}"
+        opts.append(f'--header "{header[0]}: {header[1]}"')
+    return f"curl --silent --output /dev/null --show-error --fail {' '.join(opts)} {scheme}://{host}:{port}{path}"
 
 
 def wget_test(port, path, headers=[], scheme="http", host="127.0.0.1"):
     if not port or not path or not host or not scheme:
         utils.throw_error("Expected [port], [path], [host] and [scheme] to be set")
 
-    header_opts = []
+    opts = []
+    if scheme == "https":
+        opts.append("--no-check-certificate")
     for header in headers:
         if not header[0] or not header[1]:
             utils.throw_error("Expected [header] to be a list of two items")
-        header_opts.append(f'--header "{header[0]}: {header[1]}"')
+        opts.append(f'--header "{header[0]}: {header[1]}"')
 
-    return f"wget --spider --quiet {' '.join(header_opts)} {scheme}://{host}:{port}{path}"
+    return f"wget --spider --quiet {' '.join(opts)} {scheme}://{host}:{port}{path}"
 
 
 def http_test(port, path, host="127.0.0.1"):
