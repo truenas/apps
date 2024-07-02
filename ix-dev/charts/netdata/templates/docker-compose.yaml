@@ -1,0 +1,61 @@
+{% set netdata_container_name = "netdata" %}
+{% set netdata_image = "netdata/netdata:v1.46.1" %}
+
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/etc/netdata"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.cache, **{"mount_path": "/var/cache/netdata"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.lib, **{"mount_path": "/var/lib/netdata"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/etc/os-release", "read_only": true, "host_path_config": {"path": "/etc/os-release", "create_host_path": false} })) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/sys", "read_only": true, "host_path_config": {"path": "/sys", "create_host_path": false} })) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/proc", "read_only": true, "host_path_config": {"path": "/proc", "create_host_path": false} })) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/etc/passwd", "read_only": true, "host_path_config": {"path": "/etc/passwd", "create_host_path": false} })) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/etc/group", "read_only": true, "host_path_config": {"path": "/etc/group", "create_host_path": false} })) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/var/run/docker.sock", "read_only": true, "host_path_config": {"path": "/var/run/docker.sock", "create_host_path": false} })) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+{% endfor %}
+
+{# Containers #}
+services:
+  {{ netdata_container_name }}:
+    image: {{ netdata_image }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.host_network %}
+    network_mode: host
+    {% endif %}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "SYS_PTRACE"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health("/usr/sbin/health.sh") | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={
+      "NETDATA_LISTENER_PORT": values.network.web_port,
+    }, user=values.netdata.additional_envs) | tojson }}
+    {% if not values.network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
