@@ -90,27 +90,27 @@ configs:
               # static files
               location ^~ /browser {
                   proxy_pass http://{{ collabora_container_name }}:9980;
-                  proxy_set_header Host $host;
+                  proxy_set_header Host $$host;
                   # proxy_set_header Referer "{{ nginx_url }}";
               }
               # WOPI discovery URL
               location ^~ /hosting/discovery {
-                  set $upstream_collabora {{ collabora_container_name }};
-                  proxy_pass http://$upstream_collabora:9980;
-                  proxy_set_header Host $http_host;
+                  set $$upstream_collabora {{ collabora_container_name }};
+                  proxy_pass http://$$upstream_collabora:9980;
+                  proxy_set_header Host $$http_host;
                   # proxy_set_header Referer "{{ nginx_url }}";
               }
               # Capabilities
               location ^~ /hosting/capabilities {
                   proxy_pass http://{{ collabora_container_name }}:9980;
-                  proxy_set_header Host $host;
+                  proxy_set_header Host $$host;
                   # proxy_set_header Referer "{{ nginx_url }}";
               }
               # main websocket
-              location ~ ^/cool/(.*)/ws$ {
+              location ~ ^/cool/(.*)/ws$$ {
                   proxy_pass http://{{ collabora_container_name }}:9980;
-                  proxy_set_header Host $host;
-                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Host $$host;
+                  proxy_set_header Upgrade $$http_upgrade;
                   proxy_set_header Connection "Upgrade";
                   # proxy_set_header Referer "{{ nginx_url }}";
                   proxy_read_timeout 36000s;
@@ -118,14 +118,14 @@ configs:
               # download, presentation and image upload
               location ~ ^/(c|l)ool {
                   proxy_pass http://{{ collabora_container_name }}:9980;
-                  proxy_set_header Host $host;
+                  proxy_set_header Host $$host;
                   proxy_set_header Referer "{{ nginx_url }}";
               }
               # Admin Console websocket
               location ^~ /cool/adminws {
                   proxy_pass http://{{ collabora_container_name }}:9980;
-                  proxy_set_header Host $host;
-                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Host $$host;
+                  proxy_set_header Upgrade $$http_upgrade;
                   proxy_set_header Connection "Upgrade";
                   # proxy_set_header Referer "{{ nginx_url }}";
                   proxy_read_timeout 36000s;
@@ -141,9 +141,6 @@ services:
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    {% if values.network.certificate_id %}
-    network_mode: service:nginx
-    {% endif %}
     {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "SETFCAP", "SYS_CHROOT", "MKNOD"]) %}
     cap_add: {{ caps.add | tojson }}
     cap_drop: {{ caps.drop | tojson }}
@@ -177,7 +174,7 @@ services:
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    {% if values.network.certificate_id %}
+    network_mode: service:{{ collabora_container_name }}
     configs:
       - source: private
         target: {{ nginx_ssl_key_path }}
@@ -185,7 +182,6 @@ services:
         target: {{ nginx_ssl_cert_path }}
       - source: nginx-conf
         target: /etc/nginx/nginx.conf
-    {% endif %}
     depends_on:
       {{ collabora_container_name }}:
         condition: service_healthy
