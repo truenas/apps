@@ -204,7 +204,7 @@ def get_failed_containers():
         # Skip containers that are exited with 0 (eg init containers), but not restarting (during a restart exit code is 0)
         if all(
             [
-                container.get("Health", "") == "",
+                container.get("Health", "") == "" or container.get("Health", "") == "healthy",
                 container.get("ExitCode", 0) == 0,
                 not container.get("State", "") == "restarting",
             ]
