@@ -1,23 +1,125 @@
 groups:
-  - name: Netdata Configuration
-    description: Configure Netdata
+  - name: Collabora Configuration
+    description: Configure Collabora
   - name: Network Configuration
-    description: Configure Network for Netdata
+    description: Configure Network for Collabora
   - name: Storage Configuration
-    description: Configure Storage for Netdata
+    description: Configure Storage for Collabora
   - name: Resources Configuration
-    description: Configure Resources for Netdata
+    description: Configure Resources for Collabora
 
 questions:
-  - variable: netdata
+  - variable: TZ
+    group: Collabora Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: collabora
     label: ""
-    group: Netdata Configuration
+    group: Collabora Configuration
     schema:
       type: dict
       attrs:
+        - variable: server_name
+          label: Server Name
+          description: The server name for Collabora.
+          schema:
+            type: string
+            default: ""
+            $ref:
+              - "definitions/nodeIP"
+        - variable: enable_webui
+          label: Enable WebUI
+          description: Enable WebUI for Collabora.
+          schema:
+            type: boolean
+            default: true
+        - variable: username
+          label: Username
+          description: The username for Collabora.
+          schema:
+            type: string
+            show_if: [["enable_webui", "=", true]]
+            required: true
+        - variable: password
+          label: Password
+          description: The password for Collabora.
+          schema:
+            type: string
+            show_if: [["enable_webui", "=", true]]
+            valid_chars: "^[a-zA-Z0-9!@#$%^&*?]{8,}$|^$"
+            valid_chars_error: |
+              Password must be at least 8 characters long and contain at least one of the following:</br>
+              - Uppercase letter</br>
+              - Lowercase letter</br>
+              - Number</br>
+              - Special character (!@#$%^&*?)</br>
+            required: true
+        - variable: aliasgroup1
+          label: Alias Group 1
+          description: |
+            List of domains that will be allowed to access the Collabora server
+            Type one domain per line
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: alias
+                label: Alias
+                schema:
+                  type: string
+        - variable: dictionaries
+          label: Dictionaries
+          description: Dictionaries to be used by Collabora.
+          schema:
+            type: list
+            default:
+              - de_DE
+              - en_GB
+              - en_US
+              - es_ES
+              - fr_FR
+              - it
+              - nl
+              - pt_BR
+              - pt_PT
+              - ru
+            items:
+              - variable: dictionary
+                label: Dictionary
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+        - variable: extra_params
+          label: Extra Parameters
+          description: Extra parameters to be passed to Collabora.
+          schema:
+            type: list
+            default:
+              - --o:welcome.enable=false
+              - --o:user_interface.mode=notebookbar
+              - --o:ssl.termination=true
+              - --o:ssl.enable=false
+              - --o:net.proto=IPv4
+              - --o:logging.level=warning
+              - --o:logging.level_startup=warning
+              - --o:mount_jail_tree=false
+            items:
+              - variable: extraParam
+                label: Extra Parameter
+                schema:
+                  type: string
+                  default: ""
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Netdata.
+          description: Configure additional environment variables for Collabora.
           schema:
             type: list
             default: []
@@ -46,35 +148,20 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for Netdata WebUI
+          description: The port for Collabora WebUI
           schema:
             type: int
-            default: 20489
+            default: 9980
             required: true
             $ref:
               - definitions/port
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
+        - variable: certificate_id
+          label: Certificate ID
+          description: The certificate ID to use for Elastic Search.
           schema:
-            type: boolean
-            default: false
-        - variable: dns_opts
-          label: DNS Options
-          description: |
-            DNS options for the container.</br>
-            Format: key:value</br>
-            Example: attempts:3
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: option
-                label: Option
-                schema:
-                  type: string
-                  required: true
+            type: int
+            $ref:
+              - "definitions/certificate"
 
   - variable: storage
     label: ""
@@ -82,243 +169,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: config
-          label: Netdata Config Storage
-          description: The path to store Netdata Config.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  immutable: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ixVolume"
-                  attrs:
-                    - variable: aclEnable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        immutable: true
-                        hidden: true
-                        default: "config"
-                    - variable: aclEntries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["aclEnable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: aclEnable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["aclEnable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: host_path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["aclEnable", "=", false]]
-                        required: true
-        - variable: lib
-          label: Netdata Lib Storage
-          description: The path to store Netdata Lib.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  immutable: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ixVolume"
-                  attrs:
-                    - variable: aclEnable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        immutable: true
-                        hidden: true
-                        default: "lib"
-                    - variable: aclEntries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["aclEnable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: aclEnable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["aclEnable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: host_path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["aclEnable", "=", false]]
-                        required: true
-        - variable: cache
-          label: Netdata Cache Storage
-          description: The path to store Netdata Cache.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  immutable: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ixVolume"
-                  attrs:
-                    - variable: aclEnable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        immutable: true
-                        hidden: true
-                        default: "cache"
-                    - variable: aclEntries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["aclEnable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: aclEnable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["aclEnable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: host_path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["aclEnable", "=", false]]
-                        required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Netdata.
+          description: Additional storage for Collabora.
           schema:
             type: list
             default: []
