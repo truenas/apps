@@ -1,5 +1,5 @@
+from . import security
 import secrets
-import base64
 import sys
 
 
@@ -19,6 +19,5 @@ def secure_string(length):
     return secrets.token_urlsafe(length)
 
 
-def basic_auth(username, password):
-    # base64 encodes the username and password
-    return f"Basic {base64.b64encode(f'{username}:{password}'.encode('utf-8')).decode('utf-8')}"
+def basic_auth_header(username, password):
+    return f"Basic {security.htpasswd(username, password)}"
