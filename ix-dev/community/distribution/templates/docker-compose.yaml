@@ -47,6 +47,10 @@ configs:
       {% for user in values.distribution.basic_auth_users %}
       {{ ix_lib.base.security.htpasswd(user.username, user.password) }}
       {% endfor %}
+  private:
+    content: {{ values.ixCertificates[values.network.certificate_id].privatekey | tojson }}
+  public:
+    content: {{ values.ixCertificates[values.network.certificate_id].certificate | tojson }}
 {% endif %}
 
 {# Containers #}
@@ -57,11 +61,20 @@ services:
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    {% if values.distribution.basic_auth_users %}
+  {% if values.distribution.basic_auth_users or values.network.certificate_id %}
     configs:
+    {% if values.network.certificate_id %}
+      - source: private
+        target: {{ ssl_key_path }}
+      - source: public
+        target: {{ ssl_cert_path }}
+    {% endif %}
+    {% if values.distribution.basic_auth_users %}
       - source: htpasswd
         target: {{ htpasswd_path}}
+      - source:
     {% endif %}
+  {% endif %}
     {% if perms_dirs.items %}
     depends_on:
       {{ perms_container_name }}:
