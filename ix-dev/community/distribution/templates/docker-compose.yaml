@@ -40,17 +40,21 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
-{% if values.distribution.basic_auth_users %}
+{% if values.distribution.basic_auth_users or values.network.certificate_id %}
 configs:
+  {% if values.distribution.basic_auth_users %}
   htpasswd:
     content: |
       {% for user in values.distribution.basic_auth_users %}
       {{ ix_lib.base.security.htpasswd(user.username, user.password) }}
       {% endfor %}
+  {% endif %}
+  {% if values.network.certificate_id %}
   private:
     content: {{ values.ixCertificates[values.network.certificate_id].privatekey | tojson }}
   public:
     content: {{ values.ixCertificates[values.network.certificate_id].certificate | tojson }}
+  {% endif %}
 {% endif %}
 
 {# Containers #}
