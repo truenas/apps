@@ -1,0 +1,112 @@
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+
+{% set dashy_container_name = "dashy" %}
+{% set init_container_name = "init" %}
+{% set dashy_image = "lissy93/dashy:3.1.0" %}
+
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{% set init_volume_mounts = namespace(items=[]) %}
+
+{% set ssl_key_path = "/cert/tls.key" %}
+{% set ssl_cert_path = "/cert/tls.crt" %}
+{% set dashy_config_path = "/app/user-data" %}
+{% set init_config_path = "/data" %}
+
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": dashy_config_path}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.vol_mount and init_volume_mounts.items.append(dict(item.vol_mount, **{"target": init_config_path})) %}{% endif %}
+{% endfor %}
+
+{% if values.network.certificate_id %}
+configs:
+  private:
+    content: {{ values.ixCertificates[values.network.certificate_id].privatekey | tojson }}
+  public:
+    content: {{ values.ixCertificates[values.network.certificate_id].certificate | tojson }}
+{% endif %}
+
+{# Containers #}
+services:
+  {{ init_container_name }}:
+    image: {{ dashy_image }}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+    healthcheck:
+      disable: true
+    entrypoint:
+      - /bin/sh
+    command:
+      - -c
+      - |
+        echo "Checking if directory [{{ init_config_path }}] is empty (Mounted at [{{ dashy_config_path }}] when app is running)"
+        if [ -z "$$(ls -A {{ init_config_path }})" ]; then
+          echo "Directory [{{ init_config_path }}] is empty, copying from defaults located at [{{ dashy_config_path }}] in the container"
+          cp -r {{ dashy_config_path }}/* {{ init_config_path }}
+          exit 0
+        fi
+        echo "Directory [{{ init_config_path }}] is not empty, skipping copy"
+    volumes: {{ init_volume_mounts.items | tojson }}
+  {{ dashy_container_name }}:
+    image: {{ dashy_image }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.certificate_id %}
+    configs:
+      - source: private
+        target: {{ ssl_key_path }}
+      - source: public
+        target: {{ ssl_cert_path }}
+    {% endif %}
+    depends_on:
+      {{ init_container_name }}:
+        condition: service_completed_successfully
+    {% if values.network.host_network %}
+    network_mode: host
+    {% endif %}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health("yarn health-check") | tojson }}
+    {% set app_env = {
+      "NODE_ENV": "production",
+      "IS_DOCKER": "true",
+    } %}
+    {% if values.network.certificate_id %}
+      {% set _ = app_env.update({
+        "SSL_PORT": values.network.web_port,
+        "SSL_PRIV_KEY_PATH": ssl_key_path,
+        "SSL_PUB_KEY_PATH": ssl_cert_path,
+      }) %}
+    {% else %}
+      {% set _ = app_env.update({"PORT": values.network.web_port}) %}
+    {% endif %}
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.dashy.additional_envs) | tojson }}
+    {% if not values.network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
