@@ -48,7 +48,8 @@ services:
       "CLAMD_STARTUP_TIMEOUT": values.clamav.clamd_startup_timeout,
       "FRESHCLAMD_CHECKS": values.clamav.freshclamd_checks,
     }, user=values.clamav.additional_envs) | tojson }}
-    {% if not values.network.host_network %}
+  {% if not values.network.host_network %}
+    {% if not values.clamav.disable_clamd or not values.clamav.disable_milterd %}
     ports:
       {% if not values.clamav.disable_clamd %}
       - {{ ix_lib.base.ports.get_port(port={"target": values.network.clamd_port, "published": values.network.clamd_port}) | tojson }}
@@ -57,6 +58,7 @@ services:
       - {{ ix_lib.base.ports.get_port(port={"target": values.network.milterd_port, "published": values.network.milterd_port}) | tojson }}
       {% endif %}
     {% endif %}
+  {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
 {% if volumes.items %}
