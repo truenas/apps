@@ -71,3 +71,12 @@ def http_test(port, path, config={}):
     host = config.get("host", "127.0.0.1")
 
     return f"/bin/bash -c 'exec {{health_check_fd}}<>/dev/tcp/{host}/{port} && echo -e \"GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n\" >&$${{health_check_fd}} && cat <&$${{health_check_fd}}'"
+
+
+def tcp_test(port, config={}):
+    if not port:
+        utils.throw_error("Expected [port] to be set")
+
+    host = config.get("host", "127.0.0.1")
+
+    return f"nc -z -w 1 {host} {port}"
