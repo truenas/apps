@@ -1,0 +1,69 @@
+{% set handbrake_container_name = "handbrake" %}
+{% set handbrake_image = "jlesage/handbrake:v23.12.2" %}
+
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+
+{% set output_path = "/output" %}
+
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.storage, **{"mount_path": "/storage"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.watch, **{"mount_path": "/watch"}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.output, **{"mount_path": output_path}), ix_volumes=values.ixVolumes)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/var/run"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ixVolumes)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+{% endfor %}
+
+{# Containers #}
+services:
+  {{ handbrake_container_name }}:
+    image: {{ handbrake_image }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.host_network %}
+    network_mode: host
+    {% endif %}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID", "NET_BIND_SERVICE", "KILL"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.tcp_test(port=values.network.web_port) %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={
+      "TZ": values.TZ,
+      "USER_ID": values.run_as.user,
+      "GROUP_ID": values.run_as.group,
+      "HANDBRAKE_GUI": "1",
+      "DARK_MODE": "1" if values.handbrake.dark_mode else "0",
+      "SECURE_CONNECTION": "1" if values.handbrake.secure_connection else "0",
+      "WEB_LISTENTING_PORT": values.network.web_port,
+      "VNC_LISTENTING_PORT": values.network.vnc_port,
+      "VNC_PASSWORD": values.handbrake.vnc_password,
+      "AUTOMATED_CONVERSION_OUTPUT_DIR": output_path,
+    }, user=values.handbrake.additional_envs) | tojson }}
+    {% if not values.network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
