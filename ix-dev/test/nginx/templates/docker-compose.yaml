@@ -15,6 +15,18 @@ services:
     volumes:
       - /mnt/nginx/dir_0:/mnt/directories/dir1
       - docker-volume-nginx:/mnt/directories/dir2
+    {% if values.storage.config.type == "host_path" %}
+      {% if values.storage.config.host_path_config.acl_enable %}
+      - {{ values.storage.config.host_path_config.acl.path }}:/mnt/directories/dir3
+      {% else %}
+      - {{ values.storage.config.host_path_config.host_path }}:/mnt/directories/dir3
+      {% endif %}
+    {% elif values.storage.config.type == "ix_volume" %}
+      {% set host_path = values.ix_volumes[values.storage.config.ix_volume_config.dataset_name].host_path %}
+      {% if host_path %}
+      - {{ host_path }}:/mnt/directories/dir3
+      {% endif %}
+    {% endif %}
   perms:
     image: bash
     user: root
