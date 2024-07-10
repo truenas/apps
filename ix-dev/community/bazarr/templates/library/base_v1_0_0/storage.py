@@ -54,10 +54,10 @@ def perms_item(data, ix_volumes, opts={}):
         return {}
 
     if data.get("type") == "host_path":
-        if data.get("host_path_config", {}).get("aclEnable", False):
+        if data.get("host_path_config", {}).get("acl_enable", False):
             return {}
     if data.get("type") == "ix_volume":
-        if data.get("ix_volume_config", {}).get("aclEnable", False):
+        if data.get("ix_volume_config", {}).get("acl_enable", False):
             return {}
 
     if not ix_volumes:
@@ -166,7 +166,7 @@ def host_path(data, ix_volumes=[]):
     elif _is_ix_volume(data):
         path = _process_ix_volume_config(data, ix_volumes)
     else:
-        utils.throw_error(f"Expected [_host_path] to be called only for types [host_path, ix_volume], got [{data['type']}]")
+        utils.throw_error(f"Expected [host_path()] to be called only for types [host_path, ix_volume], got [{data['type']}]")
 
     return valid_path(path)
 
@@ -188,7 +188,7 @@ def _get_docker_vol_type(data):
 
 
 def _process_host_path_config(data):
-    if data.get("host_path_config", {}).get("aclEnable", False):
+    if data.get("host_path_config", {}).get("acl_enable", False):
         if not data["host_path_config"].get("acl", {}).get("path"):
             utils.throw_error("Expected [host_path_config.acl.path] to be set for [host_path] type with ACL enabled")
         return data["host_path_config"]["acl"]["path"]
@@ -213,10 +213,10 @@ def _process_ix_volume_config(data, ix_volumes):
 
     ds = data["ix_volume_config"]["dataset_name"]
     for item in ix_volumes:
-        # TODO: verify the "hostPath" key is the correct from middleware side
+        # TODO: verify the "host_path" key is the correct from middleware side
         # Ideally we would want to have the "dataset_name" in the dict, instead of doing this check below
-        if item.get("hostPath", "").split("/")[-1] == ds:
-            path = item["hostPath"]
+        if item.get("host_path", "").split("/")[-1] == ds:
+            path = item["host_path"]
             break
 
     if not path:
