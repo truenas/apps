@@ -25,11 +25,35 @@ def print_stderr(msg):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--app", required=True, help="The name of the app")
-    parser.add_argument("--train", required=True, help="The name of the train for the app")
-    parser.add_argument("--test-file", required=True, help="Name of the test file to use as values")
-    parser.add_argument("--render-only", required=False, default=False, type=bool, help="Prints the rendered docker-compose file")
-    parser.add_argument("--render-only-debug", required=False, default=False, type=bool, help="Prints the rendered docker-compose file even if it's not a valid yaml")
+    parser.add_argument(
+        "--app",
+        required=True,
+        help="The name of the app",
+    )
+    parser.add_argument(
+        "--train",
+        required=True,
+        help="The name of the train for the app",
+    )
+    parser.add_argument(
+        "--test-file",
+        required=True,
+        help="Name of the test file to use as values",
+    )
+    parser.add_argument(
+        "--render-only",
+        required=False,
+        default=False,
+        type=bool,
+        help="Prints the rendered docker-compose file",
+    )
+    parser.add_argument(
+        "--render-only-debug",
+        required=False,
+        default=False,
+        type=bool,
+        help="Prints the rendered docker-compose file even if it's not a valid yaml",
+    )
     parsed = parser.parse_args()
 
     return {
@@ -188,9 +212,9 @@ def get_failed_containers():
     # Outputs one container per line, in json format
     cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
-    failed = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
+    all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
     failed_containers = []
-    for line in failed.split("\n"):
+    for line in all_containers.split("\n"):
         if not line:
             continue
         try:
@@ -199,9 +223,10 @@ def get_failed_containers():
             print_stderr(f"Failed to parse container status output:\n {line}")
             sys.exit(1)
 
-    actual_failed = []
+    failed = []
     for container in failed_containers:
-        # Skip containers that are exited with 0 (eg init containers), but not restarting (during a restart exit code is 0)
+        # Skip containers that are exited with 0 (eg init containers),
+        # but not restarting (during a restart exit code is 0)
         if all(
             [
                 container.get("Health", "") == "" or container.get("Health", "") == "healthy",
@@ -209,11 +234,14 @@ def get_failed_containers():
                 not container.get("State", "") == "restarting",
             ]
         ):
-            print_stderr(f"Skipping container [{container['Name']}({container['ID']})] with status [{container.get('State')}] because it exited with 0 and has no health status")
+            print_stderr(
+                f"Skipping container [{container['Name']}({container['ID']})] with status [{container.get('State')}]"
+                + " because it exited with 0 and has no health status"
+            )
             continue
-        actual_failed.append(container)
+        failed.append(container)
 
-    return actual_failed
+    return failed
 
 
 def get_container_name(container):
