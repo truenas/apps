@@ -213,26 +213,24 @@ def get_failed_containers():
     cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
     all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
-    failed_containers = []
+    parsed_containers = []
     for line in all_containers.split("\n"):
         if not line:
             continue
         try:
-            failed_containers.append(json.loads(line))
+            parsed_containers.append(json.loads(line))
         except json.JSONDecodeError:
             print_stderr(f"Failed to parse container status output:\n {line}")
             sys.exit(1)
 
     failed = []
-    for container in failed_containers:
+    for container in parsed_containers:
         # Skip containers that are exited with 0 (eg init containers),
         # but not restarting (during a restart exit code is 0)
-        if all(
-            [
-                container.get("Health", "") == "" or container.get("Health", "") == "healthy",
-                container.get("ExitCode", 0) == 0,
-                not container.get("State", "") == "restarting",
-            ]
+        if (
+            (container.get("Health", "") == "" or container.get("Health", "") == "healthy")
+            and container.get("ExitCode", 0) == 0
+            and (not container.get("State", "") == "restarting")
         ):
             print_stderr(
                 f"Skipping container [{container['Name']}({container['ID']})] with status [{container.get('State')}]"
