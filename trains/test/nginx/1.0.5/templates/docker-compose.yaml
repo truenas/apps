@@ -1,0 +1,54 @@
+services:
+  {{ ix_lib.base.test.container_name() }}:
+    image: nginx
+    ports:
+      - {{ values.network.web_port }}:80
+    depends_on:
+      perms:
+        condition: service_completed_successfully
+    healthcheck:
+      test: "curl --fail --silent http://localhost:80"
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - /mnt/nginx/dir_0:/mnt/directories/dir1
+      - docker-volume-nginx:/mnt/directories/dir2
+    {% if values.storage.config.type == "host_path" %}
+      {% if values.storage.config.host_path_config.acl_enable %}
+      - {{ values.storage.config.host_path_config.acl.path }}:/mnt/directories/dir3
+      {% else %}
+      - {{ values.storage.config.host_path_config.host_path }}:/mnt/directories/dir3
+      {% endif %}
+    {% elif values.storage.config.type == "ix_volume" %}
+      {% set host_path = values.ix_volumes[values.storage.config.ix_volume_config.dataset_name] %}
+      {% if host_path %}
+      - {{ host_path }}:/mnt/directories/dir3
+      {% endif %}
+    {% endif %}
+  perms:
+    image: bash
+    user: root
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+    entrypoint:
+      - bash
+      - -c
+    command:
+      - |
+        echo "applying permissions..."
+        chmod 777 /mnt/directories/dir1
+        chmod 777 /mnt/directories/dir2
+        sleep 10
+        echo "Done applying permissions"
+        exit 0
+    volumes:
+      - /usr/docker-nginx:/mnt/directories/dir1
+      - docker-volume-nginx:/mnt/directories/dir2
+
+volumes:
+  docker-volume-nginx: {}
