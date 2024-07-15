@@ -15,12 +15,17 @@
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/var/run"})) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "anonymous", "mount_path": "/tmp"})) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "volume", "volume_name": "nginx-cache", "mount_path": "/var/cache/nginx", "auto_permissions": true,},
+  perm_opts={"mount_path": "/mnt/logseq/nginx-cache", "mode": "always", "uid": values.run_as.user, "gid": values.run_as.group, "chmod": "770"}
+)) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "volume", "volume_name": "nginx-run", "mount_path": "/var/run", "auto_permissions": true,},
+  perm_opts={"mount_path": "/mnt/logseq/nginx-run", "mode": "always", "uid": values.run_as.user, "gid": values.run_as.group, "chmod": "770"}
+)) %}
 
 {% for store in values.storage.additional_storage %}
   {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
-  perm_opts={"mount_path": "/mnt/logseq/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+    perm_opts={"mount_path": "/mnt/logseq/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
   )) %}
 {% endfor %}
 
@@ -31,19 +36,15 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
-{% if values.network.certificate_id %}
 configs:
+{% if values.network.certificate_id %}
   private:
     content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
   public:
     content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
+{% endif %}
   nginx.conf:
     content: |
-      client_body_temp_path /tmp/nginx/client_temp;
-      proxy_temp_path       /tmp/nginx/proxy_temp_path;
-      fastcgi_temp_path     /tmp/nginx/fastcgi_temp;
-      uwsgi_temp_path       /tmp/nginx/uwsgi_temp;
-      scgi_temp_path        /tmp/nginx/scgi_temp;
       server {
           {% if values.network.certificate_id %}
 
@@ -71,7 +72,7 @@ configs:
               return          200;
           }
       }
-{% endif %}
+
 
 {# Containers #}
 services:
