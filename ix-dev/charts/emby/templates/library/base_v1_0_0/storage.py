@@ -238,17 +238,9 @@ def _process_ix_volume_config(data, ix_volumes):
         utils.throw_error("Expected [ix_volumes] to be set for [ix_volume] type")
 
     ds = data["ix_volume_config"]["dataset_name"]
-    for item in ix_volumes:
-        # TODO: verify the "host_path" key is the correct from middleware side
-        # Ideally we would want to have the "dataset_name" in the dict, instead of doing this check below
-        if item.get("host_path", "").split("/")[-1] == ds:
-            path = item["host_path"]
-            break
-
+    path = ix_volumes.get(ds, None)
     if not path:
-        utils.throw_error(
-            f"Expected [ix_volumes] to contain path for dataset with name [{ds}]"
-        )
+        utils.throw_error(f"Expected the key [{ds}] to be set in [ix_volumes]")
 
     return path
 
