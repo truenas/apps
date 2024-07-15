@@ -76,10 +76,19 @@ def http_test(port, path, config={}):
     )
 
 
-def tcp_test(port, config={}):
+def netcat_test(port, config={}):
     if not port:
         utils.throw_error("Expected [port] to be set")
 
     host = config.get("host", "127.0.0.1")
 
     return f"nc -z -w 1 {host} {port}"
+
+
+def tcp_test(port, config={}):
+    if not port:
+        utils.throw_error("Expected [port] to be set")
+
+    host = config.get("host", "127.0.0.1")
+
+    return f"timeout 1 bash -c 'cat < /dev/null > /dev/tcp/{host}/{port}'"
