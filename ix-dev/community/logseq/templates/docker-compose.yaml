@@ -1,0 +1,121 @@
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+
+{% set perms_container_name = "permissions" %}
+{% set logseq_container_name = "logseq" %}
+{% set logseq_image = "ghcr.io/logseq/logseq-webapp:latest" %}
+
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
+{% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/var/run"})) %}
+{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/var/cache/nginx"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
+  perm_opts={"mount_path": "/mnt/logseq/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+  )) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% if values.network.certificate_id %}
+configs:
+  private:
+    content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
+  public:
+    content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
+  nginx.conf:
+    content: |
+      server {
+          {% if values.network.certificate_id %}
+
+          listen              {{ values.network.web_port }} ssl;
+          ssl_certificate     /etc/nginx/certs/tls.crt;
+          ssl_certificate_key /etc/nginx/certs/tls.key;
+
+          {% else %}
+
+          listen              {{ values.network.web_port }};
+
+          {% endif %}
+
+          error_page          500 502 503 504  /50x.html;
+          location = /50x.html {
+              root            /usr/share/nginx/html;
+          }
+
+          location / {
+              root            /usr/share/nginx/html;
+              index           index.html index.htm;
+          }
+
+          location /health {
+              return          200;
+          }
+      }
+{% endif %}
+
+{# Containers #}
+services:
+  {{ logseq_container_name }}:
+    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
+    image: {{ logseq_image }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if values.network.certificate_id %}
+    configs:
+      - source: private
+        target: /etc/nginx/certs/tls.key
+      - source: public
+        target: /etc/nginx/certs/tls.crt
+      - source: nginx.conf
+        target: /etc/nginx/conf.d/default.conf
+    {% endif %}
+    {% if perms_dirs.items %}
+    depends_on:
+      {{ perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    {% if values.network.host_network %}
+    network_mode: host
+    {% endif %}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.wget_test(port=values.network.web_port, path="/health", config={"scheme": "https" if values.network.certificate_id else "http"}) %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={}, user=values.logseq.additional_envs) | tojson }}
+    {% if not values.network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+  {% if perms_dirs.items %}
+  {{ perms_container_name }}:
+    {{ perms_container(items=perms_dirs.items) | indent(4) }}
+    volumes:
+      {% for item in perms_mounts.items %}
+      - {{ item | tojson }}
+      {% endfor %}
+  {% endif %}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
