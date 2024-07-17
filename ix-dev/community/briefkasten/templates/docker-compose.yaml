@@ -30,10 +30,10 @@
 {% set pg_run_user = 999 %}
 {% set pg_run_group = 999 %}
 
-{% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
     perm_opts={"mount_path": "/mnt/briefkasten/dir_%s"|format(loop.index0), "mode": "check", "uid": run_user, "gid": run_group}
   )) %}
 {% endfor %}
@@ -45,8 +45,8 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
-{% set _ = pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
-{% set _ = pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
   ix_volumes=values.ix_volumes, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": pg_run_user, "gid": pg_run_group}
 )) %}
 
@@ -55,7 +55,6 @@
   {% if item.vol_mount and pg_volume_mounts.items.append(item.vol_mount) %}{% endif %}
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
-
 {% set app_env = {
   "DATABASE_URL": ix_lib.base.postgres.pg_url(
     variant="postgres", host=pg_container_name, user=pg_user,
@@ -67,40 +66,30 @@
   "NODE_ENV": "production",
   "NEXTAUTH_URL_INTERNAL": "http://127.0.0.1:%d"|format(values.network.web_port),
 } %}
-{% if values.briefkasten.smtp.enabled %}
-  {% set _ = app_env.update({
-    "SMTP_HOST": values.briefkasten.smtp.server,
-    "SMTP_FROM": values.briefkasten.smtp.from,
-  }) %}
-{% endif %}
-{% if values.briefkasten.github.enabled %}
-  {% set _ = app_env.update({
-    "GITHUB_ID": values.briefkasten.github.id,
-    "GITHUB_SECRET": values.briefkasten.github.secret,
-  }) %}
-{% endif %}
-{% if values.briefkasten.google.enabled %}
-  {% set _ = app_env.update({
-    "GOOGLE_ID": values.briefkasten.google.id,
-    "GOOGLE_SECRET": values.briefkasten.google.secret,
-  }) %}
-{% endif %}
-{% if values.briefkasten.keycloak.enabled %}
-  {% set _ = app_env.update({
-    "KEYCLOAK_NAME": values.briefkasten.keycloak.name,
-    "KEYCLOAK_ID": values.briefkasten.keycloak.id,
-    "KEYCLOAK_SECRET": values.briefkasten.keycloak.secret,
-    "KEYCLOAK_ISSUER": values.briefkasten.keycloak.issuer,
-  }) %}
-{% endif %}
-{% if values.briefkasten.authentik.enabled %}
-  {% set _ = app_env.update({
-    "AUTHENTIK_NAME": values.briefkasten.authentik.name,
-    "AUTHENTIK_ID": values.briefkasten.authentik.id,
-    "AUTHENTIK_SECRET": values.briefkasten.authentik.secret,
-    "AUTHENTIK_ISSUER": values.briefkasten.authentik.issuer,
-  }) %}
-{% endif %}
+{% do app_env.update({
+  "SMTP_HOST": values.briefkasten.smtp.server,
+  "SMTP_FROM": values.briefkasten.smtp.from,
+}) if values.briefkasten.smtp.enabled else {} %}
+{% do app_env.update({
+  "GITHUB_ID": values.briefkasten.github.id,
+  "GITHUB_SECRET": values.briefkasten.github.secret,
+} if values.briefkasten.github.enabled else {}) %}
+{% do app_env.update({
+  "GOOGLE_ID": values.briefkasten.google.id,
+  "GOOGLE_SECRET": values.briefkasten.google.secret,
+}) if values.briefkasten.google.enabled else {} %}
+{% do app_env.update({
+  "KEYCLOAK_NAME": values.briefkasten.keycloak.name,
+  "KEYCLOAK_ID": values.briefkasten.keycloak.id,
+  "KEYCLOAK_SECRET": values.briefkasten.keycloak.secret,
+  "KEYCLOAK_ISSUER": values.briefkasten.keycloak.issuer,
+}) if values.briefkasten.keycloak.enabled else {} %}
+{% do app_env.update({
+  "AUTHENTIK_NAME": values.briefkasten.authentik.name,
+  "AUTHENTIK_ID": values.briefkasten.authentik.id,
+  "AUTHENTIK_SECRET": values.briefkasten.authentik.secret,
+  "AUTHENTIK_ISSUER": values.briefkasten.authentik.issuer,
+}) if values.briefkasten.authentik.enabled else {} %}
 
 {# Containers #}
 services:
