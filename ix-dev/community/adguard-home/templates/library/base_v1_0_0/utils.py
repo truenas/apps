@@ -21,3 +21,10 @@ def secure_string(length):
 
 def basic_auth_header(username, password):
     return f"Basic {security.htpasswd(username, password)}"
+
+
+def merge_dicts(*dicts):
+    merged_dict = {}
+    for dictionary in dicts:
+        merged_dict.update(dictionary)
+    return merged_dict
