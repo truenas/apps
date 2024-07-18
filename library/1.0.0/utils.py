@@ -1,6 +1,7 @@
-from . import security
 import secrets
 import sys
+
+from . import security
 
 
 class TemplateException(Exception):
