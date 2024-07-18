@@ -55,7 +55,7 @@ DOUBLE_SUFFIX_MULTIPLIERS = {
 
 
 def transform_memory(memory):
-    result = "2g"  # Default to 2GB
+    result = 4096  # Default to 4GB
 
     if re.match(SINGLE_SUFFIX_REGEX, memory):
         suffix = memory[-1]
@@ -70,8 +70,8 @@ def transform_memory(memory):
 
     result = math.ceil(result)
     result = min(result, TOTAL_MEM)
-    result = result / 1024 / 1024 / 1024
-    return f"{int(result)}g"
+    result = result / 1024 / 1024
+    return f"{int(result)}M"
 
 
 def migrate_resources(resources):
@@ -80,7 +80,7 @@ def migrate_resources(resources):
         return {
             "limits": {
                 "cpus": CPU_COUNT / 2,
-                "memory": f"{TOTAL_MEM / 1024 / 1024 / 1024}g",
+                "memory": f"{TOTAL_MEM / 1024 / 1024}M",
             }
         }
 
