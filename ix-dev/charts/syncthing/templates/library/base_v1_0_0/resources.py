@@ -11,8 +11,6 @@ def resources(data):
     if not re.match(r"^[1-9][0-9]*$", memory):
         raise ValueError(f"Expected memory to be a number, got [{memory}]")
 
-    print(memory)
-    print(f"{memory}M")
     return {
         "limits": {"cpus": cpus, "memory": f"{memory}M"},
     }
