@@ -1,5 +1,6 @@
-from . import utils
 import re
+
+from . import utils
 
 
 def resources(data):
