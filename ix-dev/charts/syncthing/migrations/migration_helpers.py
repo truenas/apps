@@ -75,14 +75,21 @@ def transform_memory(memory):
 
 
 def migrate_resources(resources):
-    new_resources = {
+    # Handle empty resources, with sane defaults
+    if not resources:
+        return {
+            "limits": {
+                "cpus": CPU_COUNT / 2,
+                "memory": f"{TOTAL_MEM / 1024 / 1024 / 1024}g",
+            }
+        }
+
+    return {
         "limits": {
             "cpus": transform_cpu(resources.get("limits", {}).get("cpu", "")),
             "memory": transform_memory(resources.get("limits", {}).get("memory", "")),
         }
     }
-
-    return new_resources
 
 
 def migrate_dns_config(dns_config):
