@@ -1,5 +1,6 @@
-from . import utils
 import ipaddress
+
+from . import utils
 
 
 def must_valid_port(num: int):
@@ -24,7 +25,8 @@ def must_valid_mode(mode: str):
         utils.throw_error(f"Expected a valid mode, got [{mode}]")
 
 
-def get_port(port={}):
+def get_port(port=None):
+    port = port or {}
     must_valid_port(port["published"])
     must_valid_port(port["target"])
     must_valid_ip(port.get("host_ip", "0.0.0.0"))

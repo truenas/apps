@@ -14,7 +14,8 @@ def check_health(test, interval=10, timeout=10, retries=5, start_period=30):
     }
 
 
-def pg_test(user, db, config={}):
+def pg_test(user, db, config=None):
+    config = config or {}
     if not user or not db:
         utils.throw_error("Postgres container: [user] and [db] must be set")
 
@@ -24,7 +25,8 @@ def pg_test(user, db, config={}):
     return f"pg_isready -h {host} -p {port} -d {db} -U {user}"
 
 
-def curl_test(port, path, config={}):
+def curl_test(port, path, config=None):
+    config = config or {}
     if not port or not path:
         utils.throw_error("Expected [port] and [path] to be set")
 
@@ -44,7 +46,8 @@ def curl_test(port, path, config={}):
     return f"curl --silent --output /dev/null --show-error --fail {' '.join(opts)} {scheme}://{host}:{port}{path}"
 
 
-def wget_test(port, path, config={}):
+def wget_test(port, path, config=None):
+    config = config or {}
     if not port or not path:
         utils.throw_error("Expected [port] and [path] to be set")
 
@@ -64,7 +67,8 @@ def wget_test(port, path, config={}):
     return f"wget --spider --quiet {' '.join(opts)} {scheme}://{host}:{port}{path}"
 
 
-def http_test(port, path, config={}):
+def http_test(port, path, config=None):
+    config = config or {}
     if not port or not path:
         utils.throw_error("Expected [port] and [path] to be set")
 
@@ -76,7 +80,8 @@ def http_test(port, path, config={}):
     )
 
 
-def netcat_test(port, config={}):
+def netcat_test(port, config=None):
+    config = config or {}
     if not port:
         utils.throw_error("Expected [port] to be set")
 
@@ -85,7 +90,8 @@ def netcat_test(port, config={}):
     return f"nc -z -w 1 {host} {port}"
 
 
-def tcp_test(port, config={}):
+def tcp_test(port, config=None):
+    config = config or {}
     if not port:
         utils.throw_error("Expected [port] to be set")
 
