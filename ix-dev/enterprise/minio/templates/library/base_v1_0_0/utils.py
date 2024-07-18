@@ -1,6 +1,7 @@
-from . import security
 import secrets
 import sys
+
+from . import security
 
 
 class TemplateException(Exception):
@@ -28,3 +29,19 @@ def merge_dicts(*dicts):
     for dictionary in dicts:
         merged_dict.update(dictionary)
     return merged_dict
+
+
+def camel_case(string):
+    return string.title()
+
+
+def is_boolean(string):
+    return string.lower() in ["true", "false"]
+
+
+def is_number(string):
+    try:
+        float(string)
+        return True
+    except ValueError:
+        return False

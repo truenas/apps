@@ -1,5 +1,7 @@
-from . import utils
 import re
+
+from . import utils
+
 
 BIND_TYPES = ["host_path", "ix_volume"]
 VOL_TYPES = ["volume", "nfs", "cifs"]
@@ -20,7 +22,8 @@ def valid_path(path=""):
 
 
 # Returns a volume mount object (Used in container's "volumes" level)
-def vol_mount(data, ix_volumes=[]):
+def vol_mount(data, ix_volumes=None):
+    ix_volumes = ix_volumes or []
     vol_type = _get_docker_vol_type(data)
 
     volume = {
@@ -41,7 +44,9 @@ def vol_mount(data, ix_volumes=[]):
     return volume
 
 
-def storage_item(data, ix_volumes=[], perm_opts={}):
+def storage_item(data, ix_volumes=None, perm_opts=None):
+    ix_volumes = ix_volumes or []
+    perm_opts = perm_opts or {}
     return {
         "vol_mount": vol_mount(data, ix_volumes),
         "vol": vol(data),
@@ -49,7 +54,8 @@ def storage_item(data, ix_volumes=[], perm_opts={}):
     }
 
 
-def perms_item(data, ix_volumes, opts={}):
+def perms_item(data, ix_volumes, opts=None):
+    opts = opts or {}
     if not data.get("auto_permissions"):
         return {}
 
@@ -85,7 +91,8 @@ def perms_item(data, ix_volumes, opts={}):
     }
 
 
-def _get_bind_vol_config(data, ix_volumes=[]):
+def _get_bind_vol_config(data, ix_volumes=None):
+    ix_volumes = ix_volumes or []
     path = host_path(data, ix_volumes)
     if data.get("propagation", "rprivate") not in PROPAGATION_TYPES:
         utils.throw_error(
@@ -175,7 +182,8 @@ def _is_ix_volume(data):
 
 
 # Returns the host path for a for either a host_path or ix_volume
-def host_path(data, ix_volumes=[]):
+def host_path(data, ix_volumes=None):
+    ix_volumes = ix_volumes or []
     path = ""
     if _is_host_path(data):
         path = _process_host_path_config(data)

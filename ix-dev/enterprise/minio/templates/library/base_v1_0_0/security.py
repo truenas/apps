@@ -1,14 +1,18 @@
 from base64 import b64encode
 
 
-def get_caps(add=[], drop=[]):
-    result = {"drop": drop or ["ALL"]}
+def get_caps(add=None, drop=None):
+    add = add or []
+    drop = drop or ["ALL"]
+    result = {"drop": drop}
     if add:
         result["add"] = add
     return result
 
 
-def get_sec_opts(add=[], remove=[]):
+def get_sec_opts(add=None, remove=None):
+    add = add or []
+    remove = remove or []
     result = ["no-new-privileges"]
     for opt in add:
         if opt not in result:
