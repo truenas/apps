@@ -14,7 +14,9 @@ def envs(app: dict | None = None, user: list | None = None):
     elif isinstance(user, dict):
         user = [{"name": k, "value": v} for k, v in user.items()]
     else:
-        utils.throw_error(f"Unsupported type for user environment variables [{type(user)}]")
+        utils.throw_error(
+            f"Unsupported type for user environment variables [{type(user)}]"
+        )
 
     for k in app.keys():
         if not k:
