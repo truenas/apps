@@ -1,0 +1,57 @@
+import json
+import os
+import sys
+
+from migration_helpers import (
+    migrate_resources,
+    migrate_dns_config,
+    migrate_storage_item,
+)
+
+
+def migrate(values):
+    config = values.get("config", {})
+    if not config:
+        raise ValueError("No config found in values")
+
+    new_values = {
+        "syncthing": {
+            "additional_envs": config.get("syncthingConfig", {}).get(
+                "additionalEnvs", []
+            ),
+        },
+        "run_as": {
+            "user": config.get("syncthingID", {}).get("user", 568),
+            "group": config.get("syncthingID", {}).get("group", 568),
+        },
+        "network": {
+            "host_network": config.get("syncthingNetwork", {}).get(
+                "hostNetwork", False
+            ),
+            "web_port": config.get("syncthingNetwork", {}).get("webPort", 20910),
+            "tcp_port": config.get("syncthingNetwork", {}).get("tcpPort", 20978),
+            "udp_port": config.get("syncthingNetwork", {}).get("udpPort", 20979),
+            "dns_opts": migrate_dns_config(
+                config.get("podOptions", {}).get("dnsConfig", {})
+            ),
+        },
+        "storage": {
+            "config": migrate_storage_item(config["syncthingStorage"]["config"]),
+            "additional_storage": [
+                migrate_storage_item(item)
+                for item in config["syncthingStorage"]["additionalStorages"]
+            ],
+        },
+        "resources": migrate_resources(config.get("resources", {})),
+    }
+
+    return new_values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(json.dumps(migrate(json.loads(f.read()))))
