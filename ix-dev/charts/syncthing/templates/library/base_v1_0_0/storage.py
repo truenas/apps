@@ -9,18 +9,6 @@ ALL_TYPES = BIND_TYPES + VOL_TYPES + ["tmpfs", "anonymous"]
 PROPAGATION_TYPES = ["shared", "slave", "private", "rshared", "rslave", "rprivate"]
 
 
-# Basic validation for a path (Expand later)
-def valid_path(path=""):
-    if not path.startswith("/"):
-        utils.throw_error(f"Expected path [{path}] to start with /")
-
-    # There is no reason to allow / as a path, either on host or in a container
-    if path == "/":
-        utils.throw_error(f"Expected path [{path}] to not be /")
-
-    return path
-
-
 # Returns a volume mount object (Used in container's "volumes" level)
 def vol_mount(data, ix_volumes=None):
     ix_volumes = ix_volumes or []
@@ -28,7 +16,7 @@ def vol_mount(data, ix_volumes=None):
 
     volume = {
         "type": vol_type,
-        "target": valid_path(data.get("mount_path", "")),
+        "target": utils.valid_path(data.get("mount_path", "")),
         "read_only": data.get("read_only", False),
     }
     if vol_type == "bind":  # Default create_host_path is true in short-syntax
@@ -194,7 +182,7 @@ def host_path(data, ix_volumes=None):
             f"Expected [host_path()] to be called only for types [host_path, ix_volume], got [{data['type']}]"
         )
 
-    return valid_path(path)
+    return utils.valid_path(path)
 
 
 # Returns the type of storage as used in docker-compose
@@ -267,13 +255,16 @@ def _process_cifs(data):
         f"user={data['cifs_config']['username']}",
         f"password={data['cifs_config']['password']}",
     ]
+    if data["cifs_config"].get("domain"):
+        opts.append(f'domain={data["cifs_config"]["domain"]}')
+
     if data["cifs_config"].get("options"):
         if not isinstance(data["cifs_config"]["options"], list):
             utils.throw_error(
                 "Expected [cifs_config.options] to be a list for [cifs] type"
             )
 
-        disallowed_opts = ["user", "password"]
+        disallowed_opts = ["user", "password", "domain"]
         for opt in data["cifs_config"]["options"]:
             if not isinstance(opt, str):
                 utils.throw_error(
