@@ -9,6 +9,8 @@ def migrate_storage_item(storage_item):
         result = migrate_host_path_type(storage_item)
     elif storage_item["type"] == "emptyDir":
         result = migrate_empty_dir_type(storage_item)
+    elif storage_item["type"] == "smb-pv-pvc":
+        result = migrate_smb_pv_pvc_type(storage_item)
 
     mount_path = storage_item.get("mountPath", "")
     if mount_path:
@@ -16,6 +18,23 @@ def migrate_storage_item(storage_item):
 
     result.update({"read_only": storage_item.get("readOnly", False)})
     return result
+
+
+def migrate_smb_pv_pvc_type(smb_pv_pvc):
+    smb_config = smb_pv_pvc.get("smbConfig", {})
+    if not smb_config:
+        raise ValueError("Expected [smb_pv_pvc] to have [smbConfig] set")
+
+    return {
+        "type": "cifs",
+        "cifs_config": {
+            "server": smb_config["server"],
+            "share": smb_config["share"],
+            "domain": smb_config.get("domain", ""),
+            "username": smb_config["username"],
+            "password": smb_config["password"],
+        },
+    }
 
 
 def migrate_empty_dir_type(empty_dir):
