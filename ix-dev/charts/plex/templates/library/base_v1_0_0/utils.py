@@ -31,6 +31,18 @@ def merge_dicts(*dicts):
     return merged_dict
 
 
+# Basic validation for a path (Expand later)
+def valid_path(path=""):
+    if not path.startswith("/"):
+        throw_error(f"Expected path [{path}] to start with /")
+
+    # There is no reason to allow / as a path, either on host or in a container
+    if path == "/":
+        throw_error(f"Expected path [{path}] to not be /")
+
+    return path
+
+
 def camel_case(string):
     return string.title()
 
