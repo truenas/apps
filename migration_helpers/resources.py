@@ -1,5 +1,5 @@
-from memory import transform_memory, TOTAL_MEM
-from cpu import transform_cpu, CPU_COUNT
+from .memory import transform_memory, TOTAL_MEM
+from .cpu import transform_cpu, CPU_COUNT
 
 
 def migrate_resources(resources):

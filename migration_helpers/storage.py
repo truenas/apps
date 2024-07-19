@@ -7,6 +7,8 @@ def migrate_storage_item(storage_item):
         result = migrate_ix_volume_type(storage_item)
     elif storage_item["type"] == "hostPath":
         result = migrate_host_path_type(storage_item)
+    elif storage_item["type"] == "emptyDir":
+        result = migrate_empty_dir_type(storage_item)
 
     mount_path = storage_item.get("mountPath", "")
     if mount_path:
@@ -14,6 +16,22 @@ def migrate_storage_item(storage_item):
 
     result.update({"read_only": storage_item.get("readOnly", False)})
     return result
+
+
+def migrate_empty_dir_type(empty_dir):
+    empty_dir_config = empty_dir.get("emptyDirConfig", {})
+    if not empty_dir_config:
+        raise ValueError("Expected [empty_dir] to have [emptyDirConfig] set")
+
+    if empty_dir_config.get("medium", "") == "Memory":
+        # Convert Gi to Mi
+        size = empty_dir_config.get("size", 0.5) * 1024
+        return {
+            "type": "tmpfs",
+            "tmpfs_config": {"size": size},
+        }
+
+    return {"type": "anonymous"}
 
 
 def migrate_ix_volume_type(ix_volume):
