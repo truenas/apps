@@ -100,7 +100,9 @@ def get_base_cmd():
 
 def pull_app_catalog_container():
     print_stderr(f"Pulling container image [{CONTAINER_IMAGE}]")
-    res = subprocess.run(f"docker pull --quiet {CONTAINER_IMAGE}", shell=True, capture_output=True)
+    res = subprocess.run(
+        f"docker pull --quiet {CONTAINER_IMAGE}", shell=True, capture_output=True
+    )
     if res.returncode != 0:
         print_stderr(f"Failed to pull container image [{CONTAINER_IMAGE}]")
         sys.exit(1)
@@ -133,7 +135,9 @@ def render_compose():
         except yaml.YAMLError as e:
             print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
             with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
-                print_stderr(f"Syntax Error in rendered docker-compose file:\n{f.read()}")
+                print_stderr(
+                    f"Syntax Error in rendered docker-compose file:\n{f.read()}"
+                )
             sys.exit(1)
 
         if args["render_only_debug"]:
@@ -212,7 +216,9 @@ def get_failed_containers():
     # Outputs one container per line, in json format
     cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
-    all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
+    all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode(
+        "utf-8"
+    )
     parsed_containers = []
     for line in all_containers.split("\n"):
         if not line:
@@ -228,7 +234,10 @@ def get_failed_containers():
         # Skip containers that are exited with 0 (eg init containers),
         # but not restarting (during a restart exit code is 0)
         if (
-            (container.get("Health", "") == "" or container.get("Health", "") == "healthy")
+            (
+                container.get("Health", "") == ""
+                or container.get("Health", "") == "healthy"
+            )
             and container.get("ExitCode", 0) == 0
             and (not container.get("State", "") == "restarting")
         ):
@@ -271,7 +280,9 @@ def run_app():
         if failed_containers:
             print_stderr("Failed to start container(s):")
         for container in failed_containers:
-            print_stderr(f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data")
+            print_stderr(
+                f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data"
+            )
             print_inspect_data(container)
 
         # https://github.com/docker/compose/issues/10596
@@ -287,7 +298,9 @@ def run_app():
 
 def check_app_dir_exists():
     if not os.path.exists(f"ix-dev/{args['train']}/{args['app']}"):
-        print_stderr(f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist")
+        print_stderr(
+            f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist"
+        )
         sys.exit(1)
 
 
@@ -320,13 +333,31 @@ def copy_macros():
         shutil.rmtree(target_macros_dir, ignore_errors=True)
 
     try:
-        shutil.copytree(
-            "macros",
-            target_macros_dir,
-            dirs_exist_ok=True,
-        )
+        shutil.copytree("macros", target_macros_dir, dirs_exist_ok=True)
     except shutil.Error:
         print_stderr("Failed to copy macros")
+        sys.exit(1)
+
+
+def copy_migration_helpers():
+    if not os.path.exists("migration_helpers"):
+        print_stderr(
+            "Migration helpers directory does not exist. Skipping helpers copy"
+        )
+        return
+
+    print_stderr("Copying migration helpers")
+    target_helpers_dir = (
+        f"ix-dev/{args['train']}/{args['app']}/migrations/migration_helpers"
+    )
+    os.makedirs(target_helpers_dir, exist_ok=True)
+    if pathlib.Path(target_helpers_dir).exists():
+        shutil.rmtree(target_helpers_dir, ignore_errors=True)
+
+    try:
+        shutil.copytree("migration_helpers", target_helpers_dir, dirs_exist_ok=True)
+    except shutil.Error:
+        print_stderr("Failed to copy migration helpers")
         sys.exit(1)
 
 
@@ -351,6 +382,7 @@ def main():
     pull_app_catalog_container()
     copy_lib()
     copy_macros()
+    copy_migration_helpers()
     generate_item_file()
     check_required_commands()
     render_compose()
