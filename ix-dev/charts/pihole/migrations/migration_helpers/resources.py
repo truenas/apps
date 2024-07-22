@@ -7,7 +7,7 @@ def migrate_resources(resources):
     if not resources:
         return {
             "limits": {
-                "cpus": CPU_COUNT / 2,
+                "cpus": (CPU_COUNT or 2) / 2,
                 "memory": f"{TOTAL_MEM / 1024 / 1024}M",
             }
         }
