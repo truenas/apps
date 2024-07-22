@@ -1,0 +1,41 @@
+import os
+import sys
+import json
+
+from migration_helpers.resources import migrate_resources
+
+
+def migrate(values):
+    config = values.get("config", {})
+    if not config:
+        raise ValueError("No config found in values")
+
+    new_values = {
+        "tailscale": {
+            "additional_envs": config["tailscaleConfig"].get("additionalEnvs", []),
+            "accept_dns": config["tailscaleConfig"]["acceptDns"],
+            "userspace": config["tailscaleConfig"]["userspace"],
+            "hostname": config["tailscaleConfig"]["hostname"],
+            "advertise_exit_node": config["tailscaleConfig"]["advertiseExitNode"],
+            "auth_once": config["tailscaleConfig"]["authOnce"],
+            "auth_key": config["tailscaleConfig"]["authkey"],
+            "tailscaled_args": config["tailscaleConfig"].get("extraDaemonArgs", []),
+            "extra_args": config["tailscaleConfig"].get("extraArgs", []),
+            "advertise_routes": config["tailscaleConfig"].get("advertiseRoutes", []),
+        },
+        "network": {
+            "host_network": config["tailscaleNetwork"]["hostNetwork", False],
+        },
+        "resources": migrate_resources(config["resources"]),
+    }
+
+    return new_values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(json.dumps(migrate(json.loads(f.read()))))
