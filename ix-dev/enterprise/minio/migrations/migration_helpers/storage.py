@@ -91,7 +91,7 @@ def migrate_host_path_type(host_path):
             {"acl": migrate_acl_entries(path_config.get("acl", {}))}
         )
     else:
-        result["host_path_config"].update({"host_path": path_config["hostPath"]})
+        result["host_path_config"].update({"path": path_config["hostPath"]})
 
     return result
 
