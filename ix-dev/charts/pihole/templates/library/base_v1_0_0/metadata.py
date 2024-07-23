@@ -3,23 +3,17 @@ from . import utils
 
 def get_header(app_name: str):
     return f"""# Welcome to TrueNAS SCALE
-
 Thank you for installing {app_name}!
 """
 
 
 def get_footer(app_name: str):
     return f"""## Documentation
-
 Documentation for {app_name} can be found at https://www.truenas.com/docs.
-
 ## Bug reports
-
 If you find a bug in this app, please file an issue at
 https://ixsystems.atlassian.net or https://github.com/truenas/apps
-
 ## Feature requests or improvements
-
 If you find a feature request for this app, please file an issue at
 https://ixsystems.atlassian.net or https://github.com/truenas/apps
 """
