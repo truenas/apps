@@ -24,7 +24,7 @@ Parity Status with truenas/charts
 | adguard-home         | community  | -     | -        |
 | audiobookshelf       | community  | -     | -        |
 | autobrr              | community  | -     | -        |
-| bazarr               | community  | -     | -        |
+| bazarr               | community  | ✅    | ✅       |
 | briefkasten          | community  | -     | -        |
 | castopod             | community  | -     | -        |
 | chia                 | community  | -     | -        |
