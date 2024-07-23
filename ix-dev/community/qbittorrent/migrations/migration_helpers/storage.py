@@ -1,4 +1,4 @@
-def migrate_storage_item(storage_item):
+def migrate_storage_item(storage_item, include_read_only=False):
     if not storage_item:
         raise ValueError("Expected [storage_item] to be set")
 
@@ -16,7 +16,8 @@ def migrate_storage_item(storage_item):
     if mount_path:
         result.update({"mount_path": mount_path})
 
-    result.update({"read_only": storage_item.get("readOnly", False)})
+    if include_read_only:
+        result.update({"read_only": storage_item.get("readOnly", False)})
     return result
 
 
