@@ -29,8 +29,7 @@ def get_notes(app_name: str, body: str = ""):
     if not app_name:
         utils.throw_error("Expected [app_name] to be set")
 
-    body = f"\n{body}\n" if body else "\n"
-    return f"{get_header(app_name)}{body}{get_footer(app_name)}"
+    return f"{get_header(app_name)}\n\n{body}\n\n{get_footer(app_name)}"
 
 
 def get_portals(portals: list):
