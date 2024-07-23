@@ -57,7 +57,7 @@ Parity Status with truenas/charts
 | kapowarr             | community  | -     | -        |
 | kavita               | community  | -     | -        |
 | komga                | community  | -     | -        |
-| lidarr               | community  | -     | -        |
+| lidarr               | community  | ✅    | ✅       |
 | linkding             | community  | -     | -        |
 | listmonk             | community  | -     | -        |
 | logseq               | community  | -     | -        |
