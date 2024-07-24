@@ -68,3 +68,16 @@ def get_devices(resources: dict, other_devices: list = []) -> list:
         devices.append("/dev/dri")
 
     return devices
+
+
+def get_nvidia_env(resources: dict) -> dict:
+    reservations = get_nvidia_gpus_reservations(resources.get("gpus", {}))
+    if not reservations.get("device_ids"):
+        return {
+            "NVIDIA_VISIBLE_DEVICES": "void",
+        }
+
+    return {
+        "NVIDIA_VISIBLE_DEVICES": ",".join(reservations["device_ids"]),
+        "NVIDIA_DRIVER_CAPABILITIES": "all",
+    }
