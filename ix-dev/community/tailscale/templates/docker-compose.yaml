@@ -47,6 +47,7 @@ services:
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if values.tailscale.userspace and perms_dirs.items %}
     depends_on:
       {{ perms_container_name }}:
@@ -77,7 +78,7 @@ services:
     {% if args and app_env.update({"TS_EXTRA_ARGS": args}) %}{% endif %}
     {% if values.tailscale.tailscaled_args and app_env.update({"TS_TAILSCALED_ARGS": values.tailscale.tailscaled_args|unique|list|join(" ")}) %}{% endif %}
     {% if values.tailscale.advertise_routes and app_env.update({"TS_ADVERTISE_ROUTES": values.tailscale.advertise_routes|unique|list|join(",")}) %}{% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.tailscale.additional_envs) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.tailscale.additional_envs, values=values) | tojson }}
     volumes: {{ volume_mounts.items | tojson }}
 
   {% if values.tailscale.userspace and perms_dirs.items %}
@@ -92,3 +93,5 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-notes: {{ ix_lib.base.metadata.get_notes("Tailscale") | tojson }}
