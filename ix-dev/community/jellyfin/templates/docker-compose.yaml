@@ -47,6 +47,7 @@ services:
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if perms_dirs.items %}
     depends_on:
       {{ perms_container_name }}:
@@ -64,7 +65,7 @@ services:
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     {% set app_env = {} %}
     {% if values.jellyfin.publish_server_url and app_env.update({"JELLYFIN_PublishedServerUrl": values.jellyfin.publish_server_url}) %}{% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.jellyfin.additional_envs) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.jellyfin.additional_envs, values=values) | tojson }}
     {% if not values.network.host_network %}
     ports:
       - {{ ix_lib.base.ports.get_port(port={"target": 8096, "published": values.network.web_port}) | tojson }}
@@ -83,6 +84,5 @@ services:
 volumes: {{ volumes.items | tojson }}
 {% endif %}
 
-{# TODO: Add GPU Support #}
 x-portals: {{ ix_lib.base.metadata.get_portals([{"port": 8096 if values.network.host_network else values.network.web_port}]) | tojson }}
 x-notes: {{ ix_lib.base.metadata.get_notes("Syncthing") | tojson }}
