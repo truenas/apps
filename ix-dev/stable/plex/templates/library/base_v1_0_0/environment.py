@@ -7,13 +7,7 @@ def envs(app: dict | None = None, user: list | None = None):
     track_env = {**app}
     result = {**app}
 
-    if not user:
-        user = []
-    elif isinstance(user, list):
-        pass
-    elif isinstance(user, dict):
-        user = [{"name": k, "value": v} for k, v in user.items()]
-    else:
+    if not isinstance(user, list):
         utils.throw_error(
             f"Unsupported type for user environment variables [{type(user)}]"
         )
