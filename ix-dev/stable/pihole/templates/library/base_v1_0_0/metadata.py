@@ -3,17 +3,23 @@ from . import utils
 
 def get_header(app_name: str):
     return f"""# Welcome to TrueNAS SCALE
+
 Thank you for installing {app_name}!
 """
 
 
 def get_footer(app_name: str):
     return f"""## Documentation
+
 Documentation for {app_name} can be found at https://www.truenas.com/docs.
+
 ## Bug reports
+
 If you find a bug in this app, please file an issue at
 https://ixsystems.atlassian.net or https://github.com/truenas/apps
+
 ## Feature requests or improvements
+
 If you find a feature request for this app, please file an issue at
 https://ixsystems.atlassian.net or https://github.com/truenas/apps
 """
@@ -23,8 +29,7 @@ def get_notes(app_name: str, body: str = ""):
     if not app_name:
         utils.throw_error("Expected [app_name] to be set")
 
-    body = f"\n{body}\n" if body else "\n"
-    return f"{get_header(app_name)}{body}{get_footer(app_name)}"
+    return f"{get_header(app_name)}\n\n{body}\n\n{get_footer(app_name)}"
 
 
 def get_portals(portals: list):
@@ -57,9 +62,8 @@ def get_portals(portals: list):
             {
                 "name": name,
                 "scheme": scheme,
-                "host": portal.get(
-                    "host", "0.0.0.0"  # TODO: Default to something else?
-                ),
+                # TODO: Default to something else?
+                "host": portal.get("host", "0.0.0.0"),
                 "port": portal["port"],
                 "path": path,
             }
