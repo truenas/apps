@@ -1,0 +1,217 @@
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+
+{% set perms_container_name = "permissions" %}
+{% set immich_server_container_name = "immich-server" %}
+{% set immich_ml_container_name = "immich-ml" %}
+{% set immich_pg_vector_container_name = "immich-pgvector" %}
+{% set immich_redis_container_name = "immich-redis" %}
+{% set immich_images = {
+  "server_image": "altran1502/immich-server:v1.109.2",
+  "ml_image": "altran1502/immich-machine-learning:v1.109.2",
+  "ml_cuda_image": "altran1502/immich-machine-learning:v1.109.2-cuda",
+  "ml_openvino_image": "altran1502/immich-machine-learning:v1.109.2-openvino",
+  "pg_vector_image": "tensorchord/pgvecto-rs:pg15-v0.2.0",
+  "redis_image": "bitnami/redis:7.0.11",
+} %}
+
+{% set ml_port = 32002 %}
+{% set ml_cache_path = "/mlcache" %}
+{% set db_user = "immich" %}
+{% set db_name = "immich" %}
+{% set pg_run_user = 999 %}
+{% set pg_run_group = 999 %}
+{% set redis_run_user = 1001 %}
+{% set redis_run_group = 0 %}
+
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{% set ml_storage_items = namespace(items=[]) %}
+{% set pg_storage_items = namespace(items=[]) %}
+{% set redis_storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{% set ml_volume_mounts = namespace(items=[]) %}
+{% set pg_volume_mounts = namespace(items=[]) %}
+{% set redis_volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
+{% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.library, **{"mount_path": "/usr/src/app/upload/library"}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.uploads, **{"mount_path": "/usr/src/app/upload/upload"}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.thumbs, **{"mount_path": "/usr/src/app/upload/thumbs"}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.profile, **{"mount_path": "/usr/src/app/upload/profile"}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.video, **{"mount_path": "/usr/src/app/upload/encoded-video"}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% for store in values.storage.additional_storage %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% if values.immich.enable_ml %}
+  {% do ml_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+  {% do ml_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": ml_cache_path})) %}
+  {% for item in ml_storage_items.items %}
+    {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+    {% if item.vol_mount and ml_volume_mounts.items.append(item.vol_mount) %}{% endif %}
+    {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+  {% endfor %}
+{% endif %}
+
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
+  ix_volumes=values.ix_volumes, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": pg_run_user, "gid": pg_run_group}
+)) %}
+{% for item in pg_storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and pg_volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% do redis_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% do redis_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/bitnami/redis/data"})) %}
+{% for item in redis_storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and redis_volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{# Containers #}
+services:
+  {{ immich_server_container_name }}:
+    image: {{ immich_images.server_image }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    links:
+      - {{ immich_pg_vector_container_name }}
+      - {{ immich_redis_container_name }}
+    {% if values.immich.enable_ml %}
+      - {{ immich_ml_container_name }}
+    {% endif %}
+    depends_on:
+      {{ immich_pg_vector_container_name }}:
+        condition: service_healthy
+      {{ immich_redis_container_name }}:
+        condition: service_healthy
+    {% if perms_dirs.items %}
+      {{ perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.http_test(port=values.network.web_port, path="/api/server-info/ping") %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    {% set server_app_env = {
+      "NODE_ENV": "production",
+      "IMMICH_LOG_LEVEL": values.immich.log_level,
+      "IMMICH_PORT": values.network.web_port,
+      "DB_USERNAME": db_user,
+      "DB_PASSWORD": values.immich.db_password,
+      "DB_HOSTNAME": immich_pg_vector_container_name,
+      "DB_DATABASE_NAME": db_name,
+      "DB_PORT": "5432",
+      "REDIS_HOSTNAME": immich_redis_container_name,
+      "REDIS_PASSWORD": values.immich.redis_password,
+      "REDIS_PORT": "6379",
+      "REDIS_DBINDEX": "0",
+    } %}
+    {% if values.immich.enable_ml %}
+      {% do server_app_env.update({
+        "IMMICH_MACHINE_LEARNING_ENABLED": values.immich.enable_ml,
+        "IMMICH_MACHINE_LEARNING_URL": "http://%s:%d" | format(immich_ml_container_name, ml_port),
+      }) %}
+    {% endif %}
+    environment: {{ ix_lib.base.environment.envs(app=server_app_env, user=values.immich.additional_envs, values=values) | tojson }}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+    volumes: {{ volume_mounts.items | tojson }}
+
+  {{ immich_pg_vector_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
+    "image": immich_images.pg_vector_image,
+    "volumes": pg_volume_mounts.items,
+    "user": pg_run_user, "group": pg_run_group,
+    "db_user": db_user, "db_name": db_name,
+    "db_password": values.immich.db_password,
+    "dns_opts": values.network.dns_opts, "resources": values.resources,
+    "depends_on": {
+      perms_container_name: {
+        "condition": "service_completed_successfully"
+      }
+    }
+  }) | tojson }}
+
+  {{ immich_redis_container_name }}: {{ ix_lib.base.redis.redis_container(data={
+    "image": immich_images.redis_image,
+    "volumes": redis_volume_mounts.items,
+    "user": redis_run_user, "group": redis_run_group,
+    "password": values.immich.redis_password,
+    "dns_opts": values.network.dns_opts, "resources": values.resources,
+    "depends_on": {
+      perms_container_name: {
+        "condition": "service_completed_successfully"
+      }
+    }
+  }) | tojson }}
+
+{% if values.immich.enable_ml %}
+  {{ immich_ml_container_name }}:
+    image: {{ immich_images[values.immich.ml_image_selector] }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    {% if perms_dirs.items %}
+    depends_on:
+      {{ perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.http_test(port=ml_port, path="/ping") %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    {% set ml_app_env = {
+      "NODE_ENV": "production",
+      "IMMICH_LOG_LEVEL": values.immich.log_level,
+      "IMMICH_PORT": ml_port,
+      "MACHINE_LEARNING_CACHE_FOLDER": ml_cache_path,
+      "TRANSFORMERS_CACHE": ml_cache_path,
+    } %}
+    {% if values.immich.hugging_face_endpoint %}
+      {% do ml_app_env.update({"HF_ENDPOINT": values.immich.hugging_face_endpoint}) %}
+    {% endif %}
+    environment: {{ ix_lib.base.environment.envs(app=ml_app_env, user=values.immich.additional_envs, values=values) | tojson }}
+    volumes: {{ ml_volume_mounts.items | tojson }}
+{% endif %}
+
+  {% if perms_dirs.items %}
+  {{ perms_container_name }}:
+    {{ perms_container(items=perms_dirs.items) | indent(4) }}
+    volumes:
+      {% for item in perms_mounts.items %}
+      - {{ item | tojson }}
+      {% endfor %}
+  {% endif %}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Immich") | tojson }}
