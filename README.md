@@ -10,7 +10,7 @@ Parity Status with truenas/charts
 | emby                 | charts     | -     | -        |
 | home-assistant       | charts     | -     | -        |
 | ix-chart             | charts     | -     | -        |
-| minio                | charts     | -     | -        |
+| minio                | charts     | ✅    | ✅       |
 | netdata              | charts     | -     | -        |
 | nextcloud            | charts     | -     | -        |
 | photoprism           | charts     | -     | -        |
