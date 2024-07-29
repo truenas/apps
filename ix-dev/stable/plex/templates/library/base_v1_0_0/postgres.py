@@ -63,7 +63,7 @@ def pg_container(data={}):
         "restart": "unless-stopped",
         "cap_drop": get_caps()["drop"],
         "security_opt": get_sec_opts(),
-        **({"dns_opts": dns_opts(data["dns_opts"])} if data.get("dns_opts") else {}),
+        **({"dns_opt": dns_opts(data["dns_opt"])} if data.get("dns_opt") else {}),
         "healthcheck": check_health(pg_test(user=pg_user, db=pg_dbname)),
         "environment": pg_env(
             user=pg_user,
