@@ -140,13 +140,15 @@ services:
       - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
     volumes: {{ volume_mounts.items | tojson }}
 
+  {% set resource_without_gpus = values.resources %}
+  {% do resource_without_gpus.pop("gpus", None) %}
   {{ immich_pg_vector_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
     "image": immich_images.pg_vector_image,
     "volumes": pg_volume_mounts.items,
     "user": pg_run_user, "group": pg_run_group,
     "db_user": db_user, "db_name": db_name,
     "db_password": values.immich.db_password,
-    "dns_opts": values.network.dns_opts, "resources": values.resources,
+    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
     "depends_on": {
       perms_container_name: {
         "condition": "service_completed_successfully"
@@ -159,7 +161,7 @@ services:
     "volumes": redis_volume_mounts.items,
     "user": redis_run_user, "group": redis_run_group,
     "password": values.immich.redis_password,
-    "dns_opts": values.network.dns_opts, "resources": values.resources,
+    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
     "depends_on": {
       perms_container_name: {
         "condition": "service_completed_successfully"
