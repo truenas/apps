@@ -44,5 +44,6 @@ def transform_memory(memory):
 
     result = math.ceil(result)
     result = min(result, TOTAL_MEM)
+    # Convert to Megabytes
     result = result / 1024 / 1024
-    return f"{int(result)}M"
+    return int(result)
