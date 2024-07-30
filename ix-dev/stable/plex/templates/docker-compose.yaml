@@ -1,12 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set plex_container_name = "plex" %}
-{% set plex_images = {
-  "plex_image": "plexinc/pms-docker:1.40.2.8395-c67dce28e",
-  "plex_pass_image": "plexinc/pms-docker:plexpass",
-} %}
-
-{% set perms_container_name = "perms" %}
 {# Stores storage items that contains info for volumes, vol mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -43,16 +36,16 @@
 
 {# Containers #}
 services:
-  {{ plex_container_name }}:
+  {{ values.consts.plex_container_name }}:
     user: "0:0"
-    image: {{ plex_images[values.plex.image_selector] }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.plex.image_selector) }}
     restart: unless-stopped
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     {% if perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     {% if values.network.host_network %}
@@ -79,7 +72,7 @@ services:
     volumes: {{ volume_mounts.items | tojson }}
 
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
