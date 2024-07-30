@@ -4,9 +4,23 @@ from . import utils
 
 
 BIND_TYPES = ["host_path", "ix_volume"]
-VOL_TYPES = ["volume", "nfs", "cifs"]
+VOL_TYPES = ["volume", "nfs", "cifs", "temporary"]
 ALL_TYPES = BIND_TYPES + VOL_TYPES + ["tmpfs", "anonymous"]
 PROPAGATION_TYPES = ["shared", "slave", "private", "rshared", "rslave", "rprivate"]
+
+
+def _get_name_for_temporary(data):
+    if not data.get("mount_path"):
+        utils.throw_error("Expected [mount_path] to be set for temporary volume")
+
+    return (
+        data["mount_path"]
+        .lstrip("/")
+        .lower()
+        .replace("/", "_")
+        .replace(".", "_")
+        .replace(" ", "_")
+    )
 
 
 # Returns a volume mount object (Used in container's "volumes" level)
@@ -25,6 +39,9 @@ def vol_mount(data, ix_volumes=None):
         volume.update(_get_volume_vol_config(data))
     elif vol_type == "tmpfs":
         volume.update(_get_tmpfs_vol_config(data))
+    elif vol_type == "temporary":
+        volume["type"] = "volume"
+        volume.update(_get_volume_vol_config(data))
     elif vol_type == "anonymous":
         volume["type"] = "volume"
         volume.update(_get_anonymous_vol_config(data))
@@ -35,6 +52,8 @@ def vol_mount(data, ix_volumes=None):
 def storage_item(data, ix_volumes=None, perm_opts=None):
     ix_volumes = ix_volumes or []
     perm_opts = perm_opts or {}
+    if data.get("type") == "temporary":
+        data.update({"volume_name": _get_name_for_temporary(data)})
     return {
         "vol_mount": vol_mount(data, ix_volumes),
         "vol": vol(data),
@@ -44,7 +63,7 @@ def storage_item(data, ix_volumes=None, perm_opts=None):
 
 def perms_item(data, ix_volumes, opts=None):
     opts = opts or {}
-    if not data.get("auto_permissions"):
+    if not data.get("auto_permissions") and not data.get("type") == "temporary":
         return {}
 
     if data.get("type") == "host_path":
@@ -74,7 +93,8 @@ def perms_item(data, ix_volumes, opts=None):
             "mode": opts["mode"],
             "uid": opts["uid"],
             "gid": opts["gid"],
-            "chmod": opts.get("chmod", ""),
+            "chmod": opts.get("chmod", "false"),
+            "is_temporary": data["type"] == "temporary",
         },
     }
 
