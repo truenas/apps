@@ -16,7 +16,9 @@ def redis_container(data={}):
     depends = data.get("depends_on", {})
     depends_on = {}
     for key in depends:
-        depends_on[key] = {"condition": depends[key].get("condition", "service_completed_successfully")}
+        depends_on[key] = {
+            "condition": depends[key].get("condition", "service_completed_successfully")
+        }
 
     return {
         "image": f"{data.get('image', 'bitnami/redis:7.0.11')}",
