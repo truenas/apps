@@ -62,7 +62,6 @@ def get_portals(portals: list):
             {
                 "name": name,
                 "scheme": scheme,
-                # TODO: Default to something else?
                 "host": portal.get("host", "0.0.0.0"),
                 "port": portal["port"],
                 "path": path,
