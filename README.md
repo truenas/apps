@@ -18,7 +18,7 @@ Parity Status with truenas/charts
 | plex                 | charts     | ✅    | ✅       |
 | prometheus           | charts     | -     | -        |
 | storj                | charts     | -     | -        |
-| syncthing            | charts     | -     | -        |
+| syncthing            | charts     | ✅    | ✅       |
 | wg-easy              | charts     | -     | -        |
 | actual-budget        | community  | -     | -        |
 | adguard-home         | community  | -     | -        |
