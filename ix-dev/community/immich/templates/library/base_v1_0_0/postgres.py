@@ -20,7 +20,9 @@ def pg_url(variant, host, user, password, dbname, port=5432):
     elif variant == "postgres":
         return f"postgres://{user}:{password}@{host}:{port}/{dbname}?sslmode=disable"
     else:
-        utils.throw_error(f"Expected [variant] to be one of [postgresql, postgres], got [{variant}]")
+        utils.throw_error(
+            f"Expected [variant] to be one of [postgresql, postgres], got [{variant}]"
+        )
 
 
 def pg_env(user, password, dbname, port=5432):
@@ -42,7 +44,6 @@ def pg_container(data={}):
     req_keys = ["db_user", "db_password", "db_name", "volumes", "resources"]
     for key in req_keys:
         if not data.get(key):
-            print(data)
             utils.throw_error(f"Expected [{key}] to be set for postgres")
 
     pg_user = data["db_user"]
@@ -52,7 +53,9 @@ def pg_container(data={}):
     depends = data.get("depends_on", {})
     depends_on = {}
     for key in depends:
-        depends_on[key] = {"condition": depends[key].get("condition", "service_completed_successfully")}
+        depends_on[key] = {
+            "condition": depends[key].get("condition", "service_completed_successfully")
+        }
 
     return {
         "image": f"{data.get('image', 'postgres:15')}",

@@ -13,7 +13,14 @@ def _get_name_for_temporary(data):
     if not data.get("mount_path"):
         utils.throw_error("Expected [mount_path] to be set for temporary volume")
 
-    return data["mount_path"].lstrip("/").lower().replace("/", "_").replace(".", "_").replace(" ", "_")
+    return (
+        data["mount_path"]
+        .lstrip("/")
+        .lower()
+        .replace("/", "_")
+        .replace(".", "_")
+        .replace(" ", "_")
+    )
 
 
 # Returns a volume mount object (Used in container's "volumes" level)
@@ -102,7 +109,9 @@ def _get_bind_vol_config(data, ix_volumes=None):
     return {
         "source": path,
         "bind": {
-            "create_host_path": data.get("host_path_config", {}).get("create_host_path", True),
+            "create_host_path": data.get("host_path_config", {}).get(
+                "create_host_path", True
+            ),
             "propagation": _get_valid_propagation(data),
         },
     }
@@ -136,7 +145,9 @@ def _get_tmpfs_vol_config(data):
 
     if config.get("mode"):
         if not mode_regex.match(str(config["mode"])):
-            utils.throw_error(f"Expected [mode] to be a octal string for [tmpfs] type, got [{config['mode']}]")
+            utils.throw_error(
+                f"Expected [mode] to be a octal string for [tmpfs] type, got [{config['mode']}]"
+            )
         tmpfs.update({"mode": int(config["mode"], 8)})
 
     return {"tmpfs": tmpfs}
@@ -198,7 +209,9 @@ def _get_docker_vol_type(data):
         utils.throw_error("Expected [type] to be set for storage")
 
     if data["type"] not in ALL_TYPES:
-        utils.throw_error(f"Expected storage [type] to be one of {ALL_TYPES}, got [{data['type']}]")
+        utils.throw_error(
+            f"Expected storage [type] to be one of {ALL_TYPES}, got [{data['type']}]"
+        )
 
     if data["type"] in BIND_TYPES:
         return "bind"
@@ -211,11 +224,15 @@ def _get_docker_vol_type(data):
 def _process_host_path_config(data):
     if data.get("host_path_config", {}).get("acl_enable", False):
         if not data["host_path_config"].get("acl", {}).get("path"):
-            utils.throw_error("Expected [host_path_config.acl.path] to be set for [host_path] type with ACL enabled")
+            utils.throw_error(
+                "Expected [host_path_config.acl.path] to be set for [host_path] type with ACL enabled"
+            )
         return data["host_path_config"]["acl"]["path"]
 
     if not data.get("host_path_config", {}).get("path"):
-        utils.throw_error("Expected [host_path_config.path] to be set for [host_path] type")
+        utils.throw_error(
+            "Expected [host_path_config.path] to be set for [host_path] type"
+        )
 
     return data["host_path_config"]["path"]
 
@@ -227,7 +244,9 @@ def _process_volume_config(data):
 def _process_ix_volume_config(data, ix_volumes):
     path = ""
     if not data.get("ix_volume_config", {}).get("dataset_name"):
-        utils.throw_error("Expected [ix_volume_config.dataset_name] to be set for [ix_volume] type")
+        utils.throw_error(
+            "Expected [ix_volume_config.dataset_name] to be set for [ix_volume] type"
+        )
 
     if not ix_volumes:
         utils.throw_error("Expected [ix_volumes] to be set for [ix_volume] type")
@@ -259,12 +278,16 @@ def _process_cifs(data):
 
     if data["cifs_config"].get("options"):
         if not isinstance(data["cifs_config"]["options"], list):
-            utils.throw_error("Expected [cifs_config.options] to be a list for [cifs] type")
+            utils.throw_error(
+                "Expected [cifs_config.options] to be a list for [cifs] type"
+            )
 
         disallowed_opts = ["user", "password", "domain"]
         for opt in data["cifs_config"]["options"]:
             if not isinstance(opt, str):
-                utils.throw_error("Expected [cifs_config.options] to be a list of strings for [cifs] type")
+                utils.throw_error(
+                    "Expected [cifs_config.options] to be a list of strings for [cifs] type"
+                )
 
             key = opt.split("=")[0]
             for disallowed in disallowed_opts:
@@ -306,12 +329,16 @@ def _process_nfs(data):
         disallowed_opts = ["addr"]
         for opt in data["nfs_config"]["options"]:
             if not isinstance(opt, str):
-                utils.throw_error("Expected [nfs_config.options] to be a list of strings for [nfs] type")
+                utils.throw_error(
+                    "Expected [nfs_config.options] to be a list of strings for [nfs] type"
+                )
 
             key = opt.split("=")[0]
             for disallowed in disallowed_opts:
                 if key == disallowed:
-                    utils.throw_error(f"Expected [nfs_config.options] to not start with [{disallowed}] for [nfs] type")
+                    utils.throw_error(
+                        f"Expected [nfs_config.options] to not start with [{disallowed}] for [nfs] type"
+                    )
 
             opts.append(opt)
 
