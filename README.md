@@ -50,7 +50,7 @@ Parity Status with truenas/charts
 | immich               | community  | -     | -        |
 | invidious            | community  | -     | -        |
 | ipfs                 | community  | -     | -        |
-| jellyfin             | community  | -     | -        |
+| jellyfin             | community  | ✅    | ✅       |
 | jellyseerr           | community  | -     | -        |
 | jenkins              | community  | -     | -        |
 | joplin               | community  | -     | -        |
