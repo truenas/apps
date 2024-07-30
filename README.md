@@ -14,8 +14,8 @@ Parity Status with truenas/charts
 | netdata              | charts     | -     | -        |
 | nextcloud            | charts     | -     | -        |
 | photoprism           | charts     | -     | -        |
-| pihole               | charts     | -     | -        |
 | plex                 | charts     | ✅    | ✅       |
+| pihole               | charts     | ✅    | ✅       |
 | prometheus           | charts     | -     | -        |
 | storj                | charts     | -     | -        |
 | syncthing            | charts     | ✅    | ✅       |
