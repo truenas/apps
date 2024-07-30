@@ -1,6 +1,15 @@
 # Apps Catalog
 
-Parity Status with truenas/charts
+
+## ⚠️ **Contributions**
+
+We are actively working on making the core library more user-friendly. 
+This process may involve breaking changes to the API. 
+Therefore, please wait for an update on when we will start accepting pull requests.
+
+Thank you for your understanding.
+
+## Parity Status with truenas/charts
 
 | App                  | Train      | Added | Migrated |
 | -------------------- | ---------- | ----- | -------- |
