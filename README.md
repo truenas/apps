@@ -1,6 +1,15 @@
 # Apps Catalog
 
-Parity Status with truenas/charts
+
+## ⚠️ **Contributions**
+
+We are actively working on making the core library more user-friendly. 
+This process may involve breaking changes to the API. 
+Therefore, please wait for an update on when we will start accepting pull requests.
+
+Thank you for your understanding.
+
+## Parity Status with truenas/charts
 
 | App                  | Train      | Added | Migrated |
 | -------------------- | ---------- | ----- | -------- |
@@ -14,11 +23,11 @@ Parity Status with truenas/charts
 | netdata              | charts     | -     | -        |
 | nextcloud            | charts     | -     | -        |
 | photoprism           | charts     | -     | -        |
-| pihole               | charts     | -     | -        |
 | plex                 | charts     | ✅    | ✅       |
+| pihole               | charts     | ✅    | ✅       |
 | prometheus           | charts     | -     | -        |
 | storj                | charts     | -     | -        |
-| syncthing            | charts     | -     | -        |
+| syncthing            | charts     | ✅    | ✅       |
 | wg-easy              | charts     | -     | -        |
 | actual-budget        | community  | -     | -        |
 | adguard-home         | community  | -     | -        |
@@ -50,7 +59,7 @@ Parity Status with truenas/charts
 | immich               | community  | -     | -        |
 | invidious            | community  | -     | -        |
 | ipfs                 | community  | -     | -        |
-| jellyfin             | community  | -     | -        |
+| jellyfin             | community  | ✅    | ✅       |
 | jellyseerr           | community  | -     | -        |
 | jenkins              | community  | -     | -        |
 | joplin               | community  | -     | -        |
@@ -84,8 +93,8 @@ Parity Status with truenas/charts
 | planka               | community  | -     | -        |
 | plex-auto-languages  | community  | -     | -        |
 | prowlarr             | community  | ✅    | ✅       |
-| qbittorrent          | community  | -     | -        |
-| radarr               | community  | -     | -        |
+| radarr               | community  | ✅    | ✅       |
+| qbittorrent          | community  | ✅    | ✅       |
 | readarr              | community  | -     | -        |
 | recyclarr            | community  | -     | -        |
 | redis                | community  | -     | -        |
@@ -96,7 +105,7 @@ Parity Status with truenas/charts
 | searxng              | community  | -     | -        |
 | sftpgo               | community  | -     | -        |
 | sonarr               | community  | -     | -        |
-| tailscale            | community  | -     | -        |
+| tailscale            | community  | ✅    | ✅       |
 | tautulli             | community  | -     | -        |
 | tdarr                | community  | -     | -        |
 | terraria             | community  | -     | -        |
