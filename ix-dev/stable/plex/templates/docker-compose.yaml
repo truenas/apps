@@ -1,30 +1,44 @@
+{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
+
 {% set plex_container_name = "plex" %}
 {% set plex_images = {
   "plex_image": "plexinc/pms-docker:1.40.2.8395-c67dce28e",
   "plex_pass_image": "plexinc/pms-docker:plexpass",
 } %}
 
+{% set perms_container_name = "perms" %}
 {# Stores storage items that contains info for volumes, vol mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
 {% set volumes = namespace(items={}) %}
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+{# Stores the perms container mounts #}
+{% set perms_mounts = namespace(items=[]) %}
 
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": "/data"}), ix_volumes=values.ix_volumes)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), ix_volumes=values.ix_volumes)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.logs, **{"mount_path": "/config/Library/Application Support/Plex Media Server/Logs"}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.logs, **{"mount_path": "/config/Library/Application Support/Plex Media Server/Logs"}), ix_volumes=values.ix_volumes,
+  perm_opts={"mount_path": "/mnt/plex/logs", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group} if values.storage.logs.type == "temporary" else {}
+)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.transcode, **{"mount_path": "/transcode"}), ix_volumes=values.ix_volumes)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
+  perm_opts={"mount_path": "/mnt/plex/tmp", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+)) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
+    perm_opts={"mount_path": "/mnt/plex/dir_%s"|format(loop.index), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group} if store.type == "temporary" else {}
+  )) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
 {% for item in storage_items.items %}
   {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
   {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
 {# Containers #}
@@ -36,6 +50,11 @@ services:
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    {% if perms_dirs.items %}
+    depends_on:
+      {{ perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
     {% if values.network.host_network %}
     network_mode: host
     {% endif %}
@@ -58,6 +77,15 @@ services:
       - {{ ix_lib.base.ports.get_port(port={"target": 32400, "published": values.network.web_port}) | tojson }}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
+
+  {% if perms_dirs.items %}
+  {{ perms_container_name }}:
+    {{ perms_container(items=perms_dirs.items) | indent(4) }}
+    volumes:
+      {% for item in perms_mounts.items %}
+      - {{ item | tojson }}
+      {% endfor %}
+  {% endif %}
 
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
