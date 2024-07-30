@@ -84,7 +84,7 @@ Parity Status with truenas/charts
 | planka               | community  | -     | -        |
 | plex-auto-languages  | community  | -     | -        |
 | prowlarr             | community  | -     | -        |
-| qbittorrent          | community  | -     | -        |
+| qbittorrent          | community  | ✅    | ✅       |
 | radarr               | community  | -     | -        |
 | readarr              | community  | -     | -        |
 | recyclarr            | community  | -     | -        |
