@@ -1,9 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set perms_container_name = "permissions" %}
-{% set qbittorrent_container_name = "qbittorrent" %}
-{% set qbittorrent_image = "ghcr.io/onedr0p/qbittorrent:4.6.5" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -39,16 +35,16 @@
 
 {# Containers #}
 services:
-  {{ qbittorrent_container_name }}:
+  {{ values.consts.qbittorrent_container_name }}:
     user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
-    image: {{ qbittorrent_image }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     {% if values.network.host_network %}
@@ -76,7 +72,7 @@ services:
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}

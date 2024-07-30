@@ -1,9 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set perms_container_name = "permissions" %}
-{% set tailscale_container_name = "tailscale" %}
-{% set tailscale_image = "tailscale/tailscale:v1.66.4" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -42,15 +38,15 @@
 x-tas: {{ values.tailscale | tojson }}
 {# Containers #}
 services:
-  {{ tailscale_container_name }}:
-    image: {{ tailscale_image }}
+  {{ values.consts.tailscale_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if values.tailscale.userspace and perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     {% if values.network.host_network %}
@@ -82,7 +78,7 @@ services:
     volumes: {{ volume_mounts.items | tojson }}
 
   {% if values.tailscale.userspace and perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
