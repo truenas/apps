@@ -18,7 +18,7 @@ Parity Status with truenas/charts
 | pihole               | charts     | ✅    | ✅       |
 | prometheus           | charts     | -     | -        |
 | storj                | charts     | -     | -        |
-| syncthing            | charts     | -     | -        |
+| syncthing            | charts     | ✅    | ✅       |
 | wg-easy              | charts     | -     | -        |
 | actual-budget        | community  | -     | -        |
 | adguard-home         | community  | -     | -        |
@@ -84,8 +84,8 @@ Parity Status with truenas/charts
 | planka               | community  | -     | -        |
 | plex-auto-languages  | community  | -     | -        |
 | prowlarr             | community  | -     | -        |
-| qbittorrent          | community  | -     | -        |
-| radarr               | community  | -     | -        |
+| radarr               | community  | ✅    | ✅       |
+| qbittorrent          | community  | ✅    | ✅       |
 | readarr              | community  | -     | -        |
 | recyclarr            | community  | -     | -        |
 | redis                | community  | -     | -        |
