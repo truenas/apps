@@ -96,7 +96,7 @@ Parity Status with truenas/charts
 | searxng              | community  | -     | -        |
 | sftpgo               | community  | -     | -        |
 | sonarr               | community  | -     | -        |
-| tailscale            | community  | -     | -        |
+| tailscale            | community  | ✅    | ✅       |
 | tautulli             | community  | -     | -        |
 | tdarr                | community  | -     | -        |
 | terraria             | community  | -     | -        |
