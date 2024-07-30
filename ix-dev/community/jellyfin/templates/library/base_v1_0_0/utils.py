@@ -57,3 +57,14 @@ def is_number(string):
         return True
     except ValueError:
         return False
+
+
+def get_image(images={}, name=""):
+    if not images:
+        throw_error("Expected [images] to be set")
+    if name not in images:
+        throw_error(f"Expected [images.{name}] to be set")
+    if not images[name].get("repository") or not images[name].get("tag"):
+        throw_error(f"Expected [images.{name}.repository] and [images.{name}.tag] to be set")
+
+    return f"{images[name]['repository']}:{images[name]['tag']}"
