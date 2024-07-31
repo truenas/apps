@@ -1,9 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set perms_container_name = "permissions" %}
-{% set homepage_container_name = "homepage" %}
-{% set homepage_image = "ghcr.io/gethomepage/homepage:v0.9.3" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -15,17 +11,14 @@
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% set run_user = 1000 %}
-{% set run_group = 1000 %}
-
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/app/config"}),
-  ix_volumes=values.ix_volumes, perm_opts={"mount_path": "/mnt/homepage/config", "mode": "check", "uid": run_user, "gid": run_group}
+  values=values, perm_opts={"mount_path": "/mnt/homepage/config", "mode": "check", "uid": values.consts.run_user, "gid": values.consts.run_group}
 )) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
-  perm_opts={"mount_path": "/mnt/homepage/dir_%s"|format(loop.index0), "mode": "check", "uid": run_user, "gid": run_group}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
+  perm_opts={"mount_path": "/mnt/homepage/dir_%s"|format(loop.index0), "mode": "check", "uid": values.consts.run_user, "gid": values.consts.run_group}
   )) %}
 {% endfor %}
 
@@ -43,15 +36,16 @@
 
 {# Containers #}
 services:
-  {{ homepage_container_name }}:
-    user: {{ "%d:%d" | format(run_user, run_group) }}
-    image: {{ homepage_image }}
+  {{ values.consts.homepage_container_name }}:
+    user: {{ "%d:%d" | format(values.consts.run_user, values.consts.run_group) }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     {% if values.network.host_network %}
@@ -73,7 +67,7 @@ services:
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
@@ -84,3 +78,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Homepage") | tojson }}
