@@ -1,6 +1,3 @@
-{% set handbrake_container_name = "handbrake" %}
-{% set handbrake_image = "jlesage/handbrake:v23.12.2" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -8,17 +5,16 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% set output_path = "/output" %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), ix_volumes=values.ix_vFolumes)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.storage, **{"mount_path": "/storage"}), ix_volumes=values.ix_volumes)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.watch, **{"mount_path": "/watch"}), ix_volumes=values.ix_volumes)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.output, **{"mount_path": output_path}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.storage, **{"mount_path": "/storage"}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.watch, **{"mount_path": "/watch"}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.output, **{"mount_path": values.consts.output_path}), values=values)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/var/run"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -29,11 +25,12 @@
 
 {# Containers #}
 services:
-  {{ handbrake_container_name }}:
-    image: {{ handbrake_image }}
+  {{ values.consts.handbrake_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if values.network.host_network %}
     network_mode: host
     {% endif %}
@@ -53,7 +50,7 @@ services:
       "WEB_LISTENTING_PORT": values.network.web_port,
       "VNC_LISTENTING_PORT": values.network.vnc_port,
       "VNC_PASSWORD": values.handbrake.vnc_password,
-      "AUTOMATED_CONVERSION_OUTPUT_DIR": output_path,
+      "AUTOMATED_CONVERSION_OUTPUT_DIR": values.consts.output_path,
     }, user=values.handbrake.additional_envs, values=values) | tojson }}
     {% if not values.network.host_network %}
     ports:
@@ -64,3 +61,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Handbrake") | tojson }}
