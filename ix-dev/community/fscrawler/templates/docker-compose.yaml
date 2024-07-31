@@ -2,8 +2,6 @@
   "ocr_image": "dadoonet/fscrawler:2.10-SNAPSHOT-ocr-es7",
   "no_ocr_image": "dadoonet/fscrawler:2.10-SNAPSHOT-noocr",
 } %}
-{% set fscrawler_container_name = "fscrawler" %}
-{% set init_container_name = "init" %}
 
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
@@ -14,11 +12,11 @@
 
 {% set jobs_path = "/root/.fscrawler" %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.jobs, **{"mount_path": jobs_path}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.jobs, **{"mount_path": jobs_path}), values=values)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -47,13 +45,18 @@ configs:
 
 {# Containers #}
 services:
-  {{ init_container_name }}:
-    image: {{ fscrawler_images[values.fscrawler.image_selector] }}
+  {{ values.consts.init_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.fscrawler.image_selector) }}
     configs:
       - source: example_config
         target: /example/_settings.example.yaml
     healthcheck:
       disable: true
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: "512m"
     entrypoint: /bin/sh
     command:
       - -c
@@ -64,13 +67,14 @@ services:
         echo "Copying example config file to {{ jobs_path }}/{{ values.fscrawler.job_name }}/_settings.example.yaml"
         cp -f /example/_settings.example.yaml {{ jobs_path }}/{{ values.fscrawler.job_name }}/_settings.example.yaml
     volumes: {{ volume_mounts.items | tojson }}
-  {{ fscrawler_container_name }}:
-    image: {{ fscrawler_images[values.fscrawler.image_selector] }}
+  {{ values.consts.fscrawler_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.fscrawler.image_selector) }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     depends_on:
-      {{ init_container_name }}:
+      {{ values.consts.init_container_name }}:
         condition: service_completed_successfully
     {% if values.network.host_network %}
     network_mode: host
