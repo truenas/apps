@@ -1,23 +1,3 @@
-{% set minecraft_container_name = "minecraft" %}
-{% set minecraft_images = {
-  "j8_image": "itzg/minecraft-server:2024.6.1-java8",
-  "j8_gce_image": "itzg/minecraft-server:2024.6.1-java8-graalvm-ce",
-  "j8_j9_image": "itzg/minecraft-server:2024.6.1-java8-openj9",
-  "j8_jdk_image": "itzg/minecraft-server:2024.6.1-java8-jdk",
-  "j11_image": "itzg/minecraft-server:2024.6.0-java11",
-  "j11_j9_image": "itzg/minecraft-server:2024.2.2-java11-openj9",
-  "j11_jdk_image": "itzg/minecraft-server:2024.4.0-java11-jdk",
-  "j17_image": "itzg/minecraft-server:2024.6.0-java17",
-  "j17_j9_image": "itzg/minecraft-server:2024.2.2-java17-openj9",
-  "j17_jdk_image": "itzg/minecraft-server:2024.6.0-java17-jdk",
-  "j17_gce_image": "itzg/minecraft-server:2023.8.3-java17-graalvm-ce",
-  "j17_alpine_image": "itzg/minecraft-server:2024.6.0-java17-alpine",
-  "j19_image": "itzg/minecraft-server:2023.3.0-java19",
-  "j21_image": "itzg/minecraft-server:2024.4.1-java21",
-  "j21_g_image": "itzg/minecraft-server:2024.4.1-java21-graalvm",
-  "j21_alpine_image": "itzg/minecraft-server:2024.4.1-java21-alpine",
-} %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -25,11 +5,11 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": "/data"}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": "/data"}), values=values)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -40,13 +20,14 @@
 
 {# Containers #}
 services:
-  {{ minecraft_container_name }}:
-    image: {{ minecraft_images[values.minecraft.image_selector] }}
+  {{ values.consts.minecraft_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.minecraft.image_selector) }}
     restart: unless-stopped
     tty: true
     stdin_open: true
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if values.network.host_network %}
     network_mode: host
     {% endif %}
@@ -111,3 +92,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Minecraft") | tojson }}
