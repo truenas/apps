@@ -4,14 +4,29 @@ from . import utils
 
 
 BIND_TYPES = ["host_path", "ix_volume"]
-VOL_TYPES = ["volume", "nfs", "cifs"]
+VOL_TYPES = ["volume", "nfs", "cifs", "temporary"]
 ALL_TYPES = BIND_TYPES + VOL_TYPES + ["tmpfs", "anonymous"]
 PROPAGATION_TYPES = ["shared", "slave", "private", "rshared", "rslave", "rprivate"]
 
 
+def _get_name_for_temporary(data):
+    if not data.get("mount_path"):
+        utils.throw_error("Expected [mount_path] to be set for temporary volume")
+
+    return (
+        data["mount_path"]
+        .lstrip("/")
+        .lower()
+        .replace("/", "_")
+        .replace(".", "_")
+        .replace(" ", "_")
+    )
+
+
 # Returns a volume mount object (Used in container's "volumes" level)
-def vol_mount(data, ix_volumes=None):
-    ix_volumes = ix_volumes or []
+def vol_mount(data, values=None):
+    values = values or {}
+    ix_volumes = values.get("ix_volumes") or []
     vol_type = _get_docker_vol_type(data)
 
     volume = {
@@ -25,6 +40,9 @@ def vol_mount(data, ix_volumes=None):
         volume.update(_get_volume_vol_config(data))
     elif vol_type == "tmpfs":
         volume.update(_get_tmpfs_vol_config(data))
+    elif vol_type == "temporary":
+        volume["type"] = "volume"
+        volume.update(_get_volume_vol_config(data))
     elif vol_type == "anonymous":
         volume["type"] = "volume"
         volume.update(_get_anonymous_vol_config(data))
@@ -32,40 +50,49 @@ def vol_mount(data, ix_volumes=None):
     return volume
 
 
-def storage_item(data, ix_volumes=None, perm_opts=None):
-    ix_volumes = ix_volumes or []
+def storage_item(data, values=None, perm_opts=None):
+    values = values or {}
     perm_opts = perm_opts or {}
+    if data.get("type") == "temporary":
+        data.update({"volume_name": _get_name_for_temporary(data)})
     return {
-        "vol_mount": vol_mount(data, ix_volumes),
+        "vol_mount": vol_mount(data, values),
         "vol": vol(data),
-        "perms_item": perms_item(data, ix_volumes, perm_opts) if perm_opts else {},
+        "perms_item": perms_item(data, values, perm_opts) if perm_opts else {},
     }
 
 
-def perms_item(data, ix_volumes, opts=None):
+def perms_item(data, values=None, opts=None):
     opts = opts or {}
+    values = values or {}
+    ix_context = values.get("ix_context") or {}
+    vol_type = data.get("type", "")
+
+    # Temp volumes are always auto permissions
+    if vol_type == "temporary":
+        data.update({"auto_permissions": True})
+
+    # If its ix_volume and we are installing, we need to set auto permissions
+    if vol_type == "ix_volume" and ix_context.get("is_install", False):
+        data.update({"auto_permissions": True})
+
     if not data.get("auto_permissions"):
         return {}
 
-    if data.get("type") == "host_path":
+    if vol_type == "host_path":
         if data.get("host_path_config", {}).get("acl_enable", False):
             return {}
-    if data.get("type") == "ix_volume":
+    if vol_type == "ix_volume":
         if data.get("ix_volume_config", {}).get("acl_enable", False):
             return {}
-
-    if not ix_volumes:
-        ix_volumes = []
 
     req_keys = ["mount_path", "mode", "uid", "gid"]
     for key in req_keys:
         if not opts.get(key):
-            utils.throw_error(
-                f"Expected opts passed to [perms_item] to have [{key}] key"
-            )
+            utils.throw_error(f"Expected opts passed to [perms_item] to have [{key}] key")
 
     data.update({"mount_path": opts["mount_path"]})
-    volume_mount = vol_mount(data, ix_volumes)
+    volume_mount = vol_mount(data, values)
 
     return {
         "vol_mount": volume_mount,
@@ -74,7 +101,8 @@ def perms_item(data, ix_volumes, opts=None):
             "mode": opts["mode"],
             "uid": opts["uid"],
             "gid": opts["gid"],
-            "chmod": opts.get("chmod", ""),
+            "chmod": opts.get("chmod", "false"),
+            "is_temporary": data["type"] == "temporary",
         },
     }
 
@@ -306,9 +334,7 @@ def _process_nfs(data):
     opts = [f"addr={data['nfs_config']['server']}"]
     if data["nfs_config"].get("options"):
         if not isinstance(data["nfs_config"]["options"], list):
-            utils.throw_error(
-                "Expected [nfs_config.options] to be a list for [nfs] type"
-            )
+            utils.throw_error("Expected [nfs_config.options] to be a list for [nfs] type")
 
         disallowed_opts = ["addr"]
         for opt in data["nfs_config"]["options"]:
