@@ -3,8 +3,8 @@
 
 ## ⚠️ **Contributions**
 
-We are actively working on making the core library more user-friendly. 
-This process may involve breaking changes to the API. 
+We are actively working on making the core library more user-friendly.
+This process may involve breaking changes to the API.
 Therefore, please wait for an update on when we will start accepting pull requests.
 
 Thank you for your understanding.
@@ -33,7 +33,7 @@ Thank you for your understanding.
 | adguard-home         | community  | -     | -        |
 | audiobookshelf       | community  | -     | -        |
 | autobrr              | community  | -     | -        |
-| bazarr               | community  | -     | -        |
+| bazarr               | community  | ✅    | ✅       |
 | briefkasten          | community  | -     | -        |
 | castopod             | community  | -     | -        |
 | chia                 | community  | -     | -        |
@@ -95,7 +95,7 @@ Thank you for your understanding.
 | prowlarr             | community  | ✅    | ✅       |
 | radarr               | community  | ✅    | ✅       |
 | qbittorrent          | community  | ✅    | ✅       |
-| readarr              | community  | -     | -        |
+| readarr              | community  | ✅    | ✅       |
 | recyclarr            | community  | -     | -        |
 | redis                | community  | -     | -        |
 | roundcube            | community  | -     | -        |
@@ -104,7 +104,7 @@ Thank you for your understanding.
 | sabnzbd              | community  | -     | -        |
 | searxng              | community  | -     | -        |
 | sftpgo               | community  | -     | -        |
-| sonarr               | community  | -     | -        |
+| sonarr               | community  | ✅    | ✅       |
 | tailscale            | community  | ✅    | ✅       |
 | tautulli             | community  | -     | -        |
 | tdarr                | community  | -     | -        |
