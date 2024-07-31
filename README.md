@@ -3,8 +3,8 @@
 
 ## ⚠️ **Contributions**
 
-We are actively working on making the core library more user-friendly. 
-This process may involve breaking changes to the API. 
+We are actively working on making the core library more user-friendly.
+This process may involve breaking changes to the API.
 Therefore, please wait for an update on when we will start accepting pull requests.
 
 Thank you for your understanding.
@@ -95,7 +95,7 @@ Thank you for your understanding.
 | prowlarr             | community  | -     | -        |
 | radarr               | community  | ✅    | ✅       |
 | qbittorrent          | community  | ✅    | ✅       |
-| readarr              | community  | -     | -        |
+| readarr              | community  | ✅    | ✅       |
 | recyclarr            | community  | -     | -        |
 | redis                | community  | -     | -        |
 | roundcube            | community  | -     | -        |
