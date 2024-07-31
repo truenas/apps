@@ -1,6 +1,15 @@
 # Apps Catalog
 
-Parity Status with truenas/charts
+
+## ⚠️ **Contributions**
+
+We are actively working on making the core library more user-friendly.
+This process may involve breaking changes to the API.
+Therefore, please wait for an update on when we will start accepting pull requests.
+
+Thank you for your understanding.
+
+## Parity Status with truenas/charts
 
 | App                  | Train      | Added | Migrated |
 | -------------------- | ---------- | ----- | -------- |
@@ -10,21 +19,21 @@ Parity Status with truenas/charts
 | emby                 | charts     | -     | -        |
 | home-assistant       | charts     | -     | -        |
 | ix-chart             | charts     | -     | -        |
-| minio                | charts     | -     | -        |
+| minio                | charts     | ✅    | ✅       |
 | netdata              | charts     | -     | -        |
 | nextcloud            | charts     | -     | -        |
 | photoprism           | charts     | -     | -        |
-| pihole               | charts     | -     | -        |
 | plex                 | charts     | ✅    | ✅       |
+| pihole               | charts     | ✅    | ✅       |
 | prometheus           | charts     | -     | -        |
 | storj                | charts     | -     | -        |
-| syncthing            | charts     | -     | -        |
+| syncthing            | charts     | ✅    | ✅       |
 | wg-easy              | charts     | -     | -        |
 | actual-budget        | community  | -     | -        |
 | adguard-home         | community  | -     | -        |
 | audiobookshelf       | community  | -     | -        |
 | autobrr              | community  | -     | -        |
-| bazarr               | community  | -     | -        |
+| bazarr               | community  | ✅    | ✅       |
 | briefkasten          | community  | -     | -        |
 | castopod             | community  | -     | -        |
 | chia                 | community  | -     | -        |
@@ -50,14 +59,14 @@ Parity Status with truenas/charts
 | immich               | community  | -     | -        |
 | invidious            | community  | -     | -        |
 | ipfs                 | community  | -     | -        |
-| jellyfin             | community  | -     | -        |
+| jellyfin             | community  | ✅    | ✅       |
 | jellyseerr           | community  | -     | -        |
 | jenkins              | community  | -     | -        |
 | joplin               | community  | -     | -        |
 | kapowarr             | community  | -     | -        |
 | kavita               | community  | -     | -        |
 | komga                | community  | -     | -        |
-| lidarr               | community  | -     | -        |
+| lidarr               | community  | ✅    | ✅       |
 | linkding             | community  | -     | -        |
 | listmonk             | community  | -     | -        |
 | logseq               | community  | -     | -        |
@@ -83,10 +92,10 @@ Parity Status with truenas/charts
 | piwigo               | community  | -     | -        |
 | planka               | community  | -     | -        |
 | plex-auto-languages  | community  | -     | -        |
-| prowlarr             | community  | -     | -        |
-| qbittorrent          | community  | -     | -        |
-| radarr               | community  | -     | -        |
-| readarr              | community  | -     | -        |
+| prowlarr             | community  | ✅    | ✅       |
+| radarr               | community  | ✅    | ✅       |
+| qbittorrent          | community  | ✅    | ✅       |
+| readarr              | community  | ✅    | ✅       |
 | recyclarr            | community  | -     | -        |
 | redis                | community  | -     | -        |
 | roundcube            | community  | -     | -        |
@@ -95,8 +104,8 @@ Parity Status with truenas/charts
 | sabnzbd              | community  | -     | -        |
 | searxng              | community  | -     | -        |
 | sftpgo               | community  | -     | -        |
-| sonarr               | community  | -     | -        |
-| tailscale            | community  | -     | -        |
+| sonarr               | community  | ✅    | ✅       |
+| tailscale            | community  | ✅    | ✅       |
 | tautulli             | community  | -     | -        |
 | tdarr                | community  | -     | -        |
 | terraria             | community  | -     | -        |

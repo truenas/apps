@@ -1,0 +1,52 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+from migration_helpers.resources import migrate_resources
+from migration_helpers.dns_config import migrate_dns_config
+from migration_helpers.storage import migrate_storage_item
+
+
+def migrate(values):
+    config = values.get("helm_secret", {}).get("config", {})
+    if not config:
+        raise ValueError("No config found in values")
+
+    new_values = {
+        "minio": {
+            "root_user": config["minioConfig"]["rootUser"],
+            "root_password": config["minioConfig"]["rootPassword"],
+            "extra_args": config["minioConfig"].get("extraArgs", []),
+            "additional_envs": config["minioConfig"].get("additionalEnvs", []),
+        },
+        "network": {
+            "domain": config["minioConfig"].get("domain", ""),
+            "console_port": config["minioNetwork"]["consolePort"],
+            "api_port": config["minioNetwork"]["apiPort"],
+            "certificate_id": config["minioNetwork"].get("certificateID", None),
+            "dns_opts": migrate_dns_config(config.get("podOptions", {}).get("dnsConfig", {})),
+        },
+        "storage": {
+            "distributed_mode": config["minioStorage"].get("distributedMode", False),
+            "distributed_uris": config["minioStorage"].get("distributedURIs", []),
+            "export": migrate_storage_item(config["minioStorage"]["export"]),
+            "additional_storage": [
+                migrate_storage_item(item, include_read_only=True)
+                for item in config["minioStorage"]["additionalStorages"]
+            ],
+        },
+        "resources": migrate_resources(config["resources"]),
+    }
+
+    return new_values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
