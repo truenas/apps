@@ -1,10 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set perms_container_name = "permissions" %}
-{% set init_container_name = "init" %}
-{% set filebrowser_container_name = "filebrowser" %}
-{% set filebrowser_image = "filebrowser/filebrowser:v2.30.0" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -16,13 +11,8 @@
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% set config_path = "/config" %}
-{% set data_path = "/data" %}
-{% set ssl_cert_path = "%s/certs/tls.crt" | format(config_path) %}
-{% set ssl_key_path = "%s/certs/tls.key" | format(config_path) %}
-
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": config_path}),
-  ix_volumes=values.ix_volumes, perm_opts={"mount_path": "/mnt/filebrowser/config", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": values.consts.config_path}),
+  values=values, perm_opts={"mount_path": "/mnt/filebrowser/config", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
@@ -31,8 +21,8 @@
 {% endif %}
 
 {% for store in values.storage.additional_storage %}
-  {% set mount_path = "%s/%s"|format(data_path, store.mount_path)|replace("//", "/") %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(store, **{"mount_path": mount_path}), ix_volumes=values.ix_volumes,
+  {% set mount_path = "%s/%s"|format(values.consts.data_path, store.mount_path)|replace("//", "/") %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(store, **{"mount_path": mount_path}), values=values,
   perm_opts={"mount_path": "/mnt/filebrowser/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
   )) %}
 {% endfor %}
@@ -54,8 +44,8 @@ configs:
 
 {# Containers #}
 services:
-  {{ init_container_name }}:
-    image: {{ filebrowser_image }}
+  {{ values.consts.init_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
     deploy:
       resources:
@@ -64,7 +54,7 @@ services:
           memory: 512m
     {% if perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     entrypoint:
@@ -72,47 +62,48 @@ services:
       - -c
     command:
       - |
-        if [ ! -f {{ config_path }}/filebrowser.json ]; then
+        if [ ! -f {{ values.consts.config_path }}/filebrowser.json ]; then
           echo "Filebrowser config file does not exist. Creating an empty one..."
-          echo '{}' > {{ config_path }}/filebrowser.json
+          echo '{}' > {{ values.consts.config_path }}/filebrowser.json
         fi
     volumes: {{ volume_mounts.items | tojson }}
-  {{ filebrowser_container_name }}:
+  {{ values.consts.filebrowser_container_name }}:
     user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
-    image: {{ filebrowser_image }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if values.network.certificate_id %}
     configs:
       - source: private
-        target: {{ ssl_key_path }}
+        target: {{ values.consts.ssl_key_path }}
       - source: public
-        target: {{ ssl_cert_path }}
+        target: {{ values.consts.ssl_cert_path }}
     {% endif %}
     depends_on:
-      {{ init_container_name }}:
+      {{ values.consts.init_container_name }}:
         condition: service_completed_successfully
     {% if perms_dirs.items %}
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     command:
       - --config
-      - "{{ config_path }}/filebrowser.json"
+      - "{{ values.consts.config_path }}/filebrowser.json"
       - --database
-      - "{{ config_path }}/filebrowser.db"
+      - "{{ values.consts.config_path }}/filebrowser.db"
       - --port
       - "{{ values.network.web_port }}"
       - --address
       - "0.0.0.0"
       - --root
-      - "{{ data_path }}"
+      - "{{ values.consts.data_path }}"
       {% if values.network.certificate_id %}
       - --cert
-      - "{{ ssl_cert_path }}"
+      - "{{ values.consts.ssl_cert_path }}"
       - --key
-      - "{{ ssl_key_path }}"
+      - "{{ values.consts.ssl_key_path }}"
       {% endif %}
     {% if values.network.host_network %}
     network_mode: host
@@ -134,7 +125,7 @@ services:
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
@@ -145,3 +136,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Filebrowser") | tojson }}
