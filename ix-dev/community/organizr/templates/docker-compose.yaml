@@ -1,6 +1,3 @@
-{% set organizr_container_name = "organizr" %}
-{% set organizr_image = "organizr/organizr:latest" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -8,12 +5,12 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), values=values)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/var/run"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -24,11 +21,12 @@
 
 {# Containers #}
 services:
-  {{ organizr_container_name }}:
-    image: {{ organizr_image }}
+  {{ values.consts.organizr_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
     cap_add: {{ caps.add | tojson }}
     cap_drop: {{ caps.drop | tojson }}
@@ -46,3 +44,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Organizr") | tojson }}
