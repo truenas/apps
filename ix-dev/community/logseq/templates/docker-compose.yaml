@@ -1,9 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set perms_container_name = "permissions" %}
-{% set logseq_container_name = "logseq" %}
-{% set logseq_image = "ghcr.io/logseq/logseq-webapp:latest" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -26,7 +22,7 @@
 )) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
     perm_opts={"mount_path": "/mnt/logseq/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
   )) %}
 {% endfor %}
@@ -78,12 +74,13 @@ configs:
 
 {# Containers #}
 services:
-  {{ logseq_container_name }}:
+  {{ values.consts.logseq_container_name }}:
     user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
-    image: {{ logseq_image }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     configs:
       - source: nginx.conf
         target: /etc/nginx/conf.d/default.conf
@@ -95,7 +92,7 @@ services:
     {% endif %}
     {% if perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     {% if values.network.host_network %}
@@ -115,7 +112,7 @@ services:
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
@@ -126,3 +123,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Logseq") | tojson }}
