@@ -1,9 +1,3 @@
-{% set portainer_container_name = "portainer" %}
-{% set portainer_images = {
-  "portainer-ce": "portainer/portainer-ce:2.20.3",
-  "portainer-ee": "portainer/portainer-ee:2.20.3",
-}  %}
-
 {# Stores storage items that contains info for volumes, vol mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -11,18 +5,16 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% set data_path = "/data" %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": data_path}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.data_path}), values=values)) %}
 
 {# Docker socket #}
-{% set socket_path = "/var/run/docker.sock" %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(
-  data={"type": "host_path", "mount_path": socket_path, "host_path_config": {"path": socket_path, "create_host_path": false} },
+  data={"type": "host_path", "mount_path": values.consts.socket_path, "host_path_config": {"path": values.consts.socket_path, "create_host_path": false} },
 )) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -31,8 +23,6 @@
   {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
 {% endfor %}
 
-{% set ssl_key_path = "/certs/ssl/key.pem" %}
-{% set ssl_cert_path = "/certs/ssl/cert.pem" %}
 {% if values.network.certificate_id %}
 configs:
   private:
@@ -43,13 +33,13 @@ configs:
 
 {# Containers #}
 services:
-  {{ portainer_container_name }}:
-    user: "0:0"
-    image: {{ portainer_images[values.portainer.image] }}
+  {{ values.consts.portainer_container_name }}:
+    user: {{ "%d:%d" | format(values.consts.run_as_user, values.consts.run_as_group) }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.portainer.image_selector) }}
     restart: unless-stopped
     command:
       - --data
-      - {{ data_path }}
+      - {{ values.consts.data_path }}
       - --tunnel-port
       - {{ '"%s"' | format(values.network.tunnel_port | default(0)) }}
       - --bind-https
@@ -57,14 +47,14 @@ services:
       - --http-disabled
     {% if values.network.certificate_id %}
       - --sslkey
-      - {{ ssl_key_path }}
+      - {{ values.consts.ssl_key_path }}
       - --sslcert
-      - {{ ssl_cert_path }}
+      - {{ values.consts.ssl_cert_path }}
     configs:
       - source: private
-        target: {{ ssl_key_path }}
+        target: {{ values.consts.ssl_key_path }}
       - source: public
-        target: {{ ssl_cert_path }}
+        target: {{ values.consts.ssl_cert_path }}
     {% endif %}
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
