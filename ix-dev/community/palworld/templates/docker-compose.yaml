@@ -1,12 +1,4 @@
-{% set init_container_name = "init" %}
-{% set palworld_container_name = "palworld" %}
-{% set palworld_image = "ich777/steamcmd:palworld" %}
-
-{% set reserved_keys = [
-  "RCONEnabled", "RCONPort", "PublicPort", "AdminPassword",
-  "ServerName","ServerDescription","ServerPassword",
-] %}
-{% for i in reserved_keys %}
+{% for i in values.consts.reserved_keys %}
   {% for item in values.palworld.ini_keys %}
     {% if item.key == i %}
       {% do ix_lib.base.utils.throw_error("Ini Key [%s] is a reserved key"|format(i)) %}
@@ -28,14 +20,12 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% set steamcmd_path = "/serverdata/steamcmd" %}
-{% set server_path = "/serverdata/serverfiles" %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.steamcmd, **{"mount_path": steamcmd_path}), ix_volumes=values.ix_volumes)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.server, **{"mount_path": server_path}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.steamcmd, **{"mount_path": values.consts.steamcmd_path}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.server, **{"mount_path": values.consts.server_path}), values=values)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -46,13 +36,14 @@
 
 {# Containers #}
 services:
-  {{ palworld_container_name }}:
-    image: {{ palworld_image }}
+  {{ values.consts.palworld_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     depends_on:
-      {{ init_container_name }}:
+      {{ values.consts.init_container_name }}:
         condition: service_completed_successfully
     {% if values.network.host_network %}
     network_mode: host
@@ -67,8 +58,8 @@ services:
     healthcheck:
       disable: true
     environment: {{ ix_lib.base.environment.envs(app={
-      "STEAMCMD_DIR": steamcmd_path,
-      "SERVER_DIR": server_path,
+      "STEAMCMD_DIR": values.consts.steamcmd_path,
+      "SERVER_DIR": values.consts.server_path,
       "SRV_ADMIN_PWD": values.palworld.admin_password,
       "GAME_PARAMS": values.palworld.game_params | join(" "),
       "GAME_PARAMS_EXTRA": values.palworld.game_params_extra | join(" "),
@@ -87,8 +78,8 @@ services:
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
-  {{ init_container_name }}:
-    image: {{ palworld_image }}
+  {{ values.consts.init_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     deploy:
       resources:
         limits:
@@ -101,7 +92,7 @@ services:
     entrypoint:
       - bash
       - -c
-    {% set cfg = "%s/Pal/Saved/Config/LinuxServer" | format(server_path) %}
+    {% set cfg = "%s/Pal/Saved/Config/LinuxServer" | format(values.consts.server_path) %}
     {% set cfg_file = "%s/PalWorldSettings.ini" | format(cfg) %}
     command:
       - |
@@ -159,3 +150,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Palworld") | tojson }}
