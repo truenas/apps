@@ -1,6 +1,3 @@
-{% set dockge_container_name = "dockge" %}
-{% set dockge_image = "louislam/dockge:1.4.2" %}
-
 {# Stores storage items that contains info for volumes, vol mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -8,22 +5,20 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% set data_path = "/app/data" %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": data_path}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.data_path}), values=values)) %}
 
 {# Note that the DOCKGE_STACKS_DIR (container path) must be the SAME path as the host path #}
 {% set stacks_host_path = ix_lib.base.storage.host_path(data=values.storage.stacks, ix_volumes=values.ix_volumes) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.stacks, **{"mount_path": stacks_host_path}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.stacks, **{"mount_path": stacks_host_path}), values=values)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {# Docker socket #}
-{% set socket_path = "/var/run/docker.sock" %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(
-  data={"type": "host_path", "mount_path": socket_path, "host_path_config": {"path": socket_path, "create_host_path": false} },
+  data={"type": "host_path", "mount_path": values.consts.socket_path, "host_path_config": {"path": values.consts.socket_path, "create_host_path": false} },
 )) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -32,8 +27,6 @@
   {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
 {% endfor %}
 
-{% set ssl_key_path = "/app/ssl/key.pem" %}
-{% set ssl_cert_path = "/app/ssl/cert.pem" %}
 {% if values.network.certificate_id %}
 configs:
   private:
@@ -44,16 +37,16 @@ configs:
 
 {# Containers #}
 services:
-  {{ dockge_container_name }}:
-    user: "0:0"
-    image: {{ dockge_image }}
+  {{ values.consts.dockge_container_name }}:
+    user: {{ "%s:%s" | format(values.consts.run_as_user, values.consts.run_as_group) }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     {% if values.network.certificate_id %}
     configs:
       - source: private
-        target: {{ ssl_key_path }}
+        target: {{ values.consts.ssl_key_path }}
       - source: public
-        target: {{ ssl_cert_path }}
+        target: {{ values.consts.ssl_cert_path }}
     {% endif %}
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
@@ -74,8 +67,8 @@ services:
       "NODE_ENV": "production",
       "DOCKGE_PORT": values.network.web_port,
       "DOCKGE_STACKS_DIR": stacks_host_path,
-      "DOCKGE_DATA_DIR": data_path
-    }, **{"DOCKGE_SSL_KEY": ssl_key_path, "DOCKGE_SSL_CERT": ssl_cert_path} if values.network.certificate_id else {}
+      "DOCKGE_DATA_DIR": values.consts.data_path
+    }, **{"DOCKGE_SSL_KEY": values.consts.ssl_key_path, "DOCKGE_SSL_CERT": values.consts.ssl_cert_path} if values.network.certificate_id else {}
     ),user=values.dockge.additional_envs, values=values) | tojson }}
     {% if not values.network.host_network %}
     ports:
