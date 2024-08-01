@@ -1,0 +1,66 @@
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.sigdb, **{"mount_path": "/var/lib/clamav"}), values=values )) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.scandir, **{"mount_path": "/scandir"}), values=values )) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+{% endfor %}
+
+{# Containers #}
+services:
+  {{ values.consts.clamav_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    {% if values.network.host_network %}
+    network_mode: host
+    {% endif %}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health("clamdcheck.sh") if not values.clamav.disable_clamd else {"disable": true} | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={
+      "CLAMAV_NO_CLAMD": values.clamav.disable_clamd,
+      "CLAMAV_NO_FRESHCLAMD": values.clamav.disable_freshclamd,
+      "CLAMAV_NO_MILTERD": values.clamav.disable_milterd,
+      "CLAMD_STARTUP_TIMEOUT": values.clamav.clamd_startup_timeout,
+      "FRESHCLAMD_CHECKS": values.clamav.freshclamd_checks,
+    }, user=values.clamav.additional_envs, values=values) | tojson }}
+  {% if not values.network.host_network %}
+    {% if not values.clamav.disable_clamd or not values.clamav.disable_milterd %}
+    ports:
+      {% if not values.clamav.disable_clamd %}
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.clamd_port, "published": values.network.clamd_port}) | tojson }}
+      {% endif %}
+      {% if not values.clamav.disable_milterd %}
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.milterd_port, "published": values.network.milterd_port}) | tojson }}
+      {% endif %}
+    {% endif %}
+  {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("ClamAV") | tojson }}
