@@ -1,10 +1,6 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set perms_container_name = "permissions" %}
-{% set drawio_container_name = "drawio" %}
 {% set drawio_image = "jgraph/drawio:24.5.5" %}
-{% set user_id = 1000 %}
-{% set group_id = 999 %}
 
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
@@ -17,12 +13,11 @@
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
-  perm_opts={"mount_path": "/mnt/drawio/dir_%s"|format(loop.index0), "mode": "check", "uid": user_id, "gid": group_id}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
+    perm_opts={"mount_path": "/mnt/drawio/dir_%s"|format(loop.index0), "mode": "check", "uid": values.consts.user_id, "gid": values.consts.group_id}
   )) %}
 {% endfor %}
 
@@ -35,15 +30,16 @@
 
 {# Containers #}
 services:
-  {{ drawio_container_name }}:
-    user: {{ "%d:%d" | format(user_id, group_id) }}
-    image: {{ drawio_image }}
+  {{ values.consts.drawio_container_name }}:
+    user: {{ "%d:%d" | format(values.consts.user_id, values.consts.group_id) }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     {% if values.network.host_network %}
@@ -64,7 +60,7 @@ services:
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
@@ -75,3 +71,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": 8080 if values.network.host_network else values.network.http_port, "path": "/?offline=1&https=0"}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Draw.io") | tojson }}
