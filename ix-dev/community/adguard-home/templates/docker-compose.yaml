@@ -1,6 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set adguard_container_name = "adguard" %}
 {% set adguard_image = "adguard/adguardhome:v0.107.52" %}
 
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
@@ -10,14 +9,12 @@
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
 
-{% set work_path = "/opt/adguardhome/work" %}
-{% set config_path = "/opt/adguardhome/conf" %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": config_path}), ix_volumes=values.ix_volumes)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.work, **{"mount_path": work_path}), ix_volumes=values.ix_volumes)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": values.consts.config_path}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.work, **{"mount_path": values.consts.work_path}), values=values)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
 {% endfor %}
 
 {# Add each item to the above lists #}
@@ -28,11 +25,12 @@
 
 {# Containers #}
 services:
-  {{ adguard_container_name }}:
-    image: {{ adguard_image }}
+  {{ values.consts.adguard_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     {% if values.network.host_network or values.network.dhcp_enabled %}
     network_mode: host
     {% endif %}
@@ -41,9 +39,9 @@ services:
       - --host
       - "0.0.0.0"
       - --config
-      - {{ "%s/AdGuardHome.yaml" | format(config_path) }}
+      - {{ "%s/AdGuardHome.yaml" | format(values.consts.config_path) }}
       - --work-dir
-      - {{ work_path }}
+      - {{ values.consts.work_path }}
       - --port
       - "{{ values.network.web_port }}"
     {% set add_caps = ["NET_BIND_SERVICE","CHOWN","FOWNER","DAC_OVERRIDE"] %}
@@ -69,3 +67,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("AdGuard Home") | tojson }}
