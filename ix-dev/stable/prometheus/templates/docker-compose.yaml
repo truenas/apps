@@ -1,10 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set perms_container_name = "permissions" %}
-{% set init_container_name = "init" %}
-{% set prometheus_container_name = "prometheus" %}
-{% set prometheus_image = "prom/prometheus:v2.53.0" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
@@ -16,19 +11,16 @@
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% set data_path = "/data" %}
-{% set config_path = "/config" %}
-
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": config_path}),
-  ix_volumes=values.ix_volumes, perm_opts={"mount_path": "/mnt/prometheus/config", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": values.consts.config_path}),
+  values=values, perm_opts={"mount_path": "/mnt/prometheus/config", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": data_path}),
-  ix_volumes=values.ix_volumes, perm_opts={"mount_path": "/mnt/prometheus/data", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.data_path}),
+  values=values, perm_opts={"mount_path": "/mnt/prometheus/data", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
   perm_opts={"mount_path": "/mnt/prometheus/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
   )) %}
 {% endfor %}
@@ -42,8 +34,8 @@
 
 {# Containers #}
 services:
-  {{ init_container_name }}:
-    image: {{ prometheus_image }}
+  {{ values.consts.init_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
     deploy:
       resources:
@@ -52,7 +44,7 @@ services:
           memory: 512m
     {% if perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     entrypoint:
@@ -60,18 +52,18 @@ services:
       - -c
     command:
       - |
-        if [ ! -f {{ config_path }}/prometheus.yml ]; then
-          touch {{ config_path }}/prometheus.yml
+        if [ ! -f {{ values.consts.config_path }}/prometheus.yml ]; then
+          touch {{ values.consts.config_path }}/prometheus.yml
         fi
     volumes: {{ volume_mounts.items | tojson }}
-  {{ prometheus_container_name }}:
+  {{ values.consts.prometheus_container_name }}:
     user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
-    image: {{ prometheus_image }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     command:
       - --web.listen-address=0.0.0.0:{{ values.network.web_port }}
-      - --storage.tsdb.path={{ data_path }}
-      - --config.file={{ config_path }}/prometheus.yml
+      - --storage.tsdb.path={{ values.consts.data_path }}
+      - --config.file={{ values.consts.config_path }}/prometheus.yml
       - --storage.tsdb.retention.time={{ values.prometheus.retention_time }}
       {% if values.prometheus.retention_size %}
       - --storage.tsdb.retention.size={{ values.prometheus.retention_size }}
@@ -84,11 +76,12 @@ services:
       {% endfor %}
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     depends_on:
-      {{ init_container_name }}:
+      {{ values.consts.init_container_name }}:
         condition: service_completed_successfully
     {% if perms_dirs.items %}
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     {% if values.network.host_network %}
@@ -108,7 +101,7 @@ services:
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
@@ -119,3 +112,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Prometheus") | tojson }}
