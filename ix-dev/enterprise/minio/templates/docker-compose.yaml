@@ -6,10 +6,6 @@
 
 {% do ix_lib.enterprise.minio.data.validate(data=values) %}
 
-{% set minio_container_name = "minio" %}
-{% set perms_container_name = "permissions" %}
-{% set minio_image = "minio/minio:RELEASE.2023-12-07T04-16-00Z" %}
-
 {# Stores minio "volumes" that will be passed in the MINIO_VOLUMES env var #}
 {% set minio_config_items = namespace(items=[]) %}
 
@@ -26,7 +22,7 @@
 
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 {% for store in values.storage.data_dirs %}
-  {% set item = ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
+  {% set item = ix_lib.base.storage.storage_item(data=store, values=values,
     perm_opts={"mount_path": "/mnt/minio/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group})
   %}
   {% do storage_items.items.append(item) %}
@@ -51,12 +47,13 @@ configs:
 
 {# Containers #}
 services:
-  {{ minio_container_name }}:
-    image: {{ minio_image }}
+  {{ values.consts.minio_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     user: {{ "%s:%s" | format(values.run_as.user, values.run_as.group) }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
     {% if values.network.dns_opts %}
@@ -87,7 +84,7 @@ services:
     {% endif %}
     {% if perms_dirs.items %}
     depends_on:
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     {% set test = "mc ready --insecure --cluster-read health" %}
@@ -107,7 +104,7 @@ services:
 
   {# Permissions Container #}
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
@@ -118,3 +115,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.console_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("MinIO") | tojson }}

@@ -51,7 +51,7 @@ def migrate_empty_dir_type(empty_dir):
             "tmpfs_config": {"size": size},
         }
 
-    return {"type": "anonymous"}
+    return {"type": "temporary"}
 
 
 def migrate_ix_volume_type(ix_volume):
