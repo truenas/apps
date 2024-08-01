@@ -1,16 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-{% set init_container_name = "init" %}
-{% set pg_container_name = "postgres" %}
-{% set perms_container_name = "permissions" %}
-{% set briefkasten_container_name = "briefkasten" %}
-
-{% set briefkasten_image = "ndom91/briefkasten:latest" %}
-{% set pg_image = "postgres:15" %}
-
-{% set pg_user = "briefkasten" %}
-{% set pg_database = "briefkasten" %}
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {% set pg_storage_items = namespace(items=[]) %}
@@ -25,16 +14,11 @@
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% set run_user = 1001 %}
-{% set run_group = 1001 %}
-{% set pg_run_user = 999 %}
-{% set pg_run_group = 999 %}
-
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, ix_volumes=values.ix_volumes,
-    perm_opts={"mount_path": "/mnt/briefkasten/dir_%s"|format(loop.index0), "mode": "check", "uid": run_user, "gid": run_group}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
+    perm_opts={"mount_path": "/mnt/briefkasten/dir_%s"|format(loop.index0), "mode": "check", "uid": values.consts.run_user, "gid": values.consts.run_group}
   )) %}
 {% endfor %}
 
@@ -47,7 +31,7 @@
 
 {% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 {% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
-  ix_volumes=values.ix_volumes, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": pg_run_user, "gid": pg_run_group}
+  values=values, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group}
 )) %}
 
 {% for item in pg_storage_items.items %}
@@ -57,8 +41,8 @@
 {% endfor %}
 {% set app_env = ix_lib.base.utils.merge_dicts({
     "DATABASE_URL": ix_lib.base.postgres.pg_url(
-      variant="postgres", host=pg_container_name, user=pg_user,
-      password=values.briefkasten.postgres_password, dbname=pg_database
+      variant="postgres", host=values.consts.pg_container_name, user=values.consts.pg_user,
+      password=values.briefkasten.postgres_password, dbname=values.consts.pg_database
     ),
     "NEXTAUTH_SECRET": values.briefkasten.nextauth_secret,
     "NEXTAUTH_URL": values.briefkasten.nextauth_url,
@@ -89,16 +73,16 @@
 
 {# Containers #}
 services:
-  {{ init_container_name }}:
-    image: {{ briefkasten_image }}
-    user: {{ "%d:%d" | format(run_user, run_group) }}
+  {{ values.consts.init_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    user: {{ "%d:%d" | format(values.consts.run_user, values.consts.run_group) }}
     deploy:
       resources:
         limits:
           cpus: "1.0"
           memory: 512m
     depends_on:
-      {{ pg_container_name }}:
+      {{ values.consts.pg_container_name }}:
         condition: service_healthy
     entrypoint:
       - /bin/sh
@@ -112,21 +96,22 @@ services:
     environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.briefkasten.additional_envs, values=values) | tojson }}
     volumes: {{ volume_mounts.items | tojson }}
 
-  {{ briefkasten_container_name }}:
-    user: {{ "%d:%d" | format(run_user, run_group) }}
-    image: {{ briefkasten_image }}
+  {{ values.consts.briefkasten_container_name }}:
+    user: {{ "%d:%d" | format(values.consts.run_user, values.consts.run_group) }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     links:
-      - {{ pg_container_name }}
+      - {{ values.consts.pg_container_name }}
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     depends_on:
-      {{ pg_container_name }}:
+      {{ values.consts.pg_container_name }}:
         condition: service_healthy
-      {{ init_container_name }}:
+      {{ values.consts.init_container_name }}:
         condition: service_completed_successfully
     {% if perms_dirs.items %}
-      {{ perms_container_name }}:
+      {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
     cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
@@ -141,7 +126,7 @@ services:
       - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
-  {{ perms_container_name }}:
+  {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
@@ -149,15 +134,17 @@ services:
       {% endfor %}
   {% endif %}
 
-  {{ pg_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
-    "image": pg_image,
+  {% set resource_without_gpus = values.resources %}
+  {% do resource_without_gpus.pop("gpus", None) %}
+  {{ values.consts.pg_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
+    "image": ix_lib.base.utils.get_image(images=values.images, name="postgres_image"),
     "volumes": pg_volume_mounts.items,
-    "user": pg_run_user, "group": pg_run_group,
-    "db_user": pg_user, "db_name": pg_database,
+    "user": values.consts.pg_run_user, "group": values.consts.pg_run_group,
+    "db_user": values.consts.pg_user, "db_name": values.consts.pg_database,
     "db_password": values.briefkasten.postgres_password,
-    "dns_opt": values.network.dns_opts, "resources": values.resources,
+    "dns_opt": values.network.dns_opts, "resources": resource_without_gpus,
     "depends_on": {
-      perms_container_name: {
+      values.consts.perms_container_name: {
         "condition": "service_completed_successfully"
       }
     }
@@ -166,3 +153,6 @@ services:
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Briefkasten") | tojson }}
