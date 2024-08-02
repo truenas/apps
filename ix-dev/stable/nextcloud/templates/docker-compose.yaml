@@ -1,27 +1,51 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
+# TODO: add dns_opts in questions
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
+{% set pg_storage_items = namespace(items=[]) %}
+{% set redis_storage_items = namespace(items=[]) %}
 {# Stores the top level volumes #}
 {% set volumes = namespace(items={}) %}
 {# Stores the container volume mounts #}
 {% set volume_mounts = namespace(items=[]) %}
+{% set pg_volume_mounts = namespace(items=[]) %}
+{% set redis_volume_mounts = namespace(items=[]) %}
 {# Stores the perms container volume mounts #}
 {% set perms_mounts = namespace(items=[]) %}
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": values.consts.config_path}),
-  values=values, perm_opts={"mount_path": "/mnt/prometheus/config", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+{% do redis_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
+  perm_opts={"mount_path": "/mnt/redis/tmp", "mode": "check", "uid": values.consts.redis_run_user, "gid": values.consts.redis_run_group}
 )) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.data_path}),
-  values=values, perm_opts={"mount_path": "/mnt/prometheus/data", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+{% do redis_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/bitnami/redis/data"},
+  perm_opts={"mount_path": "/mnt/redis/data", "mode": "check", "uid": values.consts.redis_run_user, "gid": values.consts.redis_run_group}
 )) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% for item in redis_storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and redis_volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
 
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
+  perm_opts={"mount_path": "/mnt/postgres/tmp", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group}
+)) %}
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
+  values=values, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group,}
+)) %}
+{% for item in pg_storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and pg_volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.nextcloud.data_dir_path}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.html, **{"mount_path": "/var/www/html"}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 {% for store in values.storage.additional_storage %}
   {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
-  perm_opts={"mount_path": "/mnt/prometheus/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+    perm_opts={"mount_path": "/mnt/nextcloud/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
   )) %}
 {% endfor %}
 
@@ -34,72 +58,71 @@
 
 {# Containers #}
 services:
-  {{ values.consts.init_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512m
-    {% if perms_dirs.items %}
-    depends_on:
-      {{ values.consts.perms_container_name }}:
-        condition: service_completed_successfully
-    {% endif %}
-    entrypoint:
-      - sh
-      - -c
-    command:
-      - |
-        if [ ! -f {{ values.consts.config_path }}/prometheus.yml ]; then
-          touch {{ values.consts.config_path }}/prometheus.yml
-        fi
-    volumes: {{ volume_mounts.items | tojson }}
-  {{ values.consts.prometheus_container_name }}:
-    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
+  {{ values.consts.nextcloud_container_name }}:
+    user: "0:0"
     image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
-    command:
-      - --web.listen-address=0.0.0.0:{{ values.network.web_port }}
-      - --storage.tsdb.path={{ values.consts.data_path }}
-      - --config.file={{ values.consts.config_path }}/prometheus.yml
-      - --storage.tsdb.retention.time={{ values.prometheus.retention_time }}
-      {% if values.prometheus.retention_size %}
-      - --storage.tsdb.retention.size={{ values.prometheus.retention_size }}
-      {% endif %}
-      {% if values.prometheus.wal_compression %}
-      - --storage.tsdb.wal-compression
-      {% endif %}
-      {% for arg in values.prometheus.additional_args %}
-      - {{ arg | tojson }}
-      {% endfor %}
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     depends_on:
-      {{ values.consts.init_container_name }}:
-        condition: service_completed_successfully
     {% if perms_dirs.items %}
       {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "NET_BIND_SERVICE", "NET_RAW"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
     {% if values.network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
-    {% set test = ix_lib.base.healthchecks.wget_test(port=values.network.web_port, path="/-/healthy") %}
+    {% set test = ix_lib.base.healthchecks.wget_test(port=80, path="/status.php", config={"headers": [["Host", "localhost"]]}) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    environment: {{ ix_lib.base.environment.envs(app={}, user=values.prometheus.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
+    {% set app_env = {
+      "NEXTCLOUD_DATA_DIR": values.nextcloud.data_dir_path,
+      "PHP_UPLOAD_LIMIT": "%dG"|format(values.nextcloud.php_upload_limit),
+      "PHP_MEMORY_LIMIT": "%dM"|format(values.nextcloud.php_memory_limit),
+      "NEXTCLOUD_ADMIN_USER": values.nextcloud.admin_user,
+      "NEXTCLOUD_ADMIN_PASSWORD": values.nextcloud.admin_password,
+      "REDIS_HOST_PORT": 6379,
+      "REDIS_HOST": values.consts.redis_container_name,
+      "REDIS_HOST_PASSWORD": values.nextcloud.redis_password,
+      "POSTGRES_PASSWORD": values.nextcloud.db_password,
+      "POSTGRES_HOST": "%s:5432"|format(values.consts.postgres_container_name),
+      "POSTGRES_DB": values.consts.db_name,
+      "POSTGRES_USER": values.consts.db_user,
+    } %}
+    {% set trusted_domains = ["127.0.0.1", "localhost", values.consts.nextcloud_container_name] %}
+    {% if values.nextcloud.host %}
+      {% set host = namespace(value="%s:%d"|format(values.nextcloud.host, values.network.web_port)) %}
+      {% if ":" in values.nextcloud.host %}
+        {% set host.value = values.nextcloud.host %}
+      {% endif %}
+      {% do app_env.update({"NEXTCLOUD_TRUSTED_DOMAINS": (trusted_domains + [host.value])|unique|list|join(" ")}) %}
+    {% endif %}
+    {% if values.nextcloud.certificate_id %}
+      {% do app_env.update({
+        "APACHE_DISABLE_REWRITE_IP": "1",
+        "OVERWRITEPROTOCOL": "https",
+        "TRUSTED_PROXIES": (["127.0.0.1", nginx_container_name])|unique|list|join(" "),
+      }) %}
+      {% if values.nextcloud.host %}
+        {% set host = namespace(value="%s:%d"|format(values.nextcloud.host, values.network.web_port)) %}
+        {% if ":" in values.nextcloud.host %}
+          {% set host.value = values.nextcloud.host %}
+        {% elif values.network.nginx.use_different_port %}
+          {% set host.value = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
+        {% endif %}
+        {% do app_env.update({"OVERWRITEHOST": host.value}) %}
+      {% endif %}
+    {% endif %}
+    # TODO: older nextcloud charts had an auto generated db user. we need to account for that
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.nextcloud.additional_envs, values=values) | tojson }}
     ports:
       - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
-    {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
+
   {% if perms_dirs.items %}
   {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
@@ -109,9 +132,38 @@ services:
       {% endfor %}
   {% endif %}
 
+  {% set resource_without_gpus = values.resources %}
+  {% do resource_without_gpus.pop("gpus", None) %}
+  {{ values.consts.redis_container_name }}: {{ ix_lib.base.redis.redis_container(data={
+    "image": ix_lib.base.utils.get_image(images=values.images, name="redis_image"),
+    "volumes": redis_volume_mounts.items,
+    "user": values.consts.redis_run_user, "group": values.consts.redis_run_group,
+    "password": values.nextcloud.redis_password,
+    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
+    "depends_on": {
+      values.consts.perms_container_name: {
+        "condition": "service_completed_successfully"
+      }
+    }
+  }) | tojson }}
+
+  {{ values.consts.postgres_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
+    "image": ix_lib.base.utils.get_image(images=values.images, name="postgres_image"),
+    "volumes": pg_volume_mounts.items,
+    "user": values.consts.pg_run_user, "group": values.consts.pg_run_group,
+    "db_user": values.consts.db_user, "db_name": values.consts.db_name,
+    "db_password": values.nextcloud.db_password,
+    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
+    "depends_on": {
+      values.consts.perms_container_name: {
+        "condition": "service_completed_successfully"
+      }
+    }
+  }) | tojson }}
+
 {% if volumes.items %}
 volumes: {{ volumes.items | tojson }}
 {% endif %}
 
 x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Prometheus") | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("nextcloud") | tojson }}
