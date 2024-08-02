@@ -13,7 +13,7 @@ Thank you for your understanding.
 
 | App                  | Train      | Added | Migrated |
 | -------------------- | ---------- | ----- | -------- |
-| collabora            | charts     | -     | -        |
+| collabora            | charts     | ✅    | -        |
 | diskoverdata         | charts     | -     | -        |
 | elastic-search       | charts     | ✅    | -        |
 | emby                 | charts     | ✅    | -        |
