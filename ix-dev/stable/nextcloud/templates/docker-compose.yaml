@@ -96,6 +96,20 @@ configs:
   {% for cmd in values.nextcloud.apt_packages %}
     {% do dockerfile_inline.x.append("RUN apt install -y --no-install-recommends %s || { echo \"Failed to install [%s]. Exiting.\"; exit 1; }"|format(cmd, cmd)) %}
   {% endfor %}
+  {% for cmd in values.nextcloud.apt_packages if values.consts.packages[cmd] %}
+    {% for pkg in values.consts.packages[cmd].additional_apt %}
+      {% do dockerfile_inline.x.append("RUN apt install -y --no-install-recommends %s"|format(pkg)) %}
+    {% endfor %}
+    {% for pkg in values.consts.packages[cmd].pecl %}
+      {% do dockerfile_inline.x.append("RUN pecl install %s"|format(pkg)) %}
+    {% endfor %}
+    {% for pkg in values.consts.packages[cmd].docker_php_ext %}
+      {% do dockerfile_inline.x.append("RUN docker-php-ext-enable %s"|format(pkg)) %}
+    {% endfor %}
+    {% for pkg in values.consts.packages[cmd].ldd %}
+      {% do dockerfile_inline.x.append("RUN ldd \"$(php -r 'echo ini_get(\"extension_dir\");')\"/%s"|format(pkg)) %}
+    {% endfor %}
+  {% endfor %}
 {% endif %}
 {% set dockerfile_inline.x = dockerfile_inline.x|join("\n") %}
 
