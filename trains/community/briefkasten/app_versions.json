@@ -3,26 +3,23 @@
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/ipfs/1.0.0",
-        "last_update": "2024-08-02 11:34:04",
+        "location": "/__w/apps/apps/trains/community/briefkasten/1.0.0",
+        "last_update": "2024-08-02 11:35:12",
         "required_features": [],
-        "human_version": "v0.29.0_1.0.0",
+        "human_version": "latest_1.0.0",
         "version": "1.0.0",
         "app_metadata": {
-            "app_version": "v0.29.0",
+            "app_version": "latest",
             "capabilities": [],
             "categories": [
-                "storage"
+                "productivity"
             ],
-            "description": "Interplanetary Filesystem - the Web3 standard for content-addressing, interoperable with HTTP",
-            "home": "https://ipfs.tech/",
+            "description": "Briefkasten is a self hosted bookmarking app",
+            "home": "https://github.com/ndom91/briefkasten",
             "host_mounts": [],
-            "icon": "https://media.sys.truenas.net/apps/ipfs/icons/icon.png",
+            "icon": "https://media.sys.truenas.net/apps/briefkasten/icons/icon.svg",
             "keywords": [
-                "storage",
-                "ipfs",
-                "file-sharing",
-                "kubo"
+                "bookmark"
             ],
             "lib_version": "1.0.0",
             "lib_version_hash": "66c98111180da566a3bcc9ee1d1be4f673356f453b5d97ee7c784c9a38ee9999",
@@ -33,63 +30,370 @@
                     "url": "https://www.truenas.com/"
                 }
             ],
-            "name": "ipfs",
+            "name": "briefkasten",
             "run_as_context": [
                 {
-                    "description": "IPFS runs as any non-root user.",
-                    "gid": 568,
-                    "group_name": "ipfs",
-                    "uid": 568,
-                    "user_name": "ipfs"
+                    "description": "Briefkasten runs as non-root user.",
+                    "gid": 1001,
+                    "group_name": "briefkasten",
+                    "uid": 1001,
+                    "user_name": "briefkasten"
+                },
+                {
+                    "description": "Postgres runs as non-root user.",
+                    "gid": 999,
+                    "group_name": "postgres",
+                    "uid": 999,
+                    "user_name": "postgres"
                 }
             ],
             "screenshots": [
-                "https://media.sys.truenas.net/apps/ipfs/screenshots/screenshot1.png",
-                "https://media.sys.truenas.net/apps/ipfs/screenshots/screenshot2.png"
+                "https://media.sys.truenas.net/apps/homarr/screenshots/screenshot1.png",
+                "https://media.sys.truenas.net/apps/homarr/screenshots/screenshot2.png",
+                "https://media.sys.truenas.net/apps/homarr/screenshots/screenshot3.png"
             ],
             "sources": [
-                "https://github.com/ipfs/kubo",
-                "https://ipfs.tech/"
+                "https://github.com/ndom91/briefkasten",
+                "https://docs.briefkastenhq.com/"
             ],
-            "title": "IPFS",
+            "title": "Briefkasten",
             "train": "community",
             "version": "1.0.0"
         },
         "schema": {
             "groups": [
                 {
-                    "name": "IPFS Configuration",
-                    "description": "Configure IPFS"
+                    "name": "Briefkasten Configuration",
+                    "description": "Configure Briefkasten"
                 },
                 {
                     "name": "User and Group Configuration",
-                    "description": "Configure User and Group for IPFS"
+                    "description": "Configure User and Group for Briefkasten"
                 },
                 {
                     "name": "Network Configuration",
-                    "description": "Configure Network for IPFS"
+                    "description": "Configure Network for Briefkasten"
                 },
                 {
                     "name": "Storage Configuration",
-                    "description": "Configure Storage for IPFS"
+                    "description": "Configure Storage for Briefkasten"
                 },
                 {
                     "name": "Resources Configuration",
-                    "description": "Configure Resources for IPFS"
+                    "description": "Configure Resources for Briefkasten"
                 }
             ],
             "questions": [
                 {
-                    "variable": "ipfs",
+                    "variable": "TZ",
+                    "group": "Briefkasten Configuration",
+                    "label": "Timezone",
+                    "schema": {
+                        "type": "string",
+                        "default": "Etc/UTC",
+                        "required": true,
+                        "$ref": [
+                            "definitions/timezone"
+                        ]
+                    }
+                },
+                {
+                    "variable": "briefkasten",
                     "label": "",
-                    "group": "IPFS Configuration",
+                    "group": "Briefkasten Configuration",
                     "schema": {
                         "type": "dict",
                         "attrs": [
                             {
+                                "variable": "nextauth_secret",
+                                "label": "NextAuth Secret",
+                                "description": "The secret used to encrypt the JWT token.",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "",
+                                    "required": true,
+                                    "private": true
+                                }
+                            },
+                            {
+                                "variable": "postgres_password",
+                                "label": "Postgres Password",
+                                "description": "The password for Postgres.",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "",
+                                    "required": true,
+                                    "private": true
+                                }
+                            },
+                            {
+                                "variable": "nextauth_url",
+                                "label": "NextAuth URL",
+                                "description": "The URL that Briefkasten will be accessible from.</br>\nExample: </br>\nhttp://server.ip:30080</br>\nhttps://Briefkasten.example.com\n",
+                                "schema": {
+                                    "type": "uri",
+                                    "default": "",
+                                    "required": true
+                                }
+                            },
+                            {
+                                "variable": "smtp",
+                                "label": "SMTP Auth Provider",
+                                "description": "Configure SMTP for Briefkasten.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "description": "Enable SMTP for auth.",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false,
+                                                "show_subquestions_if": true,
+                                                "subquestions": [
+                                                    {
+                                                        "variable": "server",
+                                                        "label": "SMTP Server",
+                                                        "description": "The SMTP server to use.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "from",
+                                                        "label": "SMTP From",
+                                                        "description": "The SMTP from address to use.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "github",
+                                "label": "GitHub Auth Provider",
+                                "description": "Configure GitHub for Briefkasten.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "description": "Enable GitHub for auth.",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false,
+                                                "show_subquestions_if": true,
+                                                "subquestions": [
+                                                    {
+                                                        "variable": "id",
+                                                        "label": "GitHub Client ID",
+                                                        "description": "The GitHub Client ID.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "secret",
+                                                        "label": "GitHub Client Secret",
+                                                        "description": "The GitHub Client Secret.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "private": true,
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "google",
+                                "label": "Google Auth Provider",
+                                "description": "Configure Google for Briefkasten.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "description": "Enable Google for auth.",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false,
+                                                "show_subquestions_if": true,
+                                                "subquestions": [
+                                                    {
+                                                        "variable": "id",
+                                                        "label": "Google Client ID",
+                                                        "description": "The Google Client ID.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "secret",
+                                                        "label": "Google Client Secret",
+                                                        "description": "The Google Client Secret.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "private": true,
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "keycloak",
+                                "label": "Keycloak Auth Provider",
+                                "description": "Configure Keycloak for Briefkasten.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "description": "Enable Keycloak for auth.",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false,
+                                                "show_subquestions_if": true,
+                                                "subquestions": [
+                                                    {
+                                                        "variable": "name",
+                                                        "label": "Keycloak Name",
+                                                        "description": "The Keycloak Name.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "id",
+                                                        "label": "Keycloak Client ID",
+                                                        "description": "The Keycloak Client ID.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "secret",
+                                                        "label": "Keycloak Client Secret",
+                                                        "description": "The Keycloak Client Secret.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "private": true,
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "issuer",
+                                                        "label": "Keycloak Issuer",
+                                                        "description": "The Keycloak Issuer.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "authentik",
+                                "label": "Authentik Auth Provider",
+                                "description": "Configure Authentik for Briefkasten.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "description": "Enable Authentik for auth.",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false,
+                                                "show_subquestions_if": true,
+                                                "subquestions": [
+                                                    {
+                                                        "variable": "name",
+                                                        "label": "Authentik Name",
+                                                        "description": "The Authentik Name.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "id",
+                                                        "label": "Authentik Client ID",
+                                                        "description": "The Authentik Client ID.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "secret",
+                                                        "label": "Authentik Client Secret",
+                                                        "description": "The Authentik Client Secret.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "private": true,
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "issuer",
+                                                        "label": "Authentik Issuer",
+                                                        "description": "The Authentik Issuer.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
                                 "variable": "additional_envs",
                                 "label": "Additional Environment Variables",
-                                "description": "Configure additional environment variables for IPFS.",
+                                "description": "Configure additional environment variables for Briefkasten.",
                                 "schema": {
                                     "type": "list",
                                     "default": [],
@@ -126,38 +430,6 @@
                     }
                 },
                 {
-                    "variable": "run_as",
-                    "label": "",
-                    "group": "User and Group Configuration",
-                    "schema": {
-                        "type": "dict",
-                        "attrs": [
-                            {
-                                "variable": "user",
-                                "label": "User ID",
-                                "description": "The user id that IPFS files will be owned by.",
-                                "schema": {
-                                    "type": "int",
-                                    "min": 568,
-                                    "default": 568,
-                                    "required": true
-                                }
-                            },
-                            {
-                                "variable": "group",
-                                "label": "Group ID",
-                                "description": "The group id that IPFS files will be owned by.",
-                                "schema": {
-                                    "type": "int",
-                                    "min": 568,
-                                    "default": 568,
-                                    "required": true
-                                }
-                            }
-                        ]
-                    }
-                },
-                {
                     "variable": "network",
                     "label": "",
                     "group": "Network Configuration",
@@ -165,51 +437,16 @@
                         "type": "dict",
                         "attrs": [
                             {
-                                "variable": "api_port",
-                                "label": "API Port (And WebUI Port)",
-                                "description": "The port for IPFS WebUI",
+                                "variable": "web_port",
+                                "label": "WebUI Port",
+                                "description": "The port for Briefkasten WebUI",
                                 "schema": {
                                     "type": "int",
-                                    "default": 30010,
+                                    "default": 30080,
                                     "required": true,
                                     "$ref": [
                                         "definitions/port"
                                     ]
-                                }
-                            },
-                            {
-                                "variable": "swarm_port",
-                                "label": "Swarm Port",
-                                "description": "The port for IPFS Swarm",
-                                "schema": {
-                                    "type": "int",
-                                    "default": 30011,
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
-                                    ]
-                                }
-                            },
-                            {
-                                "variable": "gateway_port",
-                                "label": "Gateway Port",
-                                "description": "The port for IPFS Gateway",
-                                "schema": {
-                                    "type": "int",
-                                    "default": 30012,
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
-                                    ]
-                                }
-                            },
-                            {
-                                "variable": "host_network",
-                                "label": "Host Network",
-                                "description": "Bind to the host network. It's recommended to keep this disabled.\n",
-                                "schema": {
-                                    "type": "boolean",
-                                    "default": false
                                 }
                             }
                         ]
@@ -223,9 +460,9 @@
                         "type": "dict",
                         "attrs": [
                             {
-                                "variable": "staging",
-                                "label": "IPFS Staging Storage",
-                                "description": "The path to store IPFS Staging.",
+                                "variable": "postgres_data",
+                                "label": "Postgres Data Storage",
+                                "description": "The path to store Postgres Data.",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -285,153 +522,7 @@
                                                             "required": true,
                                                             "immutable": true,
                                                             "hidden": true,
-                                                            "default": "staging"
-                                                        }
-                                                    },
-                                                    {
-                                                        "variable": "acl_entries",
-                                                        "label": "ACL Configuration",
-                                                        "schema": {
-                                                            "type": "dict",
-                                                            "show_if": [
-                                                                [
-                                                                    "acl_enable",
-                                                                    "=",
-                                                                    true
-                                                                ]
-                                                            ],
-                                                            "attrs": []
-                                                        }
-                                                    }
-                                                ]
-                                            }
-                                        },
-                                        {
-                                            "variable": "host_path_config",
-                                            "label": "Host Path Configuration",
-                                            "schema": {
-                                                "type": "dict",
-                                                "show_if": [
-                                                    [
-                                                        "type",
-                                                        "=",
-                                                        "host_path"
-                                                    ]
-                                                ],
-                                                "attrs": [
-                                                    {
-                                                        "variable": "acl_enable",
-                                                        "label": "Enable ACL",
-                                                        "description": "Enable ACL for the storage.",
-                                                        "schema": {
-                                                            "type": "boolean",
-                                                            "default": false
-                                                        }
-                                                    },
-                                                    {
-                                                        "variable": "acl",
-                                                        "label": "ACL Configuration",
-                                                        "schema": {
-                                                            "type": "dict",
-                                                            "show_if": [
-                                                                [
-                                                                    "acl_enable",
-                                                                    "=",
-                                                                    true
-                                                                ]
-                                                            ],
-                                                            "attrs": [],
-                                                            "$ref": [
-                                                                "normalize/acl"
-                                                            ]
-                                                        }
-                                                    },
-                                                    {
-                                                        "variable": "path",
-                                                        "label": "Host Path",
-                                                        "description": "The host path to use for storage.",
-                                                        "schema": {
-                                                            "type": "hostpath",
-                                                            "show_if": [
-                                                                [
-                                                                    "acl_enable",
-                                                                    "=",
-                                                                    false
-                                                                ]
-                                                            ],
-                                                            "required": true
-                                                        }
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    ]
-                                }
-                            },
-                            {
-                                "variable": "data",
-                                "label": "IPFS Data Storage",
-                                "description": "The path to store IPFS Data.",
-                                "schema": {
-                                    "type": "dict",
-                                    "attrs": [
-                                        {
-                                            "variable": "type",
-                                            "label": "Type",
-                                            "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.\n",
-                                            "schema": {
-                                                "type": "string",
-                                                "required": true,
-                                                "immutable": true,
-                                                "default": "ix_volume",
-                                                "enum": [
-                                                    {
-                                                        "value": "host_path",
-                                                        "description": "Host Path (Path that already exists on the system)"
-                                                    },
-                                                    {
-                                                        "value": "ix_volume",
-                                                        "description": "ixVolume (Dataset created automatically by the system)"
-                                                    }
-                                                ]
-                                            }
-                                        },
-                                        {
-                                            "variable": "ix_volume_config",
-                                            "label": "ixVolume Configuration",
-                                            "description": "The configuration for the ixVolume dataset.",
-                                            "schema": {
-                                                "type": "dict",
-                                                "show_if": [
-                                                    [
-                                                        "type",
-                                                        "=",
-                                                        "ix_volume"
-                                                    ]
-                                                ],
-                                                "$ref": [
-                                                    "normalize/ix_volume"
-                                                ],
-                                                "attrs": [
-                                                    {
-                                                        "variable": "acl_enable",
-                                                        "label": "Enable ACL",
-                                                        "description": "Enable ACL for the storage.",
-                                                        "schema": {
-                                                            "type": "boolean",
-                                                            "default": false
-                                                        }
-                                                    },
-                                                    {
-                                                        "variable": "dataset_name",
-                                                        "label": "Dataset Name",
-                                                        "description": "The name of the dataset to use for storage.",
-                                                        "schema": {
-                                                            "type": "string",
-                                                            "required": true,
-                                                            "immutable": true,
-                                                            "hidden": true,
-                                                            "default": "data"
+                                                            "default": "pg_data"
                                                         }
                                                     },
                                                     {
@@ -517,7 +608,7 @@
                             {
                                 "variable": "additional_storage",
                                 "label": "Additional Storage",
-                                "description": "Additional storage for IPFS.",
+                                "description": "Additional storage for Briefkasten.",
                                 "schema": {
                                     "type": "list",
                                     "default": [],
@@ -735,14 +826,6 @@
                                                                         "required": true,
                                                                         "private": true
                                                                     }
-                                                                },
-                                                                {
-                                                                    "variable": "domain",
-                                                                    "label": "Domain",
-                                                                    "description": "The domain to use for the SMB share.",
-                                                                    "schema": {
-                                                                        "type": "string"
-                                                                    }
                                                                 }
                                                             ]
                                                         }
@@ -772,7 +855,7 @@
                                         {
                                             "variable": "cpus",
                                             "label": "CPUs",
-                                            "description": "CPUs limit for IPFS.",
+                                            "description": "CPUs limit for Briefkasten.",
                                             "schema": {
                                                 "type": "int",
                                                 "default": 2,
@@ -782,7 +865,7 @@
                                         {
                                             "variable": "memory",
                                             "label": "Memory (in MB)",
-                                            "description": "Memory limit for IPFS.",
+                                            "description": "Memory limit for Briefkasten.",
                                             "schema": {
                                                 "type": "int",
                                                 "default": 4096,
@@ -797,7 +880,7 @@
                 }
             ]
         },
-        "readme": "<h1>IPFS</h1>\n<p><a href=\"https://ipfs.tech\">Interplanetary Filesystem</a> - the Web3 standard for content-addressing, interoperable with HTTP</p>",
+        "readme": "<h1>Briefkasten</h1>\n<p><a href=\"https://github.com/ndom91/briefkasten\">Briefkasten</a> is a self hosted bookmarking app</p>",
         "changelog": null
     }
 }
