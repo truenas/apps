@@ -88,7 +88,7 @@ def perms_item(data, values=None, opts=None):
 
     req_keys = ["mount_path", "mode", "uid", "gid"]
     for key in req_keys:
-        if not opts.get(key):
+        if opts.get(key, None) is None:
             utils.throw_error(f"Expected opts passed to [perms_item] to have [{key}] key")
 
     data.update({"mount_path": opts["mount_path"]})
