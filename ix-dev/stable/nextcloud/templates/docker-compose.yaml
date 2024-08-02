@@ -88,15 +88,31 @@ configs:
       }
       run_as "$$@"
 
+{% set dockerfile_inline = namespace(x=[
+  "FROM %s"|format(ix_lib.base.utils.get_image(images=values.images, name="image")),
+]) %}
+{% if values.nextcloud.apt_packages %}
+  {% do dockerfile_inline.x.append("RUN apt update || { echo \"Failed to update apt cache. Exiting.\"; exit 1; }") %}
+  {% for cmd in values.nextcloud.apt_packages %}
+    {% do dockerfile_inline.x.append("RUN apt install -y --no-install-recommends %s || { echo \"Failed to install [%s]. Exiting.\"; exit 1; }"|format(cmd, cmd)) %}
+  {% endfor %}
+{% endif %}
+{% set dockerfile_inline.x = dockerfile_inline.x|join("\n") %}
+
 {# Containers #}
 services:
   {{ values.consts.nextcloud_container_name }}:
     user: "0:0"
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    image: {{ ix_lib.base.utils.get_image_with_hashed_data(images=values.images, name="image", data=dockerfile_inline.x) }}
     restart: unless-stopped
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    build:
+      tags:
+        {# Creating a unique tag based on the dockerfile_inline data, this ensures that if there is any change, it will rebuild the image #}
+        - {{ ix_lib.base.utils.get_image_with_hashed_data(images=values.images, name="image", data=dockerfile_inline.x) }}
+      dockerfile_inline: {{ dockerfile_inline.x | tojson }}
     configs:
       - source: occ
         target: /usr/local/bin/occ
