@@ -56,6 +56,38 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
+configs:
+  opcache.ini:
+    content: |
+      opcache.memory_consumption={{ values.nextcloud.op_cache_memory_consumption }}
+  php.ini:
+    content: |
+      max_execution_time={{ values.nextcloud.max_execution_time }}
+  limitrequestbody.conf:
+    content: |
+      {% set bytes_gb = 1024 * 1024 * 1024 %}
+      LimitRequestBody {{ values.nextcloud.php_upload_limit * bytes_gb }}
+  occ:
+    content: |
+      #!/bin/bash
+      uid="$$(id -u)"
+      gid="$$(id -g)"
+      if [ "$$uid" = '0' ]; then
+        user='www-data'
+        group='www-data'
+      else
+        user="$$uid"
+        group="$$gid"
+      fi
+      run_as() {
+        if [ "$$(id -u)" = 0 ]; then
+          su -p "$$user" -s /bin/bash -c "php /var/www/html/occ $$(printf '%q ' "$$@")"
+        else
+          /bin/bash -c "php /var/www/html/occ $$(printf '%q ' "$$@")"
+        fi
+      }
+      run_as "$$@"
+
 {# Containers #}
 services:
   {{ values.consts.nextcloud_container_name }}:
@@ -65,6 +97,17 @@ services:
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    configs:
+      - source: occ
+        target: /usr/local/bin/occ
+        mode: 0755
+      - source: limitrequestbody.conf
+        # https://github.com/nextcloud/docker/issues/1796
+        target: /etc/apache2/conf-enabled/limitrequestbody.conf
+      - source: php.ini
+        target: /usr/local/etc/php/conf.d/nextcloud-z-99.ini
+      - source: opcache.ini
+        target: /usr/local/etc/php/conf.d/opcache-z-99.ini
     depends_on:
       {{ values.consts.postgres_container_name }}:
         condition: service_healthy
@@ -123,8 +166,10 @@ services:
     {% endif %}
     # TODO: older nextcloud charts had an auto generated db user. we need to account for that
     environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.nextcloud.additional_envs, values=values) | tojson }}
+    {% if not values.network.certificate_id %}
     ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": 80, "published": values.network.web_port}) | tojson }}
+    {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
   {% if perms_dirs.items %}
