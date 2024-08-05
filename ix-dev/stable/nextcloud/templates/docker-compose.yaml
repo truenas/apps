@@ -4,6 +4,7 @@
 # TODO: add nginx when cert is used
 # TODO: add cron container
 # TODO: test that occ is mounted as executable, otherwise move it to the dockerfile
+
 # TODO: account for older enxtcloud charts that used single storage for data and html
 # TODO: older nextcloud charts had an auto generated db user. we need to account for that
 
@@ -124,18 +125,19 @@ services:
   {{ values.consts.nextcloud_container_name }}:
     user: "0:0"
     image: {{ ix_lib.base.utils.get_image_with_hashed_data(images=values.images, name="image", data=dockerfile_inline.x) }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     build:
       tags:
         {# Creating a unique tag based on the dockerfile_inline data, this ensures that if there is any change, it will rebuild the image #}
         - {{ ix_lib.base.utils.get_image_with_hashed_data(images=values.images, name="image", data=dockerfile_inline.x) }}
       dockerfile_inline: {{ dockerfile_inline.x | tojson }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
     configs:
       - source: occ
         target: /usr/local/bin/occ
+        mode: 0755
       - source: limitrequestbody.conf
         # https://github.com/nextcloud/docker/issues/1796
         target: /etc/apache2/conf-enabled/limitrequestbody.conf
@@ -152,16 +154,16 @@ services:
       {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "NET_BIND_SERVICE", "NET_RAW"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
+    {% set nc_caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "NET_BIND_SERVICE", "NET_RAW"]) %}
+    cap_add: {{ nc_caps.add | tojson }}
+    cap_drop: {{ nc_caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
     {% if values.network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
     {% set test = ix_lib.base.healthchecks.curl_test(port=80, path="/status.php", config={"headers": [["Host", "localhost"]]}) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    {% set app_env = {
+    {% set nc_app_env = {
       "NEXTCLOUD_DATA_DIR": values.nextcloud.data_dir_path,
       "PHP_UPLOAD_LIMIT": "%dG"|format(values.nextcloud.php_upload_limit),
       "PHP_MEMORY_LIMIT": "%dM"|format(values.nextcloud.php_memory_limit),
@@ -181,10 +183,10 @@ services:
       {% if ":" in values.nextcloud.host %}
         {% set host.value = values.nextcloud.host %}
       {% endif %}
-      {% do app_env.update({"NEXTCLOUD_TRUSTED_DOMAINS": (trusted_domains + [host.value])|unique|list|join(" ")}) %}
+      {% do nc_app_env.update({"NEXTCLOUD_TRUSTED_DOMAINS": (trusted_domains + [host.value])|unique|list|join(" ")}) %}
     {% endif %}
     {% if values.nextcloud.certificate_id %}
-      {% do app_env.update({
+      {% do nc_app_env.update({
         "APACHE_DISABLE_REWRITE_IP": "1",
         "OVERWRITEPROTOCOL": "https",
         "TRUSTED_PROXIES": (["127.0.0.1", nginx_container_name])|unique|list|join(" "),
@@ -196,24 +198,56 @@ services:
         {% elif values.network.nginx.use_different_port %}
           {% set host.value = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
         {% endif %}
-        {% do app_env.update({"OVERWRITEHOST": host.value}) %}
+        {% do nc_app_env.update({"OVERWRITEHOST": host.value}) %}
       {% endif %}
     {% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.nextcloud.additional_envs, values=values) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app=nc_app_env, user=values.nextcloud.additional_envs, values=values) | tojson }}
     {% if not values.network.certificate_id %}
     ports:
       - {{ ix_lib.base.ports.get_port(port={"target": 80, "published": values.network.web_port}) | tojson }}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
-  {% if perms_dirs.items %}
+  {{ values.consts.cron_container_name }}:
+    user: "0:0"
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    entrypoint: /cron.sh
+    configs:
+      - source: occ
+        target: /usr/local/bin/occ
+        mode: 0755
+      - source: limitrequestbody.conf
+        target: /etc/apache2/conf-enabled/limitrequestbody.conf
+      - source: php.ini
+        target: /usr/local/etc/php/conf.d/nextcloud-z-99.ini
+      - source: opcache.ini
+        target: /usr/local/etc/php/conf.d/opcache-z-99.ini
+    cap_add: {{ nc_caps.add | tojson }}
+    cap_drop: {{ nc_caps.drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    depends_on:
+      {{ values.consts.nextcloud_container_name }}:
+        condition: service_healthy
+    environment: {{ ix_lib.base.environment.envs(app=nc_app_env, user=values.nextcloud.additional_envs, values=values) | tojson }}
+    {% set cron_test = "pidof crond > /dev/null" %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(cron_test) | tojson }}
+    volumes: {{ volume_mounts.items | tojson }}
+
+{% if perms_dirs.items %}
   {{ values.consts.perms_container_name }}:
     {{ perms_container(items=perms_dirs.items) | indent(4) }}
     volumes:
       {% for item in perms_mounts.items %}
       - {{ item | tojson }}
       {% endfor %}
-  {% endif %}
+{% endif %}
 
   {% set resource_without_gpus = values.resources %}
   {% do resource_without_gpus.pop("gpus", None) %}
