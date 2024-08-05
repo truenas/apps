@@ -1,8 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-# TODO: account for older enxtcloud charts that used single storage for data and html
-# TODO: older nextcloud charts had an auto generated db user. we need to account for that
-
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {% set pg_storage_items = namespace(items=[]) %}
@@ -80,7 +77,7 @@ configs:
   public:
     content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
   {% set port = namespace(x=":$$server_port") %}
-  {% if values.network.nginx.use_different_port %}
+  {% if values.network.nginx.use_different_access_port %}
     {% set port.x = values.network.nginx.external_access_port %}
   {% endif %}
   {% if port.x == ":443" %}
@@ -252,7 +249,7 @@ services:
       "POSTGRES_PASSWORD": values.nextcloud.db_password,
       "POSTGRES_HOST": "%s:5432"|format(values.consts.postgres_container_name),
       "POSTGRES_DB": values.consts.db_name,
-      "POSTGRES_USER": values.consts.db_user,
+      "POSTGRES_USER": values.nextcloud.db_user,
     } %}
     {% set trusted_domains = ["127.0.0.1", "localhost", values.consts.nextcloud_container_name] %}
     {% if values.nextcloud.host %}
@@ -272,8 +269,8 @@ services:
         {% set host = namespace(value="%s:%d"|format(values.nextcloud.host, values.network.web_port)) %}
         {% if ":" in values.nextcloud.host %}
           {% set host.value = values.nextcloud.host %}
-        {% elif values.network.nginx.use_different_port %}
-          {% set host.value = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
+        {% elif values.network.nginx.use_different_access_port %}
+          {% set host.value = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_access_port) %}
         {% endif %}
         {% do nc_app_env.update({"OVERWRITEHOST": host.value}) %}
       {% endif %}
@@ -383,7 +380,7 @@ services:
     "image": ix_lib.base.utils.get_image(images=values.images, name="postgres_image"),
     "volumes": pg_volume_mounts.items,
     "user": values.consts.pg_run_user, "group": values.consts.pg_run_group,
-    "db_user": values.consts.db_user, "db_name": values.consts.db_name,
+    "db_user": values.nextcloud.db_user, "db_name": values.consts.db_name,
     "db_password": values.nextcloud.db_password,
     "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
     "depends_on": {
