@@ -1,7 +1,5 @@
 {% from "macros/global/perms/container.yaml.jinja" import perms_container %}
 
-# TODO: add nginx when cert is used
-
 # TODO: account for older enxtcloud charts that used single storage for data and html
 # TODO: older nextcloud charts had an auto generated db user. we need to account for that
 
@@ -83,8 +81,9 @@ configs:
       events {}
       http {
         server {
-          listen              {{ values.network.web_port }} ssl http2;
-          listen              [::]:{{ values.network.web_port }} ssl http2;
+          listen              {{ values.network.web_port }} ssl;
+          listen              [::]:{{ values.network.web_port }} ssl;
+          http2               on;
 
           # Redirect HTTP to HTTPS
           error_page 497 301 =307 https://$$host{{ port.x }}$$request_uri;
@@ -343,7 +342,7 @@ services:
     depends_on:
       {{ values.consts.nextcloud_container_name }}:
         condition: service_healthy
-    {% set nginx_test = ix_lib.base.healthchecks.wget_test(port=values.network.web_port, path="/status.php", config={"scheme": "https", "headers": [["Host", "localhost"]]}) %}
+    {% set nginx_test = ix_lib.base.healthchecks.curl_test(port=values.network.web_port, path="/status.php", config={"scheme": "https", "headers": [["Host", "localhost"]]}) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(nginx_test) | tojson }}
     volumes: {{ nginx_volume_mounts.items | tojson }}
 {% endif %}
