@@ -44,8 +44,18 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.nextcloud.data_dir_path}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.html, **{"mount_path": "/var/www/html"}), values=values)) %}
+{% if values.storage.is_data_in_the_same_volume %}
+  {% set data_host_path = ix_lib.base.storage.host_path(values.storage.data) %}
+  {% set html_host_path = ix_lib.base.storage.host_path(values.storage.html) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.nextcloud.data_dir_path, "host_path": "%s/data"|format(data_host_path)}), values=values)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.html, **{"mount_path": "/var/www/html", "host_path_config": {"path": "%s/html"|format(html_host_path)} }), values=values)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.html, **{"mount_path": "/var/www/html/config", "host_path_config": {"path": "%s/config"|format(html_host_path)} }), values=values)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.html, **{"mount_path": "/var/www/html/custom_apps", "host_path_config": {"path": "%s/custom_apps"|format(html_host_path)} }), values=values)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.html, **{"mount_path": "/var/www/html/themes", "host_path_config": {"path": "%s/themes"|format(html_host_path)} }), values=values)) %}
+{% else %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.html, **{"mount_path": "/var/www/html"}), values=values)) %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.nextcloud.data_dir_path}), values=values)) %}
+{% endif %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
 {% for store in values.storage.additional_storage %}
   {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
