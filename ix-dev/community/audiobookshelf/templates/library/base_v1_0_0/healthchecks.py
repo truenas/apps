@@ -25,6 +25,16 @@ def pg_test(user, db, config=None):
     return f"pg_isready -h {host} -p {port} -d {db} -U {user}"
 
 
+def redis_test(config=None):
+    config = config or {}
+
+    host = config.get("host", "127.0.0.1")
+    port = config.get("port", 6379)
+    password = "$$REDIS_PASSWORD"
+
+    return f"redis-cli -h {host} -p {port} -a {password} ping | grep -q PONG"
+
+
 def curl_test(port, path, config=None):
     config = config or {}
     if not port or not path:
