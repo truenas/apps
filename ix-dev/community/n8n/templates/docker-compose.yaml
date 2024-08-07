@@ -68,6 +68,14 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
+{% if values.network.certificate_id %}
+configs:
+  private:
+    content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
+  public:
+    content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
+{% endif %}
+
 {# Containers #}
 services:
   {{ values.consts.n8n_container_name }}:
@@ -77,6 +85,13 @@ services:
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    {% if values.network.certificate_id %}
+    configs:
+      - source: private
+        target: {{ values.consts.ssl_key_path }}
+      - source: public
+        target: {{ values.consts.ssl_cert_path }}
+    {% endif %}
     depends_on:
       {{ values.consts.redis_container_name }}:
         condition: service_healthy
