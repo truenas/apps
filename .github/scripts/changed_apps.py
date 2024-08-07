@@ -32,11 +32,13 @@ def find_test_files(changed_files):
             continue
 
         full_name = f"{match.group(1)}/{match.group(2)}"
-        print(f"Detected changed item for {full_name}", file=sys.stderr)
-
         for file in pathlib.Path("ix-dev", full_name, TEST_VALUES_DIR).glob("*.yaml"):
             item_tuple = (match.group(1), match.group(2), file.name)
             if item_tuple not in seen:
+                print(
+                    f"Detected changed item for [{full_name}] adding [{file.name}] to matrix",
+                    file=sys.stderr,
+                )
                 seen.add(item_tuple)
                 matrix.append(
                     {
