@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 import sys
 
@@ -65,6 +66,18 @@ def get_image(images={}, name=""):
     if name not in images:
         throw_error(f"Expected [images.{name}] to be set")
     if not images[name].get("repository") or not images[name].get("tag"):
-        throw_error(f"Expected [images.{name}.repository] and [images.{name}.tag] to be set")
+        throw_error(
+            f"Expected [images.{name}.repository] and [images.{name}.tag] to be set"
+        )
 
     return f"{images[name]['repository']}:{images[name]['tag']}"
+
+
+def hash_data(data=""):
+    if not data:
+        throw_error("Expected [data] to be set")
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def get_image_with_hashed_data(images={}, name="", data=""):
+    return f"ix-{get_image(images, name)}-{hash_data(data)}"
