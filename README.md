@@ -1,6 +1,5 @@
 # Apps Catalog
 
-
 ## ⚠️ **Contributions**
 
 We are actively working on making the core library more user-friendly.
@@ -75,7 +74,7 @@ Thank you for your understanding.
 | minecraft            | community  | ✅    | -        |
 | mineos               | community  | ✅    | -        |
 | mumble               | community  | ✅    | -        |
-| n8n                  | community  | -     | -        |
+| n8n                  | community  | ✅    | -        |
 | navidrome            | community  | ✅    | -        |
 | nginx-proxy-manager  | community  | ✅    | -        |
 | netbootxyz           | community  | ✅    | -        |
