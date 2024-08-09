@@ -119,6 +119,6 @@ Thank you for your understanding.
 | webdav               | community  | -     | -        |
 | whoogle              | community  | -     | -        |
 | wordpress            | community  | -     | -        |
-| zerotier             | community  | -     | -        |
+| zerotier             | community  | ✅    | -        |
 | minio                | enterprise | -     | -        |
 | syncthing            | enterprise | -     | -        |
