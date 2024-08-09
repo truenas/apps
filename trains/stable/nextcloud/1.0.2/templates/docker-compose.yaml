@@ -251,14 +251,14 @@ services:
       "POSTGRES_DB": values.consts.db_name,
       "POSTGRES_USER": values.nextcloud.db_user,
     } %}
-    {% set trusted_domains = ["127.0.0.1", "localhost", values.consts.nextcloud_container_name] %}
+    {% set trusted_domains = namespace(x=["127.0.0.1", "localhost", values.consts.nextcloud_container_name]) %}
     {% if values.nextcloud.host %}
-      {% set host = namespace(value="%s:%d"|format(values.nextcloud.host, values.network.web_port)) %}
-      {% if ":" in values.nextcloud.host %}
-        {% set host.value = values.nextcloud.host %}
-      {% endif %}
-      {% do nc_app_env.update({"NEXTCLOUD_TRUSTED_DOMAINS": (trusted_domains + [host.value])|unique|list|join(" ")}) %}
+      {% do trusted_domains.x.append(
+        values.nextcloud.host if ":" in values.nextcloud.host
+        else "%s:%d"|format(values.nextcloud.host, values.network.web_port)
+      ) %}
     {% endif %}
+    {% do nc_app_env.update({"NEXTCLOUD_TRUSTED_DOMAINS": trusted_domains.x|unique|list|join(" ")}) %}
     {% if values.nextcloud.certificate_id %}
       {% do nc_app_env.update({
         "APACHE_DISABLE_REWRITE_IP": "1",
@@ -351,6 +351,8 @@ services:
         condition: service_healthy
     {% set nginx_test = ix_lib.base.healthchecks.curl_test(port=values.network.web_port, path="/status.php", config={"scheme": "https", "headers": [["Host", "localhost"]]}) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(nginx_test) | tojson }}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
     volumes: {{ nginx_volume_mounts.items | tojson }}
 {% endif %}
 
