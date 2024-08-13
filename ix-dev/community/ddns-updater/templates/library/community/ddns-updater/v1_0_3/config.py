@@ -528,6 +528,16 @@ providers_schema = {
         ],
         "optional": [{"provider_key": "ttl", "ui_key": "porkbun_ttl"}],
     },
+    "route53": {
+        "required": [
+            {"provider_key": "access_key", "ui_key": "route53_access_key"},
+            {"provider_key": "secret_key", "ui_key": "route53_secret_key"},
+            {"provider_key": "zone_id", "ui_key": "route53_zone_id"},
+        ],
+        "optional": [
+            {"provider_key": "ttl", "ui_key": "route53_ttl"},
+        ],
+    },
     "selfhost.de": {
         "required": [
             {"provider_key": "username", "ui_key": "selfhostde_username"},
@@ -683,4 +693,5 @@ def get_optional_data(item={}, data={}):
 def get_combos_printout(combos=[]):
     result = []
     for combo in combos:
-        result.append(f"[{', '.join([r['key'] for r in combo['required']])}]")
+        result.append(f"[{', '.join([r['provider_key'] for r in combo['required']])}]")
+    return result
