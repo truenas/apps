@@ -55,3 +55,5 @@ def get_commands(values):
 
     if values["minio"]["logging"]["anonymous"]:
         commands.append("--anonymous")
+
+    return commands
