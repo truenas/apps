@@ -1,3 +1,3 @@
-# Home Assistant
+# Firefly III
 
-[Home Assistant](https://www.home-assistant.io/) is an open source home automation that puts local control and privacy first.
+[Firefly III](https://www.firefly-iii.org/) is a personal finances manager
