@@ -2,7 +2,7 @@ from base_v1_0_0 import utils
 
 
 def validate(data):
-    multi_mode = data["multi_mode"]
+    multi_mode = data["minio"]["multi_mode"]
     storage = data["storage"]
     if len(storage["data_dirs"]) == 0:
         utils.throw_error("At least 1 storage item must be set")
@@ -35,3 +35,23 @@ def validate(data):
                         "MinIO: [Multi Mode] items must have 3 dots when they are paths"
                         + " with expansion eg [/some_path{1...4}]"
                     )
+
+
+def get_commands(values):
+    commands = [
+        "server",
+        "--address",
+        f":{values['network']['api_port']}",
+        "--console-address",
+        f":{values['network']['console_port']}",
+    ]
+
+    if values["network"]["certificate_id"]:
+        commands.append("--certs-dir")
+        commands.append("/.minio/certs")
+
+    if values["minio"]["logging"]["quiet"]:
+        commands.append("--quiet")
+
+    if values["minio"]["logging"]["anonymous"]:
+        commands.append("--anonymous")

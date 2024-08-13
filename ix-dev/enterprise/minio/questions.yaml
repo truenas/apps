@@ -1,23 +1,19 @@
 groups:
-  - name: MinIO Credentials
-    description: Configure Credentials for MinIO
+  - name: MinIO Configuration
+    description: Configure MinIO
   - name: User and Group Configuration
     description: Configure User and Group for MinIO
-  - name: MinIO Logging
-    description: Configure Logging for MinIO
   - name: Network Configuration
     description: Configure Network for MinIO
-  - name: MultiMode Configuration
-    description: Configure MultiMode for MinIO
   - name: Storage Configuration
     description: Configure Storage for MinIO
   - name: Resources Configuration
     description: Configure Resources for MinIO
 
 questions:
-  - variable: creds
+  - variable: minio
     label: ""
-    group: MinIO Credentials
+    group: MinIO Configuration
     schema:
       type: dict
       attrs:
@@ -37,6 +33,56 @@ questions:
             min_length: 8
             required: true
             private: true
+        - variable: multi_mode
+          label: Multi Mode (SNMD or MNMD) Configuration
+          description: |
+            For Single Node Multi Drive (SNMD), the entry will look like this:</br>
+            Example Entry - /data{1...4}</br></br>
+            For Multi Node Multi Drive (MNMD), the entry will look like this:</br>
+            Example Entry - https://minio{1...3}.example.com:30000/data{1...4}</br></br>
+            Note that each host must use the same port number and the same number of storage items.</br>
+            In both cases /data{1...4} is the directories to be used for MinIO.
+            You have to add additional storage for each data entry.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable Multi Mode
+                schema:
+                  type: boolean
+                  default: false
+              - variable: entries
+                label: Multi Mode (SNMD or MNMD) Entries
+                schema:
+                  type: list
+                  show_if: [["enabled", "=", true]]
+                  default: []
+                  items:
+                    - variable: item
+                      label: ""
+                      schema:
+                        type: string
+                        required: true
+        - variable: logging
+          label: ""
+          description: Logging configuration
+          schema:
+            type: dict
+            attrs:
+              - variable: quiet
+                label: Quiet
+                description: Disables startup information.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: anonymous
+                label: Anonymous
+                description: Hides sensitive information from logging.
+                schema:
+                  type: boolean
+                  default: false
+
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -59,25 +105,6 @@ questions:
             min: 568
             default: 568
             required: true
-  - variable: logging
-    label: ""
-    group: MinIO Logging
-    description: Logging configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: quiet
-          label: Quiet
-          description: Disables startup information.
-          schema:
-            type: boolean
-            default: false
-        - variable: anonymous
-          label: Anonymous
-          description: Hides sensitive information from logging.
-          schema:
-            type: boolean
-            default: false
 
   - variable: network
     label: ""
@@ -91,18 +118,18 @@ questions:
           schema:
             type: int
             default: 30000
-            min: 9000
-            max: 65535
             required: true
+            $ref:
+              - "definitions/port"
         - variable: console_port
           label: Console Port (Web UI)
           description: The port for the MinIO Web UI.
           schema:
             type: int
             default: 30001
-            min: 9000
-            max: 65535
             required: true
+            $ref:
+              - "definitions/port"
         - variable: server_url
           label: Server URL
           description: |
@@ -127,38 +154,7 @@ questions:
             "null": true
             $ref:
               - "definitions/certificate"
-  - variable: multi_mode
-    label: Multi Mode (SNMD or MNMD) Configuration
-    group: MultiMode Configuration
-    description: |
-      For Single Node Multi Drive (SNMD), the entry will look like this:</br>
-      Example Entry - /data{1...4}</br></br>
-      For Multi Node Multi Drive (MNMD), the entry will look like this:</br>
-      Example Entry - https://minio{1...3}.example.com:30000/data{1...4}</br></br>
-      Note that each host must use the same port number and the same number of storage items.</br>
-      In both cases /data{1...4} is the directories to be used for MinIO.
-      You have to add additional storage for each data entry.
-    schema:
-      type: dict
-      attrs:
-        - variable: enabled
-          label: Enabled
-          description: Enable Multi Mode
-          schema:
-            type: boolean
-            default: false
-        - variable: entries
-          label: Multi Mode (SNMD or MNMD) Entries
-          schema:
-            type: list
-            show_if: [["enabled", "=", true]]
-            default: []
-            items:
-              - variable: item
-                label: ""
-                schema:
-                  type: string
-                  required: true
+
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -170,6 +166,7 @@ questions:
           dataset_name: data1
       empty: false
       required: true
+      min: 1
       items:
         - variable: data_dirs
           label: Data Directories
