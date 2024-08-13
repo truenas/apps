@@ -58,13 +58,30 @@ def get_nvidia_gpus_reservations(gpus: dict) -> dict:
     }
 
 
+disallowed_devices = ["/dev/dri"]
+
+
 # Returns the top level devices list
 # Accepting other_devices to allow manually adding devices
 # directly to the list. (Eg sound devices)
 def get_devices(resources: dict, other_devices: list = []) -> list:
-    gpus = resources.get("gpus", {})
-    devices = other_devices or []
-    if gpus.get("use_all_gpus", False):
-        devices.append("/dev/dri")
+    devices = []
+    if resources.get("gpus", {}).get("use_all_gpus", False):
+        devices.append("/dev/dri:/dev/dri")
+
+    added_host_devices: list = []
+    for device in other_devices:
+        host_device = device.get("host_device", "").rstrip("/")
+        container_device = device.get("container_device", "") or host_device
+        if not host_device:
+            utils.throw_error(f"Expected [host_device] to be set for device [{device}]")
+        if not utils.valid_path(host_device):
+            utils.throw_error(f"Expected [host_device] to be a valid path for device [{device}]")
+        if host_device in disallowed_devices:
+            utils.throw_error(f"Device [{host_device}] is not allowed to be manually added.")
+        if host_device in added_host_devices:
+            utils.throw_error(f"Expected devices to be unique, but [{host_device}] was already added.")
+        devices.append(f"{host_device}:{container_device}")
+        added_host_devices.append(host_device)
 
     return devices
