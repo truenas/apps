@@ -79,11 +79,11 @@ services:
       {"cmd": "options auto-upgrade-intervalh", "value": st.auto_upgrade_intervalh, "quote": true},
       {"cmd": "defaults folder xattr-filter max-total-size", "value": st.xattr_filter_max_total_size, "quote": false},
       {"cmd": "defaults folder xattr-filter max-single-entry-size", "value": st.xattr_filter_max_single_entry_size, "quote": true},
-      {"cmd": "defaults folder send-ownership", "value": st.send_ownership, "quote": false},
-      {"cmd": "defaults folder sync-ownership", "value": st.sync_ownership, "quote": false},
-      {"cmd": "defaults folder send-xattrs", "value": st.send_xattrs, "quote": false},
-      {"cmd": "defaults folder sync-xattrs", "value": st.sync_xattrs, "quote": false},
-      {"cmd": "defaults folder ignore-perms", "value": st.ignore_perms, "quote": false},
+      {"cmd": "defaults folder send-ownership", "value": 1 if st.send_ownership else 0, "quote": false},
+      {"cmd": "defaults folder sync-ownership", "value": 1 if st.sync_ownership else 0, "quote": false},
+      {"cmd": "defaults folder send-xattrs", "value": 1 if st.send_xattrs else 0, "quote": false},
+      {"cmd": "defaults folder sync-xattrs", "value": 1 if st.sync_xattrs else 0, "quote": false},
+      {"cmd": "defaults folder ignore-perms", "value": 1 if st.ignore_perms else 0, "quote": false},
       {"cmd": "defaults folder path", "value": st.path, "quote": true},
     ] %}
     command:
@@ -168,6 +168,11 @@ services:
     {% if not values.network.host_network %}
     ports:
       - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": 22000, "published": values.network.tcp_port}) | tojson }}
+      - {{ ix_lib.base.ports.get_port(port={"target": 22000, "published": values.network.quic_port, "protocol": "udp"}) | tojson }}
+      {% if values.consts.settings.local_discovery %}
+      - {{ ix_lib.base.ports.get_port(port={"target": 27017 , "published": values.network.local_discover_port, "protocol": "udp"}) | tojson }}
+      {% endif %}
     {% endif %}
 
 {% if volumes.items %}
