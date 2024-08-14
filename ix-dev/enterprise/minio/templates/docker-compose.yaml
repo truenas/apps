@@ -78,14 +78,14 @@ services:
     {% set proto = "https" if values.network.certificate_id else "http" %}
     {% set app_env = ix_lib.base.utils.merge_dicts({
         "MC_HOST_health": "%s://localhost:%d" | format(proto, values.network.api_port),
-        "MINIO_ROOT_USER": values.minio.access_key,
-        "MINIO_ROOT_PASSWORD": values.minio.secret_key,
+        "MINIO_ROOT_USER": values.minio.credentials.access_key,
+        "MINIO_ROOT_PASSWORD": values.minio.credentials.secret_key,
         "MINIO_VOLUMES": (values.minio.multi_mode.entries if values.minio.multi_mode.entries else minio_config_items.items) | join(" "),
       },
       {"MINIO_SERVER_URL": values.network.server_url} if values.network.server_url else {},
       {"MINIO_BROWSER_REDIRECT_URL": values.network.console_url} if values.network.console_url else {}
     ) %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user={}, values=values) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.minio.additional_envs, values=values) | tojson }}
     {% if not values.network.host_network %}
     ports:
       - {{ ix_lib.base.ports.get_port(port={"target": values.network.console_port, "published": values.network.console_port}) | tojson }}

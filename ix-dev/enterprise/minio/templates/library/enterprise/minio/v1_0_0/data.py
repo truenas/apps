@@ -13,7 +13,7 @@ def validate(data):
         )
 
     # make sure mount_paths in data["storage"]["data_dirs"] are unique
-    mount_paths = [item["mount_path"] for item in storage["data_dirs"]]
+    mount_paths = [item["mount_path"].rstrip("/") for item in storage["data_dirs"]]
     if len(mount_paths) != len(set(mount_paths)):
         utils.throw_error(
             f"Mount paths in storage items must be unique, found duplicates: [{', '.join(mount_paths)}]"
@@ -32,7 +32,7 @@ def validate(data):
                 # check if these characters exist in item
                 if any(char in item for char in ["{", "}"]) and "..." not in item:
                     utils.throw_error(
-                        "MinIO: [Multi Mode] items must have 3 dots when they are paths"
+                        f"MinIO: [Multi Mode] item [{item}] must have 3 dots when they are paths"
                         + " with expansion eg [/some_path{1...4}]"
                     )
 
