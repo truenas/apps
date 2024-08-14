@@ -309,7 +309,7 @@ def _process_cifs(data):
             opts.append(opt)
 
     server = data["cifs_config"]["server"].lstrip("/")
-    path = data["cifs_config"]["path"]
+    path = data["cifs_config"]["path"].strip("/")
     volume = {
         "driver_opts": {
             "type": "cifs",
