@@ -54,6 +54,13 @@ def parse_args():
         type=bool,
         help="Prints the rendered docker-compose file even if it's not a valid yaml",
     )
+    parser.add_argument(
+        "--wait",
+        required=False,
+        default=False,
+        type=bool,
+        help="Wait for user input before stopping the app",
+    )
     parsed = parser.parse_args()
 
     return {
@@ -63,6 +70,7 @@ def parse_args():
         "render_only": parsed.render_only,
         "render_only_debug": parsed.render_only_debug,
         "project": secrets.token_hex(16),
+        "wait": parsed.wait,
     }
 
 
@@ -74,6 +82,7 @@ def print_info():
     print_stderr(f"  - test-file: [{args['test_file']}]")
     print_stderr(f"  - render-only: [{args['render_only']}]")
     print_stderr(f"  - render-only-debug: [{args['render_only_debug']}]")
+    print_stderr(f"  - wait: [{args['wait']}]")
 
 
 def command_exists(command):
@@ -164,6 +173,15 @@ def print_docker_compose_config():
     if args["render_only"]:
         print_stdout(res.stdout.decode("utf-8"))
         sys.exit(0)
+
+    data = yaml.safe_load(res.stdout.decode("utf-8"))
+    portals = data.get("x-portals", [])
+    for portal in portals:
+        scheme = portal.get("scheme", "http")
+        host = portal.get("host", "localhost").replace("0.0.0.0", "localhost")
+        port = str(portal.get("port", "80" if scheme == "http" else "443"))
+        url = scheme + "://" + host + ":" + port + portal.get("path", "")
+        x_portals.append(f"[{portal['name']}] - {url}")
 
     print_stderr(res.stdout.decode("utf-8"))
 
@@ -439,6 +457,14 @@ def generate_item_file():
         yaml.dump(item_data, f)
 
 
+def wait_for_user_input():
+    print_stderr("Press enter to stop the app")
+    try:
+        input()
+    except KeyboardInterrupt:
+        pass
+
+
 def main():
     print_info()
     check_app_dir_exists()
@@ -451,6 +477,10 @@ def main():
     render_compose()
     print_docker_compose_config()
     res = run_app()
+    if args["wait"]:
+        print_stderr("\nPortals:")
+        print_stderr("\n".join(x_portals)+"\n")
+        wait_for_user_input()
     docker_cleanup()
 
     if res == 0:
@@ -462,6 +492,7 @@ def main():
 
 
 args = parse_args()
+x_portals = []
 
 if __name__ == "__main__":
     main()
