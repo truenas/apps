@@ -121,4 +121,4 @@ Thank you for your understanding.
 | wordpress            | community  | -     | -        |
 | zerotier             | community  | ✅    | -        |
 | minio                | enterprise | ✅    | ✅       |
-| syncthing            | enterprise | -     | -        |
+| syncthing            | enterprise | ✅    | ✅       |
