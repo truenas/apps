@@ -7,9 +7,13 @@ def validate(data):
     if len(storage["data_dirs"]) == 0:
         utils.throw_error("At least 1 storage item must be set")
 
-    if len(storage["data_dirs"]) > 1 and not len(multi_mode.get("entries", [])) > 0:
+    if (
+        len(storage["data_dirs"]) > 1
+        and not len(multi_mode.get("entries", [])) > 0
+        and not multi_mode.get("enabled", False)
+    ):
         utils.throw_error(
-            "[Multi Mode] must be enabled if more than 1 storage item is set"
+            "[Multi Mode] must be enabled and entries must be set if more than 1 storage item is set"
         )
 
     # make sure mount_paths in data["storage"]["data_dirs"] are unique
