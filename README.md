@@ -120,5 +120,5 @@ Thank you for your understanding.
 | whoogle              | community  | ✅    | -        |
 | wordpress            | community  | -     | -        |
 | zerotier             | community  | ✅    | -        |
-| minio                | enterprise | -     | -        |
+| minio                | enterprise | ✅    | ✅       |
 | syncthing            | enterprise | -     | -        |
