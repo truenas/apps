@@ -148,6 +148,15 @@ configs:
     content: |
       {% set bytes_gb = 1024 * 1024 * 1024 %}
       LimitRequestBody {{ values.nextcloud.php_upload_limit * bytes_gb }}
+  ix-update-hosts-script.sh:
+    content: |
+      #!/bin/bash
+      set -e
+      config_file="/var/www/html/config/config.php"
+      {# Reason for sed: https://github.com/nextcloud/server/issues/44924 #}
+      echo "Updating database and redis host in config.php"
+      sed -i "s/\('dbhost' => '\)[^']*postgres:5432',/\1{{ values.consts.postgres_container_name }}:5432',/" "$$config_file"
+      occ config:system:set redis host --value="{{ values.consts.redis_container_name }}"
   occ:
     content: |
       #!/bin/bash
@@ -219,6 +228,9 @@ services:
         target: /usr/local/etc/php/conf.d/nextcloud-z-99.ini
       - source: opcache.ini
         target: /usr/local/etc/php/conf.d/opcache-z-99.ini
+      - source: ix-update-hosts-script.sh
+        target: /docker-entrypoint-hooks.d/before-starting/ix-update-hosts-script.sh
+        mode: 0755
     depends_on:
       {{ values.consts.postgres_container_name }}:
         condition: service_healthy
