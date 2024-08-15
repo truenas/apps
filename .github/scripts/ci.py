@@ -229,6 +229,69 @@ def get_parsed_containers():
     return parsed_containers
 
 
+def status_indicates_healthcheck_existence(container):
+    """Assumes healthcheck exists if status contains "health" """
+    # eg "health: starting". This happens right after a container is started or restarted
+    return "health" in container.get("Status", "")
+
+
+def state_indicates_restarting(container):
+    """Assumes restarting if state is "restarting" """
+    return container.get("State", "") == "restarting"
+
+
+def exit_code_indicates_normal_exit(container):
+    """Assumes normal exit if there is no exit code or if it is 0"""
+    return container.get("ExitCode", 0) == 0
+
+
+def health_indicates_healthy(container):
+    """Assumes healthy if there is no health status or if it is "healthy" """
+    health = container.get("Health", "")
+    if health in ["healthy", ""]:
+        return True
+    return False
+
+
+def is_considered_healthy(container):
+    message = [
+        f"Skipping container [{container['Name']}({container['ID']})] with status [{container.get('State')}]"
+        + " for the following reasons:"
+    ]
+    reasons = []
+
+    if health_indicates_healthy(container):
+        reasons.append("\t- Container is healthy")
+
+    if exit_code_indicates_normal_exit(container):
+        reasons.append(f"\t- Exit code is [{container.get('ExitCode', 0)}]")
+
+    if not state_indicates_restarting(container):
+        reasons.append("\t- Container is not restarting")
+
+    if not status_indicates_healthcheck_existence(container):
+        reasons.append("\t- Status does not indicate a healthcheck exists")
+
+    # Mark it as healthy if ALL of the following are true:
+    # 1. It is healthy
+    # 2. Its exit code is normal
+    # 3. Its not restarting
+    # 4. It does not indicate a healthcheck exists
+
+    # For #4, there was some cases where the container was restarting and at the time of check,
+    # the "Health" was empty and "State" was "running" (similar to init containers). This check
+    # added to try to catch those cases, by inspecting the "Status" field which if there is a healthcheck
+    # it will contain the word "health".
+    result = (
+        health_indicates_healthy(container)
+        and exit_code_indicates_normal_exit(container)
+        and not state_indicates_restarting(container)
+        and not status_indicates_healthcheck_existence(container)
+    )
+
+    return {"result": result, "reasons": "\n".join(message + reasons)}
+
+
 def get_failed_containers():
     parsed_containers = get_parsed_containers()
 
@@ -236,18 +299,9 @@ def get_failed_containers():
     for container in parsed_containers:
         # Skip containers that are exited with 0 (eg init containers),
         # but not restarting (during a restart exit code is 0)
-        if (
-            (
-                container.get("Health", "") == ""
-                or container.get("Health", "") == "healthy"
-            )
-            and container.get("ExitCode", 0) == 0
-            and (not container.get("State", "") == "restarting")
-        ):
-            print_stderr(
-                f"Skipping container [{container['Name']}({container['ID']})] with status [{container.get('State')}]"
-                + " because it exited with 0 and has no health status"
-            )
+        is_healthy = is_considered_healthy(container)
+        if is_healthy["result"]:
+            print_stderr(is_healthy["reasons"])
             continue
         failed.append(container)
 
