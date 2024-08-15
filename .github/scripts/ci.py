@@ -135,9 +135,7 @@ def render_compose():
         except yaml.YAMLError as e:
             print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
             with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
-                print_stderr(
-                    f"Syntax Error in rendered docker-compose file:\n{f.read()}"
-                )
+                print_stderr(f"Syntax Error in rendered docker-compose file:\n{f.read()}")
             sys.exit(1)
 
         if args["render_only_debug"]:
@@ -212,7 +210,7 @@ def print_docker_processes():
     separator_end()
 
 
-def get_failed_containers():
+def get_parsed_containers():
     # Outputs one container per line, in json format
     cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
@@ -228,6 +226,11 @@ def get_failed_containers():
         except json.JSONDecodeError:
             print_stderr(f"Failed to parse container status output:\n {line}")
             sys.exit(1)
+    return parsed_containers
+
+
+def get_failed_containers():
+    parsed_containers = get_parsed_containers()
 
     failed = []
     for container in parsed_containers:
@@ -275,6 +278,14 @@ def run_app():
 
     print_stderr(f"Exit code: {res.returncode}")
     if res.returncode != 0:
+        parsed_containers = get_parsed_containers()
+        if not parsed_containers:
+            print_stderr(
+                "Docker exited with non-zero code and no containers were found.\n"
+                + "Most likely docker couldn't start the containers at all.\n"
+            )
+            sys.exit(1)
+
         failed_containers = get_failed_containers()
         print_stderr(f"Found [{len(failed_containers)}] failed containers")
         if failed_containers:
@@ -341,9 +352,7 @@ def copy_macros():
 
 def copy_migration_helpers():
     if not os.path.exists("migration_helpers"):
-        print_stderr(
-            "Migration helpers directory does not exist. Skipping helpers copy"
-        )
+        print_stderr("Migration helpers directory does not exist. Skipping helpers copy")
         return
 
     print_stderr("Copying migration helpers")
