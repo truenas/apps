@@ -14,6 +14,7 @@ def migrate(values):
         raise ValueError("No config found in values")
 
     new_values = {
+        "TZ": config["TZ"],
         "syncthing": {
             "additional_envs": config.get("additionalEnvs", []),
         },
@@ -35,8 +36,8 @@ def migrate(values):
         "resources": migrate_resources(config["resources"]),
     }
 
-    for old_item in config["syncthingStorage"].get("additionalStorage", []):
-        new_item = migrate_storage_item(old_item)
+    for old_item in config["syncthingStorage"].get("additionalStorages", []):
+        new_item = migrate_storage_item(old_item, include_read_only=True)
         if new_item["type"] == "cifs":
             new_migration_mode = old_item.get("smbConfig", {}).get("migrationMode", False)
             assert isinstance(new_item["cifs_config"], dict), "something went wrong"

@@ -1,4 +1,6 @@
 import re
+import json
+import hashlib
 
 from . import utils
 
@@ -128,6 +130,10 @@ def _get_bind_vol_config(data, ix_volumes=None):
 
 
 def _get_volume_vol_config(data):
+    if data.get("type") in ["nfs", "cifs"]:
+        if data.get("volume_name"):
+            utils.throw_error("Expected [volume_name] to be empty for [nfs, cifs] type")
+        data.update({"volume_name": _get_name_for_external_volume(data)})
     if not data.get("volume_name"):
         utils.throw_error("Expected [volume_name] to be set for [volume] type")
 
@@ -161,6 +167,14 @@ def _get_tmpfs_vol_config(data):
         tmpfs.update({"mode": int(config["mode"], 8)})
 
     return {"tmpfs": tmpfs}
+
+
+# We generate a unique name for the volume based on the config
+# Docker will not update any volume after creation. This is to ensure
+# that changing any value (eg server address) in the config will result in a new volume
+def _get_name_for_external_volume(data):
+    config_hash = hashlib.sha256(json.dumps(data).encode("utf-8")).hexdigest()
+    return f"{data['type']}_{config_hash}"
 
 
 # Returns a volume object (Used in top "volumes" level)
