@@ -155,6 +155,16 @@ def render_compose():
     print_stderr("Done rendering docker-compose file")
 
 
+def update_x_portals(parsed_compose):
+    portals = parsed_compose.get("x-portals", [])
+    for portal in portals:
+        scheme = portal.get("scheme", "http")
+        host = portal.get("host", "localhost").replace("0.0.0.0", "localhost")
+        port = str(portal.get("port", "80" if scheme == "http" else "443"))
+        url = scheme + "://" + host + ":" + port + portal.get("path", "")
+        x_portals.append(f"[{portal['name']}] - {url}")
+
+
 def print_docker_compose_config():
     print_stderr("Printing docker compose config (parsed compose)")
     cmd = f"{get_base_cmd()} config"
@@ -175,15 +185,9 @@ def print_docker_compose_config():
         sys.exit(0)
 
     data = yaml.safe_load(res.stdout.decode("utf-8"))
-    portals = data.get("x-portals", [])
-    for portal in portals:
-        scheme = portal.get("scheme", "http")
-        host = portal.get("host", "localhost").replace("0.0.0.0", "localhost")
-        port = str(portal.get("port", "80" if scheme == "http" else "443"))
-        url = scheme + "://" + host + ":" + port + portal.get("path", "")
-        x_portals.append(f"[{portal['name']}] - {url}")
+    update_x_portals(data)
 
-    print_stderr(res.stdout.decode("utf-8"))
+    print_stderr(data)
 
 
 def separator_start():
@@ -479,7 +483,7 @@ def main():
     res = run_app()
     if args["wait"]:
         print_stderr("\nPortals:")
-        print_stderr("\n".join(x_portals)+"\n")
+        print_stderr("\n".join(x_portals) + "\n")
         wait_for_user_input()
     docker_cleanup()
 
