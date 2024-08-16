@@ -1,5 +1,3 @@
-{% from "macros/global/perms/container.yaml.jinja" import perms_container %}
-
 {% set reseverd_args = ["--no-autoupdate", "tunnel", "run"] %}
 {# Make sure args are unique #}
 {% if values.cloudflared.additional_args != values.cloudflared.additional_args|unique|list %}
@@ -73,12 +71,7 @@ services:
     environment: {{ ix_lib.base.environment.envs(app={"TUNNEL_TOKEN": values.cloudflared.tunnel_token}, user=values.cloudflared.additional_envs, values=values) | tojson }}
     volumes: {{ volume_mounts.items | tojson }}
   {% if perms_dirs.items %}
-  {{ values.consts.perms_container_name }}:
-    {{ perms_container(items=perms_dirs.items) | indent(4) }}
-    volumes:
-      {% for item in perms_mounts.items %}
-      - {{ item | tojson }}
-      {% endfor %}
+  {{ values.consts.perms_container_name }}: {{ ix_lib.base.permissions.perms_container(items=perms_dirs.items, volumes=perms_mounts.items) | tojson }}
   {% endif %}
 
 {% if volumes.items %}
