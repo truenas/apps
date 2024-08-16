@@ -122,3 +122,10 @@ Thank you for your understanding.
 | zerotier             | community  | ✅    | -        |
 | minio                | enterprise | ✅    | ✅       |
 | syncthing            | enterprise | ✅    | ✅       |
+
+## New Apps
+
+|  | App                  | Train      |
+|--| -------------------- | ---------- |
+|⭐| portainer            | community  |
+|⭐| dockge               | community  |
