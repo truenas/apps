@@ -22,7 +22,7 @@
   )) %}
 {% endfor %}
 
-{% set randomCertPass = ix_lib.base.utils.secure_string(32) %}
+{% set random_cert_pass = ix_lib.base.utils.secure_string(32) %}
 {% set config = namespace({"opts": [
   "--httpPort=%d"|format(-1 if values.network.certificate_id else values.network.web_port),
 ], "java_opts": [
@@ -34,9 +34,8 @@
   {% do config.opts.extend([
     "--httpsPort=%d"|format(values.network.web_port),
     "--httpsKeyStore=%s/%s"|format(values.consts.keystore_path, values.consts.keystore_name),
-    "--httpsKeyStorePassword=%s"|format(randomCertPass),
+    "--httpsKeyStorePassword=%s"|format(random_cert_pass),
   ])%}
-  {% do config.restricted_opts.extend(["httpsPort", "httpsKeyStorePassword", "httpsKeyStore"]) %}
 {% endif %}
 
 {% set restricted_opts = ["httpPort", "httpsPort", "httpsKeyStorePassword", "httpsKeyStore"] %}
@@ -85,8 +84,76 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
+{% if values.network.certificate_id %}
+configs:
+  private:
+    content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
+  public:
+    content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
+{% endif %}
+
 {# Containers #}
 services:
+  {% if values.network.certificate_id %}
+  {{ values.consts.certs_container_name }}:
+    user: {{ "%d:%d" | format(values.consts.run_as_user, values.consts.run_as_group) }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 521M
+    entrypoint: "/bin/sh"
+    {% if values.network.certificate_id %}
+    depends_on:
+      {{ values.consts.perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    configs:
+      - source: private
+        target: {{ "%s/%s"|format(values.consts.temp_certs_path, values.consts.key_name) }}
+      - source: public
+        target: {{ "%s/%s"|format(values.consts.temp_certs_path, values.consts.crt_name) }}
+    volumes: {{ volume_mounts.items | tojson }}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    command:
+      - "-c"
+      - |
+        {% set p12 = "%s/ix.p12"|format(values.consts.temp_certs_path) %}
+        {% set key = "%s/%s"|format(values.consts.temp_certs_path, values.consts.key_name) %}
+        {% set cert = "%s/%s"|format(values.consts.temp_certs_path, values.consts.crt_name) %}
+        mkdir -p {{ values.consts.temp_certs_path }}
+        mkdir -p {{ values.consts.keystore_path }}
+
+        if [ -f "{{ p12 }}" ]; then
+            echo "Cleaning up old p12 certificate"; rm -f "{{ p12 }}"
+        fi
+
+        echo "Generating new p12 from key and cert"
+        if [ -f "{{ key }}" ] && [ -f "{{ cert }}" ]; then
+            echo "Found key and cert, generating p12 certificate"
+            openssl pkcs12 -inkey "{{ key }}" -in "{{ cert }}" \
+                -export -out "/tmp/ix.p12" \
+                -password pass:{{ random_cert_pass }} || { echo "Failed to generate p12 certificate"; exit 1; }
+            echo "Successfully generated p12 certificate"
+
+            if [ -f "{{ keystore }}" ]; then
+                echo "Cleaning up old keystore"; rm -f "{{ keystore }}"
+            fi
+
+            echo "Importing certificate into a new java keystore"
+            keytool -importkeystore -srckeystore "{{ p12 }}" -srcstoretype pkcs12 \
+                -destkeystore "{{ keystore }}" -deststoretype JKS \
+                -srcstorepass "{{ random_cert_pass }}" \
+                -deststorepass "{{ random_cert_pass }}" || { echo "Failed to import certificate"; exit 1; }
+            echo "Certificate imported into keystore"
+        else
+            echo "Failed to find key and cert, skipping certificate import"; exit 1
+        fi
+    {% endif %}
+
   {{ values.consts.jenkins_container_name }}:
     user: {{ "%d:%d" | format(values.consts.run_as_user, values.consts.run_as_group) }}
     image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
@@ -94,10 +161,16 @@ services:
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
     devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if perms_dirs.items %}
+    {% if perms_dirs.items or values.network.certificate_id %}
     depends_on:
+      {% if values.network.certificate_id %}
+      {{ values.consts.certs_container_name }}:
+        condition: service_completed_successfully
+      {% endif %}
+      {% if perms_dirs.items %}
       {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
+      {% endif %}
     {% endif %}
     {% if values.network.host_network %}
     network_mode: host
