@@ -98,13 +98,14 @@ services:
   {{ values.consts.certs_container_name }}:
     user: {{ "%d:%d" | format(values.consts.run_as_user, values.consts.run_as_group) }}
     image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: "1.0"
           memory: 521M
     entrypoint: "/bin/sh"
+    healthcheck:
+      disable: true
     {% if values.network.certificate_id %}
     depends_on:
       {{ values.consts.perms_container_name }}:
@@ -124,6 +125,7 @@ services:
         {% set p12 = "%s/ix.p12"|format(values.consts.temp_certs_path) %}
         {% set key = "%s/%s"|format(values.consts.temp_certs_path, values.consts.key_name) %}
         {% set cert = "%s/%s"|format(values.consts.temp_certs_path, values.consts.crt_name) %}
+        {% set keystore = "%s/%s"|format(values.consts.keystore_path, values.consts.keystore_name) %}
         mkdir -p {{ values.consts.temp_certs_path }}
         mkdir -p {{ values.consts.keystore_path }}
 
@@ -135,7 +137,7 @@ services:
         if [ -f "{{ key }}" ] && [ -f "{{ cert }}" ]; then
             echo "Found key and cert, generating p12 certificate"
             openssl pkcs12 -inkey "{{ key }}" -in "{{ cert }}" \
-                -export -out "/tmp/ix.p12" \
+                -export -out "{{ p12 }}" \
                 -password pass:{{ random_cert_pass }} || { echo "Failed to generate p12 certificate"; exit 1; }
             echo "Successfully generated p12 certificate"
 
