@@ -30,7 +30,7 @@ def migrate_smb_pv_pvc_type(smb_pv_pvc):
         "type": "cifs",
         "cifs_config": {
             "server": smb_config["server"],
-            "share": smb_config["share"],
+            "path": smb_config["share"],
             "domain": smb_config.get("domain", ""),
             "username": smb_config["username"],
             "password": smb_config["password"],
