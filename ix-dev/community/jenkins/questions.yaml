@@ -1,32 +1,81 @@
 groups:
-  - name: Radarr Configuration
-    description: Configure Radarr
+  - name: Jenkins Configuration
+    description: Configure Jenkins
   - name: User and Group Configuration
-    description: Configure User and Group for Radarr
+    description: Configure User and Group for Jenkins
   - name: Network Configuration
-    description: Configure Network for Radarr
+    description: Configure Network for Jenkins
   - name: Storage Configuration
-    description: Configure Storage for Radarr
+    description: Configure Storage for Jenkins
   - name: Resources Configuration
-    description: Configure Resources for Radarr
+    description: Configure Resources for Jenkins
 
 questions:
-  - variable: radarr
+  - variable: TZ
+    group: Jenkins Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: jenkins
     label: ""
-    group: Radarr Configuration
+    group: Jenkins Configuration
     schema:
       type: dict
       attrs:
-        - variable: instance_name
-          label: Instance Name
-          description: The name of the Radarr instance.
+        - variable: additional_java_opts
+          label: Additional Jenkins Java Options
+          description: |
+            Configure additional jenkins java options for Jenkins.</br>
+            See https://www.jenkins.io/doc/book/managing/system-properties
           schema:
-            type: string
-            default: "Radarr"
-            required: true
+            type: list
+            default: []
+            items:
+              - variable: jenkinsJavaOpt
+                label: Jenkins Java Option
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: property
+                      label: Property
+                      description: |
+                        The property to set, see https://www.jenkins.io/doc/book/managing/system-properties </br>
+                        The prefix [-D] is automatically added.
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      description: |
+                        The value to set for the property.</br>
+                      label: Value
+                      schema:
+                        type: string
+                        required: true
+        - variable: additional_opts
+          label: Additional Jenkins Options
+          description: |
+            Configure additional jenkins options for Jenkins. </br>
+            see https://www.jenkins.io/doc/book/installing/initial-settings
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: jenkinsOption
+                label: Jenkins Option
+                description: |
+                  The option to set, see https://www.jenkins.io/doc/book/installing/initial-settings </br>
+                  The prefix [--] is automatically added.
+                schema:
+                  type: string
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Radarr.
+          description: Configure additional environment variables for Jenkins.
           schema:
             type: list
             default: []
@@ -46,28 +95,6 @@ questions:
                       schema:
                         type: string
                         required: true
-  - variable: run_as
-    label: ""
-    group: User and Group Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: user
-          label: User ID
-          description: The user id that Radarr files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
-        - variable: group
-          label: Group ID
-          description: The group id that Radarr files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
 
   - variable: network
     label: ""
@@ -77,13 +104,37 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for Radarr WebUI
+          description: The port for Jenkins WebUI
           schema:
             type: int
             default: 30025
             required: true
             $ref:
               - definitions/port
+        - variable: enable_agent
+          label: Enable Agent Port
+          description: Enable the agent port for Jenkins.
+          schema:
+            type: boolean
+            default: false
+        - variable: agent_port
+          label: Agent Port
+          description: The port for Jenkins Agent
+          schema:
+            type: int
+            default: 50000
+            show_if: [["agent", "=", true]]
+            required: true
+            $ref:
+              - definitions/port
+        - variable: certificate_id
+          label: Certificate ID
+          description: The certificate ID to use for Jenkins.
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - definitions/certificate
         - variable: host_network
           label: Host Network
           description: |
@@ -91,15 +142,16 @@ questions:
           schema:
             type: boolean
             default: false
+
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: config
-          label: Radarr Config Storage
-          description: The path to store Radarr Config.
+        - variable: home
+          label: Jenkins Home Storage
+          description: The path to store Jenkins Home.
           schema:
             type: dict
             attrs:
@@ -141,7 +193,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
+                        default: "home"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -177,7 +229,7 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Radarr.
+          description: Additional storage for Jenkins.
           schema:
             type: list
             default: []
@@ -325,14 +377,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Radarr.
+                description: CPUs limit for Jenkins.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Radarr.
+                description: Memory limit for Jenkins.
                 schema:
                   type: int
                   default: 4096
