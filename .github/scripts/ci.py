@@ -10,6 +10,7 @@ import sys
 import os
 
 CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
+PLATFORM = "linux/amd64"
 
 
 # Used to print mostly structured data, like yaml or json
@@ -110,7 +111,9 @@ def get_base_cmd():
 def pull_app_catalog_container():
     print_stderr(f"Pulling container image [{CONTAINER_IMAGE}]")
     res = subprocess.run(
-        f"docker pull --quiet {CONTAINER_IMAGE}", shell=True, capture_output=True
+        f"docker pull --platform {PLATFORM} --quiet {CONTAINER_IMAGE}",
+        shell=True,
+        capture_output=True,
     )
     if res.returncode != 0:
         print_stderr(f"Failed to pull container image [{CONTAINER_IMAGE}]")
@@ -124,7 +127,7 @@ def render_compose():
     app_dir = f"ix-dev/{args['train']}/{args['app']}"
     cmd = " ".join(
         [
-            f"docker run --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
+            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
             "apps_render_app render",
             f"--path /workspace/{app_dir}",
             f"--values /workspace/{app_dir}/{test_values_dir}/{args['test_file']}",
@@ -402,7 +405,7 @@ def check_app_dir_exists():
 def copy_lib():
     cmd = " ".join(
         [
-            f"docker run --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
+            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
             "apps_catalog_hash_generate --path /workspace",
         ]
     )
