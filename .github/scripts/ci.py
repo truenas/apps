@@ -187,7 +187,7 @@ def print_docker_compose_config():
     data = yaml.safe_load(res.stdout.decode("utf-8"))
     update_x_portals(data)
 
-    print_stderr(data)
+    print_stderr(res.stdout.decode("utf-8"))
 
 
 def separator_start():
@@ -254,7 +254,7 @@ def get_parsed_containers():
 def status_indicates_healthcheck_existence(container):
     """Assumes healthcheck exists if status contains "health" """
     # eg "health: starting". This happens right after a container is started or restarted
-    return "health" in container.get("Status", "")
+    return "(health: starting)" in container.get("Status", "")
 
 
 def state_indicates_restarting(container):
@@ -277,7 +277,7 @@ def health_indicates_healthy(container):
 
 def is_considered_healthy(container):
     message = [
-        f"Skipping container [{container['Name']}({container['ID']})] with status [{container.get('State')}]"
+        f"✅ Healthy container skipped [{container['Name']}({container['ID']})] with status [{container.get('State')}]"
         + " for the following reasons:"
     ]
     reasons = []
@@ -363,9 +363,17 @@ def run_app():
             sys.exit(1)
 
         failed_containers = get_failed_containers()
-        print_stderr(f"Found [{len(failed_containers)}] failed containers")
-        if failed_containers:
-            print_stderr("Failed to start container(s):")
+        failed_containers_names = "\n".join(
+            [f"\t-{c['Name']} ({c['ID']})" for c in failed_containers]
+        )
+        if not failed_containers:
+            print_stderr("✅ No failed containers found")
+
+        else:
+            print_stderr(
+                f"❌ Found [{len(failed_containers)}]"
+                + f"failed containers that failed to start:\n {failed_containers_names}"
+            )
         for container in failed_containers:
             print_stderr(
                 f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data"
