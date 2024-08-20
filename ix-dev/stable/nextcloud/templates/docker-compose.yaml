@@ -183,6 +183,12 @@ configs:
   {% do dockerfile_inline.x.append("RUN apt update || { echo \"Failed to update apt cache. Exiting.\"; exit 1; }") %}
   {% for cmd in values.nextcloud.apt_packages %}
     {% do dockerfile_inline.x.append("RUN apt install -y --no-install-recommends %s || { echo \"Failed to install [%s]. Exiting.\"; exit 1; }"|format(cmd, cmd)) %}
+    {% if cmd == "ocrmypdf" %}
+      {% for lang in values.nextcloud.tesseract_languages %}
+        {% set lang_package = "tesseract-ocr-%s"|format(lang|replace("_", "-")) %}
+        {% do dockerfile_inline.x.append("RUN apt install -y --no-install-recommends %s || { echo \"Failed to install [%s]. Exiting.\"; exit 1; }"|format(lang_package, lang_package)) %}
+      {% endfor %}
+    {% endif %}
   {% endfor %}
   {% for cmd in values.nextcloud.apt_packages if values.consts.packages[cmd] %}
     {% for pkg in values.consts.packages[cmd].additional_apt %}
