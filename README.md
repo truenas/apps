@@ -35,7 +35,7 @@ Thank you for your understanding.
 | bazarr               | community  | ✅    | ✅       |
 | briefkasten          | community  | ✅    | -        |
 | castopod             | community  | -     | -        |
-| chia                 | community  | -     | -        |
+| chia                 | community  | ✅    | -        |
 | clamav               | community  | ✅    | -        |
 | cloudflared          | community  | ✅    | -        |
 | dashy                | community  | ✅    | -        |
@@ -115,7 +115,7 @@ Thank you for your understanding.
 | unifi-controller     | community  | ✅    | -        |
 | unifi-protect-backup | community  | ✅    | -        |
 | vaultwarden          | community  | -     | -        |
-| vikunja              | community  | -     | -        |
+| vikunja              | community  | ✅    | -        |
 | webdav               | community  | -     | -        |
 | whoogle              | community  | ✅    | -        |
 | wordpress            | community  | -     | -        |
@@ -125,7 +125,7 @@ Thank you for your understanding.
 
 ## New Apps
 
-|  | App                  | Train      |
-|--| -------------------- | ---------- |
-|⭐| portainer            | community  |
-|⭐| dockge               | community  |
+|     | App       | Train     |
+| --- | --------- | --------- |
+| ⭐  | portainer | community |
+| ⭐  | dockge    | community |
