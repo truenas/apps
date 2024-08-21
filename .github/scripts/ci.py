@@ -493,8 +493,11 @@ def main():
     print_docker_compose_config()
     res = run_app()
     if args["wait"]:
-        print_stderr("\nPortals:")
-        print_stderr("\n".join(x_portals) + "\n")
+        if not x_portals:
+            print_stderr("No portals found")
+        else:
+            print_stderr("\nPortals:")
+            print_stderr("\n".join(x_portals) + "\n")
         wait_for_user_input()
     docker_cleanup()
 
