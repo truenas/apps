@@ -80,7 +80,8 @@ function process_dir() {
 
     if [ "$$is_temporary" = "true" ]; then
         echo "Path [$$dir] is a temporary directory, ensuring it is empty..."
-        rm -rf "$$dir/{*,.*}"
+        # Exclude the safe directory, where we can use to mount files temporarily
+        find "$$dir" -mindepth 1 -maxdepth 1 ! -name "ix-safe" -exec rm -rf {} +
     fi
 
     if [ "$$is_temporary" = "false" ] && [ -n "$$(ls -A $$dir)" ]; then
