@@ -33,7 +33,7 @@
 )) %}
 
 {# Stores PID file and DavLockDB file #}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "tmpfs", "mount_path": values.consts.pid_base_path, "tmpfs_config": {"mode": "0755","size": 100} })) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "tmpfs", "mount_path": values.consts.pid_base_path, "tmpfs_config": {"mode": "0777", "size": 100} })) %}
 
 {% for share in values.storage.shares %}
   {% set item = {
@@ -59,10 +59,10 @@
 
 {% set bytesGB = 1073741824 %}
 {% set health_check_config = [
-  '<Location "/health">',
-  " RewriteEngine On",
-  " RewriteRule .* - [R=200]",
-  "</Location>",
+  "  <Location \"/health\">",
+  "    RewriteEngine On",
+  "   RewriteRule .* - [R=200]",
+  "  </Location>",
 ] %}
 
 {% set auth_config = [
@@ -73,114 +73,123 @@
 ] %}
 
 {% set webdav_core_config = namespace(x=[
-  'DavLockDB "%s/DavLock"'|format(values.consts.pid_base_path),
-  '<Directory "/">',
-] + auth_config if values.webdav.auth_type != "none" else [] + [
-  "Dav On",
-  "IndexOptions Charset=utf-8",
-  "AddDefaultCharset UTF-8",
-  "AllowOverride None",
-  "Order allow,deny",
-  "Allow from all",
-  "Options Indexes FollowSymLinks",
+  "DavLockDB \"%s/DavLock\""|format(values.consts.pid_base_path),
+  "<Directory \"/\">",
+]) %}
+{% if values.webdav.auth_type != "none" %}
+  {% do webdav_core_config.x.extend(auth_config) %}
+{% endif %}
+{% do webdav_core_config.x.extend([
+  "  Dav On",
+  "  IndexOptions Charset=utf-8",
+  "  AddDefaultCharset UTF-8",
+  "  AllowOverride None",
+  "  Order allow,deny",
+  "  Allow from all",
+  "  Options Indexes FollowSymLinks",
   "</Directory>"
 ]) %}
 {% for share in values.storage.shares if share.enabled %}
   {% do webdav_core_config.x.extend([
     "# WebDAV Share - %s"|format(share.name),
     "# Description: %s"|format(share.description),
-    'Alias /%s "/%s/%s"'|format(share.name, values.consts.shares_prefix, share.name),
-    '<Directory "/%s/%s">'|format(values.consts.shares_prefix, share.name),
-    'LimitRequestBody %d'|format((share.max_request_body_size or 1) * bytesGB),
+    "Alias /%s \"/%s/%s\""|format(share.name, values.consts.shares_prefix, share.name),
+    "<Directory \"/%s/%s\">"|format(values.consts.shares_prefix, share.name),
+    "LimitRequestBody %d"|format((share.max_request_body_size or 1) * bytesGB),
     "</Directory>",
-  ] + [
-    '<Location "/%s">'|format(share.name),
-    "  AllowMethods GET OPTIONS PROPFIND",
-    "</Location>",
-  ] if share.read_only else []
-) %}
+  ]) %}
+  {% if share.read_only %}{% do webdav_core_config.x.extend([
+      "<Location \"/%s\">"|format(share.name),
+      "  AllowMethods GET OPTIONS PROPFIND",
+      "</Location>",
+  ]) %}{% endif %}
 {% endfor %}
 {% do webdav_core_config.x.extend([
   "# The following directives disable redirects on non-GET requests for",
   "# a directory that does not include the trailing slash.  This fixes a",
   "# problem with several clients that do not appropriately handle",
   "# redirects for folders with DAV methods.",
-  'BrowserMatch "Microsoft Data Access Internet Publishing Provider" redirect-carefully',
-  'BrowserMatch "MS FrontPage" redirect-carefully',
-  'BrowserMatch "^WebDrive" redirect-carefully',
-  'BrowserMatch "^WebDAVFS/1.[01234]" redirect-carefully',
-  'BrowserMatch "^gnome-vfs/1.0" redirect-carefully',
-  'BrowserMatch "^XML Spy" redirect-carefully',
-  'BrowserMatch "^Dreamweaver-WebDAV-SCM1" redirect-carefully',
-  'BrowserMatch "^DAVx5" redirect-carefully',
-  'BrowserMatch " Konqueror/4" redirect-carefully  ',
+  "BrowserMatch \"Microsoft Data Access Internet Publishing Provider\" redirect-carefully",
+  "BrowserMatch \"MS FrontPage\" redirect-carefully",
+  "BrowserMatch \"^WebDrive\" redirect-carefully",
+  "BrowserMatch \"^WebDAVFS/1.[01234]\" redirect-carefully",
+  "BrowserMatch \"^gnome-vfs/1.0\" redirect-carefully",
+  "BrowserMatch \"^XML Spy\" redirect-carefully",
+  "BrowserMatch \"^Dreamweaver-WebDAV-SCM1\" redirect-carefully",
+  "BrowserMatch \"^DAVx5\" redirect-carefully",
+  "BrowserMatch \" Konqueror/4\" redirect-carefully",
 ]) %}
 {% for browser_match in values.webdav.additional_browser_matches %}
-  {% do webdav_core_config.x.append('BrowserMatch "%s" redirect-carefully'|format(browser_match)) %}
+  {% do webdav_core_config.x.append("BrowserMatch \"%s\" redirect-carefully"|format(browser_match)) %}
 {% endfor %}
 {% do webdav_core_config.x.append("RequestReadTimeout handshake=0 header=20-40,MinRate=500 body=20,MinRate=500") %}
 
-{% set http_config = [
+{% set http_config = namespace(x=[
   "Listen %d"|format(values.network.http_port if values.network.enable_http else 65535),
   "<VirtualHost *:%d>"|format(values.network.http_port if values.network.enable_http else 65535),
-] + health_check_config + webdav_core_config.x + [
-  "</VirtualHost>",
-] %}
+]) %}
+{% do http_config.x.extend(health_check_config) %}
+{% do http_config.x.extend(webdav_core_config.x) %}
+{% do http_config.x.append("</VirtualHost>") %}
 
-{% set https_config = [
+{% set https_config = namespace(x=[
   "Listen %d"|format(values.network.https_port if values.network.enable_https else 65535),
   "<VirtualHost *:%d>"|format(values.network.https_port if values.network.enable_https else 65535),
-] + health_check_config if not values.network.certificate_id else [] + [
+]) %}
+{% if not values.network.enable_http %}
+  {% do https_config.x.extend(health_check_config) %}
+{% endif %}
+{% do https_config.x.extend([
   "  SSLEngine on",
-  '  SSLCertificateFile "%s"'|format(values.consts.ssl_cert_path),
-  '  SSLCertificateKeyFile "%s"'|format(values.consts.ssl_cert_path),
+  "  SSLCertificateFile \"%s\""|format(values.consts.ssl_cert_path),
+  "  SSLCertificateKeyFile \"%s\""|format(values.consts.ssl_cert_path),
   "  SSLProtocol +TLSv1.2 +TLSv1.3",
   "  SSLCipherSuite HIGH:MEDIUM",
-] + webdav_core_config.x + [
-  "</VirtualHost>",
-] %}
+]) %}
+{% do https_config.x.extend(webdav_core_config.x) %}
+{% do https_config.x.append("</VirtualHost>") %}
 
 configs:
   {% if values.network.enable_http %}
   webdav-http-config:
-    content: {{ http_config | join("\n") | tojson }}
+    content: {{ http_config.x | join("\n") | tojson }}
   {% endif %}
   {% if values.network.enable_https %}
   webdav-https-config:
-    content: {{ https_config | join("\n") | tojson }}
+    content: {{ https_config.x | join("\n") | tojson }}
   {% endif %}
   httpd-conf:
     content: |
       PidFile "{{ values.consts.pid_base_path }}/httpd.pid"
-      LoadModule authn_file_module {{ module_path }}/mod_authn_file.so
-      LoadModule authn_core_module {{ module_path }}/mod_authn_core.so
-      LoadModule authz_user_module {{ module_path }}/mod_authz_user.so
-      LoadModule authz_core_module {{ module_path }}/mod_authz_core.so
-      LoadModule alias_module {{ module_path }}/mod_alias.so
-      LoadModule mpm_event_module {{ module_path }}/mod_mpm_event.so
-      LoadModule auth_basic_module {{ module_path }}/mod_auth_basic.so
-      LoadModule auth_digest_module {{ module_path }}/mod_auth_digest.so
-      LoadModule setenvif_module {{ module_path }}/mod_setenvif.so
-      LoadModule dav_module {{ module_path }}/mod_dav.so
-      LoadModule dav_fs_module {{ module_path }}/mod_dav_fs.so
-      LoadModule allowmethods_module {{ module_path }}/mod_allowmethods.so
-      LoadModule ssl_module {{ module_path }}/mod_ssl.so
-      LoadModule socache_shmcb_module {{ module_path }}/mod_socache_shmcb.so
-      LoadModule unixd_module {{ module_path }}/mod_unixd.so
-      LoadModule rewrite_module {{ module_path }}/mod_rewrite.so
+      LoadModule authn_file_module {{ values.consts.module_path }}/mod_authn_file.so
+      LoadModule authn_core_module {{ values.consts.module_path }}/mod_authn_core.so
+      LoadModule authz_user_module {{ values.consts.module_path }}/mod_authz_user.so
+      LoadModule authz_core_module {{ values.consts.module_path }}/mod_authz_core.so
+      LoadModule alias_module {{ values.consts.module_path }}/mod_alias.so
+      LoadModule mpm_event_module {{ values.consts.module_path }}/mod_mpm_event.so
+      LoadModule auth_basic_module {{ values.consts.module_path }}/mod_auth_basic.so
+      LoadModule auth_digest_module {{ values.consts.module_path }}/mod_auth_digest.so
+      LoadModule setenvif_module {{ values.consts.module_path }}/mod_setenvif.so
+      LoadModule dav_module {{ values.consts.module_path }}/mod_dav.so
+      LoadModule dav_fs_module {{ values.consts.module_path }}/mod_dav_fs.so
+      LoadModule allowmethods_module {{ values.consts.module_path }}/mod_allowmethods.so
+      LoadModule ssl_module {{ values.consts.module_path }}/mod_ssl.so
+      LoadModule socache_shmcb_module {{ values.consts.module_path }}/mod_socache_shmcb.so
+      LoadModule unixd_module {{ values.consts.module_path }}/mod_unixd.so
+      LoadModule rewrite_module {{ values.consts.module_path }}/mod_rewrite.so
 
       # Still deciding whether or not to keep these modules or not
-      LoadModule authz_host_module {{ module_path }}/mod_authz_host.so
-      LoadModule authz_groupfile_module {{ module_path }}/mod_authz_groupfile.so
-      LoadModule access_compat_module {{ module_path }}/mod_access_compat.so
-      LoadModule reqtimeout_module {{ module_path }}/mod_reqtimeout.so
-      LoadModule filter_module {{ module_path }}/mod_filter.so
-      LoadModule mime_module {{ module_path }}/mod_mime.so
-      LoadModule env_module {{ module_path }}/mod_env.so
-      LoadModule headers_module {{ module_path }}/mod_headers.so
-      LoadModule status_module {{ module_path }}/mod_status.so
-      LoadModule autoindex_module {{ module_path }}/mod_autoindex.so
-      LoadModule dir_module {{ module_path }}/mod_dir.so
+      LoadModule authz_host_module {{ values.consts.module_path }}/mod_authz_host.so
+      LoadModule authz_groupfile_module {{ values.consts.module_path }}/mod_authz_groupfile.so
+      LoadModule access_compat_module {{ values.consts.module_path }}/mod_access_compat.so
+      LoadModule reqtimeout_module {{ values.consts.module_path }}/mod_reqtimeout.so
+      LoadModule filter_module {{ values.consts.module_path }}/mod_filter.so
+      LoadModule mime_module {{ values.consts.module_path }}/mod_mime.so
+      LoadModule env_module {{ values.consts.module_path }}/mod_env.so
+      LoadModule headers_module {{ values.consts.module_path }}/mod_headers.so
+      LoadModule status_module {{ values.consts.module_path }}/mod_status.so
+      LoadModule autoindex_module {{ values.consts.module_path }}/mod_autoindex.so
+      LoadModule dir_module {{ values.consts.module_path }}/mod_dir.so
       ServerName localhost
 
       <IfModule dir_module>
@@ -321,7 +330,7 @@ services:
     {% if values.network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test(port=values.network.http_port if values.network.enable_http else values.network.https_port, path="/health", config={
+    {% set test = ix_lib.base.healthchecks.http_test(port=values.network.http_port if values.network.enable_http else values.network.https_port, path="/health", config={
       "scheme": "http" if values.network.enable_http else "https",
       "headers": [["Authorization", ix_lib.base.utils.basic_auth_header(values.webdav.username, values.webdav.password)]] if values.webdav.auth_type == "basic" else []
     }) %}
