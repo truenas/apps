@@ -78,7 +78,7 @@ function process_dir() {
         rm -rf "$$dir/{*,.*}"
     fi
 
-    if [ -n "$$(ls -A $$dir)" ]; then
+    if [ "$$is_temporary" = "false" ] && [ -n "$$(ls -A $$dir)" ]; then
         echo "Path [$$dir] is not empty, skipping..."
         exit 0
     fi
