@@ -1,0 +1,339 @@
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
+{% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+
+{% if not values.network.enable_http and not values.network.enable_https %}
+  {% do ix_lib.base.errors.throw_error("Must enable at least one of http or https ports") %}
+{% endif %}
+
+{% if values.network.enable_https and not values.network.certificate_id %}
+  {% do ix_lib.base.errors.throw_error("Must provide a certificate id if enabling https") %}
+{% endif %}
+
+{% set share_names = namespace(x=[]) %}
+{% for share in values.storage.shares %}
+  {% if not ix_lib.base.utils.match_regex(share.name, "^[a-zA-Z0-9_-]+$") %}
+    {% do ix_lib.base.errors.throw_error("Share name must consist only of [Letters(a-z, A-Z), Numbers(0-9), Underscores(_), Dashes(-)], but got [%s]"|format(share.name)) %}
+  {% endif %}
+  {% do share_names.x.append(share.name) %}
+{% endfor %}
+{% if share_names.x | length != share_names.x | unique | list | length %}
+  {% do ix_lib.base.errors.throw_error("Share names must be unique, but got [%s]"|format(share_names.x | join(", "))) %}
+{% endif %}
+
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}),
+  values=values, perm_opts={"mount_path": "/mnt/webdav/config", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
+  perm_opts={"mount_path": "/mnt/webdav/tmp", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+)) %}
+
+{# Stores PID file and DavLockDB file #}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "tmpfs", "mount_path": values.consts.pid_base_path, "tmpfs_config": {"mode": "0755","size": 100} })) %}
+
+{# {% for store in values.storage.additional_storage %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
+    perm_opts={"mount_path": "/mnt/webdav/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+  )) %}
+{% endfor %} #}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% set bytesGB = 1073741824 %}
+{% set health_check_config = [
+  "<Location "/health">",
+  " RewriteEngine On",
+  " RewriteRule .* - [R=200]",
+  "</Location>",
+] %}
+
+{% set auth_config = [
+  "AuthType %s"|format(values.webdav.auth_type),
+  "AuthName webdav",
+  "AuthUserFile %s%s"|format(values.consts.auth_file_base, values.webdav.auth_type),
+  "Require valid-user",
+] %}
+
+{% set webdav_core_config = namespace(x=[
+  'DavLockDB "%s/DavLock"'|format(values.consts.pid_base_path),
+  '<Directory "/">',
+] + auth_config if values.webdav.auth_type != "none" else [] + [
+  "Dav On",
+  "IndexOptions Charset=utf-8",
+  "AddDefaultCharset UTF-8",
+  "AllowOverride None",
+  "Order allow,deny",
+  "Allow from all",
+  "Options Indexes FollowSymLinks",
+  "</Directory>"
+]) %}
+{% for share in values.storage.shares if share.enabled %}
+  {% do webdav_core_config.x.extend([
+    "# WebDAV Share - %s"|format(share.name),
+    "# Description: %s"|format(share.description),
+    'Alias /%s "/%s/%s"'|format(share.name, values.consts.shares_prefix, share.name),
+    '<Directory "/%s/%s">'|format(values.consts.shares_prefix, share.name),
+    'LimitRequestBody %d'|format((share.max_request_body_size or 1) * bytesGB),
+    "</Directory>",
+  ] + [
+    '<Location "/%s">'|format(share.name),
+    "  AllowMethods GET OPTIONS PROPFIND",
+    "</Location>",
+  ] if share.read_only else []
+) %}
+{% endfor %}
+{% do webdav_core_config.x.extend([
+  "# The following directives disable redirects on non-GET requests for",
+  "# a directory that does not include the trailing slash.  This fixes a",
+  "# problem with several clients that do not appropriately handle",
+  "# redirects for folders with DAV methods.",
+  'BrowserMatch "Microsoft Data Access Internet Publishing Provider" redirect-carefully',
+  'BrowserMatch "MS FrontPage" redirect-carefully',
+  'BrowserMatch "^WebDrive" redirect-carefully',
+  'BrowserMatch "^WebDAVFS/1.[01234]" redirect-carefully',
+  'BrowserMatch "^gnome-vfs/1.0" redirect-carefully',
+  'BrowserMatch "^XML Spy" redirect-carefully',
+  'BrowserMatch "^Dreamweaver-WebDAV-SCM1" redirect-carefully',
+  'BrowserMatch "^DAVx5" redirect-carefully',
+  'BrowserMatch " Konqueror/4" redirect-carefully  ',
+]) %}
+{% for browser_match in values.webdav.additional_browser_matches %}
+  {% do webdav_core_config.x.append('BrowserMatch "%s" redirect-carefully'|format(browser_match)) %}
+{% endfor %}
+{% do webdav_core_config.x.append("RequestReadTimeout handshake=0 header=20-40,MinRate=500 body=20,MinRate=500") %}
+
+{% set http_config = [
+  "Listen %d"|format(values.network.http_port if values.network.enable_http else 65535),
+  "<VirtualHost *:%d>"|format(values.network.http_port if values.network.enable_http else 65535),
+] + health_check_config + webdav_core_config.x + [
+  "</VirtualHost>",
+] %}
+
+{% set https_config = [
+  "Listen %d"|format(values.network.https_port if values.network.enable_https else 65535),
+  "<VirtualHost *:%d>"|format(values.network.https_port if values.network.enable_https else 65535),
+] + health_check_config if not values.network.certificate_id else [] + [
+  "  SSLEngine on",
+  '  SSLCertificateFile "%s"'|format(values.consts.ssl_cert_path),
+  '  SSLCertificateKeyFile "%s"'|format(values.consts.ssl_cert_path),
+  "  SSLProtocol +TLSv1.2 +TLSv1.3",
+  "  SSLCipherSuite HIGH:MEDIUM",
+] + webdav_core_config.x + [
+  "</VirtualHost>",
+] %}
+
+configs:
+  {% if values.network.enable_http %}
+  webdav-http-config:
+    content: {{ http_config | tojson }}
+  {% endif %}
+  {% if values.network.enable_https %}
+  webdav-https-config:
+    content: {{ https_config | tojson }}
+  {% endif %}
+  httpd-conf:
+    content: |
+      PidFile "{{ values.consts.pid_base_path }}/httpd.pid"
+      LoadModule authn_file_module {{ module_path }}/mod_authn_file.so
+      LoadModule authn_core_module {{ module_path }}/mod_authn_core.so
+      LoadModule authz_user_module {{ module_path }}/mod_authz_user.so
+      LoadModule authz_core_module {{ module_path }}/mod_authz_core.so
+      LoadModule alias_module {{ module_path }}/mod_alias.so
+      LoadModule mpm_event_module {{ module_path }}/mod_mpm_event.so
+      LoadModule auth_basic_module {{ module_path }}/mod_auth_basic.so
+      LoadModule auth_digest_module {{ module_path }}/mod_auth_digest.so
+      LoadModule setenvif_module {{ module_path }}/mod_setenvif.so
+      LoadModule dav_module {{ module_path }}/mod_dav.so
+      LoadModule dav_fs_module {{ module_path }}/mod_dav_fs.so
+      LoadModule allowmethods_module {{ module_path }}/mod_allowmethods.so
+      LoadModule ssl_module {{ module_path }}/mod_ssl.so
+      LoadModule socache_shmcb_module {{ module_path }}/mod_socache_shmcb.so
+      LoadModule unixd_module {{ module_path }}/mod_unixd.so
+      LoadModule rewrite_module {{ module_path }}/mod_rewrite.so
+
+      # Still deciding whether or not to keep these modules or not
+      LoadModule authz_host_module {{ module_path }}/mod_authz_host.so
+      LoadModule authz_groupfile_module {{ module_path }}/mod_authz_groupfile.so
+      LoadModule access_compat_module {{ module_path }}/mod_access_compat.so
+      LoadModule reqtimeout_module {{ module_path }}/mod_reqtimeout.so
+      LoadModule filter_module {{ module_path }}/mod_filter.so
+      LoadModule mime_module {{ module_path }}/mod_mime.so
+      LoadModule env_module {{ module_path }}/mod_env.so
+      LoadModule headers_module {{ module_path }}/mod_headers.so
+      LoadModule status_module {{ module_path }}/mod_status.so
+      LoadModule autoindex_module {{ module_path }}/mod_autoindex.so
+      LoadModule dir_module {{ module_path }}/mod_dir.so
+      ServerName localhost
+
+      <IfModule dir_module>
+        DirectoryIndex disabled
+      </IfModule>
+
+      <Files ".ht*">
+        Require all denied
+      </Files>
+
+      ErrorLog "/proc/self/fd/2"
+      LogLevel warn
+
+      <IfModule log_config_module>
+        LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+        LogFormat "%h %l %u %t \"%r\" %>s %b" common
+
+        <IfModule logio_module>
+          LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" %I %O" combinedio
+        </IfModule>
+
+        CustomLog "/proc/self/fd/1" common
+      </IfModule>
+
+      <IfModule alias_module>
+        ScriptAlias /cgi-bin/ "/usr/local/apache2/cgi-bin/"
+      </IfModule>
+
+      <IfModule mime_module>
+        # TypesConfig points to the file containing the list of mappings from
+        # filename extension to MIME-type.
+
+        TypesConfig /usr/local/apache2/conf/mime.types
+
+        # AddType allows you to add to or override the MIME configuration
+        # file specified in TypesConfig for specific file types.
+
+        # AddType application/x-gzip .tgz
+
+        # AddEncoding allows you to have certain browsers uncompress
+        # information on the fly. Note: Not all browsers support this.
+
+        # AddEncoding x-compress .Z
+        # AddEncoding x-gzip .gz .tgz
+
+        # If the AddEncoding directives above are commented-out, then you
+        # probably should define those extensions to indicate media types:
+
+        AddType application/x-compress .Z
+        AddType application/x-gzip .gz .tgz
+
+        # AddHandler allows you to map certain file extensions to "handlers":
+        # actions unrelated to filetype. These can be either built into the server
+        # or added with the Action directive (see below)
+
+        # To use CGI scripts outside of ScriptAliased directories:
+        # (You will also need to add "ExecCGI" to the "Options" directive.)
+
+        # AddHandler cgi-script .cgi
+
+        # For type maps (negotiated resources):
+        # AddHandler type-map var
+
+        # Filters allow you to process content before it is sent to the client.
+
+        # To parse .shtml files for server-side includes (SSI):
+        # (You will also need to add "Includes" to the "Options" directive.)
+
+        # AddType text/html .shtml
+        # AddOutputFilter INCLUDES .shtml
+      </IfModule>
+
+      # Secure (SSL/TLS) connections
+      # Include etc/apache24/extra/httpd-ssl.conf
+
+      # Note: The following must must be present to support
+      #       starting without SSL on platforms with no /dev/random equivalent
+      #       but a statically compiled-in mod_ssl.
+
+      <IfModule ssl_module>
+        SSLRandomSeed startup builtin
+        SSLRandomSeed connect builtin
+        SSLProtocol +TLSv1.2 +TLSv1.3
+      </IfModule>
+
+      Include /usr/local/apache2/conf/Includes/*.conf
+  {% if values.webdav.auth_type != "none" %}
+  htauth:
+    content: {{ ix_lib.base.utils.basic_auth(values.webdav.username, values.webdav.password) | tojson }}
+  {% endif %}
+  {% if values.network.certificate_id %}
+  private:
+    content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
+  public:
+    content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
+  {% endif %}
+
+{# Containers #}
+services:
+  {{ values.consts.webdav_container_name }}:
+    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    configs:
+      - source: httpd-conf
+        target: {{ values.consts.httpd_conf_path }}
+    {% if values.network.enable_http %}
+      - source: webdav-http-config
+        target: {{ values.consts.webdav_http_config_path }}
+    {% endif %}
+    {% if values.network.enable_https %}
+      - source: webdav-https-config
+        target: {{ values.consts.webdav_https_config_path }}
+    {% endif %}
+    {% if values.webdav.auth_type != "none" %}
+      - source: htauth
+        target: {{ "%s%s"|format(values.consts.auth_file_base, values.webdav.auth_type) }}
+    {% endif %}
+    {% if values.network.certificate_id %}
+      - source: private
+        target: {{ values.consts.ssl_key_path }}
+      - source: public
+        target: {{ values.consts.ssl_cert_path }}
+    {% endif %}
+    {% if perms_dirs.items %}
+    depends_on:
+      {{ values.consts.perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    {% if values.network.host_network %}
+    network_mode: host
+    {% endif %}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.curl_test(port=values.network.web_port, path="/health", config={
+      "scheme": "https" if values.network.certificate_id else "http"
+      "headers": [["Authorization", ix_lib.base.utils.basic_auth_header(values.webdav.username, values.webdav.password)]] if values.webdav.auth_type == "basic" else []
+    }) %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={}, user=values.webdav.additional_envs, values=values) | tojson }}
+    {% if not values.network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+
+  {% if perms_dirs.items %}
+  {{ values.consts.perms_container_name }}: {{ ix_lib.base.permissions.perms_container(items=perms_dirs.items, volumes=perms_mounts.items) | tojson }}
+  {% endif %}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("WebDAV") | tojson }}
