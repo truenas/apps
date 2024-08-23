@@ -37,7 +37,7 @@ def vol_mount(data, values=None):
         "read_only": data.get("read_only", False),
     }
     if vol_type == "bind":  # Default create_host_path is true in short-syntax
-        volume.update(_get_bind_vol_config(data, values, ix_volumes))
+        volume.update(_get_bind_vol_config(data, ix_volumes))
     elif vol_type == "volume":
         volume.update(_get_volume_vol_config(data))
     elif vol_type == "tmpfs":
@@ -109,23 +109,7 @@ def perms_item(data, values=None, opts=None):
     }
 
 
-def create_host_path_default(values):
-    """
-    By default, do not create host path for bind mounts if it does not exist.
-    If the ix_context is missing, we are either in local dev or CI.
-    We should create the host path by default there to ease development.
-    The _magic_ "dev_mode" flag is added so we can also toggle this behavior
-    in CI, while we are also using ix_context for other tests.
-    """
-    ix_ctx = values.get("ix_context", {})
-    if not ix_ctx:
-        return True
-    if "dev_mode" in ix_ctx:
-        return ix_ctx["dev_mode"]
-    return False
-
-
-def _get_bind_vol_config(data, values, ix_volumes=None):
+def _get_bind_vol_config(data, ix_volumes=None):
     ix_volumes = ix_volumes or []
     path = host_path(data, ix_volumes)
     if data.get("propagation", "rprivate") not in PROPAGATION_TYPES:
@@ -138,7 +122,7 @@ def _get_bind_vol_config(data, values, ix_volumes=None):
         "source": path,
         "bind": {
             "create_host_path": data.get("host_path_config", {}).get(
-                "create_host_path", create_host_path_default(values)
+                "create_host_path", True
             ),
             "propagation": _get_valid_propagation(data),
         },
