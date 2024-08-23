@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 import sys
+import re
 
 from . import security
 
@@ -22,7 +23,23 @@ def secure_string(length):
 
 
 def basic_auth_header(username, password):
-    return f"Basic {security.htpasswd(username, password)}"
+    return f"Basic {basic_auth(username, password)}"
+
+
+def basic_auth(username, password):
+    return security.htpasswd(username, password)
+
+
+def match_regex(value, regex):
+    if not re.match(regex, value):
+        return False
+    return True
+
+
+def must_match_regex(value, regex):
+    if not match_regex(value, regex):
+        throw_error(f"Expected [{value}] to match [{regex}]")
+    return value
 
 
 def merge_dicts(*dicts):

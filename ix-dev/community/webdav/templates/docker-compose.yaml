@@ -10,11 +10,11 @@
 {% set perms_dirs = namespace(items=[]) %}
 
 {% if not values.network.enable_http and not values.network.enable_https %}
-  {% do ix_lib.base.errors.throw_error("Must enable at least one of http or https ports") %}
+  {% do ix_lib.base.utils.throw_error("Must enable at least one of http or https ports") %}
 {% endif %}
 
 {% if values.network.enable_https and not values.network.certificate_id %}
-  {% do ix_lib.base.errors.throw_error("Must provide a certificate id if enabling https") %}
+  {% do ix_lib.base.utils.throw_error("Must provide a certificate id if enabling https") %}
 {% endif %}
 
 {% set share_names = namespace(x=[]) %}
@@ -28,9 +28,6 @@
   {% do ix_lib.base.errors.throw_error("Share names must be unique, but got [%s]"|format(share_names.x | join(", "))) %}
 {% endif %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}),
-  values=values, perm_opts={"mount_path": "/mnt/webdav/config", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
-)) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
   perm_opts={"mount_path": "/mnt/webdav/tmp", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
@@ -38,11 +35,20 @@
 {# Stores PID file and DavLockDB file #}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "tmpfs", "mount_path": values.consts.pid_base_path, "tmpfs_config": {"mode": "0755","size": 100} })) %}
 
-{# {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
-    perm_opts={"mount_path": "/mnt/webdav/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+{% for share in values.storage.shares %}
+  {% set item = {
+    "type": "host_path",
+    "read_only": share.read_only,
+    "auto_permissions": share.fix_permissions,
+    "mount_path": "/%s/%s"|format(values.consts.shares_prefix, share.name),
+    "host_path_config": {
+      "path": share.host_path,
+    }
+  } %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=item, values=values,
+    perm_opts={"mount_path": "/mnt/webdav/dir_%s"|format(share.name), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
   )) %}
-{% endfor %} #}
+{% endfor %}
 
 {# Add each item to the above lists #}
 {% for item in storage_items.items %}
@@ -53,7 +59,7 @@
 
 {% set bytesGB = 1073741824 %}
 {% set health_check_config = [
-  "<Location "/health">",
+  '<Location "/health">',
   " RewriteEngine On",
   " RewriteRule .* - [R=200]",
   "</Location>",
@@ -137,11 +143,11 @@
 configs:
   {% if values.network.enable_http %}
   webdav-http-config:
-    content: {{ http_config | tojson }}
+    content: {{ http_config | join("\n") | tojson }}
   {% endif %}
   {% if values.network.enable_https %}
   webdav-https-config:
-    content: {{ https_config | tojson }}
+    content: {{ https_config | join("\n") | tojson }}
   {% endif %}
   httpd-conf:
     content: |
@@ -315,15 +321,20 @@ services:
     {% if values.network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test(port=values.network.web_port, path="/health", config={
-      "scheme": "https" if values.network.certificate_id else "http"
+    {% set test = ix_lib.base.healthchecks.curl_test(port=values.network.http_port if values.network.enable_http else values.network.https_port, path="/health", config={
+      "scheme": "http" if values.network.enable_http else "https",
       "headers": [["Authorization", ix_lib.base.utils.basic_auth_header(values.webdav.username, values.webdav.password)]] if values.webdav.auth_type == "basic" else []
     }) %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     environment: {{ ix_lib.base.environment.envs(app={}, user=values.webdav.additional_envs, values=values) | tojson }}
     {% if not values.network.host_network %}
     ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+      {% if values.network.enable_http %}
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.http_port, "published": values.network.http_port}) | tojson }}
+      {% endif %}
+      {% if values.network.enable_https %}
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.https_port, "published": values.network.https_port}) | tojson }}
+      {% endif %}
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
@@ -335,5 +346,5 @@ services:
 volumes: {{ volumes.items | tojson }}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-portals: {{ ix_lib.base.metadata.get_portals([]) | tojson }}
 x-notes: {{ ix_lib.base.metadata.get_notes("WebDAV") | tojson }}
