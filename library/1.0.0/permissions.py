@@ -68,6 +68,11 @@ function process_dir() {
     local fix_owner="false"
     local fix_perms="false"
 
+    if [ -z "$$dir" ]; then
+        echo "Path is empty, skipping..."
+        exit 0
+    fi
+
     if [ ! -d "$$dir" ]; then
         echo "Path [$$dir] does is not a directory, skipping..."
         exit 0
