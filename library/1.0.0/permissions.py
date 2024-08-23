@@ -78,6 +78,11 @@ function process_dir() {
         rm -rf "$$dir/{*,.*}"
     fi
 
+    if [ -n "$$(ls -A $$dir)" ]; then
+        echo "Path [$$dir] is not empty, skipping..."
+        exit 0
+    fi
+
     echo "Current Ownership and Permissions on [$$dir]:"
     echo "chown: $$(stat -c "%u %g" "$$dir")"
     echo "chmod: $$(stat -c "%a" "$$dir")"

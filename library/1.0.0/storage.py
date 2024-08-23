@@ -67,15 +67,14 @@ def storage_item(data, values=None, perm_opts=None):
 def perms_item(data, values=None, opts=None):
     opts = opts or {}
     values = values or {}
-    ix_context = values.get("ix_context") or {}
     vol_type = data.get("type", "")
 
     # Temp volumes are always auto permissions
     if vol_type == "temporary":
         data.update({"auto_permissions": True})
 
-    # If its ix_volume and we are installing, we need to set auto permissions
-    if vol_type == "ix_volume" and ix_context.get("is_install", False):
+    # If its ix_volume, we need to set auto permissions
+    if vol_type == "ix_volume":
         data.update({"auto_permissions": True})
 
     if not data.get("auto_permissions"):
