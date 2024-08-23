@@ -68,6 +68,11 @@ function process_dir() {
     local fix_owner="false"
     local fix_perms="false"
 
+    if [ -z "$$dir" ]; then
+        echo "Path is empty, skipping..."
+        exit 0
+    fi
+
     if [ ! -d "$$dir" ]; then
         echo "Path [$$dir] does is not a directory, skipping..."
         exit 0
@@ -75,10 +80,11 @@ function process_dir() {
 
     if [ "$$is_temporary" = "true" ]; then
         echo "Path [$$dir] is a temporary directory, ensuring it is empty..."
-        rm -rf "$$dir/{*,.*}"
+        # Exclude the safe directory, where we can use to mount files temporarily
+        find "$$dir" -mindepth 1 -maxdepth 1 ! -name "ix-safe" -exec rm -rf {} +
     fi
 
-    if [ -n "$$(ls -A $$dir)" ]; then
+    if [ "$$is_temporary" = "false" ] && [ -n "$$(ls -A $$dir)" ]; then
         echo "Path [$$dir] is not empty, skipping..."
         exit 0
     fi
