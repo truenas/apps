@@ -6,6 +6,8 @@ module.exports = {
   gitAuthor: "ix-bot <ix-bot@users.noreply.github.com>",
   // https://docs.renovatebot.com/self-hosted-configuration/#onboarding
   onboarding: false,
+  // https://docs.renovatebot.com/configuration-options/#dependencydashboard
+  dependencyDashboard: true,
   // https://docs.renovatebot.com/self-hosted-configuration/#platform
   platform: "github",
   // https://docs.renovatebot.com/self-hosted-configuration/#repositories
