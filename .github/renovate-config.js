@@ -35,7 +35,9 @@ module.exports = {
       matchManagers: ["regex"],
       matchDatasources: ["docker"],
       postUpgradeTasks: {
-        // What to "git add" after the commands are run
+        // What to "git add" after the commands are run,
+        // These are only files that commands touched.
+        // The files that are changed due to an image update, are automatically added.
         fileFilters: ["**/app.yaml"],
         executionMode: "branch",
         commands: [
