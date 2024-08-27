@@ -39,7 +39,8 @@ module.exports = {
         // These are only files that commands touched.
         // The files that are changed due to an image update, are automatically added.
         fileFilters: ["**/app.yaml"],
-        executionMode: "branch",
+        // Execute the following commands for every dep.
+        executionMode: "update",
         commands: [
           // See what we get. TODO: come back and add a script to bump app.yaml (and the app lib if any)
           "echo {{{packageFileDir}}}, {{{depName}}}, {{{currentValue}}} - {{{newValue}}} >> ./renovate.log",
