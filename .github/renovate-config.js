@@ -35,15 +35,14 @@ module.exports = {
       matchManagers: ["regex"],
       matchDatasources: ["docker"],
       postUpgradeTasks: {
-        // What to "git add" after the commands are run,
-        // These are only files that commands touched.
-        // The files that are changed due to an image update, are automatically added.
+        // What to "git add" after the commands are run
         fileFilters: ["**/app.yaml"],
         // Execute the following commands for every dep.
         executionMode: "update",
         commands: [
-          // See what we get. TODO: come back and add a script to bump app.yaml (and the app lib if any)
-          "echo {{{packageFileDir}}}, {{{depName}}}, {{{currentValue}}} - {{{newValue}}} >> ./renovate.log",
+          // If the app is in the renovate.log, don't bump again.
+          // TODO: change echo command to a bump version script
+          "grep {{{packageFileDir}}} ./renovate.log || echo 'bumping {{{packageFileDir}}}' >> ./renovate.log",
         ],
       },
     },
