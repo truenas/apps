@@ -37,8 +37,8 @@ module.exports = {
       postUpgradeTasks: {
         // What to "git add" after the commands are run
         fileFilters: [
-          "**/app.yaml",      // For the version update
-          "**/templates/**",  // For the app lib versioned dir
+          "ix-dev/**/app.yaml",      // For the version update
+          "ix-dev/**/templates/**",  // For the app lib versioned dir
         ],
         // Execute the following commands for every dep.
         executionMode: "update",
