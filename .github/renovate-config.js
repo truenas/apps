@@ -36,7 +36,10 @@ module.exports = {
       matchDatasources: ["docker"],
       postUpgradeTasks: {
         // What to "git add" after the commands are run
-        fileFilters: ["**/app.yaml"],
+        fileFilters: [
+          "**/app.yaml",      // For the version update
+          "**/templates/**",  // For the app lib versioned dir
+        ],
         // Execute the following commands for every dep.
         executionMode: "update",
         commands: [
