@@ -15,6 +15,16 @@ def migrate(values):
         raise ValueError("No config found in values")
 
     dhcp_enabled = config["piholeNetwork"].get("dhcp", {}).get("enabled", False)
+    dhcp_config = {"dhcp_enabled": dhcp_enabled}
+    if dhcp_enabled:
+        dhcp_config.update(
+            {
+                "start": config["piholeNetwork"]["dhcp"]["start"],
+                "end": config["piholeNetwork"]["dhcp"]["end"],
+                "gateway": config["piholeNetwork"]["dhcp"]["gateway"],
+            }
+        )
+
     new_values = {
         "TZ": config["TZ"],
         "pihole": {
@@ -23,21 +33,11 @@ def migrate(values):
         },
         "network": {
             "host_network": config["piholeNetwork"].get("hostNetwork", dhcp_enabled),
+            "interface_name": config["piholeNetwork"].get("interfaceName", ""),
             "web_port": config["piholeNetwork"].get("webPort", 30013),
             **({"dns_port": 53} if not dhcp_enabled else {}),
             "dns_opts": migrate_dns_config(config["podOptions"].get("dnsConfig", {})),
-            "dhcp_enabled": dhcp_enabled,
-            **(
-                {
-                    "dhcp_config": {
-                        "start": config["piholeNetwork"]["dhcp"]["start"],
-                        "end": config["piholeNetwork"]["dhcp"]["end"],
-                        "gateway": config["piholeNetwork"]["dhcp"]["gateway"],
-                    }
-                }
-                if dhcp_enabled
-                else {}
-            ),
+            "dhcp_config": dhcp_config,
         },
         "storage": {
             "config": migrate_storage_item(config["piholeStorage"]["config"]),
