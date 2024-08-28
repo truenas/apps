@@ -1,56 +1,49 @@
 groups:
-  - name: Prometheus Configuration
-    description: Configure Prometheus
+  - name: Diskover Data Configuration
+    description: Configure Diskover Data
   - name: User and Group Configuration
-    description: Configure User and Group for Prometheus
+    description: Configure User and Group for Diskover Data
   - name: Network Configuration
-    description: Configure Network for Prometheus
+    description: Configure Network for Diskover Data
   - name: Storage Configuration
-    description: Configure Storage for Prometheus
+    description: Configure Storage for Diskover Data
   - name: Resources Configuration
-    description: Configure Resources for Prometheus
+    description: Configure Resources for Diskover Data
 
 questions:
-  - variable: prometheus
+  - variable: diskover_data
     label: ""
-    group: Prometheus Configuration
+    group: Diskover Data Configuration
     schema:
       type: dict
       attrs:
-        - variable: retention_time
-          label: Retention Time
-          description: The time to retain data for. Use the format 15d, 6w, 10y, etc.
+        - variable: username
+          label: Default Username
+          description: The default username for Diskover Data.
           schema:
             type: string
-            default: "1d"
             required: true
-        - variable: retention_size
-          label: Retention Size
-          description: The size to retain data for. Use the format 100MB, 10GB, etc.
+            default: ""
+        - variable: password
+          label: Default Password
+          description: The default password for Diskover Data.
           schema:
             type: string
             default: ""
-        - variable: wal_compression
-          label: WAL Compression
-          description: Compress the time series database write-ahead log.
+            required: true
+            private: true
+        - variable: cron_schedule
+          label: Cron Schedule
+          description: |
+            The cron schedule for indexing data. </br>
+            Until the first run, the diskover data will display an error page.
           schema:
-            type: boolean
-            default: true
-        - variable: additional_args
-          label: Additional Arguments
-          description: Additional arguments for Prometheus.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: arg
-                label: Argument
-                schema:
-                  type: string
-                  required: true
+            type: string
+            default: "*/15 * * * *"
+            required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Prometheus.
+          description: Configure additional environment variables for Diskover Data.
           schema:
             type: list
             default: []
@@ -78,7 +71,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Prometheus files will be owned by.
+          description: The user id that Diskover Data files will be owned by.
           schema:
             type: int
             min: 568
@@ -86,7 +79,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Prometheus files will be owned by.
+          description: The group id that Diskover Data files will be owned by.
           schema:
             type: int
             min: 568
@@ -101,7 +94,7 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for Prometheus WebUI
+          description: The port for Diskover Data WebUI
           schema:
             type: int
             default: 30027
@@ -122,8 +115,8 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: Prometheus Config Storage
-          description: The path to store Prometheus Config.
+          label: Diskover Data Config Storage
+          description: The path to store Diskover Data Config.
           schema:
             type: dict
             attrs:
@@ -200,8 +193,8 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: data
-          label: Prometheus Data Storage
-          description: The path to store Prometheus Data.
+          label: Diskover Data Storage
+          description: The path to store Diskover Data.
           schema:
             type: dict
             attrs:
@@ -277,9 +270,87 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: es_data
+          label: Elastic Search Data Storage
+          description: The path to store Elastic Search Data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  immutable: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        immutable: true
+                        hidden: true
+                        default: "es_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: host_path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Prometheus.
+          description: Additional storage for Diskover Data.
           schema:
             type: list
             default: []
@@ -307,6 +378,12 @@ questions:
                             description: ixVolume (Dataset created automatically by the system)
                           - value: "cifs"
                             description: SMB/CIFS Share (Mounts a persistent volume claim to a SMB share)
+                    - variable: index_data
+                      label: Enable Diskover Data Indexing
+                      description: Enable Diskover Data Indexing.
+                      schema:
+                        type: boolean
+                        default: false
                     - variable: read_only
                       label: Read Only
                       description: Mount the volume as read only.
@@ -427,14 +504,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Prometheus.
+                description: CPUs limit for Diskover Data.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Prometheus.
+                description: Memory limit for Diskover Data.
                 schema:
                   type: int
                   default: 4096
