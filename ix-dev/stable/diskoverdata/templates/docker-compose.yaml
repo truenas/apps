@@ -1,6 +1,7 @@
 {% import "diskover_macros/config.yaml" as config %}
 {% import "diskover_macros/constants.php" as constants %}
 {% import "diskover_macros/crontab" as crontab %}
+{% import "diskover_macros/setup-cron.sh" as setup_cron %}
 
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
@@ -48,6 +49,8 @@ configs:
     content: {{ constants.constants_php(values, es_password) | tojson }}
   crontab:
     content: {{ crontab.crontab(values) | tojson }}
+  setup_cron_sh:
+    content: {{ setup_cron.setup_cron(values) | tojson }}
 
 {# Containers #}
 services:
@@ -89,7 +92,12 @@ services:
       - source: constants_php
         target: /config/diskover-web.conf.d/Constants.php
       - source: crontab
-        target: /etc/crontabs/ix-cron
+        target: {{ values.consts.cron_file_path }}
+      - source: setup_cron_sh
+        # We add this after (60) the diskoverdata's script
+        # that configures the crontab.
+        target: /etc/cont-init.d/60-inject-cron
+        mode: 0700
     depends_on:
       {{ values.consts.elastic_search_container_name }}:
         condition: service_healthy
