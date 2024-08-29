@@ -65,6 +65,12 @@ module.exports = {
       groupName: "updates-patch-minor",
       labels: ["patch"],
     },
+    {
+      matchDatasources: ["docker"],
+      groupName: "enterprise",
+      labels: ["enterprise"],
+      matchFileNames: ["ix-dev/enterprise/**"],
+    },
     // Custom versioning matching
     customVersioning(
       // There are tags with date format (24.08.0), but newer versions are semver
