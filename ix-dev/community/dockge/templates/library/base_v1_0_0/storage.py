@@ -94,6 +94,8 @@ def perms_item(data, values=None, opts=None):
 
     data.update({"mount_path": opts["mount_path"]})
     volume_mount = vol_mount(data, values)
+    # For perms volume mount, always set read_only to false
+    volume_mount.update({"read_only": False})
 
     return {
         "vol_mount": volume_mount,
