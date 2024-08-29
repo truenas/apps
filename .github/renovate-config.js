@@ -64,5 +64,36 @@ module.exports = {
       groupName: "updates-patch-minor",
       labels: ["patch"],
     },
+    // Custom versioning matching
+    customVersioning(
+      // There are tags with date format (24.08.0), but newer versions are semver
+      "^(?<major>\\d{2})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["linuxserver/deluge", "linuxserver/diskover"]
+    ),
+    customVersioning(
+      // Older versions was 20220101 and newer versions are 240101
+      "^(?<major>\\d{2})(?<minor>\\d{2})(?<patch>\\d{2})$",
+      ["photoprism/photoprism"]
+    ),
+    customVersioning(
+      // RELEASE.2024-08-26T15-33-07Z
+      "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
+      ["minio/minio"]
+    ),
   ],
+};
+
+const customVersioning = (versioningRegex, packages, isPrefixes = false) => {
+  const result = {
+    matchDatasources: ["docker"],
+    versioning: `regex:${versioningRegex}`,
+  };
+
+  if (isPrefixes) {
+    result.matchPackagePrefixes = [packages];
+  } else {
+    result.matchPackageNames = [packages];
+  }
+
+  return result;
 };
