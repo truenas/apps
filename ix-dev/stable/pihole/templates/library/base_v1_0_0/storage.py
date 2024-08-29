@@ -37,7 +37,7 @@ def vol_mount(data, values=None):
         "read_only": data.get("read_only", False),
     }
     if vol_type == "bind":  # Default create_host_path is true in short-syntax
-        volume.update(_get_bind_vol_config(data, ix_volumes))
+        volume.update(_get_bind_vol_config(data, values, ix_volumes))
     elif vol_type == "volume":
         volume.update(_get_volume_vol_config(data))
     elif vol_type == "tmpfs":
@@ -67,15 +67,14 @@ def storage_item(data, values=None, perm_opts=None):
 def perms_item(data, values=None, opts=None):
     opts = opts or {}
     values = values or {}
-    ix_context = values.get("ix_context") or {}
     vol_type = data.get("type", "")
 
     # Temp volumes are always auto permissions
     if vol_type == "temporary":
         data.update({"auto_permissions": True})
 
-    # If its ix_volume and we are installing, we need to set auto permissions
-    if vol_type == "ix_volume" and ix_context.get("is_install", False):
+    # If its ix_volume, we need to set auto permissions
+    if vol_type == "ix_volume":
         data.update({"auto_permissions": True})
 
     if not data.get("auto_permissions"):
@@ -95,6 +94,8 @@ def perms_item(data, values=None, opts=None):
 
     data.update({"mount_path": opts["mount_path"]})
     volume_mount = vol_mount(data, values)
+    # For perms volume mount, always set read_only to false
+    volume_mount.update({"read_only": False})
 
     return {
         "vol_mount": volume_mount,
@@ -109,7 +110,23 @@ def perms_item(data, values=None, opts=None):
     }
 
 
-def _get_bind_vol_config(data, ix_volumes=None):
+def create_host_path_default(values):
+    """
+    By default, do not create host path for bind mounts if it does not exist.
+    If the ix_context is missing, we are either in local dev or CI.
+    We should create the host path by default there to ease development.
+    The _magic_ "dev_mode" flag is added so we can also toggle this behavior
+    in CI, while we are also using ix_context for other tests.
+    """
+    ix_ctx = values.get("ix_context", {})
+    if not ix_ctx:
+        return True
+    if "dev_mode" in ix_ctx:
+        return ix_ctx["dev_mode"]
+    return False
+
+
+def _get_bind_vol_config(data, values, ix_volumes=None):
     ix_volumes = ix_volumes or []
     path = host_path(data, ix_volumes)
     if data.get("propagation", "rprivate") not in PROPAGATION_TYPES:
@@ -122,7 +139,7 @@ def _get_bind_vol_config(data, ix_volumes=None):
         "source": path,
         "bind": {
             "create_host_path": data.get("host_path_config", {}).get(
-                "create_host_path", True
+                "create_host_path", create_host_path_default(values)
             ),
             "propagation": _get_valid_propagation(data),
         },
