@@ -1,0 +1,207 @@
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{% set pg_storage_items = namespace(items=[]) %}
+{% set redis_storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{% set pg_volume_mounts = namespace(items=[]) %}
+{% set redis_volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
+{% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.uploads, **{"mount_path": "/var/www/html/storage/upload"}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+{% endfor %}
+
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
+  perm_opts={"mount_path": "/mnt/postgres/tmp", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group}
+)) %}
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
+  values=values, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group,}
+)) %}
+{% for item in pg_storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and pg_volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% do redis_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
+  perm_opts={"mount_path": "/mnt/redis/tmp", "mode": "check", "uid": values.consts.redis_run_user, "gid": values.consts.redis_run_group}
+)) %}
+{% do redis_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/bitnami/redis/data"},
+  perm_opts={"mount_path": "/mnt/redis/data", "mode": "check", "uid": values.consts.redis_run_user, "gid": values.consts.redis_run_group}
+)) %}
+{% for item in redis_storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and redis_volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% set static_cron_token = ix_lib.base.utils.secure_string(32) %}
+{% set cron_job_url = "http://%s:8080/api/v1/cron/%s"|format(values.consts.firefly_iii_container_name, static_cron_token) %}
+
+{# Containers #}
+services:
+  {{ values.consts.firefly_iii_cron_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="alpine_image") }}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+    depends_on:
+      {{ values.consts.firefly_iii_container_name }}:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    environment: {{ ix_lib.base.environment.envs(app={
+      "CRON_TOKEN": static_cron_token,
+    }, user=[], values=values) | tojson }}
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        echo "0 3 * * * wget -qO- {{ cron_job_url }}" | crontab -
+        [[ $? -eq 0 ]] || { echo "Failed to set cron job"; exit 1; }
+        crond -f -L /dev/stdout
+
+  {{ values.consts.firefly_iii_container_name }}:
+    user: "0:0"
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    depends_on:
+      {{ values.consts.postgres_container_name }}:
+        condition: service_healthy
+      {{ values.consts.redis_container_name }}:
+        condition: service_healthy
+    {% if perms_dirs.items %}
+      {{ values.consts.perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "SETGID", "SETUID"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.curl_test(port=8080, path="/health") %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={
+      "DB_CONNECTION": "pgsql",
+      "DB_HOST": values.consts.postgres_container_name,
+      "DB_PORT": 5432,
+      "DB_DATABASE": values.consts.db_name,
+      "DB_USERNAME": values.consts.db_user,
+      "DB_PASSWORD": values.firefly_iii.db_password,
+      "CACHE_DRIVER": "redis",
+      "SESSION_DRIVER": "redis",
+      "REDIS_HOST": values.consts.redis_container_name,
+      "REDIS_PASSWORD": values.firefly_iii.redis_password,
+      "REDIS_PORT": 6379,
+      "REDIS_USERNAME": "default",
+      "REDIS_DB": 0,
+      "REDIS_CACHE_DB": 1,
+      "APP_URL": values.firefly_iii.app_url.rstrip("/"),
+      "APP_KEY": values.firefly_iii.app_key,
+      "STATIC_CRON_TOKEN": static_cron_token,
+    }, user=values.firefly_iii.additional_envs, values=values) | tojson }}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": 8080, "published": values.network.web_port}) | tojson }}
+    volumes: {{ volume_mounts.items | tojson }}
+
+{% if values.firefly_iii.enable_importer %}
+  {{ values.consts.firefly_iii_importer_container_name }}:
+    user: "0:0"
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="importer_image") }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    depends_on:
+      {{ values.consts.firefly_iii_container_name }}:
+        condition: service_healthy
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "SETGID", "SETUID"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.curl_test(port=8080, path="/health") %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={
+      "FIREFLY_III_URL": "http://%s:8080"|format(values.consts.firefly_iii_container_name),
+      "EXPECT_SECURE_URL": false,
+      "VANITY_URL": values.firefly_iii.app_url.rstrip("/"),
+    }, user=values.firefly_iii.additional_importer_envs, values=values) | tojson }}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": 8080, "published": values.network.importer_port}) | tojson }}
+{% endif %}
+
+  {% if perms_dirs.items %}
+  {{ values.consts.perms_container_name }}: {{ ix_lib.base.permissions.perms_container(items=perms_dirs.items, volumes=perms_mounts.items) | tojson }}
+  {% endif %}
+
+  {% set resource_without_gpus = ix_lib.base.utils.copy_dict(values.resources) %}
+  {% do resource_without_gpus.pop("gpus", None) %}
+  {{ values.consts.postgres_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
+    "image": ix_lib.base.utils.get_image(images=values.images, name="postgres_image"),
+    "volumes": pg_volume_mounts.items,
+    "user": values.consts.pg_run_user, "group": values.consts.pg_run_group,
+    "db_user": values.consts.db_user, "db_name": values.consts.db_name,
+    "db_password": values.firefly_iii.db_password,
+    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
+    "depends_on": {
+      values.consts.perms_container_name: {
+        "condition": "service_completed_successfully"
+      } if perms_dirs.items else {}
+    }
+  }) | tojson }}
+
+  {{ values.consts.redis_container_name }}: {{ ix_lib.base.redis.redis_container(data={
+    "image": ix_lib.base.utils.get_image(images=values.images, name="redis_image"),
+    "volumes": redis_volume_mounts.items,
+    "user": values.consts.redis_run_user, "group": values.consts.redis_run_group,
+    "password": values.firefly_iii.redis_password,
+    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
+    "depends_on": {
+      values.consts.perms_container_name: {
+        "condition": "service_completed_successfully"
+      } if perms_dirs.items else {}
+    }
+  }) | tojson }}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
+
+{% set portals = namespace(items=[{"port": values.network.web_port}]) %}
+{% if values.firefly_iii.enable_importer %}
+  {% do portals.items.append({"name": "Importer", "port": values.network.importer_port}) %}
+{% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals(portals.items) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("Firefly III") | tojson }}
