@@ -3,7 +3,7 @@ module.exports = {
   // https://docs.renovatebot.com/self-hosted-configuration/#dryrun
   dryRun: false,
   // https://docs.renovatebot.com/configuration-options/#gitauthor
-  gitAuthor: "ix-bot <ix-bot@users.noreply.github.com>",
+  gitAuthor: "bugclerk <bugclerk@ixsystems.com>",
   // https://docs.renovatebot.com/self-hosted-configuration/#onboarding
   onboarding: false,
   // https://docs.renovatebot.com/configuration-options/#dependencydashboard
@@ -37,8 +37,8 @@ module.exports = {
       postUpgradeTasks: {
         // What to "git add" after the commands are run
         fileFilters: [
-          "ix-dev/**/app.yaml",      // For the version update
-          "ix-dev/**/templates/**",  // For the app lib versioned dir
+          "ix-dev/**/app.yaml", // For the version update
+          "ix-dev/**/templates/**", // For the app lib versioned dir
         ],
         // Execute the following commands for every dep.
         executionMode: "update",
