@@ -1,7 +1,7 @@
 module.exports = {
   extends: [],
   // https://docs.renovatebot.com/self-hosted-configuration/#dryrun
-  dryRun: false,
+  dryRun: null,
   // https://docs.renovatebot.com/configuration-options/#gitauthor
   gitAuthor: "bugclerk <bugclerk@ixsystems.com>",
   // https://docs.renovatebot.com/self-hosted-configuration/#onboarding
@@ -17,9 +17,10 @@ module.exports = {
   // https://docs.renovatebot.com/self-hosted-configuration/#allowedpostupgradecommands
   // TODO: Restrict this.
   allowedPostUpgradeCommands: ["^.*"],
-  enabledManagers: ["regex", "github-actions"],
+  enabledManagers: ["custom.regex", "github-actions"],
   customManagers: [
     {
+      customType: "regex",
       // Match only ix_values.yaml files in the ix-dev directory
       fileMatch: ["^ix-dev/.*/ix_values\\.yaml$"],
       // Matches the repository name and the tag of each image
@@ -32,7 +33,7 @@ module.exports = {
   ],
   packageRules: [
     {
-      matchManagers: ["regex"],
+      matchManagers: ["custom.regex"],
       matchDatasources: ["docker"],
       postUpgradeTasks: {
         // What to "git add" after the commands are run
