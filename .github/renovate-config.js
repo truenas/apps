@@ -83,17 +83,10 @@ module.exports = {
   ],
 };
 
-const customVersioning = (versioningRegex, packages, isPrefixes = false) => {
-  const result = {
+const customVersioning = (versioningRegex, packages) => {
+  return {
     matchDatasources: ["docker"],
     versioning: `regex:${versioningRegex}`,
+    matchPackageNames: packages,
   };
-
-  if (isPrefixes) {
-    result.matchPackagePrefixes = [packages];
-  } else {
-    result.matchPackageNames = [packages];
-  }
-
-  return result;
 };
