@@ -99,10 +99,10 @@ module.exports = {
   ],
 };
 
-const customVersioning = (versioningRegex, packages) => {
+function customVersioning(versioningRegex, packages) {
   return {
     matchDatasources: ["docker"],
     versioning: `regex:${versioningRegex}`,
     matchPackageNames: packages,
   };
-};
+}
