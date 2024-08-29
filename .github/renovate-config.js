@@ -80,6 +80,21 @@ module.exports = {
       "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
       ["minio/minio"]
     ),
+    customVersioning(
+      // version-6.0.0
+      "^version-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["fireflyiii/core", "fireflyiii/data-importer"]
+    ),
+    customVersioning(
+      // 2024-08-29
+      "^(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)$",
+      ["alexta69/metube"]
+    ),
+    customVersioning(
+      // 2.462.1-jdk17
+      "^(?<major>\\d+)\\.(?<minor>\\d+)-jdk17",
+      ["jenkins/jenkins"]
+    ),
   ],
 };
 
