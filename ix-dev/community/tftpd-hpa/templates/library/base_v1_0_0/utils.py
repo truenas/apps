@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+import bcrypt
 import sys
 import re
 
@@ -28,6 +29,14 @@ def basic_auth_header(username, password):
 
 def basic_auth(username, password):
     return security.htpasswd(username, password)
+
+
+def bcrypt_hash(password, escape=True):
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    if escape:
+        # Docker compose will try to expand the value, so we need to escape it
+        return hashed.replace("$", "$$")
+    return hashed
 
 
 def match_regex(value, regex):
@@ -98,3 +107,7 @@ def hash_data(data=""):
 
 def get_image_with_hashed_data(images={}, name="", data=""):
     return f"ix-{get_image(images, name)}-{hash_data(data)}"
+
+
+def copy_dict(dict):
+    return dict.copy()

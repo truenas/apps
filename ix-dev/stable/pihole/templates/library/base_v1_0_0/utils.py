@@ -107,3 +107,7 @@ def hash_data(data=""):
 
 def get_image_with_hashed_data(images={}, name="", data=""):
     return f"ix-{get_image(images, name)}-{hash_data(data)}"
+
+
+def copy_dict(dict):
+    return dict.copy()
