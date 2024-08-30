@@ -2,6 +2,8 @@
 
 app_path=$1
 update_type=$2
+dep_name=$3
+dep_version=$4
 log_path="./renovate.log"
 
 if [[ -z "$app_path" ]]; then
@@ -23,6 +25,8 @@ docker run --quiet --rm \
   -v ./:/workspace \
   ghcr.io/truenas/apps_validation:latest app_bump_version \
   --path /workspace/"$app_path" \
-  --bump "$update_type"
+  --bump "$update_type" \
+  --dep-name "$dep_name" \
+  --dep-version "$dep_version"
 
 echo "$app_path" >>"$log_path"
