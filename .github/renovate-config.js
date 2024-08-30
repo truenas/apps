@@ -44,7 +44,8 @@ module.exports = {
         // Execute the following commands for every dep.
         executionMode: "update",
         commands: [
-          "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} {{{updateType}}}",
+          // https://docs.renovatebot.com/templates/#other-available-fields
+          "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} {{{updateType}}} {{{depName}}} {{{newVersion}}}",
         ],
       },
     },
@@ -64,6 +65,12 @@ module.exports = {
       matchUpdateTypes: ["patch"],
       groupName: "updates-patch-minor",
       labels: ["patch"],
+    },
+    {
+      matchDatasources: ["docker"],
+      groupName: "enterprise",
+      labels: ["enterprise"],
+      matchFileNames: ["ix-dev/enterprise/**"],
     },
     // Custom versioning matching
     customVersioning(
