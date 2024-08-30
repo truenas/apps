@@ -103,6 +103,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)-jdk17",
       ["jenkins/jenkins"]
     ),
+    customVersioning(
+      // 1d42f9ac3-v1.68.2-go1.18.8
+      "^[a-z0-9]{9}-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-go\\d+\\.\\d+\\.\\d+$",
+      ["storjlabs/storagenode"]
+    ),
   ],
 };
 
