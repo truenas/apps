@@ -16,6 +16,9 @@
   values=values, perm_opts={"mount_path": "/mnt/storj/data", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "anonymous", "mount_path": "/tmp"})) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": values.consts.identity_tool_dir_files},
+  perm_opts={"mount_path": "/mnt/storj/temporary", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
+)) %}
 
 {% for store in values.storage.additional_storage %}
   {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
@@ -63,13 +66,16 @@ services:
       - -c
     command:
       - |
-        {% set id_tool_dir = "/tmp/identity-tool" %}
         {% set id_path = values.consts.identity_dir %}
+        {% set id_tool_dir = "/tmp/identity-tool" %}
+        {% set id_tool_dir_files = values.consts.identity_tool_dir_files %}
         {% set flags = "--identity-dir %s"|format(id_path) %}
         {% set url = "https://github.com/storj/storj/releases/latest/download/identity_linux_amd64.zip" %}
         echo "Checking for identity certificate..."
         if ! [ -f "{{ id_path }}/ca.cert" ] && ! [ -f "{{ id_path }}/identity.cert" ]; then
           echo "Downloading identity generator tool..."; mkdir -p {{ id_tool_dir }}
+          mkdir -p {{ id_tool_dir_files }}
+          [ -w {{ id_tool_dir_files }} ] || { echo "Identity tool files directory is not writable."; exit 1; }
           [ -w {{ id_path }} ] || { echo "Identity directory is not writable."; exit 1; }
           wget -q -O {{ id_tool_dir }}/identity_linux_amd64.zip {{ url }} || { echo "Failed to download identity generator tool."; exit 1; }
           unzip -o {{ id_tool_dir }}/identity_linux_amd64.zip -d {{ id_tool_dir }} || { echo "Failed to unzip identity generator tool."; exit 1; }
