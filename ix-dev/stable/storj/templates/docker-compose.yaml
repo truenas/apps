@@ -9,10 +9,10 @@
 {# Stores the perms container dirs #}
 {% set perms_dirs = namespace(items=[]) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.identity, **{"mount_path": "/app/identity"}),
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.identity, **{"mount_path": values.consts.identity_dir}),
   values=values, perm_opts={"mount_path": "/mnt/storj/identity", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": "/app/config"}),
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.config_dir}),
   values=values, perm_opts={"mount_path": "/mnt/storj/data", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "anonymous", "mount_path": "/tmp"})) %}
@@ -64,28 +64,38 @@ services:
     command:
       - |
         {% set id_tool_dir = "/tmp/identity-tool" %}
-        {% set id_path = "/app/identity" %}
+        {% set id_path = values.consts.identity_dir %}
+        {% set flags = "--identity-dir %s"|format(id_path) %}
         {% set url = "https://github.com/storj/storj/releases/latest/download/identity_linux_amd64.zip" %}
         echo "Checking for identity certificate..."
         if ! [ -f "{{ id_path }}/ca.cert" ] && ! [ -f "{{ id_path }}/identity.cert" ]; then
-          mkdir -p {{ id_tool_dir }}
-          echo "Downloading identity generator tool..."
+          echo "Downloading identity generator tool..."; mkdir -p {{ id_tool_dir }}
+          [ -w {{ id_path }} ] || { echo "Identity directory is not writable."; exit 1; }
           wget -q -O {{ id_tool_dir }}/identity_linux_amd64.zip {{ url }} || { echo "Failed to download identity generator tool."; exit 1; }
           unzip -o {{ id_tool_dir }}/identity_linux_amd64.zip -d {{ id_tool_dir }} || { echo "Failed to unzip identity generator tool."; exit 1; }
           chmod +x {{ id_tool_dir }}/identity || { echo "Failed to make identity generator tool executable."; exit 1; }
 
           echo "Generating identity certificate..."
-          {{ id_tool_dir }}/identity create storagenode || { echo "Failed to generate identity certificate."; exit 1; }
+          {{ id_tool_dir }}/identity create storagenode {{ flags }}
+          if [ ! -f "{{ id_path }}/storagenode/ca.cert" ] && [ ! -f "{{ id_path }}/storagenode/identity.cert" ]; then
+            echo "Failed to generate identity certificate."
+            exit 1
+          fi
+          echo "Identity certificate generated successfully."
+
+          echo "Identity generated successfully at {{ id_path }}"
+          ls -lh {{ id_path }}
 
           echo "Authorizing identity certificate..."
-          {{ id_tool_dir }}/identity authorize storagenode $${AUTH_TOKEN} || { echo "Failed to authorize identity certificate."; exit 1; }
+          {{ id_tool_dir }}/identity authorize storagenode {{ flags }} $${AUTH_TOKEN} || { echo "Failed to authorize identity certificate."; exit 1; }
 
           echo "Storagenode identity certificate generated successfully."
         else
           echo "Identity certificate already exists. Skipping..."
         fi
+
         echo "Checking if Storj is already setup..."
-        if ! [ -f /app/config/config.yaml ]; then
+        if ! [ -f {{ values.consts.config_dir }}/config.yaml ]; then
           echo "Setting up Storj"
           export SETUP="true"
           /entrypoint
