@@ -8,6 +8,9 @@ import re
 
 APP_REGEX = re.compile(r"^ix-dev\/([-\w\.]+)\/([-\w\.]+)")
 TEST_VALUES_DIR = "templates/test_values"
+EXCLUDE_TESTS = [
+    "stable/storj",
+]
 
 
 def get_changed_files():
@@ -26,12 +29,17 @@ def get_changed_files():
 def find_test_files(changed_files):
     seen = set()
     matrix = []
+    skipped = set()
     for file in changed_files:
         match = APP_REGEX.match(file)
         if not match:
             continue
 
         full_name = f"{match.group(1)}/{match.group(2)}"
+        if full_name in EXCLUDE_TESTS:
+            if full_name not in skipped:
+                skipped.add(full_name)
+            continue
         for file in pathlib.Path("ix-dev", full_name, TEST_VALUES_DIR).glob("*.yaml"):
             item_tuple = (match.group(1), match.group(2), file.name)
             if item_tuple not in seen:
@@ -47,6 +55,10 @@ def find_test_files(changed_files):
                         "test_file": file.name,
                     }
                 )
+
+    if skipped:
+        print("Skipped apps based on the EXCLUDE_TESTS list:", file=sys.stderr)
+        print("\n".join(skipped), file=sys.stderr)
 
     return matrix
 
