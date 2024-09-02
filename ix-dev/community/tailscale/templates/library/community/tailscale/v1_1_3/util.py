@@ -1,7 +1,4 @@
-from base_v1_0_0 import utils
-
-
-# hostname_re = re.compile(r"^[a-z0-9-]+$")
+from base_v1_0_1 import utils
 
 
 def get_args(data):
