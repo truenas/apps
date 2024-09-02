@@ -111,3 +111,12 @@ def get_image_with_hashed_data(images={}, name="", data=""):
 
 def copy_dict(dict):
     return dict.copy()
+
+
+# Replaces all single dollar signs with double dollar signs
+# Docker tries to expand shell variables, so we need to
+# escape them in multiple places
+# It will not replace dollar signs that are already escaped
+def escape_dollar(text):
+    # https://regex101.com/r/tdbI7y/1
+    return re.sub(r"(?<!\$)\$(?!\$)", r"$$", text)
