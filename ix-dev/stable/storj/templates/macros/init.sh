@@ -28,7 +28,9 @@ if ! [ -f "{{ id_path }}/ca.cert" ] && ! [ -f "{{ id_path }}/identity.cert" ]; t
   echo "Authorizing identity certificate..."
   {{ id_tool_dir }}/identity authorize storagenode {{ flags }} $${AUTH_TOKEN} || { echo "Failed to authorize identity certificate."; exit 1; }
 
-  echo "Storagenode identity certificate generated successfully."
+  echo "Storagenode identity authorized successfully."
+
+  mv {{ id_path }}/storagenode/identity.cert {{ id_path }}/identity.cert || { echo "Failed to move identity certificate."; exit 1; }
 else
   echo "Identity certificate already exists. Skipping..."
 fi
