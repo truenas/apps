@@ -36,6 +36,7 @@ def find_test_files(changed_files):
 
         full_name = f"{match.group(1)}/{match.group(2)}"
         if full_name in EXCLUDE_TESTS:
+            print(f"Skipping {full_name} as it is excluded", file=sys.stderr)
             continue
         for file in pathlib.Path("ix-dev", full_name, TEST_VALUES_DIR).glob("*.yaml"):
             item_tuple = (match.group(1), match.group(2), file.name)
