@@ -46,6 +46,9 @@ def envs(app: dict | None = None, user: list | None = None, values: dict | None 
             )
         result[item["name"]] = item.get("value")
 
+    for k, v in result.items():
+        result[k] = utils.escape_dollar(str(v))
+
     return result
 
 
