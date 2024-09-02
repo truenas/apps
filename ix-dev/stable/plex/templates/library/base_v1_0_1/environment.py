@@ -47,7 +47,12 @@ def envs(app: dict | None = None, user: list | None = None, values: dict | None 
         result[item["name"]] = item.get("value")
 
     for k, v in result.items():
-        result[k] = utils.escape_dollar(str(v))
+        val = str(v)
+        # str(bool) returns "True" or "False",
+        # but we want "true" or "false"
+        if isinstance(v, bool):
+            val = val.lower()
+        result[k] = utils.escape_dollar(val)
 
     return result
 
