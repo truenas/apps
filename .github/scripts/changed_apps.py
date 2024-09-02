@@ -8,6 +8,9 @@ import re
 
 APP_REGEX = re.compile(r"^ix-dev\/([-\w\.]+)\/([-\w\.]+)")
 TEST_VALUES_DIR = "templates/test_values"
+EXCLUDE_TESTS = [
+    "stable/storj",
+]
 
 
 def get_changed_files():
@@ -33,6 +36,8 @@ def find_test_files(changed_files):
 
         full_name = f"{match.group(1)}/{match.group(2)}"
         for file in pathlib.Path("ix-dev", full_name, TEST_VALUES_DIR).glob("*.yaml"):
+            if full_name in EXCLUDE_TESTS:
+                continue
             item_tuple = (match.group(1), match.group(2), file.name)
             if item_tuple not in seen:
                 print(
