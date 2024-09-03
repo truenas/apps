@@ -4,9 +4,23 @@ def migrate_storage_item(storage_item, include_read_only=False):
 
     result = {}
     if storage_item["type"] == "ixVolume":
-        result = migrate_ix_volume_type(storage_item)
+        if storage_item.get("ixVolumeConfig"):
+            result = migrate_ix_volume_type(storage_item)
+        elif storage_item.get("datasetName"):
+            result = migrate_old_ix_volume_type(storage_item)
+        else:
+            raise ValueError(
+                "Expected [ix_volume] to have [ixVolumeConfig] or [datasetName] set"
+            )
     elif storage_item["type"] == "hostPath":
-        result = migrate_host_path_type(storage_item)
+        if storage_item.get("hostPathConfig"):
+            result = migrate_host_path_type(storage_item)
+        elif storage_item.get("hostPath"):
+            result = migrate_old_host_path_type(storage_item)
+        else:
+            raise ValueError(
+                "Expected [host_path] to have [hostPathConfig] or [hostPath] set"
+            )
     elif storage_item["type"] == "emptyDir":
         result = migrate_empty_dir_type(storage_item)
     elif storage_item["type"] == "smb-pv-pvc":
@@ -54,6 +68,19 @@ def migrate_empty_dir_type(empty_dir):
     return {"type": "temporary"}
 
 
+def migrate_old_ix_volume_type(ix_volume):
+    if not ix_volume.get("datasetName"):
+        raise ValueError("Expected [ix_volume] to have [datasetName] set")
+
+    return {
+        "type": "ix_volume",
+        "ix_volume_config": {
+            "acl_enable": False,
+            "dataset_name": ix_volume["datasetName"],
+        },
+    }
+
+
 def migrate_ix_volume_type(ix_volume):
     vol_config = ix_volume.get("ixVolumeConfig", {})
     if not vol_config:
@@ -73,6 +100,19 @@ def migrate_ix_volume_type(ix_volume):
         )
 
     return result
+
+
+def migrate_old_host_path_type(host_path):
+    if not host_path.get("hostPath"):
+        raise ValueError("Expected [host_path] to have [hostPath] set")
+
+    return {
+        "type": "host_path",
+        "host_path_config": {
+            "acl_enable": False,
+            "path": host_path["hostPath"],
+        },
+    }
 
 
 def migrate_host_path_type(host_path):
