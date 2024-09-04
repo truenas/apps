@@ -222,7 +222,7 @@ def migrate(values):
     ix_volumes = values.get("ix_volumes")  # FIXME: (The ix_volumes in the new format)
     system_gpus = values.get("gpu_choices")  # FIXME: (The system gpus)
 
-    # Raise some stuff that are either not supported or not able to be mapped
+    # Raise for some stuff that are either not implemented yet
     if app_config["workloadType"] in ["Job", "CronJob"]:
         raise Exception("Jobs and CronJobs are not supported yet")
 
@@ -239,7 +239,11 @@ def migrate(values):
         raise Exception("EmptyDir volumes are not supported yet")
 
     if app_config["dnsPolicy"]:
-        print("DNS Policy cannot be mapped to docker-compose", file=sys.stderr)
+        print(
+            "DNS Policy cannot be migrated to docker-compose as there is no need for it"
+            "Safely ignoring the DNS Policy",
+            file=sys.stderr,
+        )
 
     manifest = {"services": {app_name: {}}}
     app_manifest = manifest["services"][app_name]
