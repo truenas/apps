@@ -170,10 +170,56 @@ def get_portal(portal_details):
     }
 
 
+def get_gpus_and_devices(gpus, system_gpus):
+    gpus = gpus or {}
+    system_gpus = system_gpus or []
+
+    result = {}
+    nvidia_ids = []
+    for gpu in gpus.items() if gpus else []:
+        kind = gpu[0].lower()  # Kind of gpu (amd, nvidia, intel)
+        count = gpu[1]  # Number of gpus user requested
+
+        if count == 0:
+            continue
+
+        if "amd" in kind or "intel" in kind:
+            result.update({"devices": ["/dev/dri:/dev/dri"]})
+        elif "nvidia" in kind:
+            sys_gpus = [
+                gpu_item
+                for gpu_item in system_gpus
+                if gpu_item.get("error") is None
+                and gpu_item.get("vendor", None) is not None
+                and gpu_item.get("vendor", "").upper() == "NVIDIA"
+            ]
+            for sys_gpu in sys_gpus:
+                if count == 0:  # We passed # of gpus that user previously requested
+                    break
+                guid = sys_gpu.get("vendor_specific_config", {}).get("uuid", "")
+                pci_slot = sys_gpu.get("pci_slot", "")
+                if not guid or not pci_slot:
+                    continue
+
+                nvidia_ids.append(guid)
+                count -= 1
+
+    if nvidia_ids:
+        nvidia_device = {
+            "capabilities": ["gpu"],
+            "driver": "nvidia",
+            "device_ids": nvidia_ids,
+        }
+        result.update({"reservations": {"devices": [nvidia_device]}})
+
+    return result
+
+
 def migrate(values):
     app_name = ""  # FIXME:
     app_config = values["app_config"]  # FIXME:
     ix_volumes = values.get("ix_volumes")  # FIXME:
+    system_gpus = values.get("system_gpus")  # FIXME:
 
     # Raise some stuff that are either not supported or not able to be mapped
     if app_config["workloadType"] in ["Job", "CronJob"]:
@@ -193,9 +239,6 @@ def migrate(values):
 
     if app_config["dnsPolicy"]:
         print("DNS Policy cannot be mapped to docker-compose", file=sys.stderr)
-
-    if app_config.get("gpuConfiguration", {}).keys():
-        raise Exception("GPUs are not supported yet")
 
     manifest = {"services": {app_name: {}}}
     app_manifest = manifest["services"][app_name]
@@ -247,24 +290,14 @@ def migrate(values):
         app_manifest.update({"stdin": True})
 
     if app_config.get("livenessProbe", {}).get("command", []):
-        test = ["CMD", *app_config["livenessProbe"]["command"]]
-        app_manifest.update({"healthcheck": {"test": test}})
+        hc = {"test": ["CMD", *app_config["livenessProbe"]["command"]]}
         if app_config["livenessProbe"].get("initialDelaySeconds", 0) > 0:
-            app_manifest.update(
-                {
-                    "healthcheck": {
-                        "start_period": app_config["livenessProbe"]["initialDelaySeconds"]
-                    }
-                }
+            hc.update(
+                {"start_period": app_config["livenessProbe"]["initialDelaySeconds"]}
             )
         if app_config["livenessProbe"].get("periodSeconds", 0) > 0:
-            app_manifest.update(
-                {
-                    "healthcheck": {
-                        "interval": app_config["livenessProbe"]["periodSeconds"]
-                    }
-                }
-            )
+            hc.update({"interval": app_config["livenessProbe"]["periodSeconds"]})
+        app_manifest.update({"healthcheck": hc})
 
     if app_config.get("dnsConfig", {}):
         dns_c = app_config["dnsConfig"]
@@ -289,27 +322,26 @@ def migrate(values):
     if volumes:
         app_manifest.update({"volumes": volumes})
 
+    limits = {}
     if app_config.get("enableResourceLimits", False):
         if app_config.get("cpuLimit", None):
-            app_manifest.update(
-                {
-                    "deploy": {
-                        "resources": {
-                            "limits": {"cpus": transform_cpu(app_config["cpuLimit"])}
-                        }
-                    }
-                }
-            )
+            limits.update({"cpus": transform_cpu(app_config["cpuLimit"])})
         if app_config.get("memLimit", None):
-            app_manifest.update(
-                {
-                    "deploy": {
-                        "resources": {
-                            "limits": {"memory": transform_memory(app_config["memLimit"])}
-                        }
-                    }
-                }
-            )
+            limits.update({"memory": transform_memory(app_config["memLimit"])})
+
+    if limits:
+        app_manifest.update({"deploy": {"resources": {"limits": limits}}})
+
+    if app_config.get("gpuConfiguration", {}):
+        gpus_and_devices = get_gpus_and_devices(
+            app_config["gpuConfiguration"].get("gpus"), system_gpus
+        )
+        if gpus_and_devices.get("devices", []):
+            app_manifest.update({"devices": gpus_and_devices["devices"]})
+        if gpus_and_devices.get("reservations", {}):
+            app_manifest["deploy"]["resources"]["reservations"] = gpus_and_devices[
+                "reservations"
+            ]
 
     if app_config.get("enableUIPortal", False):
         app_manifest.update({"x-portals": [get_portal(app_config["portalDetails"])]})
