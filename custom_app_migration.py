@@ -222,21 +222,21 @@ def migrate(values):
     ix_volumes = values.get("ix_volumes")  # FIXME: (The ix_volumes in the new format)
     system_gpus = values.get("gpu_choices")  # FIXME: (The system gpus)
 
-    # Raise for some stuff that are either not implemented yet
-    if app_config["workloadType"] in ["Job", "CronJob"]:
-        raise Exception("Jobs and CronJobs are not supported yet")
-
-    if app_config.get("cronSchedule", None):
-        raise Exception("Cron schedule is not supported yet")
-
-    if app_config.get("jobRestartPolicy", None):
-        raise Exception("Job restart policy is not supported yet")
-
+    # Raise for some stuff that are not implemented yet
     if app_config.get("externalInterfaces", []):
         raise Exception("External interfaces are not supported yet")
 
     if app_config.get("emptyDirVolumes", []):
         raise Exception("EmptyDir volumes are not supported yet")
+
+    if app_config["workloadType"] in ["Job", "CronJob"]:
+        print("Jobs/CronJobs are not supported. Was never exposed", file=sys.stderr)
+
+    if app_config.get("cronSchedule", None):
+        print("cronSchedule is not supported. Was never exposed", file=sys.stderr)
+
+    if app_config.get("jobRestartPolicy", None):
+        print("jobRestartPolicy is not supported. Was never exposed", file=sys.stderr)
 
     if app_config["dnsPolicy"]:
         print(
@@ -361,3 +361,137 @@ if __name__ == "__main__":
     if os.path.exists(sys.argv[1]):
         with open(sys.argv[1], "r") as f:
             print(yaml.dump(migrate(yaml.safe_load(f.read()))))
+
+
+# questions:
+#   # Cronjob schedule
+#   - variable: cronSchedule
+#     label: "Cron Schedule"
+#     group: "Workload Details"
+#     schema:
+#       hidden: true
+#       type: cron
+#       show_if: [["workloadType", "=", "CronJob"]]
+#       default:
+#         minute: "5"
+
+#   # Restart Policy
+#   - variable: jobRestartPolicy
+#     description: "Restart Policy for Job"
+#     label: "Restart Policy"
+#     group: "Restart Policy"
+#     schema:
+#       hidden: true
+#       type: string
+#       default: "OnFailure"
+#       show_if: [["workloadType", "!=", "Deployment"]]
+#       enum:
+#         - value: "OnFailure"
+#           description: "Only restart job if it fails"
+#         - value: "Never"
+#           description: "Never restart job even if it fails"
+
+#   # Networking options
+#   - variable: externalInterfaces
+#     description: "Add External Interfaces"
+#     label: "Add external Interfaces"
+#     group: "Networking"
+#     schema:
+#       type: list
+#       items:
+#         - variable: interfaceConfiguration
+#           description: "Interface Configuration"
+#           label: "Interface Configuration"
+#           schema:
+#             type: dict
+#             $ref:
+#               - "normalize/interfaceConfiguration"
+#             attrs:
+#               - variable: hostInterface
+#                 description: "Please specify host interface"
+#                 label: "Host Interface"
+#                 schema:
+#                   type: string
+#                   required: true
+#                   $ref:
+#                     - "definitions/interface"
+#               - variable: ipam
+#                 description: "Define how IP Address will be managed"
+#                 label: "IP Address Management"
+#                 schema:
+#                   type: dict
+#                   required: true
+#                   attrs:
+#                     - variable: type
+#                       description: "Specify type for IPAM"
+#                       label: "IPAM Type"
+#                       schema:
+#                         type: string
+#                         required: true
+#                         enum:
+#                           - value: "dhcp"
+#                             description: "Use DHCP"
+#                           - value: "static"
+#                             description: "Use static IP"
+#                         show_subquestions_if: "static"
+#                         subquestions:
+#                           - variable: staticIPConfigurations
+#                             label: "Static IP Addresses"
+#                             schema:
+#                               type: list
+#                               items:
+#                                 - variable: staticIP
+#                                   label: "Static IP"
+#                                   schema:
+#                                     type: ipaddr
+#                                     cidr: true
+#                           - variable: staticRoutes
+#                             label: "Static Routes"
+#                             schema:
+#                               type: list
+#                               items:
+#                                 - variable: staticRouteConfiguration
+#                                   label: "Static Route Configuration"
+#                                   schema:
+#                                     type: dict
+#                                     attrs:
+#                                       - variable: destination
+#                                         label: "Destination"
+#                                         schema:
+#                                           type: ipaddr
+#                                           cidr: true
+#                                           required: true
+#                                       - variable: gateway
+#                                         label: "Gateway"
+#                                         schema:
+#                                           type: ipaddr
+#                                           cidr: false
+#                                           required: true
+
+#   - variable: emptyDirVolumes
+#     label: "Memory Backed Volumes"
+#     description: "Mount memory based temporary volumes for fast access i.e consuming /dev/shm"
+#     group: "Storage"
+#     schema:
+#       type: list
+#       items:
+#         - variable: emptyDirVolume
+#           label: "Memory Backed Volume"
+#           schema:
+#             type: dict
+#             attrs:
+#               - variable: mountPath
+#                 label: "Mount Path"
+#                 description: "Path where temporary path will be mounted inside the pod"
+#                 schema:
+#                   type: path
+#                   required: true
+#               - variable: sizeLimit
+#                 label: "Size Limit"
+#                 description: |
+#                   Optional - Size of the memory backed volume.</br>
+#                   Format: 100Mi, 1Gi, 2Gi etc
+#                 schema:
+#                   type: string
+#                   valid_chars: "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"
+#                   default: "512Mi"
