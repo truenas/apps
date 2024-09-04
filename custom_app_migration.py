@@ -237,8 +237,12 @@ def migrate(values):
 
     if app_config.get("jobRestartPolicy", None):
         print("jobRestartPolicy is not supported. Was never exposed", file=sys.stderr)
+
     if app_config.get("livenessProbe", {}).get("command", []):
         print("livenessProbe is not supported. Was never exposed", file=sys.stderr)
+
+    if app_config.get("hostPortsList", []):
+        print("hostPortsList is not supported. Was never exposed", file=sys.stderr)
 
     if app_config["dnsPolicy"]:
         print(
@@ -273,9 +277,6 @@ def migrate(values):
 
     if app_config.get("portForwardingList", []):
         app_manifest.update({"ports": get_ports(app_config["portForwardingList"])})
-
-    if app_config.get("hostPortsList", []):
-        app_manifest.update({"ports": get_host_ports(app_config["hostPortsList"])})
 
     if app_config.get("securityContext", {}):
         sc = app_config["securityContext"]
