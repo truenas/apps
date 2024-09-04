@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import math
+import yaml
 import psutil
 
 
@@ -216,10 +217,10 @@ def get_gpus_and_devices(gpus, system_gpus):
 
 
 def migrate(values):
-    app_name = ""  # FIXME:
-    app_config = values["app_config"]  # FIXME:
-    ix_volumes = values.get("ix_volumes")  # FIXME:
-    system_gpus = values.get("system_gpus")  # FIXME:
+    app_name = ""  # FIXME: (The user defined name)
+    app_config = values["app_config"]  # FIXME: (The values from questions)
+    ix_volumes = values.get("ix_volumes")  # FIXME: (The ix_volumes in the new format)
+    system_gpus = values.get("gpu_choices")  # FIXME: (The system gpus)
 
     # Raise some stuff that are either not supported or not able to be mapped
     if app_config["workloadType"] in ["Job", "CronJob"]:
@@ -347,3 +348,12 @@ def migrate(values):
         app_manifest.update({"x-portals": [get_portal(app_config["portalDetails"])]})
 
     return manifest
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
