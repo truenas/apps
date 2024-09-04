@@ -20,9 +20,9 @@ echo "New value for [{{ key }}]: $$(yq '.{{ key }}' "{{ cfg_path }}")"
 echo "Done!"
 {% endmacro %}
 
-{% macro fetch_db_seed() -%}
+{% macro fetch_db_seed(values) -%}
 #!/bin/sh
-# TODO: Skip fetching and applying on subsequent runs
+{{ skip_step_or_continue(values=values, step="fetch_db_seed") }}
 mkdir -p /shared/seed
 cd /shared/seed
 
@@ -39,10 +39,25 @@ mv -fv config docker || { echo "Failed to move files"; exit 1; }
 echo "Done!"
 {% endmacro %}
 
-{% macro apply_db_seed() -%}
+{% macro apply_db_seed(values) -%}
 #!/bin/sh
+{{ skip_step_or_continue(values=values, step="apply_db_seed") }}
 echo "Applying seed..."
 cd /shared/seed/docker
 ./init-invidious-db.sh || { echo "Failed to apply seed"; exit 1; }
 echo "Done!"
+{% endmacro %}
+
+
+{% macro skip_step_or_continue(values, step='') -%}
+{%- set cfg_path = "%s/config.yaml"|format(values.consts.config_path) %}
+touch "{{ cfg_path }}"
+if [ -f "{{ cfg_path }}" ]; then
+  echo "Found existing config file [{{ cfg_path }}]."
+  echo "Treating it as an existing installation. Skipping step [{{ step }}]..."
+
+  echo "If you are re-installing, please remove the file and restart the app."
+  echo "After it is up and running, you can update the config file to your needs and restart the app."
+  exit 0
+fi
 {% endmacro %}
