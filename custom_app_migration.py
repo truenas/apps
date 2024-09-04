@@ -237,6 +237,8 @@ def migrate(values):
 
     if app_config.get("jobRestartPolicy", None):
         print("jobRestartPolicy is not supported. Was never exposed", file=sys.stderr)
+    if app_config.get("livenessProbe", {}).get("command", []):
+        print("livenessProbe is not supported. Was never exposed", file=sys.stderr)
 
     if app_config["dnsPolicy"]:
         print(
@@ -294,16 +296,6 @@ def migrate(values):
     if app_config.get("stdin", False):
         app_manifest.update({"stdin": True})
 
-    if app_config.get("livenessProbe", {}).get("command", []):
-        hc = {"test": ["CMD", *app_config["livenessProbe"]["command"]]}
-        if app_config["livenessProbe"].get("initialDelaySeconds", 0) > 0:
-            hc.update(
-                {"start_period": app_config["livenessProbe"]["initialDelaySeconds"]}
-            )
-        if app_config["livenessProbe"].get("periodSeconds", 0) > 0:
-            hc.update({"interval": app_config["livenessProbe"]["periodSeconds"]})
-        app_manifest.update({"healthcheck": hc})
-
     if app_config.get("dnsConfig", {}):
         dns_c = app_config["dnsConfig"]
         if dns_c.get("options", []):
@@ -355,6 +347,109 @@ def migrate(values):
 
 
 if __name__ == "__main__":
+    sample = {
+        "helm_secret": {
+            "config": {
+                "containerArgs": ["sleep", "infinity"],
+                "containerCommand": ["/bin/sh", "-c"],
+                "containerEnvironmentVariables": [{"name": "test", "value": "123"}],
+                "cpuLimit": "4000m",
+                "dnsConfig": {
+                    "nameservers": ["1.1.1.1"],
+                    "options": [{"name": "opt1", "value": "val1"}],
+                    "searches": ["srch.test.dmain"],
+                },
+                "dnsPolicy": "Default",
+                "emptyDirVolumes": [],
+                "enableResourceLimits": True,
+                "enableUIPortal": True,
+                "externalInterfaces": [],
+                "global": {
+                    "ixChartContext": {
+                        "addNvidiaRuntimeClass": False,
+                        "hasNFSCSI": True,
+                        "hasSMBCSI": True,
+                        "isInstall": True,
+                        "isStopped": False,
+                        "isUpdate": False,
+                        "isUpgrade": False,
+                        "kubernetes_config": {
+                            "cluster_cidr": "172.16.0.0/16",
+                            "cluster_dns_ip": "172.17.0.10",
+                            "service_cidr": "172.17.0.0/16",
+                        },
+                        "nfsProvisioner": "nfs.csi.k8s.io",
+                        "nvidiaRuntimeClassName": "nvidia",
+                        "operation": "INSTALL",
+                        "smbProvisioner": "smb.csi.k8s.io",
+                        "storageClassName": "ix-storage-class-testname",
+                        "upgradeMetadata": {},
+                    }
+                },
+                "gpuConfiguration": {
+                    "amd.com/gpu": 0,
+                    "gpu.intel.com/i915": 0,
+                    "nvidia.com/gpu": 0,
+                },
+                "hostNetwork": False,
+                "hostPathVolumes": [],
+                "hostPortsList": [],
+                "image": {
+                    "pullPolicy": "IfNotPresent",
+                    "repository": "nginx",
+                    "tag": "latest",
+                },
+                "ixCertificateAuthorities": {},
+                "ixCertificates": {},
+                "ixChartContext": {
+                    "addNvidiaRuntimeClass": False,
+                    "hasNFSCSI": True,
+                    "hasSMBCSI": True,
+                    "isInstall": True,
+                    "isStopped": False,
+                    "isUpdate": False,
+                    "isUpgrade": False,
+                    "kubernetes_config": {
+                        "cluster_cidr": "172.16.0.0/16",
+                        "cluster_dns_ip": "172.17.0.10",
+                        "service_cidr": "172.17.0.0/16",
+                    },
+                    "nfsProvisioner": "nfs.csi.k8s.io",
+                    "nvidiaRuntimeClassName": "nvidia",
+                    "operation": "INSTALL",
+                    "smbProvisioner": "smb.csi.k8s.io",
+                    "storageClassName": "ix-storage-class-testname",
+                    "upgradeMetadata": {},
+                },
+                "ixExternalInterfacesConfiguration": [],
+                "ixExternalInterfacesConfigurationNames": [],
+                "ixVolumes": [],
+                "livenessProbe": None,
+                "memLimit": "8Gi",
+                "placeholder": {},
+                "portForwardingList": [
+                    {"containerPort": 1234, "nodePort": 12345, "protocol": "TCP"}
+                ],
+                "portalDetails": {
+                    "port": 15000,
+                    "portalName": "Web Portal",
+                    "protocol": "http",
+                    "useNodeIP": True,
+                },
+                "release_name": "testname",
+                "securityContext": {
+                    "capabilities": [],
+                    "enableRunAsUser": False,
+                    "privileged": False,
+                },
+                "stdin": False,
+                "tty": False,
+                "updateStrategy": "Recreate",
+                "volumes": [],
+                "workloadType": "Deployment",
+            }
+        }
+    }
     if len(sys.argv) != 2:
         exit(1)
 
@@ -369,7 +464,7 @@ if __name__ == "__main__":
 #     label: "Cron Schedule"
 #     group: "Workload Details"
 #     schema:
-#       hidden: true
+#       hidden: True
 #       type: cron
 #       show_if: [["workloadType", "=", "CronJob"]]
 #       default:
@@ -381,7 +476,7 @@ if __name__ == "__main__":
 #     label: "Restart Policy"
 #     group: "Restart Policy"
 #     schema:
-#       hidden: true
+#       hidden: True
 #       type: string
 #       default: "OnFailure"
 #       show_if: [["workloadType", "!=", "Deployment"]]
@@ -412,7 +507,7 @@ if __name__ == "__main__":
 #                 label: "Host Interface"
 #                 schema:
 #                   type: string
-#                   required: true
+#                   required: True
 #                   $ref:
 #                     - "definitions/interface"
 #               - variable: ipam
@@ -420,14 +515,14 @@ if __name__ == "__main__":
 #                 label: "IP Address Management"
 #                 schema:
 #                   type: dict
-#                   required: true
+#                   required: True
 #                   attrs:
 #                     - variable: type
 #                       description: "Specify type for IPAM"
 #                       label: "IPAM Type"
 #                       schema:
 #                         type: string
-#                         required: true
+#                         required: True
 #                         enum:
 #                           - value: "dhcp"
 #                             description: "Use DHCP"
@@ -444,7 +539,7 @@ if __name__ == "__main__":
 #                                   label: "Static IP"
 #                                   schema:
 #                                     type: ipaddr
-#                                     cidr: true
+#                                     cidr: True
 #                           - variable: staticRoutes
 #                             label: "Static Routes"
 #                             schema:
@@ -459,14 +554,14 @@ if __name__ == "__main__":
 #                                         label: "Destination"
 #                                         schema:
 #                                           type: ipaddr
-#                                           cidr: true
-#                                           required: true
+#                                           cidr: True
+#                                           required: True
 #                                       - variable: gateway
 #                                         label: "Gateway"
 #                                         schema:
 #                                           type: ipaddr
-#                                           cidr: false
-#                                           required: true
+#                                           cidr: False
+#                                           required: True
 
 #   - variable: emptyDirVolumes
 #     label: "Memory Backed Volumes"
@@ -485,7 +580,7 @@ if __name__ == "__main__":
 #                 description: "Path where temporary path will be mounted inside the pod"
 #                 schema:
 #                   type: path
-#                   required: true
+#                   required: True
 #               - variable: sizeLimit
 #                 label: "Size Limit"
 #                 description: |
