@@ -100,7 +100,7 @@ def get_ports(ports_list):
     ports = []
     for p in ports_list:
         item = f"{p['nodePort']}:{p['containerPort']}"
-        item += f"{'tcp' if p.get('protocol', 'TCP') == "TCP" else 'udp'}"
+        item += "tcp" if p.get("protocol", "TCP") == "TCP" else "udp"
         ports.append(item)
     return ports
 
@@ -108,11 +108,13 @@ def get_ports(ports_list):
 def get_host_ports(ports_list):
     ports = []
     for port in ports_list:
-        ports.append({
-            "target": port['containerPort'],
-            "published": port['hostPort'],
-            "mode": "host"
-        })
+        ports.append(
+            {
+                "target": port["containerPort"],
+                "published": port["hostPort"],
+                "mode": "host",
+            }
+        )
 
     return ports
 
@@ -156,10 +158,14 @@ def get_portal(portal_details):
     node_ip = "0.0.0.0"
 
     return {
-        "name": portal_details.get('portalName', 'Web Portal'),
-        "scheme": portal_details.get('protocol', 'http'),
-        "host": node_ip if portal_details.get('useNodeIP') else portal_details.get('host', node_ip),
-        "port": portal_details.get('port', 80),
+        "name": portal_details.get("portalName", "Web Portal"),
+        "scheme": portal_details.get("protocol", "http"),
+        "host": (
+            node_ip
+            if portal_details.get("useNodeIP")
+            else portal_details.get("host", node_ip)
+        ),
+        "port": portal_details.get("port", 80),
         "path": "/",
     }
 
@@ -173,22 +179,22 @@ def migrate(values):
     if app_config["workloadType"] in ["Job", "CronJob"]:
         raise Exception("Jobs and CronJobs are not supported yet")
 
-    if app_config.get('cronSchedule', None):
+    if app_config.get("cronSchedule", None):
         raise Exception("Cron schedule is not supported yet")
 
-    if app_config.get('jobRestartPolicy', None):
+    if app_config.get("jobRestartPolicy", None):
         raise Exception("Job restart policy is not supported yet")
 
-    if app_config.get('externalInterfaces', []):
+    if app_config.get("externalInterfaces", []):
         raise Exception("External interfaces are not supported yet")
 
-    if app_config.get('emptyDirVolumes', []):
+    if app_config.get("emptyDirVolumes", []):
         raise Exception("EmptyDir volumes are not supported yet")
 
-    if app_config['dnsPolicy']:
+    if app_config["dnsPolicy"]:
         print("DNS Policy cannot be mapped to docker-compose", file=sys.stderr)
 
-    if app_config.get('gpuConfiguration', {}).keys():
+    if app_config.get("gpuConfiguration", {}).keys():
         raise Exception("GPUs are not supported yet")
 
     manifest = {"services": {app_name: {}}}
@@ -221,17 +227,17 @@ def migrate(values):
     if app_config.get("hostPortsList", []):
         app_manifest.update({"ports": get_host_ports(app_config["hostPortsList"])})
 
-    if app_config.get('securityContext', {}):
-        sc = app_config['securityContext']
-        if sc.get('capabilities', []):
-            app_manifest.update({"cap_add": sc['capabilities']})
+    if app_config.get("securityContext", {}):
+        sc = app_config["securityContext"]
+        if sc.get("capabilities", []):
+            app_manifest.update({"cap_add": sc["capabilities"]})
 
-        if sc.get('enableRunAsUser', False):
-            user = sc.get('runAsUser', 568)
-            group = sc.get('runAsGroup', 568)
+        if sc.get("enableRunAsUser", False):
+            user = sc.get("runAsUser", 568)
+            group = sc.get("runAsGroup", 568)
             app_manifest.update({"user": f"{user}:{group}"})
 
-        if sc.get('privileged', False):
+        if sc.get("privileged", False):
             app_manifest.update({"privileged": True})
 
     if app_config.get("tty", False):
@@ -240,44 +246,72 @@ def migrate(values):
     if app_config.get("stdin", False):
         app_manifest.update({"stdin": True})
 
-    if app_config.get('livenessProbe', {}).get('command', []):
-        test = ["CMD", *app_config['livenessProbe']['command']]
+    if app_config.get("livenessProbe", {}).get("command", []):
+        test = ["CMD", *app_config["livenessProbe"]["command"]]
         app_manifest.update({"healthcheck": {"test": test}})
-        if app_config['livenessProbe'].get('initialDelaySeconds', 0) > 0:
-            app_manifest.update({"healthcheck": {"start_period": app_config['livenessProbe']['initialDelaySeconds']}})
-        if app_config['livenessProbe'].get('periodSeconds', 0) > 0:
-            app_manifest.update({"healthcheck": {"interval": app_config['livenessProbe']['periodSeconds']}})
+        if app_config["livenessProbe"].get("initialDelaySeconds", 0) > 0:
+            app_manifest.update(
+                {
+                    "healthcheck": {
+                        "start_period": app_config["livenessProbe"]["initialDelaySeconds"]
+                    }
+                }
+            )
+        if app_config["livenessProbe"].get("periodSeconds", 0) > 0:
+            app_manifest.update(
+                {
+                    "healthcheck": {
+                        "interval": app_config["livenessProbe"]["periodSeconds"]
+                    }
+                }
+            )
 
-    if app_config.get('dnsConfig', {}):
-        dns_c = app_config['dnsConfig']
-        if dns_c.get('options', []):
-            app_manifest.update({"dns_opt": get_dns_opt(app_config['dnsConfig']['options'])})
-        if dns_c.get('searches', []):
-            app_manifest.update({"dns_search": dns_c['searches']})
-        if dns_c.get('nameservers', []):
-            app_manifest.update({"dns": dns_c['nameservers']})
+    if app_config.get("dnsConfig", {}):
+        dns_c = app_config["dnsConfig"]
+        if dns_c.get("options", []):
+            app_manifest.update(
+                {"dns_opt": get_dns_opt(app_config["dnsConfig"]["options"])}
+            )
+        if dns_c.get("searches", []):
+            app_manifest.update({"dns_search": dns_c["searches"]})
+        if dns_c.get("nameservers", []):
+            app_manifest.update({"dns": dns_c["nameservers"]})
 
     volumes = []
-    if app_config.get('hostPathVolumes', []):
-        volumes.extend(get_host_path_volumes(app_config['hostPathVolumes']))
+    if app_config.get("hostPathVolumes", []):
+        volumes.extend(get_host_path_volumes(app_config["hostPathVolumes"]))
 
-    if app_config.get('volumes', []):
-        app_manifest.update({"volumes": map_ix_volumes_to_host_path(app_config['volumes'], ix_volumes)})
+    if app_config.get("volumes", []):
+        app_manifest.update(
+            {"volumes": map_ix_volumes_to_host_path(app_config["volumes"], ix_volumes)}
+        )
 
     if volumes:
         app_manifest.update({"volumes": volumes})
 
-    if app_config.get('enableResourceLimits', False):
-        if app_config.get('cpuLimit', None):
-            app_manifest.update({"deploy": {
-                "resources": {"limits": {"cpus": transform_cpu(app_config['cpuLimit'])}}}
-            })
-        if app_config.get('memLimit', None):
-            app_manifest.update({"deploy": {
-                "resources": {"limits": {"memory": transform_memory(app_config['memLimit'])}}}
-            })
+    if app_config.get("enableResourceLimits", False):
+        if app_config.get("cpuLimit", None):
+            app_manifest.update(
+                {
+                    "deploy": {
+                        "resources": {
+                            "limits": {"cpus": transform_cpu(app_config["cpuLimit"])}
+                        }
+                    }
+                }
+            )
+        if app_config.get("memLimit", None):
+            app_manifest.update(
+                {
+                    "deploy": {
+                        "resources": {
+                            "limits": {"memory": transform_memory(app_config["memLimit"])}
+                        }
+                    }
+                }
+            )
 
-    if app_config.get('enableUIPortal', False):
-        app_manifest.update({"x-portals": [get_portal(app_config['portalDetails'])]})
+    if app_config.get("enableUIPortal", False):
+        app_manifest.update({"x-portals": [get_portal(app_config["portalDetails"])]})
 
     return manifest
