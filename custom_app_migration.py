@@ -100,7 +100,7 @@ def get_envs(environment_variables):
 def get_ports(ports_list):
     ports = []
     for p in ports_list:
-        item = f"{p['nodePort']}:{p['containerPort']}"
+        item = f"{p['nodePort']}:{p['containerPort']}/"
         item += "tcp" if p.get("protocol", "TCP") == "TCP" else "udp"
         ports.append(item)
     return ports
@@ -149,7 +149,7 @@ def get_dns_opt(dns_options):
         return []
 
     dns_opts = []
-    for opt in dns_options.get("options", []):
+    for opt in dns_options:
         dns_opts.append(f"{opt['name']}:{opt['value']}")
 
     return dns_opts
@@ -217,8 +217,14 @@ def get_gpus_and_devices(gpus, system_gpus):
 
 
 def migrate(values):
-    app_name = ""  # FIXME: (The user defined name)
-    app_config = values["app_config"]  # FIXME: (The values from questions)
+    app_config = values.get("helm_secret", {}).get("config", {})
+    if not app_config:
+        raise Exception("Could not find config in the values")
+
+    app_name = app_config.get("release_name", "")
+    if not app_name:
+        raise Exception("Could not find release_name in the values")
+
     ix_volumes = values.get("ix_volumes")  # FIXME: (The ix_volumes in the new format)
     system_gpus = values.get("gpu_choices")  # FIXME: (The system gpus)
 
@@ -238,7 +244,9 @@ def migrate(values):
     if app_config.get("jobRestartPolicy", None):
         print("jobRestartPolicy is not supported. Was never exposed", file=sys.stderr)
 
-    if app_config.get("livenessProbe", {}).get("command", []):
+    if app_config.get("livenessProbe", {}) and app_config["livenessProbe"].get(
+        "command", []
+    ):
         print("livenessProbe is not supported. Was never exposed", file=sys.stderr)
 
     if app_config.get("hostPortsList", []):
@@ -451,6 +459,7 @@ if __name__ == "__main__":
             }
         }
     }
+    print(yaml.dump(migrate(sample)))
     if len(sys.argv) != 2:
         exit(1)
 
