@@ -259,10 +259,8 @@ def migrate(values):
             file=sys.stderr,
         )
 
-    manifest = {"services": {app_name: {}}}
-    app_manifest = manifest["services"][app_name]
-
-    app_manifest.update(
+    manifest = {}
+    manifest.update(
         {
             "image": get_image(app_config["image"]),
             "pull_policy": get_image_pull_policy(app_config["image"]),
@@ -270,63 +268,59 @@ def migrate(values):
     )
 
     if app_config.get("containerCommand", []):
-        app_manifest["entrypoint"] = app_config["containerCommand"]
+        manifest["entrypoint"] = app_config["containerCommand"]
 
     if app_config.get("containerArgs", []):
-        app_manifest["command"] = app_config["containerArgs"]
+        manifest["command"] = app_config["containerArgs"]
 
     if app_config.get("containerEnvironmentVariables", []):
-        app_manifest["environment"] = get_envs(
-            app_config["containerEnvironmentVariables"]
-        )
+        manifest["environment"] = get_envs(app_config["containerEnvironmentVariables"])
 
     if app_config.get("hostNetwork", False):
-        app_manifest.update({"network_mode": "host"})
+        manifest.update({"network_mode": "host"})
 
     if app_config.get("portForwardingList", []):
-        app_manifest.update({"ports": get_ports(app_config["portForwardingList"])})
+        manifest.update({"ports": get_ports(app_config["portForwardingList"])})
 
     if app_config.get("securityContext", {}):
         sc = app_config["securityContext"]
         if sc.get("capabilities", []):
-            app_manifest.update({"cap_add": sc["capabilities"]})
+            manifest.update({"cap_add": sc["capabilities"]})
 
         if sc.get("enableRunAsUser", False):
             user = sc.get("runAsUser", 568)
             group = sc.get("runAsGroup", 568)
-            app_manifest.update({"user": f"{user}:{group}"})
+            manifest.update({"user": f"{user}:{group}"})
 
         if sc.get("privileged", False):
-            app_manifest.update({"privileged": True})
+            manifest.update({"privileged": True})
 
     if app_config.get("tty", False):
-        app_manifest.update({"tty": True})
+        manifest.update({"tty": True})
 
     if app_config.get("stdin", False):
-        app_manifest.update({"stdin": True})
+        manifest.update({"stdin": True})
 
     if app_config.get("dnsConfig", {}):
         dns_c = app_config["dnsConfig"]
         if dns_c.get("options", []):
-            app_manifest.update(
-                {"dns_opt": get_dns_opt(app_config["dnsConfig"]["options"])}
-            )
+            manifest.update({"dns_opt": get_dns_opt(app_config["dnsConfig"]["options"])})
         if dns_c.get("searches", []):
-            app_manifest.update({"dns_search": dns_c["searches"]})
+            manifest.update({"dns_search": dns_c["searches"]})
         if dns_c.get("nameservers", []):
-            app_manifest.update({"dns": dns_c["nameservers"]})
+            manifest.update({"dns": dns_c["nameservers"]})
 
     volumes = []
     if app_config.get("hostPathVolumes", []):
         volumes.extend(get_host_path_volumes(app_config["hostPathVolumes"]))
 
     if app_config.get("volumes", []):
-        app_manifest.update(
+        manifest.update(
             {"volumes": map_ix_volumes_to_host_path(app_config["volumes"], ix_volumes)}
         )
 
     if volumes:
-        app_manifest.update({"volumes": volumes})
+        manifest.update({"volumes": volumes})
 
     limits = {}
     if app_config.get("enableResourceLimits", False):
@@ -336,23 +330,23 @@ def migrate(values):
             limits.update({"memory": transform_memory(app_config["memLimit"])})
 
     if limits:
-        app_manifest.update({"deploy": {"resources": {"limits": limits}}})
+        manifest.update({"deploy": {"resources": {"limits": limits}}})
 
     if app_config.get("gpuConfiguration", {}):
         gpus_and_devices = get_gpus_and_devices(
             app_config["gpuConfiguration"].get("gpus"), system_gpus
         )
         if gpus_and_devices.get("devices", []):
-            app_manifest.update({"devices": gpus_and_devices["devices"]})
+            manifest.update({"devices": gpus_and_devices["devices"]})
         if gpus_and_devices.get("reservations", {}):
-            app_manifest["deploy"]["resources"]["reservations"] = gpus_and_devices[
+            manifest["deploy"]["resources"]["reservations"] = gpus_and_devices[
                 "reservations"
             ]
 
     if app_config.get("enableUIPortal", False):
-        app_manifest.update({"x-portals": [get_portal(app_config["portalDetails"])]})
+        manifest.update({"x-portals": [get_portal(app_config["portalDetails"])]})
 
-    return manifest
+    return {"services": {app_name: manifest}}
 
 
 if __name__ == "__main__":
