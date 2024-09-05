@@ -1,0 +1,72 @@
+services:
+  {{ values.ix_context.app_name }}:
+    {# Image Configuration #}
+    image: {{ "%s%s" | format(values.image.repository, (":"+values.image.tag) if values.image.tag else "") }}
+
+    {# Container Configuration #}
+    restart: {{ values.restart_policy }}
+    tty: {{ values.tty }}
+    stdin_open: {{ values.stdin }}
+
+    {% if values.entrypoint %}
+    entrypoint: {{ values.entrypoint | tojson }}
+    {% endif %}
+
+    {% if values.command %}
+    command: {{ values.command | tojson }}
+    {% endif %}
+
+    {% if values.disable_builtin_healthcheck %}
+    healthcheck: {"disable": true}
+    {% endif %}
+
+    {# Network Configuration #}
+    {% if values.custom_dns_setup.nameservers %}
+    dns: {{ values.custom_dns_setup.nameservers | tojson }}
+    {% endif %}
+
+    {% if values.custom_dns_setup.searches %}
+    dns_search: {{ values.custom_dns_setup.searches | tojson }}
+    {% endif %}
+
+    {% if values.custom_dns_setup.options %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.custom_dns_setup.options) | tojson }}
+    {% endif %}
+
+    {% if values.host_network %}
+    network_mode: host
+    {% endif %}
+
+    {% if not values.host_network and values.ports %}
+    ports:
+      {% for port in values.ports %}
+      - {{ ix_lib.base.ports.get_port(port=port) | tojson }}
+      {% endfor %}
+    {% endif %}
+
+    {# Security Context Configuration #}
+    privileged: {{ values.privileged }}
+    {% set caps = ix_lib.base.security.get_caps(add=values.capabilities.add, drop=[]) %}
+    {% if caps.add %}
+    cap_add: {{ caps.add | tojson }}
+    {% endif %}
+
+    {% if values.run_as_custom_user %}
+    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
+    {% endif %}
+
+    {# Storage Configuration #}
+    {% if values.storage.additional_storage %}
+    volumes:
+      {% for store in values.storage.additional_storage %}
+      - {{ ix_lib.base.storage.storage_item(data=store, values=values).vol_mount | tojson }}
+      {% endfor %}
+    {% endif %}
+
+    {# Resources Configuration #}
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources, not values.resources.enable_resource_limits) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+
+x-portals: {{ ix_lib.base.metadata.get_portals(values.portals) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("iX App") | tojson }}
