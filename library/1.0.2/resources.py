@@ -3,7 +3,7 @@ import re
 from . import utils
 
 
-def resources(resources):
+def resources(resources, disable_resource_limits=False):
     gpus = resources.get("gpus", {})
     cpus = str(resources.get("limits", {}).get("cpus", 2.0))
     memory = str(resources.get("limits", {}).get("memory", 4096))
@@ -26,6 +26,9 @@ def resources(resources):
     # Docker does not like empty "things" all around.
     if not result["reservations"]["devices"]:
         del result["reservations"]
+
+    if disable_resource_limits:
+        del result["limits"]
 
     return result
 
@@ -76,11 +79,17 @@ def get_devices(resources: dict, other_devices: list = []) -> list:
         if not host_device:
             utils.throw_error(f"Expected [host_device] to be set for device [{device}]")
         if not utils.valid_path(host_device):
-            utils.throw_error(f"Expected [host_device] to be a valid path for device [{device}]")
+            utils.throw_error(
+                f"Expected [host_device] to be a valid path for device [{device}]"
+            )
         if host_device in disallowed_devices:
-            utils.throw_error(f"Device [{host_device}] is not allowed to be manually added.")
+            utils.throw_error(
+                f"Device [{host_device}] is not allowed to be manually added."
+            )
         if host_device in added_host_devices:
-            utils.throw_error(f"Expected devices to be unique, but [{host_device}] was already added.")
+            utils.throw_error(
+                f"Expected devices to be unique, but [{host_device}] was already added."
+            )
         devices.append(f"{host_device}:{container_device}")
         added_host_devices.append(host_device)
 
