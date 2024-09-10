@@ -4,7 +4,7 @@ import os
 import sys
 import yaml
 
-from migration_helpers.resources import migrate_resources
+from migration_helpers.resources import migrate_resources, transform_memory
 from migration_helpers.dns_config import migrate_dns_config
 
 
@@ -45,6 +45,15 @@ def migrate(values):
             "ix_volume_config": {"dataset_name": v["datasetName"]},
         }
         for v in config.get("volumes", [])
+    )
+
+    volumes.extend(
+        {
+            "type": "tmpfs",
+            "mount_path": v["mountPath"],
+            "tmpfs_config": {"size": transform_memory(v["sizeLimit"])},
+        }
+        for v in config.get("emptyDirVolumes", [])
     )
 
     old_resources = {}
