@@ -117,7 +117,16 @@ services:
           fi
 
           echo "Setting $${key}..."
-          sed -i "s|\($${key}=\)[^,]*|\1$${escaped_value}|g" "{{ cfg_file }}"
+
+          # Check if the key already exists
+          if grep -q "^OptionSettings=\(.*${key}=.*\)$" "${cfgFile}"; then
+              # Key exists, update its value using the original logic
+              sed -i "s|\(${key}=\)[^,]*|\1${escaped_value}|g" "${cfgFile}"
+          else
+              # Key doesn't exist, append it right after "OptionSettings=("
+              sed -i "s|^\(OptionSettings=(\)|\1${key}=${escaped_value}, |" "${cfgFile}"
+          fi
+
           if [ "$$print" = true ]; then
             echo "Set to $$(grep -Po "(?<=$${key}=)[^,]*" "{{ cfg_file }}")"
           fi
@@ -130,6 +139,7 @@ services:
         set_ini_value "ServerDescription" "{{ values.palworld.server.description }}" true
         set_ini_value "ServerPassword" '{{ values.palworld.server.password }}' true false
         set_ini_value "AdminPassword" '{{ values.palworld.admin_password }}' true false
+        set_ini_value "AllowConnectPlatform" {{ .Values.palworldConfig.allowPlatform }} false true
 
         {% for item in values.palworld.ini_keys %}
           {% set key = item.key %}
