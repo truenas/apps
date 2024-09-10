@@ -76,7 +76,13 @@ services:
       "TRUST_PROXY": "1" if values.planka.trust_proxy else "0",
       "PORT": values.network.web_port,
       "SECRET_KEY": values.planka.secret_key,
-      "DATABASE_URL": ix_lib.base.postgres.pg_url("postgresql", values.consts.db_user, values.planka.db_password, values.consts.db_name),
+      "DATABASE_URL": ix_lib.base.postgres.pg_url(
+        variant="postgresql",
+        host=values.consts.postgres_container_name,
+        user=values.consts.db_user,
+        password=values.planka.db_password,
+        dbname=values.consts.db_name
+      ),
     } %}
     {% if values.planka.default_admin_email %}
       {% do app_env.update({
@@ -103,19 +109,6 @@ services:
     "user": values.consts.pg_run_user, "group": values.consts.pg_run_group,
     "db_user": values.consts.db_user, "db_name": values.consts.db_name,
     "db_password": values.planka.db_password,
-    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
-    "depends_on": {
-      values.consts.perms_container_name: {
-        "condition": "service_completed_successfully"
-      } if perms_dirs.items else {}
-    }
-  }) | tojson }}
-
-  {{ values.consts.redis_container_name }}: {{ ix_lib.base.redis.redis_container(data={
-    "image": ix_lib.base.utils.get_image(images=values.images, name="redis_image"),
-    "volumes": redis_volume_mounts.items,
-    "user": values.consts.redis_run_user, "group": values.consts.redis_run_group,
-    "password": values.planka.redis_password,
     "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
     "depends_on": {
       values.consts.perms_container_name: {
