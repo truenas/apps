@@ -2,7 +2,13 @@
 
 app_path=$1
 update_type=$2
-log_path="./renovate.log"
+dep_name=$3
+dep_version=$4
+log_path="/tmp/renovate.log"
+
+if [ ! -f "$log_path" ]; then
+  touch "$log_path"
+fi
 
 if [[ -z "$app_path" ]]; then
   echo "Missing app_path"
@@ -14,7 +20,7 @@ if [[ -z "$update_type" ]]; then
   exit 1
 fi
 
-if grep "{{{packageFileDir}}}" "$log_path"; then
+if grep "$app_path" "$log_path"; then
   exit 0
 fi
 
@@ -23,6 +29,8 @@ docker run --quiet --rm \
   -v ./:/workspace \
   ghcr.io/truenas/apps_validation:latest app_bump_version \
   --path /workspace/"$app_path" \
-  --bump "$update_type"
+  --bump "$update_type" \
+  --dep-name "$dep_name" \
+  --dep-version "$dep_version"
 
-echo "$app_path" >>"$log_path"
+echo "$app_path" >>"$log_path" 

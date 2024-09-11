@@ -1,10 +1,11 @@
-def get_value_from_secret(secrets={}, secret_name="", key=""):
+def get_value_from_secret(secrets=None, secret_name=None, key=None):
+    secrets = secrets if secrets else dict()
+    secret_name = secret_name if secret_name else ""
+    key = key if key else ""
+
     if not secrets or not secret_name or not key:
         raise ValueError("Expected [secrets], [secret_name] and [key] to be set")
-    for secret in secrets.items():
-        curr_secret_name = secret[0]
-        curr_data = secret[1]
-
+    for curr_secret_name, curr_data in secrets.items():
         if curr_secret_name.endswith(secret_name):
             if not curr_data.get(key, None):
                 raise ValueError(
