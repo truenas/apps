@@ -25,6 +25,6 @@ def transform_cpu(cpu) -> int:
         result = min(result, CPU_COUNT)
 
     if int(result) == 0:
-        result = 2
+        result = CPU_COUNT if CPU_COUNT else 2
 
     return int(result)
