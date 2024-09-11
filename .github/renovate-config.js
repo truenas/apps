@@ -110,9 +110,9 @@ module.exports = {
     ),
     customVersioning(
       // 1.2.3.4, but not 1.2.0.4 (3rd digit 0 equals beta)
-      "^\\d+\\.\\d+\\.(?!0)\\d+\\.\\d+$",
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>(?!0)\\d+)\\.(?<build>\\d+)$",
       ["emby/embyserver"]
-    )
+    ),
   ],
 };
 
