@@ -46,4 +46,8 @@ def transform_memory(memory):
     result = min(result, TOTAL_MEM)
     # Convert to Megabytes
     result = result / 1024 / 1024
+
+    if int(result) == 0:
+        result = TOTAL_MEM if TOTAL_MEM else 4096
+
     return int(result)
