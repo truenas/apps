@@ -108,6 +108,11 @@ module.exports = {
       "^[a-z0-9]{9}-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-go\\d+\\.\\d+\\.\\d+$",
       ["storjlabs/storagenode"]
     ),
+    customVersioning(
+      // 1.2.3.4, but not 1.2.0.4 (3rd digit 0 equals beta)
+      "^\\d+\\.\\d+\\.(?!0)\\d+\\.\\d+$",
+      ["emby/embyserver"]
+    )
   ],
 };
 
