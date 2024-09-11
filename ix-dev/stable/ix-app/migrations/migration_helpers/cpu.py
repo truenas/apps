@@ -24,4 +24,7 @@ def transform_cpu(cpu) -> int:
         # Do not exceed the actual CPU count
         result = min(result, CPU_COUNT)
 
-    return result
+    if int(result) == 0:
+        result = 2
+
+    return int(result)
