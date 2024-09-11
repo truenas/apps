@@ -1,117 +1,35 @@
 groups:
-  - name: Tailscale Configuration
-    description: Configure Tailscale
+  - name: SABnzbd Configuration
+    description: Configure SABnzbd
+  - name: User and Group Configuration
+    description: Configure User and Group for SABnzbd
   - name: Network Configuration
-    description: Configure Network for Tailscale
+    description: Configure Network for SABnzbd
   - name: Storage Configuration
-    description: Configure Storage for Tailscale
+    description: Configure Storage for SABnzbd
   - name: Resources Configuration
-    description: Configure Resources for Tailscale
+    description: Configure Resources for SABnzbd
 
 questions:
-  - variable: tailscale
+  - variable: TZ
+    group: SABnzbd Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: "Etc/UTC"
+      required: true
+      $ref:
+        - "definitions/timezone"
+
+  - variable: sabnzbd
     label: ""
-    group: Tailscale Configuration
+    group: SABnzbd Configuration
     schema:
       type: dict
       attrs:
-        - variable: hostname
-          label: Hostname
-          description: |
-            The hostname for Tailscale Node.</br>
-            Only lowercase letters, numbers, and hyphens are allowed.</br>
-            Same as `--hostname` flag.
-          schema:
-            type: string
-            default: "truenas-scale"
-            valid_chars: "^[a-z0-9-]+$"
-            valid_chars_error: |
-              Only lowercase letters, numbers, and hyphens are allowed.
-            required: true
-        - variable: auth_key
-          label: Auth Key
-          description: |
-            The auth key for Tailscale Node.</br>
-            Same as `--authkey` flag.
-          schema:
-            type: string
-            default: ""
-            required: true
-        - variable: auth_once
-          label: Auth Once
-          description: Attempt to log in only if not already logged in.
-          schema:
-            type: boolean
-            default: true
-        - variable: accept_dns
-          label: Accept DNS
-          description: |
-            Accept DNS</br>
-            Same as `--accept-dns` flag.
-          schema:
-            type: boolean
-            default: false
-        - variable: userspace
-          label: Userspace
-          description: |
-            Run Tailscale in userspace</br>
-            Same as `--userspace` flag.
-          schema:
-            type: boolean
-            default: false
-        - variable: advertise_exit_node
-          label: Advertise Exit Node
-          description: |
-            Advertise exit node</br>
-            Same as `--advertise-exit-node` flag.
-          schema:
-            type: boolean
-            default: false
-        - variable: advertise_routes
-          label: Advertise Routes
-          description: |
-            Advertise routes</br>
-            Same as `--advertise-routes` flag.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: route
-                label: Route
-                schema:
-                  type: string
-                  required: true
-        - variable: extra_args
-          label: Extra Arguments
-          description: |
-            Extra arguments</br>
-            Flags to pass to tailscale CLI in a tailscale set command.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: arg
-                label: Argument
-                schema:
-                  type: string
-                  required: true
-        - variable: tailscaled_args
-          label: Tailscale Daemon Arguments
-          description: |
-            Tailscaled arguments</br>
-            Flags to pass to the tailscaled daemon.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: arg
-                label: Argument
-                schema:
-                  type: string
-                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Tailscale.
+          description: Configure additional environment variables for SABnzbd.
           schema:
             type: list
             default: []
@@ -131,6 +49,28 @@ questions:
                       schema:
                         type: string
                         required: true
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that SABnzbd files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that SABnzbd files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
@@ -138,13 +78,22 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: web_port
+          label: WebUI Port
+          description: The port for SABnzbd WebUI
+          schema:
+            type: int
+            default: 30024
+            required: true
+            $ref:
+              - definitions/port
         - variable: host_network
           label: Host Network
           description: |
             Bind to the host network. It's recommended to keep this disabled.
           schema:
             type: boolean
-            default: true
+            default: false
 
   - variable: storage
     label: ""
@@ -152,9 +101,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: state
-          label: Tailscale State Storage
-          description: The path to store Tailscale State.
+        - variable: config
+          label: SABnzbd Config Storage
+          description: The path to store SABnzbd Config.
           schema:
             type: dict
             attrs:
@@ -196,7 +145,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "state"
+                        default: "config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -230,10 +179,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Tailscale.
+          description: Additional storage for SABnzbd.
           schema:
             type: list
             default: []
@@ -366,7 +314,6 @@ questions:
                             description: The domain to use for the SMB share.
                             schema:
                               type: string
-
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -380,14 +327,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Tailscale.
+                description: CPUs limit for SABnzbd.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Tailscale.
+                description: Memory limit for SABnzbd.
                 schema:
                   type: int
                   default: 4096
