@@ -8,8 +8,8 @@ def migrate_resources(resources, gpus=None, system_gpus=None):
 
     result = {
         "limits": {
-            "cpus": (CPU_COUNT or 2) / 2,
-            "memory": {TOTAL_MEM / 1024 / 1024},
+            "cpus": int((CPU_COUNT or 2) / 2),
+            "memory": int(TOTAL_MEM / 1024 / 1024),
         }
     }
 
