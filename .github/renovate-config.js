@@ -113,6 +113,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>[1-9]\\d*)\\.(?<build>\\d+)$",
       ["emby/embyserver"]
     ),
+    customVersioning(
+      // 2023.12.31-3535377c9
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.+$",
+      ["searxng/searxng"]
+    ),
   ],
 };
 
