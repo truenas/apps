@@ -50,6 +50,12 @@ configs:
       {# Text to speech #}
       tts:
         - platform: google_translate
+      automation: !include automations.yaml
+      script: !include scripts.yaml
+      scene: !include scenes.yaml
+  empty.default:
+    content: |
+      {}
   recorder.default:
     content: |
       recorder:
@@ -57,7 +63,9 @@ configs:
         commit_interval: 3
         db_url: {{ ha_db_url }}
   config-script:
-    {% set config_file = "/config/configuration.yaml" %}
+    {% set config_path = "/config" %}
+    {% set config_file = "%s/configuration.yaml"|format(config_path) %}
+    {% set extra_files_to_create = ["automations.yaml", "scripts.yaml", "scenes.yaml"] %}
     {% set default_files = "/default/init" %}
     content: |
       #!/bin/sh
@@ -65,7 +73,15 @@ configs:
       if [ ! -f "{{ config_file }}" ]; then
         echo "File [{{ config_file }}] does NOT exist. Creating..."
         cp "{{ default_files }}/configuration.default" "{{ config_file }}"
+
+        {%- for file in extra_files_to_create %}
+        if [ ! -f "{{ config_path }}/{{ file }}" ]; then
+          echo "File [{{ config_path }}/{{ file }}] does NOT exist. Creating..."
+          cp "{{ default_files }}/empty.default" "{{ config_path }}/{{ file }}"
+        fi
+        {%- endfor %}
       fi
+
       chmod +rw "{{ config_file }}" || echo "Failed to set permissions on [{{ config_file }}]"
       if ! yq --exit-status '.recorder' < "{{ config_file }}" &> /dev/null; then
         echo "Section [recorder] does NOT exist in [{{ config_file }}]. Appending..."
@@ -94,6 +110,8 @@ services:
         target: /default/init/configuration.default
       - source: recorder.default
         target: /default/init/recorder.default
+      - source: empty.default
+        target: /default/init/empty.default
     {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
     cap_add: {{ caps.add | tojson }}
     cap_drop: {{ caps.drop | tojson }}
