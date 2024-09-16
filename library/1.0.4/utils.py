@@ -24,11 +24,7 @@ def secure_string(length):
 
 
 def basic_auth_header(username, password):
-    return f"Basic {basic_auth(username, password)}"
-
-
-def basic_auth(username, password):
-    return security.htpasswd(username, password)
+    return f"Basic {security.basic_auth(username, password)}"
 
 
 def bcrypt_hash(password, escape=True):
