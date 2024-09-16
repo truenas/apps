@@ -14,3 +14,11 @@ def get_args(data):
                 utils.throw_error(f"Please use the dedicated field for {key}")
         args.append(arg)
     return " ".join(args)
+
+
+def validate(values):
+    key = values.get("tailscale", {}).get("auth_key") or ""
+    if not key.startswith("tskey-"):
+        utils.throw_error(
+            f"The auth key must start with 'tskey-', but starts with '{key[:8]}'"
+        )
