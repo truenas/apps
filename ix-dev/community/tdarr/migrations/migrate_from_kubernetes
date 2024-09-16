@@ -1,0 +1,151 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+from migration_helpers.resources import migrate_resources
+from migration_helpers.storage import migrate_storage_item
+
+
+def migrate(values):
+    config = values.get("helm_secret", {}).get("config", {})
+    if not config:
+        raise ValueError("No config found in values")
+
+    new_values = {
+        "tdarr": {
+            "internal_node": config["tdarrConfig"].get("internalNode", True),
+            "node_name": config["tdarrConfig"].get("nodeName", "Tdarr"),
+            "additional_envs": config["tdarrConfig"].get("additionalEnvs", []),
+        },
+        "run_as": {
+            "user": config["tdarrID"].get("user", 568),
+            "group": config["tdarrID"].get("group", 568),
+        },
+        "network": {
+            "host_network": config["tdarrNetwork"].get("hostNetwork", False),
+            "web_port": config["tdarrNetwork"].get("webPort", 30028),
+            "server_port": config["tdarrNetwork"].get("serverPort", 30029),
+        },
+        "storage": {
+            "configs": migrate_storage_item(config["tdarrStorage"]["configs"]),
+            "server": migrate_storage_item(config["tdarrStorage"]["server"]),
+            "logs": migrate_storage_item(config["tdarrStorage"]["logs"]),
+            "transcodes": migrate_storage_item(config["tdarrStorage"]["transcodes"]),
+            "additional_storage": [
+                migrate_storage_item(item, include_read_only=True)
+                for item in config["tdarrStorage"]["additionalStorages"]
+            ],
+        },
+        "resources": migrate_resources(config["resources"]),
+    }
+
+    return new_values
+
+
+if __name__ == "__main__":
+    cfg = {
+        "TZ": "Europe/Athens",
+        "global": {
+            "ixChartContext": {
+                "addNvidiaRuntimeClass": False,
+                "hasNFSCSI": True,
+                "hasSMBCSI": True,
+                "isInstall": True,
+                "isStopped": False,
+                "isUpdate": False,
+                "isUpgrade": False,
+                "kubernetes_config": {
+                    "cluster_cidr": "172.16.0.0/16",
+                    "cluster_dns_ip": "172.17.0.10",
+                    "service_cidr": "172.17.0.0/16",
+                },
+                "nfsProvisioner": "nfs.csi.k8s.io",
+                "nvidiaRuntimeClassName": "nvidia",
+                "operation": "INSTALL",
+                "smbProvisioner": "smb.csi.k8s.io",
+                "storageClassName": "ix-storage-class-tdarr1",
+                "upgradeMetadata": {},
+            }
+        },
+        "image": {
+            "pullPolicy": "IfNotPresent",
+            "repository": "haveagitgat/tdarr",
+            "tag": "2.25.01",
+        },
+        "ixCertificateAuthorities": {},
+        "ixCertificates": {},
+        "ixChartContext": {
+            "addNvidiaRuntimeClass": False,
+            "hasNFSCSI": True,
+            "hasSMBCSI": True,
+            "isInstall": True,
+            "isStopped": False,
+            "isUpdate": False,
+            "isUpgrade": False,
+            "kubernetes_config": {
+                "cluster_cidr": "172.16.0.0/16",
+                "cluster_dns_ip": "172.17.0.10",
+                "service_cidr": "172.17.0.0/16",
+            },
+            "nfsProvisioner": "nfs.csi.k8s.io",
+            "nvidiaRuntimeClassName": "nvidia",
+            "operation": "INSTALL",
+            "smbProvisioner": "smb.csi.k8s.io",
+            "storageClassName": "ix-storage-class-tdarr1",
+            "upgradeMetadata": {},
+        },
+        "ixExternalInterfacesConfiguration": [],
+        "ixExternalInterfacesConfigurationNames": [],
+        "ixVolumes": [
+            {
+                "hostPath": "/mnt/fastpool/ix-applications/releases/tdarr1/volumes/ix_volumes/server"
+            },
+            {
+                "hostPath": "/mnt/fastpool/ix-applications/releases/tdarr1/volumes/ix_volumes/configs"
+            },
+            {
+                "hostPath": "/mnt/fastpool/ix-applications/releases/tdarr1/volumes/ix_volumes/logs"
+            },
+        ],
+        "release_name": "tdarr1",
+        "resources": {"limits": {"cpu": "4000m", "memory": "8Gi"}},
+        "tdarrConfig": {
+            "additionalEnvs": [],
+            "internalNode": True,
+            "nodeName": "Tdarr",
+            "serverIP": "0.0.0.0",
+        },
+        "tdarrGPU": {"amd.com/gpu": 0, "gpu.intel.com/i915": 0, "nvidia.com/gpu": 0},
+        "tdarrID": {"group": 568, "user": 568},
+        "tdarrNetwork": {"serverPort": 30029, "webPort": 30028},
+        "tdarrStorage": {
+            "additionalStorages": [],
+            "configs": {
+                "ixVolumeConfig": {"aclEnable": False, "datasetName": "configs"},
+                "type": "ixVolume",
+            },
+            "logs": {
+                "ixVolumeConfig": {"aclEnable": False, "datasetName": "logs"},
+                "type": "ixVolume",
+            },
+            "server": {
+                "ixVolumeConfig": {"aclEnable": False, "datasetName": "server"},
+                "type": "ixVolume",
+            },
+            "transcodes": {
+                "emptyDirConfig": {"medium": "", "size": 2},
+                "ixVolumeConfig": {"datasetName": "transcodes"},
+                "type": "emptyDir",
+            },
+        },
+    }
+    data = {"helm_secret": {"config": cfg}}
+    print(yaml.dump(migrate(data)))
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
