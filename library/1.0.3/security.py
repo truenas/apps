@@ -1,4 +1,3 @@
-from base64 import b64encode
 from . import utils
 
 
@@ -26,4 +25,4 @@ def get_sec_opts(add=None, remove=None):
 
 def htpasswd(username, password):
     hashed = utils.bcrypt_hash(password)
-    return f"{username}:{hashed}"
+    return username + ":" + hashed
