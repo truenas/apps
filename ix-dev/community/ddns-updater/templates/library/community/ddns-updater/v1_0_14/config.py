@@ -12,7 +12,6 @@ valid_ip_http_providers = [
     "ipify",
     "ifconfig",
     "ipinfo",
-    "google",
     "spdyn",
     "ipleak",
     "icanhazip",
@@ -265,7 +264,6 @@ providers_schema = {
         "required": [
             {"provider_key": "username", "ui_key": "dondominio_username"},
             {"provider_key": "password", "ui_key": "dondominio_password"},
-            {"provider_key": "name", "ui_key": "dondominio_name"},
         ],
         "optional": [],
         "combos": [],
