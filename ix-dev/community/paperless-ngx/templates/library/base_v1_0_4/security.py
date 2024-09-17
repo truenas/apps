@@ -1,5 +1,7 @@
 from base64 import b64encode
 
+from . import utils
+
 
 def get_caps(add=None, drop=None):
     add = add or []
@@ -24,4 +26,9 @@ def get_sec_opts(add=None, remove=None):
 
 
 def htpasswd(username, password):
+    hashed = utils.bcrypt_hash(password)
+    return username + ":" + hashed
+
+
+def basic_auth(username, password):
     return b64encode(f"{username}:{password}".encode("utf-8")).decode("utf-8")

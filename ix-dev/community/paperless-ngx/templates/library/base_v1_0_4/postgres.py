@@ -34,7 +34,7 @@ def pg_env(user, password, dbname, port=5432):
         utils.throw_error("Expected [dbname] to be set for postgres")
     return {
         "POSTGRES_USER": user,
-        "POSTGRES_PASSWORD": password,
+        "POSTGRES_PASSWORD": utils.escape_dollar(password),
         "POSTGRES_DB": dbname,
         "POSTGRES_PORT": port,
     }
