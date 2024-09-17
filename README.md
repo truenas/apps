@@ -1,4 +1,4 @@
-\*\*\*\*# Apps Catalog
+# Apps Catalog
 
 ## ⚠️ **Contributions**
 
