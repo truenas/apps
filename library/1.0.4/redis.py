@@ -44,6 +44,6 @@ def redis_env(password, port=6379):
 
     return {
         "ALLOW_EMPTY_PASSWORD": "no",
-        "REDIS_PASSWORD": password,
+        "REDIS_PASSWORD": utils.escape_dollar(password),
         "REDIS_PORT_NUMBER": port,
     }
