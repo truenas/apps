@@ -4,7 +4,7 @@
   "language=%s"|format(values.piwigo.language),
   "dbhost=%s"|format(values.consts.mariadb_container_name),
   "dbuser=%s"|format(values.consts.db_user),
-  "dbpassws=%s"|format(values.piwigo.db_password),
+  "dbpasswd=%s"|format(values.piwigo.db_password),
   "dbname=%s"|format(values.consts.db_name),
   "prefix=piwigo_",
   "admin_name=%s"|format(values.piwigo.admin_name),
