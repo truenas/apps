@@ -33,7 +33,7 @@ def mariadb_container(data={}):
     ]
     for key in req_keys:
         if not data.get(key):
-            utils.throw_error(f"Expected [{key}] to be set for postgres")
+            utils.throw_error(f"Expected [{key}] to be set for mariadb")
 
     db_user = data["db_user"]
     db_password = data["db_password"]
