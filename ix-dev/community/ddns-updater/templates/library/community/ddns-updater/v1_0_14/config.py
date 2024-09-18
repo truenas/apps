@@ -127,6 +127,7 @@ def get_public_ip_providers(category: str, items=[]):
 
 def get_providers_config(items=[]):
     result = []
+    warnings = []
 
     for item in items:
         if item["provider"] not in providers_schema.keys():
@@ -136,6 +137,10 @@ def get_providers_config(items=[]):
         if not item.get("domain", ""):
             utils.throw_error(
                 f"Expected [domain] to be set for provider [{item['provider']}]"
+            )
+        if item.get("host", ""):
+            warnings.append(
+                f"- Provider [{item['provider']}] has deprecated [host] field set, with value [{item['host']}]."
             )
         if not item.get("ip_version", "") in valid_ip_versions:
             utils.throw_error(
@@ -151,7 +156,7 @@ def get_providers_config(items=[]):
             }
         )
 
-    return {"settings": result}
+    return {"result": {"settings": result}, "warnings": warnings}
 
 
 def required_key(item={}, key=""):
