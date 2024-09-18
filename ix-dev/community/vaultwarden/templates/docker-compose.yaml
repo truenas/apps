@@ -126,5 +126,10 @@ services:
 volumes: {{ volumes.items | tojson }}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}]) | tojson }}
+{% set portals = namespace(items=[{"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}]) %}
+{% if values.vaultwarden.admin_token %}
+  {% do portals.items.append({"name": "Admin Portal", "path": "/admin", "port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}) %}
+{% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals(portals.items) | tojson }}
 x-notes: {{ ix_lib.base.metadata.get_notes("Vaultwarden") | tojson }}
