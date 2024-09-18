@@ -171,14 +171,12 @@ providers_schema = {
             {"provider_key": "access_key_id", "ui_key": "aliyun_access_key"},
             {"provider_key": "access_secret", "ui_key": "aliyun_secret_key"},
         ],
-        "optional": [],
     },
     "allinkl": {
         "required": [
             {"provider_key": "username", "ui_key": "allinkl_username"},
             {"provider_key": "password", "ui_key": "allinkl_password"},
         ],
-        "optional": [],
     },
     "cloudflare": {
         "required": [
@@ -189,7 +187,6 @@ providers_schema = {
         "combos": [
             {
                 "required": [{"provider_key": "token", "ui_key": "cloudflare_token"}],
-                "optional": [],
             },
             {
                 "required": [
@@ -198,21 +195,17 @@ providers_schema = {
                         "ui_key": "cloudflare_user_service_key",
                     }
                 ],
-                "optional": [],
             },
             {
                 "required": [
                     {"provider_key": "email", "ui_key": "cloudflare_email"},
                     {"provider_key": "key", "ui_key": "cloudflare_api_key"},
                 ],
-                "optional": [],
             },
         ],
     },
     "dd24": {
         "required": [{"provider_key": "password", "ui_key": "dd24_password"}],
-        "optional": [],
-        "combos": [],
     },
     "ddnss": {
         "required": [
@@ -229,13 +222,9 @@ providers_schema = {
     },
     "desec": {
         "required": [{"provider_key": "token", "ui_key": "desec_token"}],
-        "optional": [],
-        "combos": [],
     },
     "digitalocean": {
         "required": [{"provider_key": "token", "ui_key": "digital_ocean_token"}],
-        "optional": [],
-        "combos": [],
     },
     "dnsomatic": {
         "required": [
@@ -245,32 +234,24 @@ providers_schema = {
     },
     "dnspod": {
         "required": [{"provider_key": "token", "ui_key": "dnspod_token"}],
-        "optional": [],
-        "combos": [],
     },
     "dondominio": {
         "required": [
             {"provider_key": "username", "ui_key": "dondominio_username"},
             {"provider_key": "password", "ui_key": "dondominio_password"},
         ],
-        "optional": [],
-        "combos": [],
     },
     "dreamhost": {
         "required": [{"provider_key": "key", "ui_key": "dreamhost_key"}],
-        "optional": [],
-        "combos": [],
     },
     "duckdns": {
         "required": [{"provider_key": "token", "ui_key": "duckdns_token"}],
-        "combos": [],
     },
     "dyn": {
         "required": [
             {"provider_key": "client_key", "ui_key": "dyn_client_key"},
             {"provider_key": "username", "ui_key": "dyn_username"},
         ],
-        "combos": [],
     },
     "dynu": {
         "required": [
@@ -283,26 +264,21 @@ providers_schema = {
     },
     "dynv6": {
         "required": [{"provider_key": "token", "ui_key": "dynv6_token"}],
-        "combos": [],
     },
     "easydns": {
         "required": [
             {"provider_key": "username", "ui_key": "easydns_username"},
             {"provider_key": "token", "ui_key": "easydns_token"},
         ],
-        "optional": [],
     },
     "freedns": {
         "required": [{"provider_key": "token", "ui_key": "freedns_token"}],
-        "optional": [],
     },
     "gandi": {
         "required": [
             {"provider_key": "key", "ui_key": "gandi_key"},
             {"provider_key": "ttl", "ui_key": "gandi_ttl"},
         ],
-        "optional": [],
-        "combos": [],
     },
     "gcp": {
         "required": [
@@ -314,23 +290,18 @@ providers_schema = {
                 "func": lambda x: json.loads(x),
             },
         ],
-        "optional": [],
     },
     "godaddy": {
         "required": [
             {"provider_key": "key", "ui_key": "godaddy_key"},
             {"provider_key": "secret", "ui_key": "godaddy_secret"},
         ],
-        "optional": [],
-        "combos": [],
     },
     "goip": {
         "required": [
             {"provider_key": "username", "ui_key": "goip_username"},
             {"provider_key": "password", "ui_key": "goip_password"},
         ],
-        "optional": [],
-        "combos": [],
     },
     "he": {
         "required": [{"provider_key": "password", "ui_key": "he_password"}],
@@ -353,22 +324,18 @@ providers_schema = {
             {"provider_key": "username", "ui_key": "inwx_username"},
             {"provider_key": "password", "ui_key": "inwx_password"},
         ],
-        "optional": [],
     },
     "ionos": {
         "required": [{"provider_key": "api_key", "ui_key": "ionos_api_key"}],
-        "optional": [],
     },
     "linode": {
         "required": [{"provider_key": "token", "ui_key": "linode_token"}],
-        "optional": [],
     },
     "luadns": {
         "required": [
             {"provider_key": "token", "ui_key": "luadns_token"},
             {"provider_key": "email", "ui_key": "luadns_email"},
         ],
-        "optional": [],
     },
     "namecheap": {
         "required": [{"provider_key": "password", "ui_key": "namecheap_password"}],
@@ -379,7 +346,6 @@ providers_schema = {
             {"provider_key": "username", "ui_key": "namecom_username"},
             {"provider_key": "ttl", "ui_key": "namecom_ttl"},
         ],
-        "optional": [],
     },
     "netcup": {
         "required": [
@@ -387,7 +353,6 @@ providers_schema = {
             {"provider_key": "password", "ui_key": "netcup_password"},
             {"provider_key": "customer_number", "ui_key": "netcup_customer_number"},
         ],
-        "optional": [],
     },
     "njalla": {
         "required": [{"provider_key": "key", "ui_key": "njalla_key"}],
@@ -403,7 +368,6 @@ providers_schema = {
             {"provider_key": "username", "ui_key": "nowdns_username"},
             {"provider_key": "password", "ui_key": "nowdns_password"},
         ],
-        "optional": [],
     },
     "opendns": {
         "required": [
@@ -419,7 +383,6 @@ providers_schema = {
                     {"provider_key": "username", "ui_key": "ovh_username"},
                     {"provider_key": "password", "ui_key": "ovh_password"},
                 ],
-                "optional": [],
             },
             {
                 "required": [
@@ -428,7 +391,6 @@ providers_schema = {
                     {"provider_key": "app_secret", "ui_key": "ovh_app_secret"},
                     {"provider_key": "consumer_key", "ui_key": "ovh_consumer_key"},
                 ],
-                "optional": [],
             },
         ],
     },
@@ -467,14 +429,12 @@ providers_schema = {
         "combos": [
             {
                 "required": [{"provider_key": "token", "ui_key": "spdyn_token"}],
-                "optional": [],
             },
             {
                 "required": [
                     {"provider_key": "user", "ui_key": "spdyn_username"},
                     {"provider_key": "password", "ui_key": "spdyn_password"},
                 ],
-                "optional": [],
             },
         ],
     },
@@ -492,7 +452,6 @@ providers_schema = {
             {"provider_key": "username", "ui_key": "zoneedit_username"},
             {"provider_key": "token", "ui_key": "zoneedit_token"},
         ],
-        "optional": [],
     },
 }
 
@@ -553,7 +512,7 @@ def get_combo_data(item={}, combo={}):
 
 def get_optional_data(item={}, data={}):
     result = {}
-    for optional in data["optional"]:
+    for optional in data.get("optional", []):
         if optional["ui_key"] in item:
             if optional.get("func"):
                 result[optional["provider_key"]] = optional["func"](
