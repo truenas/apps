@@ -133,10 +133,6 @@ def get_providers_config(items=[]):
             utils.throw_error(
                 f"Expected [provider] to be one of [{', '.join(providers_schema.keys())}], got [{item['provider']}]"
             )
-        if not item.get("host", ""):
-            utils.throw_error(
-                f"Expected [host] to be set for provider [{item['provider']}]"
-            )
         if not item.get("domain", ""):
             utils.throw_error(
                 f"Expected [domain] to be set for provider [{item['provider']}]"
@@ -149,7 +145,6 @@ def get_providers_config(items=[]):
         result.append(
             {
                 "provider": item["provider"],
-                "host": item["host"],
                 "domain": item["domain"],
                 "ip_version": item.get("ip_version", ""),
                 **get_provider_config(item),
