@@ -27,10 +27,11 @@ fi
 
 echo "Installing Piwigo..."
 
-curl -X POST -d "{{ args | join("&") }}" {{ pw_url }}/install.php
+curl -X POST -d "{{ args | join("&") }}" {{ pw_url }}/install.php || { echo "Failed to install Piwigo"; exit 1; }
 if curl --silent --fail {{ pw_url }}/install.php | grep "Piwigo is already installed"; then
   echo "Piwigo is already installed, skipping installation"
   exit 0
 fi
+
 exit 1
 {% endmacro %}
