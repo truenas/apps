@@ -1,3 +1,5 @@
+{% import "macros/init.sh" as init_sh %}
+
 {# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
 {% set storage_items = namespace(items=[]) %}
 {% set mariadb_storage_items = namespace(items=[]) %}
@@ -38,8 +40,29 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
+configs:
+  init.sh:
+    content: {{ init_sh.init(values) | tojson }}
+
 {# Containers #}
 services:
+  {{ values.consts.init_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    user: "0:0"
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    configs:
+      - source: {{ values.consts.init_container_name }}.sh
+        target: /init.sh
+        mode: 0755
+    depends_on:
+      {{ values.consts.perms_container_name }}:
+        condition: service_started
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["/init.sh"]
   {{ values.consts.piwigo_container_name }}:
     user: "0:0"
     image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
