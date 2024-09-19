@@ -19,6 +19,7 @@ def mariadb_env(user, password, root_password, dbname):
         "MARIADB_PASSWORD": utils.escape_dollar(password),
         "MARIADB_ROOT_PASSWORD": utils.escape_dollar(root_password),
         "MARIADB_DATABASE": dbname,
+        "MARIADB_AUTO_UPGRADE": "true",
     }
 
 
