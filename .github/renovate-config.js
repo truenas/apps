@@ -76,7 +76,7 @@ module.exports = {
     customVersioning(
       // There are tags with date format (24.08.0), but newer versions are semver
       "^(?<major>\\d{2})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["linuxserver/deluge", "linuxserver/diskover"]
+      ["linuxserver/deluge", "linuxserver/diskover", "linuxserver/transmission"]
     ),
     customVersioning(
       // Older versions was 20220101 and newer versions are 240101
@@ -118,6 +118,10 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.+$",
       ["searxng/searxng"]
     ),
+    customVersioning(),
+    // tailscale considers beta releases when minor part ends with an odd number
+    "^v(?<major>\\d+)\\.(?<minor>\\d+)[02468]+\\.(?<patch>\\d+)$",
+    ["tailscale/tailscale"],
   ],
 };
 
