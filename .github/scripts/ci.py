@@ -368,14 +368,14 @@ def run_app():
                     + "or image cannot be found.\n\n"
                     + stderr
                 )
-                sys.exit(1)
+                return res.returncode or 99
         parsed_containers = get_parsed_containers()
         if not parsed_containers:
             print_stderr(
                 "Docker exited with non-zero code and no containers were found.\n"
                 + "Most likely docker couldn't start the containers at all.\n"
             )
-            sys.exit(1)
+            return res.returncode or 99
 
         failed_containers = get_failed_containers()
         failed_containers_names = "\n".join(
