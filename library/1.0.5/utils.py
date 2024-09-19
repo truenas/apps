@@ -116,3 +116,20 @@ def copy_dict(dict):
 def escape_dollar(text):
     # https://regex101.com/r/tdbI7y/1
     return re.sub(r"(?<!\$)\$(?!\$)", r"$$", text)
+
+
+def auto_cast(value):
+    try:
+        return int(value)
+    except ValueError:
+        pass
+
+    try:
+        return float(value)
+    except ValueError:
+        pass
+
+    if value.lower() in ["true", "false"]:
+        return value.lower() == "true"
+
+    return value
