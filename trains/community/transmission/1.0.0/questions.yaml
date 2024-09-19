@@ -1,51 +1,52 @@
 groups:
-  - name: Tdarr Configuration
-    description: Configure Tdarr
+  - name: Transmission Configuration
+    description: Configure Transmission
   - name: User and Group Configuration
-    description: Configure User and Group for Tdarr
+    description: Configure User and Group for Transmission
   - name: Network Configuration
-    description: Configure Network for Tdarr
+    description: Configure Network for Transmission
   - name: Storage Configuration
-    description: Configure Storage for Tdarr
+    description: Configure Storage for Transmission
   - name: Resources Configuration
-    description: Configure Resources for Tdarr
+    description: Configure Resources for Transmission
 
 questions:
   - variable: TZ
-    group: Tdarr Configuration
+    group: Transmission Configuration
     label: Timezone
     schema:
       type: string
-      default: Etc/UTC
+      default: "Etc/UTC"
       required: true
       $ref:
         - definitions/timezone
 
-  - variable: tdarr
+  - variable: transmission
     label: ""
-    group: Tdarr Configuration
+    group: Transmission Configuration
     schema:
       type: dict
       attrs:
-        - variable: internal_node
-          label: Internal Node
-          description: |
-            If disabled, Tdarr will run only the server and webUI.</br>
-            If enabled, Tdarr will also start an internal node in the same container.
+        - variable: additional_config
+          label: Additional Configuration
+          description: Configure additional configuration for Transmission.
           schema:
-            type: boolean
-            default: true
-        - variable: node_name
-          label: Node Name
-          description: The name of the Tdarr node.
-          schema:
-            type: string
-            default: "Tdarr"
-            show_if: [["internal_node", "=", false]]
-            required: true
+            type: list
+            default: []
+            items:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Tdarr.
+          description: Configure additional environment variables for Transmission.
           schema:
             type: list
             default: []
@@ -73,7 +74,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Tdarr files will be owned by.
+          description: The user id that Transmission files will be owned by.
           schema:
             type: int
             min: 568
@@ -81,7 +82,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Tdarr files will be owned by.
+          description: The group id that Transmission files will be owned by.
           schema:
             type: int
             min: 568
@@ -96,19 +97,19 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for Tdarr WebUI
+          description: The port for Transmission WebUI
           schema:
             type: int
-            default: 30028
+            default: 30096
             required: true
             $ref:
               - definitions/port
-        - variable: server_port
-          label: Server Port
-          description: The port for Tdarr Server
+        - variable: peer_port
+          label: Peer Port
+          description: The port for Transmission Peer
           schema:
             type: int
-            default: 30029
+            default: 50413
             required: true
             $ref:
               - definitions/port
@@ -119,15 +120,16 @@ questions:
           schema:
             type: boolean
             default: false
+
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: server
-          label: Tdarr Server Storage
-          description: The path to store Tdarr Server.
+        - variable: config
+          label: Transmission Config Storage
+          description: The path to store Transmission Config.
           schema:
             type: dict
             attrs:
@@ -169,7 +171,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "server"
+                        default: "config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -203,9 +205,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: configs
-          label: Tdarr Configs Storage
-          description: The path to store Tdarr Configs.
+        - variable: downloads_complete
+          label: Transmission Completed Downloads Storage
+          description: The path to store Transmission Completed Downloads.
           schema:
             type: dict
             attrs:
@@ -224,6 +226,13 @@ questions:
                       description: Host Path (Path that already exists on the system)
                     - value: "ix_volume"
                       description: ixVolume (Dataset created automatically by the system)
+              - variable: mount_path
+                label: Mount Path
+                description: The path inside the container to mount the storage.
+                schema:
+                  type: path
+                  default: "/downloads/complete"
+                  required: true
               - variable: ix_volume_config
                 label: ixVolume Configuration
                 description: The configuration for the ixVolume dataset.
@@ -247,7 +256,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "configs"
+                        default: "downloads_complete"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -281,11 +290,18 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: logs
-          label: Tdarr Logs Storage
-          description: The path to store Tdarr Logs.
+        - variable: enable_incomplete_dir
+          label: Enable Incomplete Dir
+          description: Enable Incomplete Dir for Transmission.
+          schema:
+            type: boolean
+            default: true
+        - variable: downloads_incomplete
+          label: Transmission Completed Downloads Storage
+          description: The path to store Transmission Completed Downloads.
           schema:
             type: dict
+            show_if: [["enable_incomplete_dir", "=", true]]
             attrs:
               - variable: type
                 label: Type
@@ -302,6 +318,13 @@ questions:
                       description: Host Path (Path that already exists on the system)
                     - value: "ix_volume"
                       description: ixVolume (Dataset created automatically by the system)
+              - variable: mount_path
+                label: Mount Path
+                description: The path inside the container to mount the storage.
+                schema:
+                  type: path
+                  default: "/downloads/incomplete"
+                  required: true
               - variable: ix_volume_config
                 label: ixVolume Configuration
                 description: The configuration for the ixVolume dataset.
@@ -325,107 +348,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "logs"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: transcode
-          label: Tdarr Transcode Storage
-          description: The path to store Tdarr Transcode.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                  Anonymous: Is a temporary directory that will be created on the disk as a docker volume.</br>
-                  tmpfs: Is a temporary directory that will be created on the RAM.</br>
-                schema:
-                  type: string
-                  required: true
-                  immutable: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-                    - value: "anonymous"
-                      description: Anonymous (Temporary directory created on the disk)
-                    - value: "tmpfs"
-                      description: Tmpfs (Temporary directory created on the RAM)
-              - variable: tmpfs_config
-                label: Tmpfs Configuration
-                description: The configuration for the tmpfs dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "tmpfs"]]
-                  attrs:
-                    - variable: size
-                      label: Tmpfs Size Limit (in Mi)
-                      description: |
-                        The maximum size (in Mi) of the temporary directory.</br>
-                        For example: 500
-                      schema:
-                        type: int
-                        default: 500
-                        required: true
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        immutable: true
-                        hidden: true
-                        default: "transcode"
+                        default: "downloads_complete"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -461,7 +384,7 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Tdarr.
+          description: Additional storage for Transmission.
           schema:
             type: list
             default: []
@@ -609,23 +532,15 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Tdarr.
+                description: CPUs limit for Transmission.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Tdarr.
+                description: Memory limit for Transmission.
                 schema:
                   type: int
                   default: 4096
                   required: true
-        - variable: gpus
-          group: Resources Configuration
-          label: GPU Configuration
-          schema:
-            type: dict
-            $ref:
-              - "definitions/gpu_configuration"
-            attrs: []
