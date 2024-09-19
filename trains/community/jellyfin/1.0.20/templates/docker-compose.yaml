@@ -35,6 +35,9 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
+{% set devices = ix_lib.base.resources.get_devices(values.resources) %}
+{% set resources = ix_lib.base.resources.resources(values.resources) %}
+
 {# Containers #}
 services:
   {{ values.consts.jellyfin_container_name }}:
@@ -42,10 +45,13 @@ services:
     image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+      resources: {{ resources | tojson }}
+    devices: {{ devices | tojson }}
+    {% if devices or resources.get("reservations", {}).get("devices") %}
     group_add:
-      - 107
+      - 44  # video
+      - 107 # render
+    {% endif %}
     {% if perms_dirs.items %}
     depends_on:
       {{ values.consts.perms_container_name }}:
