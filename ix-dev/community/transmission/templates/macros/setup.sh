@@ -1,4 +1,4 @@
-{% macro setup(values, config) %}
+{% macro setup(config) %}
 #!/bin/bash
 {%- set cfg_path = "/config/settings.json" %}
 {%- set tmp_path = "/tmp/settings.json" %}
@@ -8,11 +8,13 @@ if [ ! -f {{ cfg_path }} ]; then
   exit 1
 fi
 
-{%- for key, value in config.items() %}
+echo -e "\nStarting setup..."
 
-echo -n "Setting [{{ key }}] to [{{ value | tojson }}]..."
-jq '."{{ key }}" = {{ value | tojson }}' "{{ cfg_path }}" > {{ redir_cmd }}
+{%- for key, val in config.items() %}
+echo -n -e "\t - Setting [{{ key }}] to [{{ val | tojson }}]..."
+jq '."{{ key }}" = {{ val | tojson }}' "{{ cfg_path }}" > {{ redir_cmd }}
 echo " New value is [$$(jq '."{{ key }}"' {{ cfg_path }})]";
 {%- endfor %}
 
+echo -e "Finished setup.\n"
 {% endmacro %}
