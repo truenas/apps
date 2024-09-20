@@ -44,4 +44,7 @@ if ! [ -f {{ values.consts.config_dir }}/config.yaml ]; then
 else
   echo "Storj is already setup. Skipping..."
 fi
+
+# Mark setup as done so the main container can start
+touch {{ values.consts.config_dir }}/setup.done || { echo "Failed to create setup.done file."; exit 1; }
 {% endmacro %}
