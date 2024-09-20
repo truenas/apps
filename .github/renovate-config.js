@@ -118,10 +118,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.+$",
       ["searxng/searxng"]
     ),
-    customVersioning(),
-    // tailscale considers beta releases when minor part ends with an odd number
-    "^v(?<major>\\d+)\\.(?<minor>\\d+)[02468]+\\.(?<patch>\\d+)$",
-    ["tailscale/tailscale"],
+    customVersioning(
+      // tailscale considers beta releases when minor part ends with an odd number
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)[02468]+\\.(?<patch>\\d+)$",
+      ["tailscale/tailscale"]
+    ),
   ],
 };
 
