@@ -19,7 +19,7 @@ Thank you for your understanding.
 | home-assistant       | charts     | ✅    | ✅ - [Manual steps needed](https://github.com/truenas/apps/pull/492) |
 | ix-chart             | charts     | ✅    | ✅                                                                   |
 | minio                | charts     | ✅    | ✅                                                                   |
-| netdata              | charts     | ✅    | -                                                                    |
+| netdata              | charts     | ✅    | ✅                                                                   |
 | nextcloud            | charts     | ✅    | ✅                                                                   |
 | photoprism           | charts     | ✅    | -                                                                    |
 | plex                 | charts     | ✅    | ✅                                                                   |
