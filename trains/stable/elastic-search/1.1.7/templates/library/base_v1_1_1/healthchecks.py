@@ -14,6 +14,17 @@ def check_health(test, interval=10, timeout=10, retries=5, start_period=30):
     }
 
 
+def mariadb_test(db, config=None):
+    config = config or {}
+    if not db:
+        utils.throw_error("MariaDB container: [db] must be set")
+
+    host = config.get("host", "127.0.0.1")
+    port = config.get("port", 3306)
+
+    return f"mariadb-admin --user=root --host={host} --port={port} --password=$$MARIADB_ROOT_PASSWORD ping"
+
+
 def pg_test(user, db, config=None):
     config = config or {}
     if not user or not db:
