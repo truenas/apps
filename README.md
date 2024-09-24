@@ -15,7 +15,7 @@ Thank you for your understanding.
 | collabora            | charts     | ✅    | ✅                                                                   |
 | diskoverdata         | charts     | ✅    | ✅                                                                   |
 | elastic-search       | charts     | ✅    | -                                                                    |
-| emby                 | charts     | ✅    | -                                                                    |
+| emby                 | charts     | ✅    | ✅                                                                   |
 | home-assistant       | charts     | ✅    | ✅ - [Manual steps needed](https://github.com/truenas/apps/pull/492) |
 | ix-chart             | charts     | ✅    | ✅                                                                   |
 | minio                | charts     | ✅    | ✅                                                                   |
