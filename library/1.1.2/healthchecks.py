@@ -1,7 +1,7 @@
 from . import utils
 
 
-def check_health(test, interval=10, timeout=10, retries=5, start_period=30):
+def check_health(test, interval=10, timeout=5, retries=30, start_period=10):
     if not test:
         utils.throw_error("Expected [test] to be set")
 
