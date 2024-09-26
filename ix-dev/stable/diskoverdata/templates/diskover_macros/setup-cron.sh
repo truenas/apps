@@ -1,5 +1,10 @@
 {% macro setup_cron(values) -%}
 #!/bin/bash
+if grep -q "root /app/www/public" /config/nginx/site-confs/default.conf; then
+    echo "Fixing nginx default.conf..."
+    sed -i 's/root \/app\/www\/public/root \/app\/diskover-web\/public/g' /config/nginx/site-confs/default.conf || { echo "Failed to fix nginx default.conf"; exit 1; }
+fi
+
 {{ check_path("/data") }}
 [ ! "$$(ls -A /data)" ] && {{ create_dummy_file("/data") }}
 
