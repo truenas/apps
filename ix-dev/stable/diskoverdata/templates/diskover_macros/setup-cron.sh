@@ -1,9 +1,13 @@
 {% macro setup_cron(values) -%}
 #!/bin/bash
-if grep -q "root /app/www/public" /config/nginx/site-confs/default.conf; then
-    echo "Fixing nginx default.conf..."
-    sed -i 's/root \/app\/www\/public/root \/app\/diskover-web\/public/g' /config/nginx/site-confs/default.conf || { echo "Failed to fix nginx default.conf"; exit 1; }
+# Old installations had the "default" without extension,
+# and after a version the extension was added. Lets cover both cases.
+{% for file in ["/config/nginx/site-confs/default.conf", "/config/nginx/site-confs/default"] %}
+if grep -q "root /app/www/public" {{ file }}; then
+    echo "Fixing nginx [{{ file }}] file"
+    sed -i 's/root \/app\/www\/public/root \/app\/diskover-web\/public/g' {{ file }} || { echo "Failed to fix nginx [{{ file }}] file"; exit 1; }
 fi
+{% endfor %}
 
 {{ check_path("/data") }}
 [ ! "$$(ls -A /data)" ] && {{ create_dummy_file("/data") }}
