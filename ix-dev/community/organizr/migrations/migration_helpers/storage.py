@@ -150,6 +150,6 @@ def migrate_acl_entries(acl_entries: dict) -> dict:
 
     return {
         "entries": entries,
-        "options": {"force": acl_entries.get("force", False)},
+        "options": {"force": acl_entries.get("options", {}).get("force", False)},
         "path": acl_entries["path"],
     }
