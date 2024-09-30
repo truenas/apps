@@ -48,7 +48,7 @@
   {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
 {% endfor %}
 
-{% set cfg = [
+{% set cfg = namespace(x=[
   {"check_tables": true},
   {"database_url": ix_lib.base.postgres.pg_url(
     variant="postgres", host=values.consts.postgres_container_name,
@@ -67,7 +67,17 @@
   {"registration_enabled": values.invidious.registration_enabled},
   {"login_enabled": values.invidious.login_enabled},
   {"captcha_enabled": values.invidious.captcha_enabled},
-] %}
+]) %}
+
+{% if values.invidious.enable_inv_sig_helper %}
+  {% do cfg.x.append({"signature_server": "%s:%d" | format(values.consts.sig_helper_container_name, values.consts.internal_sig_helper_port)}) %}
+{% endif %}
+{% if values.invidious.po_token %}
+  {% do cfg.x.append({"po_token": values.invidious.po_token}) %}
+{% endif %}
+{% if values.invidious.visitor_data %}
+  {% do cfg.x.append({"visitor_data": values.invidious.visitor_data}) %}
+{% endif %}
 
 configs:
   fetch_db_seed.sh:
@@ -75,10 +85,31 @@ configs:
   apply_db_seed.sh:
     content: {{ config_macro.apply_db_seed(values=values) | tojson }}
   config.sh:
-    content: {{ config_macro.config(values=values, cfg=cfg) | tojson }}
+    content: {{ config_macro.config(values=values, cfg=cfg.x) | tojson }}
 
 {# Containers #}
 services:
+{% if values.invidious.enable_inv_sig_helper %}
+  {{ values.consts.sig_helper_container_name }}:
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="sig_helper_image") }}
+    user: {{ "%d:%d" | format(values.consts.inv_sig_helper_run_as_user, values.consts.inv_sig_helper_run_as_group) }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    environment: {{ ix_lib.base.environment.envs(app={
+      "RUST_LOG": "info",
+    }, user=[], values=values) | tojson }}
+    init: true
+    read_only: true
+    command:
+      - --tcp
+      - {{ "0.0.0.0:%d" | format(values.consts.internal_sig_helper_port) }}
+    healthcheck: {{ {"disable": true} | tojson }}
+{% endif %}
+
   {{ values.consts.db_seed_fetch_container_name }}:
     image: {{ ix_lib.base.utils.get_image(images=values.images, name="git_image") }}
     user: {{ "%d:%d" | format(values.consts.run_as_user, values.consts.run_as_group) }}
@@ -115,6 +146,8 @@ services:
         condition: service_healthy
       {{ values.consts.db_seed_fetch_container_name }}:
         condition: service_completed_successfully
+      {{ values.consts.sig_helper_container_name }}:
+        condition: service_started
     configs:
       - source: apply_db_seed.sh
         target: /apply_db_seed.sh
