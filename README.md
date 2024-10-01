@@ -8,7 +8,7 @@ Therefore, please wait for an update on when we will start accepting pull reques
 
 Thank you for your understanding.
 
-## Parity Status with truenas/charts
+## Parity Status with truenas/charts (100% 🚀)
 
 | App                  | Train      | Added | Migrated                                                             |
 | -------------------- | ---------- | ----- | -------------------------------------------------------------------- |
