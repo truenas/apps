@@ -21,7 +21,7 @@ if [[ -z "$update_type" ]]; then
 fi
 
 if grep "$app_path" "$log_path"; then
-  update_type = ""
+  update_type=""
 fi
 
 docker run --quiet --rm \
