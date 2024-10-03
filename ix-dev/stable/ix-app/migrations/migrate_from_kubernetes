@@ -68,7 +68,16 @@ def migrate(values):
     )
     new_resources["enable_resource_limits"] = config.get("enableResourceLimits", False)
 
+    tz = "Etc/UTC"
+    envs = []
+    for env in config.get("containerEnvironmentVariables", []):
+        if env.get("name") == "TZ":
+            tz = env.get("value")
+        else:
+            envs.append(env)
+
     new_values = {
+        "TZ": tz,
         # Image Configuration
         "image": {
             "repository": config["image"]["repository"],
@@ -78,7 +87,7 @@ def migrate(values):
         # Container Configuration
         "entrypoint": config.get("containerCommand", []),
         "command": config.get("containerArgs", []),
-        "envs": config.get("containerEnvironmentVariables", []),
+        "envs": envs,
         "tty": config.get("tty", False),
         "stdin": config.get("stdin", False),
         "restart_policy": "no",
@@ -125,7 +134,7 @@ def migrate(values):
                     "path": "/",
                 }
             ]
-            if config["enableUIPortal"]
+            if config.get("enableUIPortal", False)
             else []
         ),
     }
