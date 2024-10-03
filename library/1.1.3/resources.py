@@ -47,8 +47,13 @@ def get_nvidia_gpus_reservations(gpus: dict) -> dict:
         return {}
 
     device_ids = []
-    for gpu in gpus.get("nvidia_gpu_selection", {}).values():
+    for pci, gpu in gpus.get("nvidia_gpu_selection", {}).items():
         if gpu["use_gpu"]:
+            if not gpu.get("uuid"):
+                utils.throw_error(
+                    "Expected [uuid] to be set for GPU in"
+                    f"slot [{pci}] in [nvidia_gpu_selection]"
+                )
             device_ids.append(gpu["uuid"])
 
     if not device_ids:
