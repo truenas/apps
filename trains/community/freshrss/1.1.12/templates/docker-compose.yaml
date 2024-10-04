@@ -1,0 +1,117 @@
+{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
+{% set storage_items = namespace(items=[]) %}
+{% set pg_storage_items = namespace(items=[]) %}
+{# Stores the top level volumes #}
+{% set volumes = namespace(items={}) %}
+{# Stores the container volume mounts #}
+{% set volume_mounts = namespace(items=[]) %}
+{% set pg_volume_mounts = namespace(items=[]) %}
+{# Stores the perms container volume mounts #}
+{% set perms_mounts = namespace(items=[]) %}
+{# Stores the perms container dirs #}
+{% set perms_dirs = namespace(items=[]) %}
+
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.data_path}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.extensions, **{"mount_path": "/var/www/FreshRSS/extensions"}), values=values)) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/.cache"})) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+{% endfor %}
+
+{# Add each item to the above lists #}
+{% for item in storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
+  perm_opts={"mount_path": "/mnt/postgres/tmp", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group}
+)) %}
+{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
+  values=values, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group,}
+)) %}
+{% for item in pg_storage_items.items %}
+  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
+  {% if item.vol_mount and pg_volume_mounts.items.append(item.vol_mount) %}{% endif %}
+  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+{% endfor %}
+
+{# Containers #}
+services:
+  {{ values.consts.fresh_rss_container_name }}:
+    user: "0:0"
+    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    restart: unless-stopped
+    deploy:
+      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
+    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+    depends_on:
+      {{ values.consts.postgres_container_name }}:
+        condition: service_healthy
+    {% if perms_dirs.items %}
+      {{ values.consts.perms_container_name }}:
+        condition: service_completed_successfully
+    {% endif %}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "SETGID", "SETUID"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
+    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
+    {% if values.network.dns_opts %}
+    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
+    {% endif %}
+    {% set test = ix_lib.base.healthchecks.http_test(port=values.network.web_port, path="/i/") %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
+    {% set app_env = {
+      "FRESHRSS_ENV": "production",
+      "LISTEN": values.network.web_port,
+      "DATA_PATH": values.consts.data_path,
+      "CRON_MIN": values.fresh_rss.cron_min,
+      "FRESHRSS_USER": [
+        "--user %s"|format(values.fresh_rss.default_admin_user),
+        "--password %s"|format(values.fresh_rss.default_admin_password)
+      ]|join("\n"),
+      "FRESHRSS_INSTALL": [
+        "--default-user %s"|format(values.fresh_rss.default_admin_user),
+        "--db-type pgsql",
+        "--db-base %s"|format(values.fresh_rss.db_name),
+        "--db-host %s"|format(values.consts.postgres_container_name),
+        "--db-user %s"|format(values.fresh_rss.db_user),
+        "--db-password %s"|format(values.fresh_rss.db_password),
+      ]|join("\n"),
+    } %}
+    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.fresh_rss.additional_envs, values=values) | tojson }}
+    {% if not values.network.host_network %}
+    ports:
+      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
+    {% endif %}
+    volumes: {{ volume_mounts.items | tojson }}
+
+  {% if perms_dirs.items %}
+  {{ values.consts.perms_container_name }}: {{ ix_lib.base.permissions.perms_container(items=perms_dirs.items, volumes=perms_mounts.items) | tojson }}
+  {% endif %}
+
+  {% set resource_without_gpus = ix_lib.base.utils.copy_dict(values.resources) %}
+  {% do resource_without_gpus.pop("gpus", None) %}
+  {{ values.consts.postgres_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
+    "image": ix_lib.base.utils.get_image(images=values.images, name="postgres_image"),
+    "volumes": pg_volume_mounts.items,
+    "user": values.consts.pg_run_user, "group": values.consts.pg_run_group,
+    "db_user": values.fresh_rss.db_user, "db_name": values.fresh_rss.db_name,
+    "db_password": values.fresh_rss.db_password,
+    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
+    "depends_on": {
+      values.consts.perms_container_name: {
+        "condition": "service_completed_successfully"
+      } if perms_dirs.items else {}
+    }
+  }) | tojson }}
+
+{% if volumes.items %}
+volumes: {{ volumes.items | tojson }}
+{% endif %}
+
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
+x-notes: {{ ix_lib.base.metadata.get_notes("FreshRSS") | tojson }}
