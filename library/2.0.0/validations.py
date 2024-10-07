@@ -21,8 +21,8 @@ def must_be_valid_network_mode(mode: str, containers: list[str]):
         return True
 
     if mode.startswith("service:"):
-        if mode[7:] not in containers:
-            raise RenderError(f"Service [{mode[7:]}] not found")
+        if mode[8:] not in containers:
+            raise RenderError(f"Service [{mode[8:]}] not found")
         return True
 
     raise RenderError(

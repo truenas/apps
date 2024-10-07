@@ -24,6 +24,20 @@ def test_add_device(mock_values):
     assert output["services"]["test_container"]["devices"] == ["/h/dev/sda:/c/dev/sda"]
 
 
+def test_add_device_without_host(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.add_device("", "/c/dev/sda")
+
+
+def test_add_device_without_container(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.add_device("/h/dev/sda", "")
+
+
 def test_add_duplicate_device(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

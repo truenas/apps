@@ -22,6 +22,20 @@ def test_resolve_image(mock_values):
     assert output["services"]["test_container"]["image"] == "nginx:latest"
 
 
+def test_missing_repo(mock_values):
+    mock_values["images"]["test_image"]["repository"] = ""
+    render = Render(mock_values)
+    with pytest.raises(Exception):
+        render.add_container("test_container", "test_image")
+
+
+def test_missing_tag(mock_values):
+    mock_values["images"]["test_image"]["tag"] = ""
+    render = Render(mock_values)
+    with pytest.raises(Exception):
+        render.add_container("test_container", "test_image")
+
+
 def test_non_existing_image(mock_values):
     render = Render(mock_values)
     with pytest.raises(Exception):
@@ -129,6 +143,21 @@ def test_network_mode(mock_values):
     c1.set_network_mode("host")
     output = render.render()
     assert output["services"]["test_container"]["network_mode"] == "host"
+
+
+def test_network_mode_with_container(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.set_network_mode("service:test_container")
+    output = render.render()
+    assert output["services"]["test_container"]["network_mode"] == "service:test_container"
+
+
+def test_network_mode_with_container_missing(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.set_network_mode("service:missing_container")
 
 
 def test_invalid_network_mode(mock_values):
