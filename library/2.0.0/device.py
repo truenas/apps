@@ -60,5 +60,5 @@ class Devices:
     def has_devices(self):
         return len(self.devices) > 0
 
-    def render(self):
+    def render(self) -> list[str]:
         return [d.render() for d in self.devices]
