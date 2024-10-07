@@ -44,6 +44,23 @@ def test_auto_add_vars(mock_values):
     assert envs["NVIDIA_VISIBLE_DEVICES"] == "uuid_0,uuid_1"
 
 
+def test_add_from_all_sources(mock_values):
+    mock_values["TZ"] = "Etc/UTC"
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.environment.add_env("APP_ENV", "test_value")
+    c1.environment.add_user_envs(
+        [
+            {"name": "USER_ENV", "value": "test_value2"},
+        ]
+    )
+    output = render.render()
+    envs = output["services"]["test_container"]["environment"]
+    assert envs["APP_ENV"] == "test_value"
+    assert envs["USER_ENV"] == "test_value2"
+    assert envs["TZ"] == "Etc/UTC"
+
+
 def test_user_add_vars(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
@@ -132,10 +149,13 @@ def test_app_dev_duplicate_vars(mock_values):
         c1.environment.add_env("PORT", "test_value2")
 
 
-def test_escape_vars(mock_values):
+def test_format_vars(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.environment.add_env("APP_ENV", "test_$value")
+    c1.environment.add_env("APP_ENV_BOOL", True)
+    c1.environment.add_env("APP_ENV_INT", 10)
+    c1.environment.add_env("APP_ENV_FLOAT", 10.5)
     c1.environment.add_user_envs(
         [
             {"name": "USER_ENV", "value": "test_$value2"},
@@ -146,3 +166,6 @@ def test_escape_vars(mock_values):
     envs = output["services"]["test_container"]["environment"]
     assert envs["APP_ENV"] == "test_$$value"
     assert envs["USER_ENV"] == "test_$$value2"
+    assert envs["APP_ENV_BOOL"] == "true"
+    assert envs["APP_ENV_INT"] == "10"
+    assert envs["APP_ENV_FLOAT"] == "10.5"

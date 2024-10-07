@@ -14,9 +14,12 @@ class Environment:
     def __init__(self, render_instance, resources: Resources):
         self.render_instance = render_instance
         self.resources = resources
-        self.user_vars: dict = {}
-        self.auto_variables: dict = {}
-        self.app_dev_variables: dict = {}
+        # Stores variables that user defined
+        self.user_vars: dict[str, Any] = {}
+        # Stores variables that are automatically added (based on values)
+        self.auto_variables: dict[str, Any] = {}
+        # Stores variables that are added by the application developer
+        self.app_dev_variables: dict[str, Any] = {}
 
         self.auto_add_variables_from_values()
 
@@ -41,9 +44,7 @@ class Environment:
     def add_nvidia_variables(self):
         if self.resources.nvidia_ids:
             self.auto_variables["NVIDIA_DRIVER_CAPABILITIES"] = "all"
-            self.auto_variables["NVIDIA_VISIBLE_DEVICES"] = ",".join(
-                sorted(self.resources.nvidia_ids)
-            )
+            self.auto_variables["NVIDIA_VISIBLE_DEVICES"] = ",".join(sorted(self.resources.nvidia_ids))
         else:
             self.auto_variables["NVIDIA_VISIBLE_DEVICES"] = "void"
 
@@ -76,33 +77,28 @@ class Environment:
         return value
 
     def has_variables(self):
-        return (
-            len(self.auto_variables) > 0
-            or len(self.user_vars) > 0
-            or len(self.app_dev_variables) > 0
-        )
+        return len(self.auto_variables) > 0 or len(self.user_vars) > 0 or len(self.app_dev_variables) > 0
 
     def render(self):
         result: dict[str, str] = {}
 
         # Add envs from auto variables
-        for k, v in self.auto_variables.items():
-            result[k] = self.format_value(v)
+        result.update({k: self.format_value(v) for k, v in self.auto_variables.items()})
+
+        # Track defined keys for faster lookup
+        defined_keys = set(result.keys())
 
         # Add envs from application developer (prohibit overwriting auto variables)
         for k, v in self.app_dev_variables.items():
-            if k in self.auto_variables.keys():
-                raise RenderError(
-                    f"Environment variable [{k}] is already defined automatically from the library."
-                )
+            if k in defined_keys:
+                raise RenderError(f"Environment variable [{k}] is already defined automatically from the library.")
             result[k] = self.format_value(v)
+            defined_keys.add(k)
 
         # Add envs from user (prohibit overwriting app developer envs and auto variables)
         for k, v in self.user_vars.items():
-            if k in self.app_dev_variables.keys() or k in self.auto_variables.keys():
-                raise RenderError(
-                    f"Environment variable [{k}] is already defined automatically from the application developer."
-                )
+            if k in defined_keys:
+                raise RenderError(f"Environment variable [{k}] is already defined from the application developer.")
             result[k] = self.format_value(v)
 
         return {k: escape_dollar(v) for k, v in result.items()}

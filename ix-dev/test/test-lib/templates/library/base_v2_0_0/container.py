@@ -2,6 +2,7 @@ from typing import Any
 
 
 try:
+    from .dns import Dns
     from .device import Devices
     from .error import RenderError
     from .resources import Resources
@@ -13,6 +14,7 @@ try:
         must_be_valid_cap,
     )
 except ImportError:
+    from dns import Dns
     from device import Devices
     from error import RenderError
     from resources import Resources
@@ -51,14 +53,12 @@ class Container:
         self.devices: Devices = Devices(self.render_instance)
         self.resources: Resources = Resources(self.render_instance)
         self.environment: Environment = Environment(self.render_instance, self.resources)
+        self.dns: Dns = Dns(self.render_instance)
 
     # def add_volume(self, name, config):  # FIXME: define what "volume" is
     #     storage = Storage(self.render_instance, name, config)
     #     self.render_instance.add_volume(storage)
     #     self.volume_mounts.append(storage.volume_mount())
-
-    def add_device(self, host_device: str, container_device: str):
-        self.devices.add_device(host_device, container_device)
 
     def resolve_image(self, image: str):
         images = self.render_instance.values["images"]
@@ -153,6 +153,15 @@ class Container:
 
         if self.environment.has_variables():
             result["environment"] = self.environment.render()
+
+        if self.dns.get_dns_nameservers():
+            result["dns"] = self.dns.get_dns_nameservers()
+
+        if self.dns.get_dns_searches():
+            result["dns_search"] = self.dns.get_dns_searches()
+
+        if self.dns.get_dns_opts():
+            result["dns_opt"] = self.dns.get_dns_opts()
 
         # if self.volume_mounts:
         #     result["volume_mounts"] = self.volume_mounts
