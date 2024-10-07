@@ -26,9 +26,7 @@ def must_be_valid_network_mode(mode: str, containers: list[str]):
         return True
 
     raise RenderError(
-        f"Invalid network mode [{mode}]. "
-        f"Valid options are: [{', '.join(valid_modes)}] "
-        f"or [service:<name>]"
+        f"Invalid network mode [{mode}]. Valid options are: [{', '.join(valid_modes)}] or [service:<name>]"
     )
 
 
@@ -36,8 +34,7 @@ def must_be_valid_restart_policy(policy: str):
     valid_restart_policies = ("always", "on-failure", "unless-stopped", "no")
     if policy not in valid_restart_policies:
         raise RenderError(
-            f"Restart policy [{policy}] is not valid. "
-            f"Valid options are: [{', '.join(valid_restart_policies)}]"
+            f"Restart policy [{policy}] is not valid. Valid options are: [{', '.join(valid_restart_policies)}]"
         )
 
 
@@ -93,7 +90,4 @@ def must_be_valid_cap(cap: str):
     )
 
     if cap not in valid_policies:
-        raise RenderError(
-            f"Capability [{cap}] is not valid. "
-            f"Valid options are: [{', '.join(valid_policies)}]"
-        )
+        raise RenderError(f"Capability [{cap}] is not valid. " f"Valid options are: [{', '.join(valid_policies)}]")

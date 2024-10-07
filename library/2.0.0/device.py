@@ -50,9 +50,7 @@ class Devices:
         # Host device can be mapped to multiple container devices,
         # so we only make sure container devices are not duplicated
         if device.container_device in self._container_devices:
-            raise RenderError(
-                f"Device with container path [{device.container_device}] already added"
-            )
+            raise RenderError(f"Device with container path [{device.container_device}] already added")
 
         self.devices.add(device)
         self._container_devices.add(device.container_device)

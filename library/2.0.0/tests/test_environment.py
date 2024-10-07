@@ -44,6 +44,23 @@ def test_auto_add_vars(mock_values):
     assert envs["NVIDIA_VISIBLE_DEVICES"] == "uuid_0,uuid_1"
 
 
+def test_add_from_all_sources(mock_values):
+    mock_values["TZ"] = "Etc/UTC"
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.environment.add_env("APP_ENV", "test_value")
+    c1.environment.add_user_envs(
+        [
+            {"name": "USER_ENV", "value": "test_value2"},
+        ]
+    )
+    output = render.render()
+    envs = output["services"]["test_container"]["environment"]
+    assert envs["APP_ENV"] == "test_value"
+    assert envs["USER_ENV"] == "test_value2"
+    assert envs["TZ"] == "Etc/UTC"
+
+
 def test_user_add_vars(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

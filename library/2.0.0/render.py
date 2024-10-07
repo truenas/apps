@@ -1,3 +1,5 @@
+import copy
+
 try:
     from error import RenderError
     from container import Container
@@ -8,7 +10,8 @@ except ImportError:
 
 class Render(object):
     def __init__(self, values):
-        self.values: dict = values
+        self._original_values: dict = values
+        self.values: dict = copy.deepcopy(values)
         self.containers: dict[str, Container] = {}
         # self.volumes = {}
         # self.networks = {}
@@ -28,6 +31,9 @@ class Render(object):
     #     pass
 
     def render(self):
+        if self.values != self._original_values:
+            raise RenderError("Values have been modified since the renderer was created.")
+
         result: dict = {}
 
         if not self.containers:

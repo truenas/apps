@@ -36,9 +36,7 @@ def test_automatically_add_memory(mock_values):
     render = Render(mock_values)
     render.add_container("test_container", "test_image")
     output = render.render()
-    assert (
-        output["services"]["test_container"]["resources"]["limits"]["memory"] == "1024M"
-    )
+    assert output["services"]["test_container"]["resources"]["limits"]["memory"] == "1024M"
 
 
 def test_invalid_memory(mock_values):

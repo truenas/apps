@@ -42,10 +42,7 @@ class Resources:
         for pci, gpu in gpus.items():
             if gpu.get("use_gpu", False):
                 if not gpu.get("uuid"):
-                    raise RenderError(
-                        "Expected [uuid] to be set for GPU in"
-                        f"slot [{pci}] in [nvidia_gpu_selection]"
-                    )
+                    raise RenderError("Expected [uuid] to be set for GPU in slot [{pci}] in [nvidia_gpu_selection]")
                 self.nvidia_ids.add(gpu["uuid"])
 
         if self.nvidia_ids:
