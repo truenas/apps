@@ -64,4 +64,4 @@ class Devices:
         return len(self.devices) > 0
 
     def render(self) -> list[str]:
-        return [d.render() for d in self.devices]
+        return sorted([d.render() for d in self.devices])
