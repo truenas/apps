@@ -1,35 +1,24 @@
 try:
+    from .device import Device
     from .error import RenderError
     from .formatter import escape_dollar
     from .validations import (
         must_be_valid_network_mode,
         must_be_valid_restart_policy,
-        must_be_valid_path,
         must_be_valid_cap,
     )
 except ImportError:
+    from device import Device
     from error import RenderError
     from formatter import escape_dollar
     from validations import (
         must_be_valid_network_mode,
         must_be_valid_restart_policy,
-        must_be_valid_path,
         must_be_valid_cap,
     )
 
 
 # from .storage import Storage
-
-
-class Device:
-    def __init__(self, host_device: str, container_device: str):
-        must_be_valid_path(host_device)
-        must_be_valid_path(container_device)
-        self.host_device: str = host_device
-        self.container_device: str = container_device
-
-    def render(self):
-        return f"{self.host_device}:{self.container_device}"
 
 
 class Container:
