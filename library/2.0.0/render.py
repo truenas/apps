@@ -1,15 +1,22 @@
-from error import RenderError
-from container import Container
+try:
+    from error import RenderError
+    from container import Container
+except ImportError:
+    from .error import RenderError
+    from .container import Container
 
 
 class Render(object):
     def __init__(self, values):
-        self.values = values
-        self.containers = {}
+        self.values: dict = values
+        self.containers: dict[str, Container] = {}
         # self.volumes = {}
         # self.networks = {}
 
-    def add_container(self, name, image):
+    def container_names(self):
+        return self.containers.keys()
+
+    def add_container(self, name: str, image: str):
         container = Container(self, name, image)
         if name in self.containers:
             raise RenderError(f"Container {name} already exists.")
@@ -21,7 +28,7 @@ class Render(object):
     #     pass
 
     def render(self):
-        result = {}
+        result: dict = {}
 
         if not self.containers:
             raise RenderError("No containers added.")
