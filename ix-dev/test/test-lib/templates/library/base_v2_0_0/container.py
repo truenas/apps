@@ -1,5 +1,11 @@
+from typing import Any
+
+
 try:
+    from .device import Devices
     from .error import RenderError
+    from .resources import Resources
+    from .environment import Environment
     from .formatter import escape_dollar
     from .validations import (
         must_be_valid_network_mode,
@@ -7,7 +13,10 @@ try:
         must_be_valid_cap,
     )
 except ImportError:
+    from device import Devices
     from error import RenderError
+    from resources import Resources
+    from environment import Environment
     from formatter import escape_dollar
     from validations import (
         must_be_valid_network_mode,
@@ -39,11 +48,17 @@ class Container:
         self.networks: set[str] = set()
         self.entrypoint: list[str] = []
         self.command: list[str] = []
+        self.devices: Devices = Devices(self.render_instance)
+        self.resources: Resources = Resources(self.render_instance)
+        self.environment: Environment = Environment(self.render_instance, self.resources)
 
     # def add_volume(self, name, config):  # FIXME: define what "volume" is
     #     storage = Storage(self.render_instance, name, config)
     #     self.render_instance.add_volume(storage)
     #     self.volume_mounts.append(storage.volume_mount())
+
+    def add_device(self, host_device: str, container_device: str):
+        self.devices.add_device(host_device, container_device)
 
     def resolve_image(self, image: str):
         images = self.render_instance.values["images"]
@@ -75,12 +90,16 @@ class Container:
         must_be_valid_restart_policy(policy)
         self.restart = policy
 
-    def add_caps(self, cap: list[str]):
-        for c in cap:
+    def add_caps(self, caps: list[str]):
+        for c in caps:
+            if c in self.cap_add:
+                raise RenderError(f"Capability [{c}] already added")
             must_be_valid_cap(c)
             self.cap_add.add(c)
 
     def add_security_opt(self, opt: str):
+        if opt in self.security_opt:
+            raise RenderError(f"Security Option [{opt}] already added")
         self.security_opt.add(opt)
 
     def remove_security_opt(self, opt: str):
@@ -96,7 +115,7 @@ class Container:
     def set_command(self, command: list[str]):
         self.command = [escape_dollar(e) for e in command]
 
-    def render(self):
+    def render(self) -> dict[str, Any]:
         if self.network_mode and self.networks:
             raise RenderError("Cannot set both [network_mode] and [networks]")
 
@@ -125,6 +144,15 @@ class Container:
 
         if self.command:
             result["command"] = self.command
+
+        if self.devices.has_devices():
+            result["devices"] = self.devices.render()
+
+        if self.resources.has_resources():
+            result["resources"] = self.resources.render()
+
+        if self.environment.has_variables():
+            result["environment"] = self.environment.render()
 
         # if self.volume_mounts:
         #     result["volume_mounts"] = self.volume_mounts
