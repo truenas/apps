@@ -55,6 +55,9 @@ class Container:
         self.environment: Environment = Environment(self.render_instance, self.resources)
         self.dns: Dns = Dns(self.render_instance)
 
+        # self.portals: set[Portal] = set()
+        # self.notes: str = ""
+
     # def add_volume(self, name, config):  # FIXME: define what "volume" is
     #     storage = Storage(self.render_instance, name, config)
     #     self.render_instance.add_volume(storage)
