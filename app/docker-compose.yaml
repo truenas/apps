@@ -1,0 +1,33 @@
+{# Define a new api for renderer #}
+{% set lib = ix_lib.base.new() %}
+
+
+{% set containerX = lib.new_container("container-name", "image_name") %}
+
+{#
+  Sets the permission needs for that container,
+  if storage config has auto-perms enabled, those will be used.
+  Unless it is overriden on the lib.storage.add call
+#}
+{% do containerX.set_perms("<uid>", "<gid>") %}
+
+
+{% do lib.storage.add("/mount/path", {storage config....}) %}
+
+{% do containerX.storage.add("/mount/path1", {storage config....}) %}
+
+services:
+  container-name: # End goal is to just to this and have all the info in {{ lib.service.container("container-name") | tojson }}
+    image: image:tag
+    {# Gets the volume mounts for the container. In this case 2 mounts #}
+    volumes: {{ containerX.storage.volume_mounts("container-name") | tojson }}
+    {# This normally will be run inside the library, and we will getting the whole container built already (see above) #}
+
+
+
+
+
+{# Check if the added storages produced a volume. Eg hostpaths do not. #}
+{% if lib.storage.has_volumes() %}
+volumes: {{ lib.storage.volumes() | tojson }}
+{% endif %}
