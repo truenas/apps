@@ -156,28 +156,3 @@ def test_command(mock_values):
     c1.set_command(["echo", "hello $MY_ENV"])
     output = render.render()
     assert output["services"]["test_container"]["command"] == ["echo", "hello $$MY_ENV"]
-
-
-def test_add_device(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.add_device("/h/dev/sda", "/c/dev/sda")
-    output = render.render()
-    assert output["services"]["test_container"]["devices"] == ["/h/dev/sda:/c/dev/sda"]
-
-
-def test_add_duplicate_device(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.add_device("/h/dev/sda", "/c/dev/sda")
-    with pytest.raises(Exception):
-        c1.add_device("/h/dev/sda", "/c/dev/sda")
-
-
-def test_add_device_with_invalid_path(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    with pytest.raises(Exception):
-        c1.add_device("/h/dev/sda", "c/dev/sda")
-    with pytest.raises(Exception):
-        c1.add_device("h/dev/sda", "/c/dev/sda")

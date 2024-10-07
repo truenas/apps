@@ -9,6 +9,12 @@ def must_be_valid_path(path: str):
         raise RenderError(f"Path [{path}] must start with /")
 
 
+def must_not_be_disallowed_device(path: str):
+    disallowed_devices = ["/dev/dri"]
+    if path in disallowed_devices:
+        raise RenderError(f"Device [{path}] is not allowed to be manually added.")
+
+
 def must_be_valid_network_mode(mode: str, containers: list[str]):
     valid_modes = ("host", "none")
     if mode in valid_modes:
