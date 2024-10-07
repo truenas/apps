@@ -17,7 +17,7 @@ def mock_values():
 
 def test_resolve_image(mock_values):
     render = Render(mock_values)
-    _ = render.add_container("test_container", "test_image")
+    render.add_container("test_container", "test_image")
     output = render.render()
     assert output["services"]["test_container"]["image"] == "nginx:latest"
 
@@ -25,7 +25,7 @@ def test_resolve_image(mock_values):
 def test_non_existing_image(mock_values):
     render = Render(mock_values)
     with pytest.raises(Exception):
-        _ = render.add_container("test_container", "non_existing_image")
+        render.add_container("test_container", "non_existing_image")
 
 
 def test_invalid_restart_policy(mock_values):
@@ -33,7 +33,6 @@ def test_invalid_restart_policy(mock_values):
     c1 = render.add_container("test_container", "test_image")
     with pytest.raises(Exception):
         c1.set_restart("invalid_policy")
-        render.render()
 
 
 def test_valid_restart_policy(mock_values):
@@ -73,7 +72,6 @@ def test_invalid_user(mock_values):
     c1 = render.add_container("test_container", "test_image")
     with pytest.raises(Exception):
         c1.set_user(-100, 1000)
-        render.render()
 
 
 def test_valid_caps(mock_values):
@@ -85,12 +83,18 @@ def test_valid_caps(mock_values):
     assert output["services"]["test_container"]["cap_drop"] == ["ALL"]
 
 
+def test_add_duplicate_caps(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.add_caps(["ALL", "NET_ADMIN", "NET_ADMIN"])
+
+
 def test_invalid_caps(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     with pytest.raises(Exception):
         c1.add_caps(["invalid_cap"])
-        render.render()
 
 
 def test_remove_security_opt(mock_values):
@@ -112,6 +116,13 @@ def test_add_security_opt(mock_values):
     ]
 
 
+def test_add_duplicate_security_opt(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.add_security_opt("no-new-privileges")
+
+
 def test_network_mode(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
@@ -125,7 +136,6 @@ def test_invalid_network_mode(mock_values):
     c1 = render.add_container("test_container", "test_image")
     with pytest.raises(Exception):
         c1.set_network_mode("invalid_mode")
-        render.render()
 
 
 def test_entrypoint(mock_values):
@@ -146,3 +156,28 @@ def test_command(mock_values):
     c1.set_command(["echo", "hello $MY_ENV"])
     output = render.render()
     assert output["services"]["test_container"]["command"] == ["echo", "hello $$MY_ENV"]
+
+
+def test_add_device(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.add_device("/h/dev/sda", "/c/dev/sda")
+    output = render.render()
+    assert output["services"]["test_container"]["devices"] == ["/h/dev/sda:/c/dev/sda"]
+
+
+def test_add_duplicate_device(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.add_device("/h/dev/sda", "/c/dev/sda")
+    with pytest.raises(Exception):
+        c1.add_device("/h/dev/sda", "/c/dev/sda")
+
+
+def test_add_device_with_invalid_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.add_device("/h/dev/sda", "c/dev/sda")
+    with pytest.raises(Exception):
+        c1.add_device("h/dev/sda", "/c/dev/sda")

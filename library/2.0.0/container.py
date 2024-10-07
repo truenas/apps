@@ -4,6 +4,7 @@ try:
     from .validations import (
         must_be_valid_network_mode,
         must_be_valid_restart_policy,
+        must_be_valid_path,
         must_be_valid_cap,
     )
 except ImportError:
@@ -12,11 +13,23 @@ except ImportError:
     from validations import (
         must_be_valid_network_mode,
         must_be_valid_restart_policy,
+        must_be_valid_path,
         must_be_valid_cap,
     )
 
 
 # from .storage import Storage
+
+
+class Device:
+    def __init__(self, host_device: str, container_device: str):
+        must_be_valid_path(host_device)
+        must_be_valid_path(container_device)
+        self.host_device: str = host_device
+        self.container_device: str = container_device
+
+    def render(self):
+        return f"{self.host_device}:{self.container_device}"
 
 
 class Container:
@@ -39,11 +52,23 @@ class Container:
         self.networks: set[str] = set()
         self.entrypoint: list[str] = []
         self.command: list[str] = []
+        # TODO: automatically look for intel/amd devices now
+        self.devices: set[Device] = set()
 
     # def add_volume(self, name, config):  # FIXME: define what "volume" is
     #     storage = Storage(self.render_instance, name, config)
     #     self.render_instance.add_volume(storage)
     #     self.volume_mounts.append(storage.volume_mount())
+
+    def add_device(self, host_device: str, container_device: str):
+        device = Device(host_device, container_device)
+        # Host device can be mapped to multiple container devices,
+        # so only make sure container devices are not duplicated
+        if container_device in [d.container_device for d in self.devices]:
+            raise RenderError(
+                f"Device with container path [{container_device}] already added"
+            )
+        self.devices.add(device)
 
     def resolve_image(self, image: str):
         images = self.render_instance.values["images"]
@@ -75,12 +100,16 @@ class Container:
         must_be_valid_restart_policy(policy)
         self.restart = policy
 
-    def add_caps(self, cap: list[str]):
-        for c in cap:
+    def add_caps(self, caps: list[str]):
+        for c in caps:
+            if c in self.cap_add:
+                raise RenderError(f"Capability [{c}] already added")
             must_be_valid_cap(c)
             self.cap_add.add(c)
 
     def add_security_opt(self, opt: str):
+        if opt in self.security_opt:
+            raise RenderError(f"Security Option [{opt}] already added")
         self.security_opt.add(opt)
 
     def remove_security_opt(self, opt: str):
@@ -125,6 +154,9 @@ class Container:
 
         if self.command:
             result["command"] = self.command
+
+        if self.devices:
+            result["devices"] = [d.render() for d in self.devices]
 
         # if self.volume_mounts:
         #     result["volume_mounts"] = self.volume_mounts

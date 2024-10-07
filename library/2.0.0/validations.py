@@ -4,6 +4,11 @@ except ImportError:
     from error import RenderError
 
 
+def must_be_valid_path(path: str):
+    if not path.startswith("/"):
+        raise RenderError(f"Path [{path}] must start with /")
+
+
 def must_be_valid_network_mode(mode: str, containers: list[str]):
     valid_modes = ("host", "none")
     if mode in valid_modes:
