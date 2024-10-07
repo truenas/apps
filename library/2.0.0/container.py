@@ -5,6 +5,7 @@ try:
     from .device import Devices
     from .error import RenderError
     from .resources import Resources
+    from .environment import Environment
     from .formatter import escape_dollar
     from .validations import (
         must_be_valid_network_mode,
@@ -15,6 +16,7 @@ except ImportError:
     from device import Devices
     from error import RenderError
     from resources import Resources
+    from environment import Environment
     from formatter import escape_dollar
     from validations import (
         must_be_valid_network_mode,
@@ -48,6 +50,7 @@ class Container:
         self.command: list[str] = []
         self.devices: Devices = Devices(self.render_instance)
         self.resources: Resources = Resources(self.render_instance)
+        self.environment: Environment = Environment(self.render_instance, self.resources)
 
     # def add_volume(self, name, config):  # FIXME: define what "volume" is
     #     storage = Storage(self.render_instance, name, config)
@@ -147,6 +150,9 @@ class Container:
 
         if self.resources.has_resources():
             result["resources"] = self.resources.render()
+
+        if self.environment.has_variables():
+            result["environment"] = self.environment.render()
 
         # if self.volume_mounts:
         #     result["volume_mounts"] = self.volume_mounts
