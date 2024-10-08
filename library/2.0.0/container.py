@@ -38,9 +38,7 @@ class Container:
         self._user: str = ""
         self._tty: bool = False
         self._stdin_open: bool = False
-        # Drop all capabilities by default
-        # If a CAP is needed it has to be added explicitly
-        self._cap_drop: set[str] = set(["ALL"])
+        self._cap_drop: set[str] = set(["ALL"])  # Drop all capabilities by default and add caps granularly
         self._cap_add: set[str] = set()
         self._security_opt: set[str] = set(["no-new-privileges"])
         self._network_mode: str = ""
