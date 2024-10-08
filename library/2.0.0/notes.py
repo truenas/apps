@@ -57,8 +57,7 @@ class Notes:
             result += "\n"
 
         if self._body:
-            result += self._body
-            result += "\n"
+            result += self._body.strip() + "\n\n"
 
         result += self._footer
 
