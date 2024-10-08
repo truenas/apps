@@ -84,6 +84,13 @@ def test_not_adding_test(mock_values):
         render.render()
 
 
+def test_invalid_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.healthcheck.set_test("http", {"port": 8080, "path": "invalid"})
+
+
 def test_http_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

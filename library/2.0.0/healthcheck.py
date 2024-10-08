@@ -3,9 +3,11 @@ from typing import Any
 try:
     from .error import RenderError
     from .formatter import escape_dollar
+    from .validations import must_be_valid_path
 except ImportError:
     from error import RenderError
     from formatter import escape_dollar
+    from validations import must_be_valid_path
 
 
 class Healthcheck:
@@ -95,6 +97,7 @@ def curl_test(config: dict) -> str:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = get_key(config, "path", "/", False)
+    must_be_valid_path(path)
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
@@ -119,6 +122,7 @@ def wget_test(config: dict) -> str:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = get_key(config, "path", "/", False)
+    must_be_valid_path(path)
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
@@ -143,6 +147,7 @@ def http_test(config: dict) -> str:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = get_key(config, "path", "/", False)
+    must_be_valid_path(path)
     host = get_key(config, "host", "127.0.0.1", False)
 
     http_cmd = "/bin/bash -c '"
