@@ -6,6 +6,7 @@ try:
     from .device import Devices
     from .error import RenderError
     from .deploy import Deploy
+    from .depends import Depends
     from .environment import Environment
     from .formatter import escape_dollar
     from .validations import (
@@ -18,6 +19,7 @@ except ImportError:
     from device import Devices
     from error import RenderError
     from deploy import Deploy
+    from depends import Depends
     from environment import Environment
     from formatter import escape_dollar
     from validations import (
@@ -54,6 +56,7 @@ class Container:
         self.deploy: Deploy = Deploy(self.render_instance)
         self.environment: Environment = Environment(self.render_instance, self.deploy.resources)
         self.dns: Dns = Dns(self.render_instance)
+        self.depends: Depends = Depends(self.render_instance)
 
         # self.portals: set[Portal] = set()
         # self.notes: str = ""
@@ -165,6 +168,9 @@ class Container:
 
         if self.dns.has_dns_opts():
             result["dns_opt"] = self.dns.render_dns_opts()
+
+        if self.depends.has_dependencies():
+            result["depends_on"] = self.depends.render()
 
         # if self.volume_mounts:
         #     result["volume_mounts"] = self.volume_mounts
