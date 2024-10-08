@@ -6,6 +6,12 @@ except ImportError:
     from error import RenderError
 
 
+def must_be_valid_portal_scheme(scheme: str):
+    schemes = ("http", "https")
+    if scheme not in schemes:
+        raise RenderError(f"Portal Scheme [{scheme}] is not valid. Valid options are: [{', '.join(schemes)}]")
+
+
 def must_be_valid_port(port: int):
     if port < 1 or port > 65535:
         raise RenderError(f"Invalid port [{port}]. Valid ports are between 1 and 65535")

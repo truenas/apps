@@ -3,9 +3,11 @@ import copy
 try:
     from .container import Container
     from .error import RenderError
+    from .portal import Portals
 except ImportError:
     from container import Container
     from error import RenderError
+    from portal import Portals
 
 
 class Render(object):
@@ -13,8 +15,12 @@ class Render(object):
         self._original_values: dict = values
         self._containers: dict[str, Container] = {}
         self.values: dict = copy.deepcopy(values)
+        self.portals: Portals = Portals(render_instance=self)
+
         # self.volumes = {}
         # self.networks = {}
+
+        # self.notes: str = ""
 
     def container_names(self):
         return self._containers.keys()
@@ -41,6 +47,9 @@ class Render(object):
 
         services = {c._name: c.render() for c in self._containers.values()}
         result["services"] = services
+
+        if self.portals.has_portals():
+            result["x-portals"] = self.portals.render()
 
         # if self.volumes:
         #     result["volumes"] = {volume.name: volume.render() for volume in self.volumes.values()}
