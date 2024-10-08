@@ -1,7 +1,7 @@
 try:
-    from .validations import must_be_valid_restart_policy
+    from .validations import valid_restart_policy_or_raise
 except ImportError:
-    from validations import must_be_valid_restart_policy
+    from validations import valid_restart_policy_or_raise
 
 
 class RestartPolicy:
@@ -11,8 +11,7 @@ class RestartPolicy:
         self._maximum_retry_count: int = 0
 
     def set_policy(self, policy: str, maximum_retry_count: int = 0):
-        must_be_valid_restart_policy(policy, maximum_retry_count)
-        self._policy = policy
+        self._policy = valid_restart_policy_or_raise(policy, maximum_retry_count)
         self._maximum_retry_count = maximum_retry_count
 
     def render(self):

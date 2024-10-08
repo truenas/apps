@@ -12,7 +12,7 @@ try:
     from .healthcheck import Healthcheck
     from .ports import Ports
     from .restart import RestartPolicy
-    from .validations import must_be_valid_network_mode, must_be_valid_cap
+    from .validations import valid_network_mode_or_raise, valid_cap_or_raise
 except ImportError:
     from depends import Depends
     from deploy import Deploy
@@ -24,7 +24,7 @@ except ImportError:
     from healthcheck import Healthcheck
     from ports import Ports
     from restart import RestartPolicy
-    from validations import must_be_valid_network_mode, must_be_valid_cap
+    from validations import valid_network_mode_or_raise, valid_cap_or_raise
 
 
 # from .storage import Storage
@@ -97,8 +97,7 @@ class Container:
         for c in caps:
             if c in self._cap_add:
                 raise RenderError(f"Capability [{c}] already added")
-            must_be_valid_cap(c)
-            self._cap_add.add(c)
+            self._cap_add.add(valid_cap_or_raise(c))
 
     def add_security_opt(self, opt: str):
         if opt in self._security_opt:
@@ -109,8 +108,7 @@ class Container:
         self._security_opt.remove(opt)
 
     def set_network_mode(self, mode: str):
-        must_be_valid_network_mode(mode, self._render_instance.container_names())
-        self._network_mode = mode
+        self._network_mode = valid_network_mode_or_raise(mode, self._render_instance.container_names())
 
     def set_entrypoint(self, entrypoint: list[str]):
         self._entrypoint = [escape_dollar(e) for e in entrypoint]

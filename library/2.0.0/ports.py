@@ -1,9 +1,19 @@
 try:
     from .error import RenderError
-    from .validations import must_be_valid_port, must_be_valid_port_protocol, must_be_valid_port_mode, must_be_valid_ip
+    from .validations import (
+        valid_port_or_raise,
+        valid_port_protocol_or_raise,
+        valid_port_mode_or_raise,
+        valid_ip_or_raise,
+    )
 except ImportError:
     from error import RenderError
-    from validations import must_be_valid_port, must_be_valid_port_protocol, must_be_valid_port_mode, must_be_valid_ip
+    from validations import (
+        valid_port_or_raise,
+        valid_port_protocol_or_raise,
+        valid_port_mode_or_raise,
+        valid_ip_or_raise,
+    )
 
 
 class Ports:
@@ -13,16 +23,11 @@ class Ports:
 
     def add_port(self, host_port: int, container_port: int, config: dict | None = None):
         config = config or {}
-        proto = config.get("protocol", "tcp")
-        mode = config.get("mode", "ingress")
-        host_ip = config.get("host_ip", "0.0.0.0")
-
-        must_be_valid_port_protocol(proto)
-        must_be_valid_port_mode(mode)
-        must_be_valid_ip(host_ip)
-
-        must_be_valid_port(host_port)
-        must_be_valid_port(container_port)
+        host_port = valid_port_or_raise(host_port)
+        container_port = valid_port_or_raise(container_port)
+        proto = valid_port_protocol_or_raise(config.get("protocol", "tcp"))
+        mode = valid_port_mode_or_raise(config.get("mode", "ingress"))
+        host_ip = valid_ip_or_raise(config.get("host_ip", "0.0.0.0"))
 
         key = f"{host_port}_{host_ip}_{proto}"
         if key in self._ports.keys():

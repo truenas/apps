@@ -1,9 +1,9 @@
 try:
     from .error import RenderError
-    from .validations import must_be_valid_portal_scheme, must_be_valid_path, must_be_valid_port
+    from .validations import valid_portal_scheme_or_raise, valid_path_or_raise, valid_port_or_raise
 except ImportError:
     from error import RenderError
-    from validations import must_be_valid_portal_scheme, must_be_valid_path, must_be_valid_port
+    from validations import valid_portal_scheme_or_raise, valid_path_or_raise, valid_port_or_raise
 
 
 class Portals:
@@ -26,14 +26,10 @@ class Portals:
 class Portal:
     def __init__(self, name: str, config: dict):
         self._name = name
-        self._scheme = config.get("scheme", "http")
+        self._scheme = valid_portal_scheme_or_raise(config.get("scheme", "http"))
         self._host = config.get("host", "0.0.0.0")
-        self._port = config.get("port", 0)
-        self._path = config.get("path", "/")
-
-        must_be_valid_portal_scheme(self._scheme)
-        must_be_valid_path(self._path)
-        must_be_valid_port(self._port)
+        self._port = valid_port_or_raise(config.get("port", 0))
+        self._path = valid_path_or_raise(config.get("path", "/"))
 
     def render(self):
         return {

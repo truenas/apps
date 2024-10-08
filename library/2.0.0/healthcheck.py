@@ -3,11 +3,11 @@ from typing import Any
 try:
     from .error import RenderError
     from .formatter import escape_dollar
-    from .validations import must_be_valid_path
+    from .validations import valid_path_or_raise
 except ImportError:
     from error import RenderError
     from formatter import escape_dollar
-    from validations import must_be_valid_path
+    from validations import valid_path_or_raise
 
 
 class Healthcheck:
@@ -96,8 +96,7 @@ def get_key(config: dict, key: str, default: Any, required: bool):
 def curl_test(config: dict) -> str:
     config = config or {}
     port = get_key(config, "port", None, True)
-    path = get_key(config, "path", "/", False)
-    must_be_valid_path(path)
+    path = valid_path_or_raise(get_key(config, "path", "/", False))
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
@@ -121,8 +120,7 @@ def curl_test(config: dict) -> str:
 def wget_test(config: dict) -> str:
     config = config or {}
     port = get_key(config, "port", None, True)
-    path = get_key(config, "path", "/", False)
-    must_be_valid_path(path)
+    path = valid_path_or_raise(get_key(config, "path", "/", False))
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
@@ -146,8 +144,7 @@ def wget_test(config: dict) -> str:
 def http_test(config: dict) -> str:
     config = config or {}
     port = get_key(config, "port", None, True)
-    path = get_key(config, "path", "/", False)
-    must_be_valid_path(path)
+    path = valid_path_or_raise(get_key(config, "path", "/", False))
     host = get_key(config, "host", "127.0.0.1", False)
 
     http_cmd = "/bin/bash -c '"

@@ -1,9 +1,9 @@
 try:
     from .error import RenderError
-    from .validations import must_be_valid_depend_condition
+    from .validations import valid_depend_condition_or_raise
 except ImportError:
     from error import RenderError
-    from validations import must_be_valid_depend_condition
+    from validations import valid_depend_condition_or_raise
 
 
 class Depends:
@@ -12,11 +12,11 @@ class Depends:
         self._dependencies: dict[str, str] = {}
 
     def add_dependency(self, name: str, condition: str):
+        condition = valid_depend_condition_or_raise(condition)
         if name in self._dependencies.keys():
             raise RenderError(f"Dependency [{name}] already added")
         if name not in self._render_instance.container_names():
             raise RenderError(f"Dependency [{name}] not found in defined containers")
-        must_be_valid_depend_condition(condition)
         self._dependencies[name] = condition
 
     def has_dependencies(self):

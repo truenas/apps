@@ -1,9 +1,9 @@
 try:
     from .error import RenderError
-    from .validations import must_not_be_disallowed_dns_opt
+    from .validations import allowed_dns_opt_or_raise
 except ImportError:
     from error import RenderError
-    from validations import must_not_be_disallowed_dns_opt
+    from validations import allowed_dns_opt_or_raise
 
 
 class Dns:
@@ -50,8 +50,7 @@ class Dns:
 
     def add_dns_opt(self, dns_opt):
         # eg attempts:3
-        key = self._get_key_from_opt(dns_opt)
-        must_not_be_disallowed_dns_opt(key)
+        key = allowed_dns_opt_or_raise(self._get_key_from_opt(dns_opt))
         if key in self._get_dns_opt_keys():
             raise RenderError(f"DNS Option [{key}] already added")
         self._dns_options.add(dns_opt)
