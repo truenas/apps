@@ -89,7 +89,7 @@ def test_remove_cpus_and_memory_with_gpus(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable_healthcheck()
-    c1._deploy._resources.remove_cpus_and_memory()
+    c1.deploy.resources.remove_cpus_and_memory()
     output = render.render()
     assert "limits" not in output["services"]["test_container"]["deploy"]["resources"]
     devices = output["services"]["test_container"]["deploy"]["resources"]["reservations"]["devices"]
@@ -105,6 +105,24 @@ def test_remove_cpus_and_memory(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable_healthcheck()
-    c1._deploy._resources.remove_cpus_and_memory()
+    c1.deploy.resources.remove_cpus_and_memory()
     output = render.render()
     assert "deploy" not in output["services"]["test_container"]
+
+
+def test_set_profile(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    c1.deploy.resources.set_profile("low")
+    output = render.render()
+    assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["cpus"] == "1"
+    assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["memory"] == "512M"
+
+
+def test_set_profile_invalid_profile(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    with pytest.raises(Exception):
+        c1.deploy.resources.set_profile("invalid_profile")

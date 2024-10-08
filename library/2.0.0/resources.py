@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 try:
     from .error import RenderError
@@ -19,19 +20,25 @@ class Resources:
         self._auto_add_memory_from_values()
         self._auto_add_gpus_from_values()
 
+    def _set_cpu(self, cpus: Any):
+        c = str(cpus)
+        if not re.match(r"^[1-9][0-9]*(\.[0-9]+)?$", c):
+            raise RenderError(f"Expected cpus to be a number or a float (minimum 1.0), got [{cpus}]")
+        self._limits.update({"cpus": c})
+
+    def _set_memory(self, memory: Any):
+        m = str(memory)
+        if not re.match(r"^[1-9][0-9]*$", m):
+            raise RenderError(f"Expected memory to be a number, got [{memory}]")
+        self._limits.update({"memory": f"{m}M"})
+
     def _auto_add_cpu_from_values(self):
         resources = self._render_instance.values.get("resources", {})
-        cpus = str(resources.get("limits", {}).get("cpus", DEFAULT_CPUS))
-        if not re.match(r"^[1-9][0-9]*(\.[0-9]+)?$", cpus):
-            raise RenderError(f"Expected cpus to be a number or a float, got [{cpus}]")
-        self._limits.update({"cpus": cpus})
+        self._set_cpu(resources.get("limits", {}).get("cpus", DEFAULT_CPUS))
 
     def _auto_add_memory_from_values(self):
         resources = self._render_instance.values.get("resources", {})
-        memory = str(resources.get("limits", {}).get("memory", DEFAULT_MEMORY))
-        if not re.match(r"^[1-9][0-9]*$", memory):
-            raise RenderError(f"Expected memory to be a number, got [{memory}]")
-        self._limits.update({"memory": f"{memory}M"})
+        self._set_memory(resources.get("limits", {}).get("memory", DEFAULT_MEMORY))
 
     def _auto_add_gpus_from_values(self):
         resources = self._render_instance.values.get("resources", {})
@@ -63,6 +70,11 @@ class Resources:
         self._limits.pop("cpus", None)
         self._limits.pop("memory", None)
 
+    def set_profile(self, profile: str):
+        cpu, memory = profile_mapping(profile)
+        self._set_cpu(cpu)
+        self._set_memory(memory)
+
     def has_resources(self):
         return len(self._limits) > 0 or len(self._reservations) > 0
 
@@ -74,3 +86,16 @@ class Resources:
             result["reservations"] = self._reservations
 
         return result
+
+
+def profile_mapping(profile: str):
+    profiles = {
+        "low": (1, 512),
+    }
+
+    if profile not in profiles:
+        raise RenderError(
+            f"Resource profile [{profile}] is not valid. Valid options are: [{', '.join(profiles.keys())}]"
+        )
+
+    return profiles[profile]

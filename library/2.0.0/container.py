@@ -46,10 +46,10 @@ class Container:
         self._network_mode: str = ""
         self._entrypoint: list[str] = []
         self._command: list[str] = []
-        self._deploy: Deploy = Deploy(self._render_instance)
+        self.deploy: Deploy = Deploy(self._render_instance)
         self.networks: set[str] = set()
         self.devices: Devices = Devices(self._render_instance)
-        self.environment: Environment = Environment(self._render_instance, self._deploy._resources)
+        self.environment: Environment = Environment(self._render_instance, self.deploy.resources)
         self.dns: Dns = Dns(self._render_instance)
         self.depends: Depends = Depends(self._render_instance)
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
@@ -156,8 +156,8 @@ class Container:
         if self.devices.has_devices():
             result["devices"] = self.devices.render()
 
-        if self._deploy.has_deploy():
-            result["deploy"] = self._deploy.render()
+        if self.deploy.has_deploy():
+            result["deploy"] = self.deploy.render()
 
         if self.environment.has_variables():
             result["environment"] = self.environment.render()
