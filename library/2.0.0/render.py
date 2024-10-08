@@ -3,10 +3,12 @@ import copy
 try:
     from .container import Container
     from .error import RenderError
+    from .notes import Notes
     from .portal import Portals
 except ImportError:
     from container import Container
     from error import RenderError
+    from notes import Notes
     from portal import Portals
 
 
@@ -16,11 +18,10 @@ class Render(object):
         self._containers: dict[str, Container] = {}
         self.values: dict = copy.deepcopy(values)
         self.portals: Portals = Portals(render_instance=self)
+        self.notes: Notes = Notes(render_instance=self)
 
         # self.volumes = {}
         # self.networks = {}
-
-        # self.notes: str = ""
 
     def container_names(self):
         return self._containers.keys()
@@ -40,16 +41,16 @@ class Render(object):
         if self.values != self._original_values:
             raise RenderError("Values have been modified since the renderer was created.")
 
-        result: dict = {}
+        result: dict = {
+            "x-notes": self.notes.render(),
+            "x-portals": self.portals.render(),
+        }
 
         if not self._containers:
             raise RenderError("No containers added.")
 
         services = {c._name: c.render() for c in self._containers.values()}
         result["services"] = services
-
-        if self.portals.has_portals():
-            result["x-portals"] = self.portals.render()
 
         # if self.volumes:
         #     result["volumes"] = {volume.name: volume.render() for volume in self.volumes.values()}

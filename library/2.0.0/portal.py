@@ -19,9 +19,6 @@ class Portals:
 
         self._portals.add(Portal(name, config))
 
-    def has_portals(self):
-        return len(self._portals) > 0
-
     def render(self):
         return [p.render() for _, p in sorted([(p._name, p) for p in self._portals])]
 

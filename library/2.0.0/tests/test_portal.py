@@ -16,6 +16,14 @@ def mock_values():
     }
 
 
+def test_no_portals(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    output = render.render()
+    assert output["x-portals"] == []
+
+
 def test_add_portal(mock_values):
     render = Render(mock_values)
     render.portals.add_portal({"scheme": "http", "path": "/", "port": 8080})
