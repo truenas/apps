@@ -21,7 +21,7 @@ def test_automatically_add_cpu(mock_values):
     render = Render(mock_values)
     render.add_container("test_container", "test_image")
     output = render.render()
-    assert output["services"]["test_container"]["resources"]["limits"]["cpus"] == "1.0"
+    assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["cpus"] == "1.0"
 
 
 def test_invalid_cpu(mock_values):
@@ -36,7 +36,7 @@ def test_automatically_add_memory(mock_values):
     render = Render(mock_values)
     render.add_container("test_container", "test_image")
     output = render.render()
-    assert output["services"]["test_container"]["resources"]["limits"]["memory"] == "1024M"
+    assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["memory"] == "1024M"
 
 
 def test_invalid_memory(mock_values):
@@ -58,7 +58,7 @@ def test_automatically_add_gpus(mock_values):
     render = Render(mock_values)
     render.add_container("test_container", "test_image")
     output = render.render()
-    devices = output["services"]["test_container"]["resources"]["reservations"]["devices"]
+    devices = output["services"]["test_container"]["deploy"]["resources"]["reservations"]["devices"]
     assert len(devices) == 1
     assert devices[0] == {
         "capabilities": ["gpu"],

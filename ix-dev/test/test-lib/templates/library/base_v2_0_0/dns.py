@@ -53,11 +53,20 @@ class Dns:
         self.dns_options.add(dns_opt)
         self._dns_opt_keys.add(key)
 
-    def get_dns_opts(self):
-        return sorted(self.dns_options)
+    def has_dns_opts(self):
+        return len(self.dns_options) > 0
 
-    def get_dns_searches(self):
+    def has_dns_searches(self):
+        return len(self.dns_searches) > 0
+
+    def has_dns_nameservers(self):
+        return len(self.dns_nameservers) > 0
+
+    def render_dns_searches(self):
         return sorted(self.dns_searches)
 
-    def get_dns_nameservers(self):
+    def render_dns_opts(self):
+        return sorted(self.dns_options)
+
+    def render_dns_nameservers(self):
         return sorted(self.dns_nameservers)

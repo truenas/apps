@@ -5,7 +5,7 @@ try:
     from .dns import Dns
     from .device import Devices
     from .error import RenderError
-    from .resources import Resources
+    from .deploy import Deploy
     from .environment import Environment
     from .formatter import escape_dollar
     from .validations import (
@@ -17,7 +17,7 @@ except ImportError:
     from dns import Dns
     from device import Devices
     from error import RenderError
-    from resources import Resources
+    from deploy import Deploy
     from environment import Environment
     from formatter import escape_dollar
     from validations import (
@@ -51,8 +51,8 @@ class Container:
         self.entrypoint: list[str] = []
         self.command: list[str] = []
         self.devices: Devices = Devices(self.render_instance)
-        self.resources: Resources = Resources(self.render_instance)
-        self.environment: Environment = Environment(self.render_instance, self.resources)
+        self.deploy: Deploy = Deploy(self.render_instance)
+        self.environment: Environment = Environment(self.render_instance, self.deploy.resources)
         self.dns: Dns = Dns(self.render_instance)
 
         # self.portals: set[Portal] = set()
@@ -151,20 +151,20 @@ class Container:
         if self.devices.has_devices():
             result["devices"] = self.devices.render()
 
-        if self.resources.has_resources():
-            result["resources"] = self.resources.render()
+        if self.deploy.has_deploy():
+            result["deploy"] = self.deploy.render()
 
         if self.environment.has_variables():
             result["environment"] = self.environment.render()
 
-        if self.dns.get_dns_nameservers():
-            result["dns"] = self.dns.get_dns_nameservers()
+        if self.dns.has_dns_nameservers():
+            result["dns"] = self.dns.render_dns_nameservers()
 
-        if self.dns.get_dns_searches():
-            result["dns_search"] = self.dns.get_dns_searches()
+        if self.dns.has_dns_searches():
+            result["dns_search"] = self.dns.render_dns_searches()
 
-        if self.dns.get_dns_opts():
-            result["dns_opt"] = self.dns.get_dns_opts()
+        if self.dns.has_dns_opts():
+            result["dns_opt"] = self.dns.render_dns_opts()
 
         # if self.volume_mounts:
         #     result["volume_mounts"] = self.volume_mounts
