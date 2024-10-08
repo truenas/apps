@@ -113,6 +113,17 @@ def test_curl_healthcheck(mock_values):
     )
 
 
+def test_curl_healthcheck_with_headers(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("curl", {"port": 8080, "path": "/health", "headers": [("X-Test", "$test")]})
+    output = render.render()
+    assert (
+        output["services"]["test_container"]["healthcheck"]["test"]
+        == 'curl --silent --output /dev/null --show-error --fail --header "X-Test: $$test" http://127.0.0.1:8080/health'
+    )
+
+
 def test_wget_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

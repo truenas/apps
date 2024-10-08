@@ -3,11 +3,13 @@ import copy
 try:
     from .container import Container
     from .error import RenderError
+    from .functions import Functions
     from .notes import Notes
     from .portal import Portals
 except ImportError:
     from container import Container
     from error import RenderError
+    from functions import Functions
     from notes import Notes
     from portal import Portals
 
@@ -19,6 +21,7 @@ class Render(object):
         self.values: dict = copy.deepcopy(values)
         self.portals: Portals = Portals(render_instance=self)
         self.notes: Notes = Notes(render_instance=self)
+        self.funcs = Functions(render_instance=self).func_map()
 
         # self.volumes = {}
         # self.networks = {}
