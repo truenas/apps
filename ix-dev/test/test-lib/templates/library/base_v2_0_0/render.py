@@ -1,29 +1,29 @@
 import copy
 
 try:
-    from .error import RenderError
     from .container import Container
+    from .error import RenderError
 except ImportError:
-    from error import RenderError
     from container import Container
+    from error import RenderError
 
 
 class Render(object):
     def __init__(self, values):
         self._original_values: dict = values
+        self._containers: dict[str, Container] = {}
         self.values: dict = copy.deepcopy(values)
-        self.containers: dict[str, Container] = {}
         # self.volumes = {}
         # self.networks = {}
 
     def container_names(self):
-        return self.containers.keys()
+        return self._containers.keys()
 
     def add_container(self, name: str, image: str):
         container = Container(self, name, image)
-        if name in self.containers:
+        if name in self._containers:
             raise RenderError(f"Container {name} already exists.")
-        self.containers[name] = container
+        self._containers[name] = container
         return container
 
     # def add_volume(self, volume):
@@ -36,10 +36,10 @@ class Render(object):
 
         result: dict = {}
 
-        if not self.containers:
+        if not self._containers:
             raise RenderError("No containers added.")
 
-        services = {c.name: c.render() for c in self.containers.values()}
+        services = {c._name: c.render() for c in self._containers.values()}
         result["services"] = services
 
         # if self.volumes:

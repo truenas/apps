@@ -52,12 +52,17 @@ def must_be_valid_network_mode(mode: str, containers: list[str]):
     )
 
 
-def must_be_valid_restart_policy(policy: str):
+def must_be_valid_restart_policy(policy: str, maximum_retry_count: int = 0):
     valid_restart_policies = ("always", "on-failure", "unless-stopped", "no")
     if policy not in valid_restart_policies:
         raise RenderError(
             f"Restart policy [{policy}] is not valid. Valid options are: [{', '.join(valid_restart_policies)}]"
         )
+    if policy != "on-failure" and maximum_retry_count != 0:
+        raise RenderError("Maximum retry count can only be set for [on-failure] restart policy")
+
+    if maximum_retry_count < 0:
+        raise RenderError("Maximum retry count must be a positive integer")
 
 
 def must_be_valid_cap(cap: str):
