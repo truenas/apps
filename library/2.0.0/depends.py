@@ -23,4 +23,4 @@ class Depends:
         return len(self.dependencies) > 0
 
     def render(self):
-        return self.dependencies
+        return {d: {"condition": c} for d, c in self.dependencies.items()}

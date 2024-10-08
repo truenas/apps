@@ -22,7 +22,7 @@ def test_add_dependency(mock_values):
     render.add_container("test_container2", "test_image")
     c1.depends.add_dependency("test_container2", "service_started")
     output = render.render()
-    assert output["services"]["test_container"]["depends_on"] == {"test_container2": "service_started"}
+    assert output["services"]["test_container"]["depends_on"]["test_container2"] == {"condition": "service_started"}
 
 
 def test_add_dependency_invalid_condition(mock_values):
