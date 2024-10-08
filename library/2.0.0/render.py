@@ -1,11 +1,11 @@
 import copy
 
 try:
-    from .error import RenderError
     from .container import Container
+    from .error import RenderError
 except ImportError:
-    from error import RenderError
     from container import Container
+    from error import RenderError
 
 
 class Render(object):

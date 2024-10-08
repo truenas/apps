@@ -2,26 +2,28 @@ from typing import Any
 
 
 try:
-    from .dns import Dns
-    from .device import Devices
-    from .error import RenderError
-    from .deploy import Deploy
     from .depends import Depends
+    from .deploy import Deploy
+    from .device import Devices
+    from .dns import Dns
     from .environment import Environment
+    from .error import RenderError
     from .formatter import escape_dollar
+    from .healthcheck import Healthcheck
     from .validations import (
         must_be_valid_network_mode,
         must_be_valid_restart_policy,
         must_be_valid_cap,
     )
 except ImportError:
-    from dns import Dns
-    from device import Devices
-    from error import RenderError
-    from deploy import Deploy
     from depends import Depends
+    from deploy import Deploy
+    from device import Devices
+    from dns import Dns
     from environment import Environment
+    from error import RenderError
     from formatter import escape_dollar
+    from healthcheck import Healthcheck
     from validations import (
         must_be_valid_network_mode,
         must_be_valid_restart_policy,
@@ -57,6 +59,7 @@ class Container:
         self.environment: Environment = Environment(self._render_instance, self._deploy._resources)
         self.dns: Dns = Dns(self._render_instance)
         self.depends: Depends = Depends(self._render_instance)
+        self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
 
         # self.portals: set[Portal] = set()
         # self.notes: str = ""

@@ -2,12 +2,12 @@ from typing import Any
 
 try:
     from .error import RenderError
-    from .resources import Resources
     from .formatter import escape_dollar
+    from .resources import Resources
 except ImportError:
     from error import RenderError
-    from resources import Resources
     from formatter import escape_dollar
+    from resources import Resources
 
 
 class Environment:
