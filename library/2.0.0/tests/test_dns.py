@@ -19,7 +19,8 @@ def mock_values():
 def test_auto_add_dns_opts(mock_values):
     mock_values["network"] = {"dns_opts": ["attempts:3", "opt1", "opt2"]}
     render = Render(mock_values)
-    render.add_container("test_container", "test_image")
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
     output = render.render()
     assert output["services"]["test_container"]["dns_opt"] == ["attempts:3", "opt1", "opt2"]
 
@@ -27,7 +28,8 @@ def test_auto_add_dns_opts(mock_values):
 def test_auto_add_dns_searches(mock_values):
     mock_values["network"] = {"dns_searches": ["search1", "search2"]}
     render = Render(mock_values)
-    render.add_container("test_container", "test_image")
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
     output = render.render()
     assert output["services"]["test_container"]["dns_search"] == ["search1", "search2"]
 
@@ -35,7 +37,8 @@ def test_auto_add_dns_searches(mock_values):
 def test_auto_add_dns_nameservers(mock_values):
     mock_values["network"] = {"dns_nameservers": ["nameserver1", "nameserver2"]}
     render = Render(mock_values)
-    render.add_container("test_container", "test_image")
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
     output = render.render()
     assert output["services"]["test_container"]["dns"] == ["nameserver1", "nameserver2"]
 

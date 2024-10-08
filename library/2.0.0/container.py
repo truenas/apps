@@ -10,11 +10,8 @@ try:
     from .error import RenderError
     from .formatter import escape_dollar
     from .healthcheck import Healthcheck
-    from .validations import (
-        must_be_valid_network_mode,
-        must_be_valid_restart_policy,
-        must_be_valid_cap,
-    )
+    from .restart import RestartPolicy
+    from .validations import must_be_valid_network_mode, must_be_valid_cap
 except ImportError:
     from depends import Depends
     from deploy import Deploy
@@ -24,11 +21,8 @@ except ImportError:
     from error import RenderError
     from formatter import escape_dollar
     from healthcheck import Healthcheck
-    from validations import (
-        must_be_valid_network_mode,
-        must_be_valid_restart_policy,
-        must_be_valid_cap,
-    )
+    from restart import RestartPolicy
+    from validations import must_be_valid_network_mode, must_be_valid_cap
 
 
 # from .storage import Storage
@@ -44,7 +38,6 @@ class Container:
         self._user: str = ""
         self._tty: bool = False
         self._stdin_open: bool = False
-        self._restart: str = "unless-stopped"
         # Drop all capabilities by default
         # If a CAP is needed it has to be added explicitly
         self._cap_drop: set[str] = set(["ALL"])
@@ -60,6 +53,7 @@ class Container:
         self.dns: Dns = Dns(self._render_instance)
         self.depends: Depends = Depends(self._render_instance)
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
+        self.restart: RestartPolicy = RestartPolicy(self._render_instance)
 
         # self.portals: set[Portal] = set()
         # self.notes: str = ""
@@ -95,10 +89,6 @@ class Container:
     def set_stdin(self, enabled: bool = False):
         self._stdin_open = enabled
 
-    def set_restart(self, policy: str):
-        must_be_valid_restart_policy(policy)
-        self._restart = policy
-
     def add_caps(self, caps: list[str]):
         for c in caps:
             if c in self._cap_add:
@@ -132,8 +122,9 @@ class Container:
             "image": self._image,
             "tty": self._tty,
             "stdin_open": self._stdin_open,
-            "restart": str(self._restart),
+            "restart": self.restart.render(),
             "cap_drop": sorted(self._cap_drop),
+            "healthcheck": self.healthcheck.render(),
         }
 
         if self._user:
