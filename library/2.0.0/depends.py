@@ -14,7 +14,7 @@ class Depends:
     def add_dependency(self, name: str, condition: str):
         if name in self._dependencies.keys():
             raise RenderError(f"Dependency [{name}] already added")
-        if name not in self._render_instance.containers.keys():
+        if name not in self._render_instance.container_names():
             raise RenderError(f"Dependency [{name}] not found in defined containers")
         must_be_valid_depend_condition(condition)
         self._dependencies[name] = condition
