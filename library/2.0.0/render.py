@@ -41,16 +41,14 @@ class Render(object):
         if self.values != self._original_values:
             raise RenderError("Values have been modified since the renderer was created.")
 
-        result: dict = {
-            "x-notes": self.notes.render(),
-            "x-portals": self.portals.render(),
-        }
-
         if not self._containers:
             raise RenderError("No containers added.")
 
-        services = {c._name: c.render() for c in self._containers.values()}
-        result["services"] = services
+        result: dict = {
+            "x-notes": self.notes.render(),
+            "x-portals": self.portals.render(),
+            "services": {c._name: c.render() for c in self._containers.values()},
+        }
 
         # if self.volumes:
         #     result["volumes"] = {volume.name: volume.render() for volume in self.volumes.values()}
