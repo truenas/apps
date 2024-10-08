@@ -1,7 +1,33 @@
+import ipaddress
+
 try:
     from .error import RenderError
 except ImportError:
     from error import RenderError
+
+
+def must_be_valid_port(port: int):
+    if port < 1 or port > 65535:
+        raise RenderError(f"Invalid port [{port}]. Valid ports are between 1 and 65535")
+
+
+def must_be_valid_ip(ip: str):
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        raise RenderError(f"Invalid IP address [{ip}]")
+
+
+def must_be_valid_port_mode(mode: str):
+    modes = ("ingress", "host")
+    if mode not in modes:
+        raise RenderError(f"Port Mode [{mode}] is not valid. Valid options are: [{', '.join(modes)}]")
+
+
+def must_be_valid_port_protocol(protocol: str):
+    protocols = ("tcp", "udp")
+    if protocol not in protocols:
+        raise RenderError(f"Port Protocol [{protocol}] is not valid. Valid options are: [{', '.join(protocols)}]")
 
 
 def must_be_valid_depend_condition(condition: str):

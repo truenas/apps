@@ -10,6 +10,7 @@ try:
     from .error import RenderError
     from .formatter import escape_dollar
     from .healthcheck import Healthcheck
+    from .ports import Ports
     from .restart import RestartPolicy
     from .validations import must_be_valid_network_mode, must_be_valid_cap
 except ImportError:
@@ -21,6 +22,7 @@ except ImportError:
     from error import RenderError
     from formatter import escape_dollar
     from healthcheck import Healthcheck
+    from ports import Ports
     from restart import RestartPolicy
     from validations import must_be_valid_network_mode, must_be_valid_cap
 
@@ -52,6 +54,7 @@ class Container:
         self.depends: Depends = Depends(self._render_instance)
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
+        self.ports: Ports = Ports(self._render_instance)
 
         self._auto_set_network_mode()
 
@@ -142,6 +145,10 @@ class Container:
 
         if self._network_mode:
             result["network_mode"] = self._network_mode
+
+        if self._network_mode != "host":
+            if self.ports.has_ports():
+                result["ports"] = self.ports.render()
 
         if self._entrypoint:
             result["entrypoint"] = self._entrypoint
