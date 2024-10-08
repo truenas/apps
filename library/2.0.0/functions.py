@@ -82,6 +82,7 @@ class Functions:
         return merged_dict
 
     def func_map(self):
+        # TODO: Check what is no longer used and remove
         return {
             "auto_cast": self._auto_cast,
             "basic_auth_header": self._basic_auth_header,
