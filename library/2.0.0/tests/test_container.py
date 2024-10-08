@@ -142,6 +142,15 @@ def test_network_mode(mock_values):
     assert output["services"]["test_container"]["network_mode"] == "host"
 
 
+def test_auto_network_mode_with_host_network(mock_values):
+    mock_values["network"] = {"host_network": True}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    output = render.render()
+    assert output["services"]["test_container"]["network_mode"] == "host"
+
+
 def test_network_mode_with_container(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

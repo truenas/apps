@@ -55,6 +55,8 @@ class Container:
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
 
+        self._auto_set_network_mode()
+
         # self.portals: set[Portal] = set()
         # self.notes: str = ""
 
@@ -62,6 +64,10 @@ class Container:
     #     storage = Storage(self.render_instance, name, config)
     #     self.render_instance.add_volume(storage)
     #     self.volume_mounts.append(storage.volume_mount())
+
+    def _auto_set_network_mode(self):
+        if self._render_instance.values.get("network", {}).get("host_network", False):
+            self.set_network_mode("host")
 
     def _resolve_image(self, image: str):
         images = self._render_instance.values["images"]
