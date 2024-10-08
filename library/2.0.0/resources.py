@@ -15,25 +15,25 @@ class Resources:
         self.limits: dict = {}
         self.reservations: dict = {}
         self.nvidia_ids: set[str] = set()
-        self.add_cpu_from_values()
-        self.add_memory_from_values()
-        self.add_gpus_from_values()
+        self.auto_add_cpu_from_values()
+        self.auto_add_memory_from_values()
+        self.auto_add_gpus_from_values()
 
-    def add_cpu_from_values(self):
+    def auto_add_cpu_from_values(self):
         resources = self.render_instance.values.get("resources", {})
         cpus = str(resources.get("limits", {}).get("cpus", DEFAULT_CPUS))
         if not re.match(r"^[1-9][0-9]*(\.[0-9]+)?$", cpus):
             raise RenderError(f"Expected cpus to be a number or a float, got [{cpus}]")
         self.limits.update({"cpus": cpus})
 
-    def add_memory_from_values(self):
+    def auto_add_memory_from_values(self):
         resources = self.render_instance.values.get("resources", {})
         memory = str(resources.get("limits", {}).get("memory", DEFAULT_MEMORY))
         if not re.match(r"^[1-9][0-9]*$", memory):
             raise RenderError(f"Expected memory to be a number, got [{memory}]")
         self.limits.update({"memory": f"{memory}M"})
 
-    def add_gpus_from_values(self):
+    def auto_add_gpus_from_values(self):
         resources = self.render_instance.values.get("resources", {})
         gpus = resources.get("gpus", {}).get("nvidia_gpu_selection", {})
         if not gpus:

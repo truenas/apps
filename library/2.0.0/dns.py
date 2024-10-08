@@ -15,21 +15,21 @@ class Dns:
 
         self._dns_opt_keys: set[str] = set()
 
-        self.auto_add_dns_opts()
-        self.auto_add_dns_searches()
-        self.auto_add_dns_nameservers()
+        self.auto_add_dns_opts_from_values()
+        self.auto_add_dns_searches_from_values()
+        self.auto_add_dns_nameservers_from_values()
 
-    def auto_add_dns_opts(self):
+    def auto_add_dns_opts_from_values(self):
         values = self.render_instance.values
         for dns_opt in values.get("network", {}).get("dns_opts", []):
             self.add_dns_opt(dns_opt)
 
-    def auto_add_dns_searches(self):
+    def auto_add_dns_searches_from_values(self):
         values = self.render_instance.values
         for dns_search in values.get("network", {}).get("dns_searches", []):
             self.add_dns_search(dns_search)
 
-    def auto_add_dns_nameservers(self):
+    def auto_add_dns_nameservers_from_values(self):
         values = self.render_instance.values
         for dns_nameserver in values.get("network", {}).get("dns_nameservers", []):
             self.add_dns_nameserver(dns_nameserver)

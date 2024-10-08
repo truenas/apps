@@ -39,26 +39,27 @@ class Devices:
         self.render_instance = render_instance
         self.devices: set[Device] = set()
 
-        self._container_devices: set[str] = set()
+        # Tracks all container device paths to make sure they are not duplicated
+        self.container_device_paths: set[str] = set()
         # Scan values for devices we should automatically add
         # for example /dev/dri for gpus
-        self.add_devices_from_values()
+        self.auto_add_devices_from_values()
 
-    def add_devices_from_values(self):
+    def auto_add_devices_from_values(self):
         resources = self.render_instance.values.get("resources", {})
 
         if resources.get("gpus", {}).get("use_all_gpus", False):
             self.add_device("/dev/dri", "/dev/dri", allow_disallowed=True)
-            self._container_devices.add("/dev/dri")
+            self.container_device_paths.add("/dev/dri")
 
     def add_device(self, host_device: str, container_device: str, cgroup_perm: str = "", allow_disallowed=False):
         # Host device can be mapped to multiple container devices,
         # so we only make sure container devices are not duplicated
-        if container_device in self._container_devices:
+        if container_device in self.container_device_paths:
             raise RenderError(f"Device with container path [{container_device}] already added")
 
         self.devices.add(Device(host_device, container_device, cgroup_perm, allow_disallowed))
-        self._container_devices.add(container_device)
+        self.container_device_paths.add(container_device)
 
     def has_devices(self):
         return len(self.devices) > 0

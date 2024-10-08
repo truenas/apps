@@ -4,6 +4,14 @@ except ImportError:
     from error import RenderError
 
 
+def must_be_valid_depend_condition(condition: str):
+    valid_conditions = ("service_started", "service_healthy", "service_completed_successfully")
+    if condition not in valid_conditions:
+        raise RenderError(
+            f"Depend Condition [{condition}] is not valid. Valid options are: [{', '.join(valid_conditions)}]"
+        )
+
+
 def must_be_valid_cgroup_perm(cgroup_perm: str):
     valid_cgroup_perms = ("r", "w", "m", "rw", "rm", "wm", "rwm")
     if cgroup_perm not in valid_cgroup_perms:
