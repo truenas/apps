@@ -34,8 +34,40 @@ def test_add_duplicate_ports(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable_healthcheck()
     c1.ports.add_port(8081, 8080)
+    c1.ports.add_port(8081, 8080, {"protocol": "udp"})  # This should not raise
     with pytest.raises(Exception):
         c1.ports.add_port(8081, 8080)
+
+
+def test_add_duplicate_ports_with_different_host_ip(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    c1.ports.add_port(8081, 8080, {"host_ip": "192.168.1.10"})
+    c1.ports.add_port(8081, 8080, {"host_ip": "192.168.1.11"})
+    output = render.render()
+    assert output["services"]["test_container"]["ports"] == [
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "192.168.1.10"},
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "192.168.1.11"},
+    ]
+
+
+def test_add_duplicate_ports_to_specific_host_ip_binds_to_0_0_0_0(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    c1.ports.add_port(8081, 8080, {"host_ip": "192.168.1.10"})
+    with pytest.raises(Exception):
+        c1.ports.add_port(8081, 8080, {"host_ip": "0.0.0.0"})
+
+
+def test_add_duplicate_ports_to_0_0_0_0_binds_to_specific_host_ip(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    c1.ports.add_port(8081, 8080, {"host_ip": "0.0.0.0"})
+    with pytest.raises(Exception):
+        c1.ports.add_port(8081, 8080, {"host_ip": "192.168.1.10"})
 
 
 def test_add_ports_with_invalid_protocol(mock_values):

@@ -9,7 +9,7 @@ except ImportError:
 class Ports:
     def __init__(self, render_instance):
         self._render_instance = render_instance
-        self._ports: dict[int, dict] = {}
+        self._ports: dict[str, dict] = {}
 
     def add_port(self, host_port: int, container_port: int, config: dict | None = None):
         config = config or {}
@@ -23,9 +23,27 @@ class Ports:
 
         must_be_valid_port(host_port)
         must_be_valid_port(container_port)
-        if host_port in self._ports.keys():
-            raise RenderError(f"Host port [{host_port}] already added")
-        self._ports[host_port] = {
+
+        key = f"{host_port}_{host_ip}_{proto}"
+        if key in self._ports.keys():
+            raise RenderError(f"Port [{host_port}/{proto}] already added for [{host_ip}]")
+
+        if host_ip != "0.0.0.0":
+            # If the port we are adding is not going to use 0.0.0.0
+            # Make sure that we don't have already added that port/proto to 0.0.0.0
+            search_key = f"{host_port}_0.0.0.0_{proto}"
+            if search_key in self._ports.keys():
+                raise RenderError(f"Cannot bind port [{host_port}/{proto}] to [{host_ip}], already bound to [0.0.0.0]")
+        elif host_ip == "0.0.0.0":
+            # If the port we are adding is going to use 0.0.0.0
+            # Make sure that we don't have already added that port/proto to a specific ip
+            for p in self._ports.values():
+                if p["published"] == host_port and p["protocol"] == proto:
+                    raise RenderError(
+                        f"Cannot bind port [{host_port}/{proto}] to [{host_ip}], already bound to [{p['host_ip']}]"
+                    )
+
+        self._ports[key] = {
             "published": host_port,
             "target": container_port,
             "protocol": proto,
