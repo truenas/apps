@@ -56,6 +56,13 @@ class Resources:
                 }
             )
 
+    # This is only used on ix-app that we allow
+    # disabling cpus and memory. GPUs are only added
+    # if the user has requested them.
+    def remove_cpus_and_memory(self):
+        self._limits.pop("cpus", None)
+        self._limits.pop("memory", None)
+
     def has_resources(self):
         return len(self._limits) > 0 or len(self._reservations) > 0
 
