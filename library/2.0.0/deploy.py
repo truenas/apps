@@ -6,14 +6,14 @@ except ImportError:
 
 class Deploy:
     def __init__(self, render_instance):
-        self.render_instance = render_instance
-        self.resources: Resources = Resources(self.render_instance)
+        self._render_instance = render_instance
+        self._resources: Resources = Resources(self._render_instance)
 
     def has_deploy(self):
-        return self.resources.has_resources()
+        return self._resources.has_resources()
 
     def render(self):
-        if self.resources.has_resources():
-            return {"resources": self.resources.render()}
+        if self._resources.has_resources():
+            return {"resources": self._resources.render()}
 
         return {}

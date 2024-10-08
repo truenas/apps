@@ -39,7 +39,7 @@ class Render(object):
         if not self.containers:
             raise RenderError("No containers added.")
 
-        services = {c.name: c.render() for c in self.containers.values()}
+        services = {c._name: c.render() for c in self.containers.values()}
         result["services"] = services
 
         # if self.volumes:
