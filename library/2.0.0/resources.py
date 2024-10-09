@@ -70,6 +70,12 @@ class Resources:
         self._limits.pop("cpus", None)
         self._limits.pop("memory", None)
 
+    # Mainly will be used from dependencies
+    # There is no reason to pass devices to
+    # redis or postgres for example
+    def remove_devices(self):
+        self._reservations.pop("devices", None)
+
     def set_profile(self, profile: str):
         cpu, memory = profile_mapping(profile)
         self._set_cpu(cpu)
