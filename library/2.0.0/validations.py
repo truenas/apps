@@ -66,9 +66,27 @@ def allowed_dns_opt_or_raise(dns_opt: str):
     return dns_opt
 
 
-def valid_path_or_raise(path: str):
+def valid_http_path_or_raise(path: str):
+    path = _valid_path_or_raise(path)
+    return path
+
+
+def valid_fs_path_or_raise(path: str):
+    # There is no reason to allow / as a path,
+    # either on host or in a container side.
+    if path == "/":
+        raise RenderError(f"Path [{path}] cannot be [/]")
+    path = _valid_path_or_raise(path)
+    return path
+
+
+def _valid_path_or_raise(path: str):
+    if path == "":
+        raise RenderError(f"Path [{path}] cannot be empty")
     if not path.startswith("/"):
         raise RenderError(f"Path [{path}] must start with /")
+    if "//" in path:
+        raise RenderError(f"Path [{path}] cannot contain [//]")
     return path
 
 

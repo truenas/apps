@@ -63,6 +63,12 @@ def test_add_portal_with_invalid_path(mock_values):
         render.portals.add_portal({"scheme": "http", "path": "invalid_path", "port": 8080})
 
 
+def test_add_portal_with_invalid_path_double_slash(mock_values):
+    render = Render(mock_values)
+    with pytest.raises(Exception):
+        render.portals.add_portal({"scheme": "http", "path": "/some//path", "port": 8080})
+
+
 def test_add_portal_with_invalid_port(mock_values):
     render = Render(mock_values)
     with pytest.raises(Exception):

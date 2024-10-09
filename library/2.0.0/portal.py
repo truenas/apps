@@ -1,9 +1,9 @@
 try:
     from .error import RenderError
-    from .validations import valid_portal_scheme_or_raise, valid_path_or_raise, valid_port_or_raise
+    from .validations import valid_portal_scheme_or_raise, valid_http_path_or_raise, valid_port_or_raise
 except ImportError:
     from error import RenderError
-    from validations import valid_portal_scheme_or_raise, valid_path_or_raise, valid_port_or_raise
+    from validations import valid_portal_scheme_or_raise, valid_http_path_or_raise, valid_port_or_raise
 
 
 class Portals:
@@ -29,7 +29,7 @@ class Portal:
         self._scheme = valid_portal_scheme_or_raise(config.get("scheme", "http"))
         self._host = config.get("host", "0.0.0.0")
         self._port = valid_port_or_raise(config.get("port", 0))
-        self._path = valid_path_or_raise(config.get("path", "/"))
+        self._path = valid_http_path_or_raise(config.get("path", "/"))
 
     def render(self):
         return {

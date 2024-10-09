@@ -1,15 +1,15 @@
 try:
     from .error import RenderError
-    from .validations import valid_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
+    from .validations import valid_fs_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
 except ImportError:
     from error import RenderError
-    from validations import valid_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
+    from validations import valid_fs_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
 
 
 class Device:
     def __init__(self, host_device: str, container_device: str, cgroup_perm: str = "", allow_disallowed=False):
-        hd = valid_path_or_raise(host_device.rstrip("/"))
-        cd = valid_path_or_raise(container_device.rstrip("/"))
+        hd = valid_fs_path_or_raise(host_device.rstrip("/"))
+        cd = valid_fs_path_or_raise(container_device.rstrip("/"))
         if not hd or not cd:
             raise RenderError(
                 "Expected [host_device] and [container_device] to be set. "
