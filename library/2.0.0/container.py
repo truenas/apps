@@ -46,6 +46,7 @@ class Container:
         self._network_mode: str = ""
         self._entrypoint: list[str] = []
         self._command: list[str] = []
+        self._grace_period: int | None = None
         self.deploy: Deploy = Deploy(self._render_instance)
         self.networks: set[str] = set()
         self.devices: Devices = Devices(self._render_instance)
@@ -70,7 +71,9 @@ class Container:
     def _resolve_image(self, image: str):
         images = self._render_instance.values["images"]
         if image not in images:
-            raise RenderError(f"Image [{image}] not found in values")
+            raise RenderError(
+                f"Image [{image}] not found in values. " f"Available images: [{', '.join(images.keys())}]"
+            )
         repo = images[image].get("repository", "")
         tag = images[image].get("tag", "")
 
@@ -92,6 +95,11 @@ class Container:
 
     def set_stdin(self, enabled: bool = False):
         self._stdin_open = enabled
+
+    def set_grace_period(self, grace_period: int):
+        if grace_period < 0:
+            raise RenderError(f"Grace period [{grace_period}] cannot be negative")
+        self._grace_period = grace_period
 
     def add_caps(self, caps: list[str]):
         for c in caps:
@@ -128,6 +136,9 @@ class Container:
             "cap_drop": sorted(self._cap_drop),
             "healthcheck": self.healthcheck.render(),
         }
+
+        if self._grace_period is not None:
+            result["stop_grace_period"] = self._grace_period
 
         if self._user:
             result["user"] = self._user

@@ -61,6 +61,15 @@ def test_stdin(mock_values):
     assert output["services"]["test_container"]["stdin_open"] is True
 
 
+def test_grace_period(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.set_grace_period(10)
+    c1.healthcheck.disable_healthcheck()
+    output = render.render()
+    assert output["services"]["test_container"]["stop_grace_period"] == 10
+
+
 def test_user(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

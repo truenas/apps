@@ -16,7 +16,10 @@ class Depends:
         if name in self._dependencies.keys():
             raise RenderError(f"Dependency [{name}] already added")
         if name not in self._render_instance.container_names():
-            raise RenderError(f"Dependency [{name}] not found in defined containers")
+            raise RenderError(
+                f"Dependency [{name}] not found in defined containers. "
+                f"Available containers: [{', '.join(self._render_instance.container_names())}]"
+            )
         self._dependencies[name] = condition
 
     def has_dependencies(self):
