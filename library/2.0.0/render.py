@@ -21,6 +21,7 @@ class Render(object):
         self._original_values: dict = values
         self._containers: dict[str, Container] = {}
         self.values: dict = copy.deepcopy(values)
+
         self.funcs = Functions(render_instance=self).func_map()
         self.portals: Portals = Portals(render_instance=self)
         self.notes: Notes = Notes(render_instance=self)
@@ -32,7 +33,7 @@ class Render(object):
         return self._containers.keys()
 
     def add_container(self, name: str, image: str):
-        container = Container(self, name, image)
+        container = Container(self, self.volumes, name, image)
         if name in self._containers:
             raise RenderError(f"Container {name} already exists.")
         self._containers[name] = container

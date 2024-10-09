@@ -13,6 +13,8 @@ try:
     from .ports import Ports
     from .restart import RestartPolicy
     from .validations import valid_network_mode_or_raise, valid_cap_or_raise
+    from .volumes import Volumes
+    from .volume_mount import VolumeMounts
 except ImportError:
     from depends import Depends
     from deploy import Deploy
@@ -25,13 +27,15 @@ except ImportError:
     from ports import Ports
     from restart import RestartPolicy
     from validations import valid_network_mode_or_raise, valid_cap_or_raise
+    from volumes import Volumes
+    from volume_mount import VolumeMounts
 
 
 # from .storage import Storage
 
 
 class Container:
-    def __init__(self, render_instance, name: str, image: str):
+    def __init__(self, render_instance, volumes: Volumes, name: str, image: str):
         self._render_instance = render_instance
         # self.volume_mounts = []
 
@@ -47,6 +51,7 @@ class Container:
         self._entrypoint: list[str] = []
         self._command: list[str] = []
         self._grace_period: int | None = None
+        self._volumes = volumes
         self.deploy: Deploy = Deploy(self._render_instance)
         self.networks: set[str] = set()
         self.devices: Devices = Devices(self._render_instance)
@@ -56,13 +61,9 @@ class Container:
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
         self.ports: Ports = Ports(self._render_instance)
+        self.volume_mounts: VolumeMounts = VolumeMounts(self._render_instance, self._volumes)
 
         self._auto_set_network_mode()
-
-    # def add_volume(self, name, config):  # FIXME: define what "volume" is
-    #     storage = Storage(self.render_instance, name, config)
-    #     self.render_instance.add_volume(storage)
-    #     self.volume_mounts.append(storage.volume_mount())
 
     def _auto_set_network_mode(self):
         if self._render_instance.values.get("network", {}).get("host_network", False):
@@ -183,7 +184,7 @@ class Container:
         if self.depends.has_dependencies():
             result["depends_on"] = self.depends.render()
 
-        # if self.volume_mounts:
-        #     result["volume_mounts"] = self.volume_mounts
+        if self.volume_mounts.has_mounts():
+            result["volumes"] = self.volume_mounts.render()
 
         return result

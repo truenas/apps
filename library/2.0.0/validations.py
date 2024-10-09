@@ -6,6 +6,13 @@ except ImportError:
     from error import RenderError
 
 
+def valid_host_path_propagation(propagation: str):
+    valid_propagations = ("shared", "slave", "private", "rshared", "rslave", "rprivate")
+    if propagation not in valid_propagations:
+        raise RenderError(f"Expected [propagation] to be one of [{', '.join(valid_propagations)}], got [{propagation}]")
+    return propagation
+
+
 def valid_portal_scheme_or_raise(scheme: str):
     schemes = ("http", "https")
     if scheme not in schemes:
