@@ -98,7 +98,7 @@ def test_http_healthcheck(mock_values):
     output = render.render()
     assert (
         output["services"]["test_container"]["healthcheck"]["test"]
-        == "/bin/bash -c 'exec {health_check_fd}<>/dev/tcp/127.0.0.1/8080 && echo -e \"GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&$${health_check_fd} && cat <&$${health_check_fd}'"
+        == "/bin/bash -c 'exec {health_check_fd}<>/dev/tcp/127.0.0.1/8080 && echo -e \"GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&$${health_check_fd} && cat <&$${health_check_fd}'"  # noqa
     )
 
 
