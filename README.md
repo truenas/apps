@@ -104,7 +104,7 @@ Thank you for your understanding.
 | searxng              | community  | ✅    | ✅                                                                   |
 | sftpgo               | community  | ✅    | ✅                                                                   |
 | sonarr               | community  | ✅    | ✅                                                                   |
-| tailscale            | community  | ✅    | ✅                                                                   |
+| tailscale            | community  | ✅    | ✅ - [Manual steps needed](https://github.com/truenas/apps/pull/641) |
 | tautulli             | community  | ✅    | ✅                                                                   |
 | tdarr                | community  | ✅    | ✅                                                                   |
 | terraria             | community  | ✅    | ✅                                                                   |
