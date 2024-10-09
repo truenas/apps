@@ -34,7 +34,7 @@ class Volumes:
         if identifier in self._volumes.keys():
             raise RenderError(f"Volume [{identifier}] already added")
 
-        self._volumes[identifier] = Volume(identifier, config)
+        self._volumes[identifier] = Volume(self._render_instance, identifier, config)
 
     def render(self):
         result: dict = {}
@@ -45,7 +45,8 @@ class Volumes:
 
 
 class Volume:
-    def __init__(self, identifier: str, config: dict):
+    def __init__(self, render_instance, identifier: str, config: dict):
+        self._render_instance = render_instance
         self._generated_name: str = ""  # remove?
 
         # The full/raw config passed to the volume
@@ -70,6 +71,7 @@ class Volume:
     def _volume_type_processor_mapping(self, vol_type: str):
         vol_types = {
             "host_path": self._host_path_parser,
+            "ix_volume": self._ix_volume_parser,
         }
 
         if vol_type not in vol_types:
@@ -82,13 +84,40 @@ class Volume:
     def _host_path_parser(self):
         if not self._raw_config.get("host_path_config"):
             raise RenderError("Expected [host_path_config] to be set for [host_path] type")
-        if not self._raw_config["host_path_config"].get("path"):
+        hpc = self._raw_config["host_path_config"]
+        if not hpc.get("path"):
             raise RenderError("Expected [host_path_config.path] to be set for [host_path] type")
-        path = valid_fs_path_or_raise(self._raw_config["host_path_config"]["path"])
+        path = ""
+
+        if hpc.get("acl_enable", False):
+            if not hpc.get("acl", {}).get("path"):
+                raise RenderError(
+                    "Expected [host_path_config.acl.path] to be set for [host_path] type with ACL enabled"
+                )
+            path = valid_fs_path_or_raise(hpc["acl"]["path"])
+        else:
+            path = valid_fs_path_or_raise(hpc["path"])
 
         self._volume_mount_type_spec = "bind"
         self._volume_source = path
         self._config = self._raw_config.get("host_path_config", {})
+        self._volume_spec = None
+
+    def _ix_volume_parser(self):
+        if not self._raw_config.get("ix_volume_config"):
+            raise RenderError("Expected [ix_volume_config] to be set for [ix_volume] type")
+        if not self._raw_config["ix_volume_config"].get("dataset_name"):
+            raise RenderError("Expected [ix_volume_config.dataset_name] to be set for [ix_volume] type")
+        dataset_name = self._raw_config["ix_volume_config"]["dataset_name"]
+        ix_volumes = self._render_instance.values.get("ix_volumes", {})
+        if dataset_name not in ix_volumes.keys():
+            raise RenderError(
+                f"Expected the key [{dataset_name}] to be set in [ix_volumes] for [ix_volume] type."
+                f"Available keys: [{', '.join(ix_volumes.keys())}]"
+            )
+        self._volume_mount_type_spec = "bind"
+        self._volume_source = ix_volumes[dataset_name]
+        self._config = self._raw_config.get("ix_volume_config", {})
         self._volume_spec = None
 
     def get_read_only(self):

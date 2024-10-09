@@ -87,6 +87,36 @@ def test_add_host_path_volume_mount(mock_values):
     ]
 
 
+def test_add_host_path_volume_mount_with_acl(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume(
+        "test_volume",
+        {
+            "type": "host_path",
+            "host_path_config": {
+                "path": "/mnt/test",  # should be ignored
+                "acl_enable": True,
+                "acl": {
+                    "path": "/mnt/test/acl",
+                },
+            },
+        },
+    )
+    c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/mnt/test/acl",
+            "target": "/some/path",
+            "read_only": False,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
 def test_add_host_path_volume_mount_with_propagation(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
@@ -152,5 +182,87 @@ def test_add_host_path_volume_mount_with_read_only(mock_values):
             "target": "/some/path",
             "read_only": True,
             "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+def test_add_ix_volume_invalid_dataset_name(mock_values):
+    mock_values["ix_volumes"] = {"test_dataset": "/mnt/test"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    with pytest.raises(Exception):
+        render.volumes.add_volume(
+            "test_volume",
+            {
+                "type": "ix_volume",
+                "ix_volume_config": {
+                    "dataset_name": "invalid_dataset",
+                },
+            },
+        )
+
+
+def test_add_ix_volume_no_ix_volume_config(mock_values):
+    mock_values["ix_volumes"] = {"test_dataset": "/mnt/test"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    with pytest.raises(Exception):
+        render.volumes.add_volume("test_volume", {"type": "ix_volume"})
+
+
+def test_add_ix_volume_volume_mount(mock_values):
+    mock_values["ix_volumes"] = {"test_dataset": "/mnt/test"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume(
+        "test_volume",
+        {
+            "type": "ix_volume",
+            "ix_volume_config": {
+                "dataset_name": "test_dataset",
+            },
+        },
+    )
+    c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/mnt/test",
+            "target": "/some/path",
+            "read_only": False,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+def test_add_ix_volume_volume_mount_with_options(mock_values):
+    mock_values["ix_volumes"] = {"test_dataset": "/mnt/test"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume(
+        "test_volume",
+        {
+            "type": "ix_volume",
+            "ix_volume_config": {
+                "dataset_name": "test_dataset",
+                "propagation": "rslave",
+                "create_host_path": True,
+            },
+        },
+    )
+    c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/mnt/test",
+            "target": "/some/path",
+            "read_only": False,
+            "bind": {"create_host_path": True, "propagation": "rslave"},
         }
     ]
