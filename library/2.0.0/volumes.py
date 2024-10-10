@@ -11,13 +11,12 @@ class Volumes:
         self._render_instance = render_instance
         self._volumes: dict[str, Volume] = {}
 
-    def has_volumes(self):
-        for v in self._volumes.values():
-            if v.is_top_level_volume():
-                return True
-        return
+    def has_volumes(self) -> bool:
+        """Check if there are any top-level volumes defined."""
+        return any(v.is_top_level_volume() for v in self._volumes.values())
 
     def get_volume(self, identifier: str):
+        """Retrieve a volume by its identifier."""
         if identifier not in self.volume_identifiers():
             raise RenderError(
                 f"Volume [{identifier}] not found in defined volumes. "
@@ -25,23 +24,22 @@ class Volumes:
             )
         return self._volumes[identifier]
 
-    def volume_identifiers(self):
-        return self._volumes.keys()
+    def volume_identifiers(self) -> list[str]:
+        """List all volume identifiers."""
+        return list(self._volumes.keys())
 
     def add_volume(self, identifier: str, config: dict):
-        if identifier == "":
+        """Add a new volume with the given identifier and configuration."""
+        if not identifier:
             raise RenderError("Volume name cannot be empty")
-        if identifier in self._volumes.keys():
+        if identifier in self._volumes:
             raise RenderError(f"Volume [{identifier}] already added")
 
         self._volumes[identifier] = Volume(self._render_instance, identifier, config)
 
-    def render(self):
-        result: dict = {}
-        for v in self._volumes.values():
-            if v.is_top_level_volume():
-                result[v.get_name()] = v.render()
-        pass
+    def render(self) -> dict:
+        """Render all top-level volumes into a dictionary."""
+        return {v.get_name(): v.render() for v in self._volumes.values() if v.is_top_level_volume()}
 
 
 class Volume:
@@ -125,7 +123,6 @@ class Volume:
         return self._raw_config.get("read_only", False)
 
     def get_vol_type_spec(self):
-        print("t", self._volume_mount_type_spec)
         return self._volume_mount_type_spec
 
     def get_source(self):
