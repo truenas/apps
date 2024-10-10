@@ -5,14 +5,14 @@ try:
     from .error import RenderError
     from .functions import Functions
     from .notes import Notes
-    from .portal import Portals
+    from .portals import Portals
     from .volumes import Volumes
 except ImportError:
     from container import Container
     from error import RenderError
     from functions import Functions
     from notes import Notes
-    from portal import Portals
+    from portals import Portals
     from volumes import Volumes
 
 

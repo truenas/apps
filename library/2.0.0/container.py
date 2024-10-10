@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 try:
     from .depends import Depends
     from .deploy import Deploy
-    from .device import Devices
+    from .devices import Devices
     from .dns import Dns
     from .environment import Environment
     from .error import RenderError
@@ -16,11 +16,11 @@ try:
     from .restart import RestartPolicy
     from .validations import valid_network_mode_or_raise, valid_cap_or_raise
     from .volumes import Volumes
-    from .volume_mount import VolumeMounts
+    from .volume_mounts import VolumeMounts
 except ImportError:
     from depends import Depends
     from deploy import Deploy
-    from device import Devices
+    from devices import Devices
     from dns import Dns
     from environment import Environment
     from error import RenderError
@@ -30,7 +30,7 @@ except ImportError:
     from restart import RestartPolicy
     from validations import valid_network_mode_or_raise, valid_cap_or_raise
     from volumes import Volumes
-    from volume_mount import VolumeMounts
+    from volume_mounts import VolumeMounts
 
 
 # from .storage import Storage

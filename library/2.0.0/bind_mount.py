@@ -5,8 +5,8 @@ if TYPE_CHECKING:
 
 
 try:
-    from ..volumes import Volume
-    from ..validations import valid_host_path_propagation
+    from .volumes import Volume
+    from .validations import valid_host_path_propagation
 except ImportError:
     from volumes import Volume
     from validations import valid_host_path_propagation
