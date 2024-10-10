@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
+
 try:
     from .error import RenderError
     from .volumes import Volumes, Volume
@@ -10,10 +15,11 @@ except ImportError:
 
 class VolumeMounts:
     # We need the volumes here, so we can get the config and other info
-    def __init__(self, render_instance, volumes: Volumes):
+    def __init__(self, render_instance: "Render", volumes: Volumes):
         self._render_instance = render_instance
         self._volumes = volumes
         self._volume_mounts: list[VolumeMount] = []
+        self._mount_targets: set[str] = set()
 
     def add_volume_mount(self, vol_identifier: str, mount_path: str):
         mount_path = valid_fs_path_or_raise(mount_path.rstrip("/"))
@@ -23,18 +29,13 @@ class VolumeMounts:
                 f"Available volumes: [{', '.join(self._volumes.volume_identifiers())}]"
             )
 
-        if self._target_exists(mount_path):
+        if mount_path in self._mount_targets:
             raise RenderError(f"Container path [{mount_path}] already added")
 
-        self._volume_mounts.append(
-            VolumeMount(self._render_instance, mount_path, self._volumes.get_volume(vol_identifier))
-        )
-
-    def _target_exists(self, target: str):
-        for mount in self._volume_mounts:
-            if mount._spec["target"] == target:
-                return True
-        return False
+        volume = self._volumes.get_volume(vol_identifier)
+        volume_mount = VolumeMount(self._render_instance, mount_path, volume)
+        self._volume_mounts.append(volume_mount)
+        self._mount_targets.add(mount_path)
 
     def has_mounts(self):
         return len(self._volume_mounts) > 0
@@ -43,52 +44,53 @@ class VolumeMounts:
         return [v.render() for v in sorted(self._volume_mounts, key=lambda v: v._source)]
 
 
-class VolumeMount:
-    def __init__(self, render_instance, mount_path: str, vol: Volume):
-        self._render_instance = render_instance
-        self._source = vol.get_source()
-        self._type = vol.get_vol_type_spec()
-
-        read_only = vol.get_read_only()
-        # Part of the spec that is not dependent on the volume type
-        self._spec = {"type": self._type, "source": self._source, "target": mount_path, "read_only": read_only}
-
-        vol_type_spec = self._mount_spec_mapping(self._type)(self._render_instance, vol)
-        self._spec.update(vol_type_spec.render())
-
-    def _mount_spec_mapping(self, type: str):
-        mount_specs = {
-            "bind": BindMount,
-        }
-
-        if type not in mount_specs:
-            raise RenderError(
-                f"Volume type [{type}] is not valid. Valid options are: [{', '.join(mount_specs.keys())}]"
-            )
-
-        return mount_specs[type]
-
-    def render(self):
-        return self._spec
-
-
 class BindMount:
-    def __init__(self, render_instance, vol: Volume):
+    def __init__(self, render_instance: "Render", vol: Volume):
         self._render_instance = render_instance
         self._vol: Volume = vol
-        self._bind_spec: dict = {}
 
-        config = vol.get_config()
+        config = vol.config
         propagation = valid_host_path_propagation(config.get("propagation", "rprivate"))
-        # Default to not creating the host path
-        # But still allow manually setting create_host_path in the host_path_config (only available to app dev)
         create_host_path = config.get("create_host_path", False)
-        self._bind_spec = {
+
+        self._bind_spec: dict = {
             "bind": {
                 "create_host_path": create_host_path,
                 "propagation": propagation,
             }
         }
 
-    def render(self):
+    def render(self) -> dict:
+        """Render the bind mount specification."""
         return self._bind_spec
+
+
+class VolumeMount:
+    _mount_spec_classes = {
+        "bind": BindMount,
+        # Future mount types can be added here
+    }
+
+    def __init__(self, render_instance: "Render", mount_path: str, vol: Volume):
+        self._render_instance = render_instance
+        self._source = vol.source
+        self._type = vol.mount_type
+        self.read_only = vol.read_only
+
+        self._spec = {
+            "type": self._type,
+            "source": self._source,
+            "target": mount_path,
+            "read_only": self.read_only,
+        }
+
+        mount_spec_class = self._mount_spec_classes.get(self._type)
+        if not mount_spec_class:
+            valid_types = ", ".join(self._mount_spec_classes.keys())
+            raise RenderError(f"Volume type [{self._type}] is not valid. Valid options are: [{valid_types}]")
+
+        mount_spec = mount_spec_class(self._render_instance, vol)
+        self._spec.update(mount_spec.render())
+
+    def render(self) -> dict:
+        return self._spec

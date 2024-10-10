@@ -127,16 +127,20 @@ class Volume:
         self._config = ix_config
         self._volume_spec = None
 
-    def get_read_only(self):
-        return self._raw_config.get("read_only", False)
-
-    def get_vol_type_spec(self):
-        return self._volume_mount_type_spec
-
-    def get_source(self):
+    @property
+    def source(self) -> str:
         return self._volume_source
 
-    def get_config(self):
+    @property
+    def mount_type(self) -> str:
+        return self._volume_mount_type_spec
+
+    @property
+    def read_only(self) -> bool:
+        return self._raw_config.get("read_only", False)
+
+    @property
+    def config(self) -> dict:
         return self._config
 
     # Not all volumes need to be defined
