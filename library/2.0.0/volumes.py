@@ -33,7 +33,7 @@ class Volumes:
         if not identifier:
             raise RenderError("Volume name cannot be empty")
         if identifier in self._volumes:
-            raise RenderError(f"Volume [{identifier}] already added")
+            raise RenderError(f"Volume [{identifier}] already added.")
 
         self._volumes[identifier] = Volume(self._render_instance, identifier, config)
 
@@ -45,6 +45,7 @@ class Volumes:
 class Volume:
     def __init__(self, render_instance, identifier: str, config: dict):
         self._render_instance = render_instance
+        self._identifier = identifier
         self._generated_name: str = ""  # remove?
 
         # The full/raw config passed to the volume
@@ -69,27 +70,30 @@ class Volume:
     def _volume_type_processor_mapping(self, vol_type: str):
         vol_types = {
             "host_path": self._parse_host_path,
-            "ix_volume": self._ix_volume_parser,
+            "ix_volume": self._parse_ix_volume,
         }
 
         if vol_type not in vol_types:
             raise RenderError(
-                f"Volume type [{vol_type}] is not valid. Valid options are: [{', '.join(vol_types.keys())}]"
+                f"Volume type [{vol_type}] is not valid. "
+                f"Valid types are: [{', '.join(vol_types.keys())}] [{self._identifier}]"
             )
 
         return vol_types[vol_type]
 
     def _parse_host_path(self):
         if not self._raw_config.get("host_path_config"):
-            raise RenderError("Expected [host_path_config] to be set for [host_path] type")
+            raise RenderError(f"Expected [host_path_config] to be set for [host_path] type. [{self._identifier}]")
         hpc = self._raw_config["host_path_config"]
         if not hpc.get("path"):
-            raise RenderError("Expected [host_path_config.path] to be set for [host_path] type")
+            raise RenderError(f"Expected [host_path_config.path] to be set for [host_path] type. [{self._identifier}]")
 
         if hpc.get("acl_enable", False):
             acl = hpc.get("acl", {})
             if not acl.get("path"):
-                raise RenderError("Found empty [host_path_config.acl.path] in [host_path] type with ACL enabled")
+                raise RenderError(
+                    f"Expected [host_path_config.acl.path] to be set for [host_path] type. [{self._identifier}]"
+                )
             path = valid_fs_path_or_raise(acl["path"])
         else:
             path = valid_fs_path_or_raise(hpc["path"])
@@ -99,22 +103,28 @@ class Volume:
         self._config = hpc
         self._volume_spec = None
 
-    def _ix_volume_parser(self):
-        if not self._raw_config.get("ix_volume_config"):
-            raise RenderError("Expected [ix_volume_config] to be set for [ix_volume] type")
-        if not self._raw_config["ix_volume_config"].get("dataset_name"):
-            raise RenderError("Expected [ix_volume_config.dataset_name] to be set for [ix_volume] type")
-        dataset_name = self._raw_config["ix_volume_config"]["dataset_name"]
-        ix_volumes = self._render_instance.values.get("ix_volumes", {})
-        if dataset_name not in ix_volumes.keys():
+    def _parse_ix_volume(self):
+        ix_config = self._raw_config.get("ix_volume_config")
+        if not ix_config:
+            raise RenderError(f"Expected [ix_volume_config] to be set for [ix_volume] type. [{self._identifier}]")
+        dataset_name = ix_config.get("dataset_name")
+        if not dataset_name:
             raise RenderError(
-                f"Expected the key [{dataset_name}] to be set in [ix_volumes] for [ix_volume] type."
-                f"Available keys: [{', '.join(ix_volumes.keys())}]"
+                f"Expected [ix_volume_config.dataset_name] to be set for [ix_volume] type. [{self._identifier}]"
+            )
+
+        ix_volumes = self._render_instance.values.get("ix_volumes", {})
+        if dataset_name not in ix_volumes:
+            available = ", ".join(ix_volumes.keys())
+            raise RenderError(
+                f"Expected the key [{dataset_name}] to be set in [ix_volumes] for [ix_volume] type. "
+                f"Available keys: [{available}]. [{self._identifier}]"
             )
         path = valid_fs_path_or_raise(ix_volumes[dataset_name].rstrip("/"))
+
         self._volume_mount_type_spec = "bind"
         self._volume_source = path
-        self._config = self._raw_config.get("ix_volume_config", {})
+        self._config = ix_config
         self._volume_spec = None
 
     def get_read_only(self):
