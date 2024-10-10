@@ -4,10 +4,12 @@ if TYPE_CHECKING:
     from render import Render
 
 try:
+    from .dir.bind_mount import BindMount
     from .error import RenderError
     from .volumes import Volumes, Volume
     from .validations import valid_host_path_propagation, valid_fs_path_or_raise
 except ImportError:
+    from dir.bind_mount import BindMount
     from error import RenderError
     from volumes import Volumes, Volume
     from validations import valid_host_path_propagation, valid_fs_path_or_raise
@@ -46,27 +48,6 @@ class VolumeMounts:
         return [v.render() for v in sorted(self._volume_mounts, key=lambda v: v.source)]
 
 
-class BindMount:
-    def __init__(self, render_instance: "Render", vol: Volume):
-        self._render_instance = render_instance
-        self._vol: Volume = vol
-
-        config = vol.config
-        propagation = valid_host_path_propagation(config.get("propagation", "rprivate"))
-        create_host_path = config.get("create_host_path", False)
-
-        self._bind_spec: dict = {
-            "bind": {
-                "create_host_path": create_host_path,
-                "propagation": propagation,
-            }
-        }
-
-    def render(self) -> dict:
-        """Render the bind mount specification."""
-        return self._bind_spec
-
-
 class VolumeMount:
     _mount_spec_classes = {
         "bind": BindMount,
@@ -76,9 +57,9 @@ class VolumeMount:
         self._render_instance = render_instance
         self._source = vol.source
         self._type = vol.mount_type
-        self.read_only = vol.read_only
-
-        self._spec = {
+        self._read_only = vol.read_only
+        self._spec: dict = {}
+        self._common_spec = {
             "type": self._type,
             "source": self._source,
             "target": mount_path,
@@ -90,8 +71,12 @@ class VolumeMount:
             valid_types = ", ".join(self._mount_spec_classes.keys())
             raise RenderError(f"Volume type [{self._type}] is not valid. Valid options are: [{valid_types}]")
 
-        mount_spec = mount_spec_class(self._render_instance, vol)
-        self._spec.update(mount_spec.render())
+        mount_spec = mount_spec_class(self._render_instance, vol).render()
+        self._spec = merge_dicts_no_overwrite(self._common_spec, mount_spec)
+
+    @property
+    def read_only(self) -> bool:
+        return self._read_only
 
     @property
     def source(self) -> str:
@@ -101,3 +86,10 @@ class VolumeMount:
     def render(self) -> dict:
         """Render the volume mount specification."""
         return self._spec
+
+
+def merge_dicts_no_overwrite(dict1, dict2):
+    overlapping_keys = dict1.keys() & dict2.keys()
+    if overlapping_keys:
+        raise ValueError(f"Merging of dicts failed. Overlapping keys: {overlapping_keys}")
+    return {**dict1, **dict2}
