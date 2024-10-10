@@ -68,7 +68,7 @@ class Volume:
 
     def _volume_type_processor_mapping(self, vol_type: str):
         vol_types = {
-            "host_path": self._host_path_parser,
+            "host_path": self._parse_host_path,
             "ix_volume": self._ix_volume_parser,
         }
 
@@ -79,26 +79,24 @@ class Volume:
 
         return vol_types[vol_type]
 
-    def _host_path_parser(self):
+    def _parse_host_path(self):
         if not self._raw_config.get("host_path_config"):
             raise RenderError("Expected [host_path_config] to be set for [host_path] type")
         hpc = self._raw_config["host_path_config"]
         if not hpc.get("path"):
             raise RenderError("Expected [host_path_config.path] to be set for [host_path] type")
-        path = ""
 
         if hpc.get("acl_enable", False):
-            if not hpc.get("acl", {}).get("path"):
-                raise RenderError(
-                    "Expected [host_path_config.acl.path] to be set for [host_path] type with ACL enabled"
-                )
-            path = valid_fs_path_or_raise(hpc["acl"]["path"])
+            acl = hpc.get("acl", {})
+            if not acl.get("path"):
+                raise RenderError("Found empty [host_path_config.acl.path] in [host_path] type with ACL enabled")
+            path = valid_fs_path_or_raise(acl["path"])
         else:
             path = valid_fs_path_or_raise(hpc["path"])
 
         self._volume_mount_type_spec = "bind"
         self._volume_source = path
-        self._config = self._raw_config.get("host_path_config", {})
+        self._config = hpc
         self._volume_spec = None
 
     def _ix_volume_parser(self):
