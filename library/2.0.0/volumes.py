@@ -18,7 +18,7 @@ class Volumes:
 
     def has_volumes(self) -> bool:
         """Check if there are any top-level volumes defined."""
-        return any(v.is_top_level_volume() for v in self._volumes.values())
+        return any(v.is_top_level_volume for v in self._volumes.values())
 
     def get_volume(self, identifier: str):
         """Retrieve a volume by its identifier."""
@@ -44,14 +44,13 @@ class Volumes:
 
     def render(self) -> dict:
         """Render all top-level volumes into a dictionary."""
-        return {v.get_name(): v.render() for v in self._volumes.values() if v.is_top_level_volume()}
+        return {v.name: v.render() for v in self._volumes.values() if v.is_top_level_volume}
 
 
 class Volume:
     def __init__(self, render_instance: "Render", identifier: str, config: dict):
         self._render_instance = render_instance
         self._identifier = identifier
-        self._generated_name: str = ""  # remove?
 
         # The full/raw config passed to the volume
         self._raw_config: dict = config
@@ -133,7 +132,13 @@ class Volume:
         self._volume_spec = None
 
     @property
+    def name(self) -> str:
+        """Return the name of the volume."""
+        return self._identifier
+
+    @property
     def source(self) -> str:
+        """Return the source path or volume name."""
         return self._volume_source
 
     @property
@@ -148,15 +153,12 @@ class Volume:
     def config(self) -> dict:
         return self._config
 
-    # Not all volumes need to be defined
-    # in the top level volumes section
-    def is_top_level_volume(self):
+    @property
+    def is_top_level_volume(self) -> bool:
+        """Determine if the volume should be defined at the top level in Docker Compose."""
         return self._volume_spec is not None
 
-    def get_name(self):
-        return self._generated_name
-
     def render(self):
-        if self.is_top_level_volume():
+        if self.is_top_level_volume:
             return self._volume_spec
         return {}

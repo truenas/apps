@@ -37,10 +37,12 @@ class VolumeMounts:
         self._volume_mounts.append(volume_mount)
         self._mount_targets.add(mount_path)
 
-    def has_mounts(self):
-        return len(self._volume_mounts) > 0
+    def has_mounts(self) -> bool:
+        """Check if there are any volume mounts defined."""
+        return bool(self._volume_mounts)
 
-    def render(self):
+    def render(self) -> list[dict]:
+        """Render all volume mounts into a list of dictionaries."""
         return [v.render() for v in sorted(self._volume_mounts, key=lambda v: v._source)]
 
 
@@ -68,7 +70,6 @@ class BindMount:
 class VolumeMount:
     _mount_spec_classes = {
         "bind": BindMount,
-        # Future mount types can be added here
     }
 
     def __init__(self, render_instance: "Render", mount_path: str, vol: Volume):
