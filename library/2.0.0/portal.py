@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
+
 try:
     from .error import RenderError
     from .validations import valid_portal_scheme_or_raise, valid_http_path_or_raise, valid_port_or_raise
@@ -7,7 +12,7 @@ except ImportError:
 
 
 class Portals:
-    def __init__(self, render_instance):
+    def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._portals: set[Portal] = set()
 

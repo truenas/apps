@@ -1,5 +1,8 @@
 import re
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
 
 try:
     from .error import RenderError
@@ -11,7 +14,7 @@ DEFAULT_MEMORY = 4096
 
 
 class Resources:
-    def __init__(self, render_instance):
+    def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._limits: dict = {}
         self._reservations: dict = {}

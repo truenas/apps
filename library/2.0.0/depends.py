@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
+
 try:
     from .error import RenderError
     from .validations import valid_depend_condition_or_raise
@@ -7,7 +12,7 @@ except ImportError:
 
 
 class Depends:
-    def __init__(self, render_instance):
+    def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._dependencies: dict[str, str] = {}
 

@@ -30,7 +30,7 @@ class Render(object):
         # self.networks = {}
 
     def container_names(self):
-        return self._containers.keys()
+        return list(self._containers.keys())
 
     def add_container(self, name: str, image: str):
         container = Container(self, self.volumes, name, image)

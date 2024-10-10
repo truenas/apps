@@ -2,6 +2,10 @@ import re
 import bcrypt
 import secrets
 from base64 import b64encode
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
 
 try:
     from .error import RenderError
@@ -10,7 +14,7 @@ except ImportError:
 
 
 class Functions:
-    def __init__(self, render_instance):
+    def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
 
     def _bcrypt_hash(self, password):

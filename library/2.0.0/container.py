@@ -1,5 +1,7 @@
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from render import Render
 
 try:
     from .depends import Depends
@@ -35,7 +37,7 @@ except ImportError:
 
 
 class Container:
-    def __init__(self, render_instance, volumes: Volumes, name: str, image: str):
+    def __init__(self, render_instance: "Render", volumes: Volumes, name: str, image: str):
         self._render_instance = render_instance
         # self.volume_mounts = []
 

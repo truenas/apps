@@ -1,5 +1,7 @@
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from render import Render
 try:
     from .error import RenderError
     from .formatter import escape_dollar
@@ -11,7 +13,7 @@ except ImportError:
 
 
 class Environment:
-    def __init__(self, render_instance, resources: Resources):
+    def __init__(self, render_instance: "Render", resources: Resources):
         self._render_instance = render_instance
         self._resources = resources
         # Stores variables that user defined

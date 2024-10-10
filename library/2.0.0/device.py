@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
+
 try:
     from .error import RenderError
     from .validations import valid_fs_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
@@ -32,7 +37,7 @@ class Device:
 
 
 class Devices:
-    def __init__(self, render_instance):
+    def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._devices: set[Device] = set()
 

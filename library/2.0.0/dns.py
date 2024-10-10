@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
+
 try:
     from .error import RenderError
     from .validations import allowed_dns_opt_or_raise
@@ -7,7 +12,7 @@ except ImportError:
 
 
 class Dns:
-    def __init__(self, render_instance):
+    def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._dns_options: set[str] = set()
         self._dns_searches: set[str] = set()

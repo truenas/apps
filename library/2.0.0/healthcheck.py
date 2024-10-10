@@ -1,4 +1,7 @@
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
 
 try:
     from .error import RenderError
@@ -11,7 +14,7 @@ except ImportError:
 
 
 class Healthcheck:
-    def __init__(self, render_instance):
+    def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._test: str | list[str] = ""
         self._interval_sec: int = 10

@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
+
 try:
     from .error import RenderError
     from .validations import valid_fs_path_or_raise
@@ -7,7 +12,7 @@ except ImportError:
 
 
 class Volumes:
-    def __init__(self, render_instance):
+    def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._volumes: dict[str, Volume] = {}
 
@@ -43,7 +48,7 @@ class Volumes:
 
 
 class Volume:
-    def __init__(self, render_instance, identifier: str, config: dict):
+    def __init__(self, render_instance: "Render", identifier: str, config: dict):
         self._render_instance = render_instance
         self._identifier = identifier
         self._generated_name: str = ""  # remove?
