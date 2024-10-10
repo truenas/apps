@@ -463,3 +463,160 @@ def test_cifs_volume_with_options(mock_values):
             "volume": {"nocopy": False},
         }
     ]
+
+
+def test_add_nfs_volume(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    nfs_config = {
+        "server": "server",
+        "path": "/path",
+    }
+    render.volumes.add_volume(
+        "test_volume",
+        {
+            "type": "nfs",
+            "nfs_config": nfs_config,
+        },
+    )
+    c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+    output = render.render()
+    vol_name = get_hashed_name_for_volume("nfs_test_volume", nfs_config)
+    assert output["volumes"] == {
+        vol_name: {
+            "driver_opts": {
+                "type": "nfs",
+                "device": ":/path",
+                "o": "addr=server",
+            },
+        }
+    }
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "volume",
+            "source": vol_name,
+            "target": "/some/path",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
+    ]
+
+
+def test_nfs_volume_missing_server(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    nfs_config = {"path": "/path"}
+    with pytest.raises(Exception):
+        render.volumes.add_volume("test_volume", {"type": "nfs", "nfs_config": nfs_config})
+
+
+def test_nfs_volume_missing_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    nfs_config = {
+        "server": "server",
+    }
+    with pytest.raises(Exception):
+        render.volumes.add_volume("test_volume", {"type": "nfs", "nfs_config": nfs_config})
+
+
+def test_nfs_volume_without_nfs_config(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    with pytest.raises(Exception):
+        render.volumes.add_volume("test_volume", {"type": "nfs"})
+
+
+def test_nfs_volume_duplicate_option(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    nfs_config = {
+        "server": "server",
+        "path": "/path",
+        "options": ["verbose=true", "verbose=true"],
+    }
+    with pytest.raises(Exception):
+        render.volumes.add_volume("test_volume", {"type": "nfs", "nfs_config": nfs_config})
+
+
+def test_nfs_volume_disallowed_option(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    nfs_config = {
+        "server": "server",
+        "path": "/path",
+        "options": ["addr=server"],
+    }
+    with pytest.raises(Exception):
+        render.volumes.add_volume("test_volume", {"type": "nfs", "nfs_config": nfs_config})
+
+
+def test_nfs_volume_invalid_options(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    nfs_config = {
+        "server": "server",
+        "path": "/path",
+        "options": {"verbose": True},
+    }
+    with pytest.raises(Exception):
+        render.volumes.add_volume("test_volume", {"type": "nfs", "nfs_config": nfs_config})
+
+
+def test_nfs_volume_invalid_options2(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    nfs_config = {
+        "server": "server",
+        "path": "/path",
+        "options": [{"verbose": True}],
+    }
+    with pytest.raises(Exception):
+        render.volumes.add_volume("test_volume", {"type": "nfs", "nfs_config": nfs_config})
+
+
+def test_nfs_volume_with_options(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    nfs_config = {
+        "server": "server",
+        "path": "/path",
+        "options": ["vers=3.0", "verbose=true"],
+    }
+    render.volumes.add_volume(
+        "test_volume",
+        {
+            "type": "nfs",
+            "nfs_config": nfs_config,
+        },
+    )
+    c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+    output = render.render()
+    vol_name = get_hashed_name_for_volume("nfs_test_volume", nfs_config)
+    assert output["volumes"] == {
+        vol_name: {
+            "driver_opts": {
+                "type": "nfs",
+                "device": ":/path",
+                "o": "addr=server,vers=3.0,verbose=true",
+            },
+        }
+    }
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "volume",
+            "source": vol_name,
+            "target": "/some/path",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
+    ]

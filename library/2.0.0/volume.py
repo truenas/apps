@@ -51,6 +51,7 @@ class Volume:
             "host_path": self._parse_host_path,
             "ix_volume": self._parse_ix_volume,
             "cifs": self._parse_cifs,
+            "nfs": self._parse_nfs,
         }
 
         if vol_type not in vol_types:
@@ -152,6 +153,48 @@ class Volume:
             "driver_opts": {
                 "type": "cifs",
                 "device": f"//{server}/{path}",
+                "o": f"{','.join([escape_dollar(opt) for opt in opts])}",
+            },
+        }
+
+    def _parse_nfs(self):
+        nfs_config = self._raw_config.get("nfs_config")
+        if not nfs_config:
+            raise RenderError(f"Expected [nfs_config] to be set for [nfs] type. [{self._identifier}]")
+
+        required_keys = ["server", "path"]
+        for key in required_keys:
+            if not nfs_config.get(key):
+                raise RenderError(f"Expected [{key}] to be set for [nfs] type. [{self._identifier}]")
+
+        opts = [f"addr={nfs_config['server']}"]
+        if nfs_config.get("options"):
+            if not isinstance(nfs_config["options"], list):
+                raise RenderError(f"Expected [nfs_config.options] to be a list for [nfs] type. [{self._identifier}]")
+
+            tracked_keys: set[str] = set()
+            disallowed_opts = ["addr"]
+            for opt in nfs_config["options"]:
+                if not isinstance(opt, str):
+                    raise RenderError(f"Options for [nfs] type must be a list of strings. [{self._identifier}]")
+                key = opt.split("=")[0]
+                if key in tracked_keys:
+                    raise RenderError(f"Option [{key}] already added for [nfs] type. [{self._identifier}]")
+                if key in disallowed_opts:
+                    raise RenderError(f"Option [{key}] is not allowed for [nfs] type. [{self._identifier}]")
+                opts.append(opt)
+                tracked_keys.add(key)
+
+        path = valid_fs_path_or_raise(nfs_config["path"].rstrip("/"))
+
+        self._volume_mount_type_spec = "volume"
+        self._config = nfs_config
+        self._generated_name = get_hashed_name_for_volume(f"nfs_{self._identifier}", nfs_config)
+        self._volume_source = self._generated_name
+        self._volume_spec = {
+            "driver_opts": {
+                "type": "nfs",
+                "device": f":{path}",
                 "o": f"{','.join([escape_dollar(opt) for opt in opts])}",
             },
         }
