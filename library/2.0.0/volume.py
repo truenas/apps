@@ -1,3 +1,5 @@
+import json
+import hashlib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -5,16 +7,25 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
+    from .formatter import escape_dollar
     from .validations import valid_fs_path_or_raise
 except ImportError:
     from error import RenderError
+    from formatter import escape_dollar
     from validations import valid_fs_path_or_raise
 
 
 class Volume:
     def __init__(self, render_instance: "Render", identifier: str, config: dict):
         self._render_instance = render_instance
-        self._identifier = identifier
+        self._identifier: str = identifier
+
+        """
+        For some volumes like cifs or nfs, we need to generate a unique name for the volume,
+        based on its configuration. Reason is that Docker does not update any volume after creation.
+        This is to ensure that changing any value (eg server address) in the config will result in a new volume
+        """
+        self._generated_name: str = ""
 
         # The full/raw config passed to the volume
         self._raw_config: dict = config
@@ -39,6 +50,7 @@ class Volume:
         vol_types = {
             "host_path": self._parse_host_path,
             "ix_volume": self._parse_ix_volume,
+            "cifs": self._parse_cifs,
         }
 
         if vol_type not in vol_types:
@@ -95,10 +107,59 @@ class Volume:
         self._config = ix_config
         self._volume_spec = None
 
+    def _parse_cifs(self):
+        cifs_config = self._raw_config.get("cifs_config")
+        if not cifs_config:
+            raise RenderError(f"Expected [cifs_config] to be set for [cifs] type. [{self._identifier}]")
+
+        required_keys = ["server", "path", "username", "password"]
+        for key in required_keys:
+            if not cifs_config.get(key):
+                raise RenderError(f"Expected [{key}] to be set for [cifs] type. [{self._identifier}]")
+        opts = [
+            f"user={cifs_config['username']}",
+            f"password={cifs_config['password']}",
+        ]
+
+        if cifs_config.get("domain"):
+            opts.append(f'domain={cifs_config["domain"]}')
+
+        if cifs_config.get("options"):
+            if not isinstance(cifs_config["options"], list):
+                raise RenderError(f"Expected [cifs_config.options] to be a list for [cifs] type. [{self._identifier}]")
+            tracked_keys: set[str] = set()
+            disallowed_opts = ["user", "password", "domain"]
+            for opt in cifs_config["options"]:
+                if not isinstance(opt, str):
+                    raise RenderError(f"Options for [cifs] type must be a list of strings. [{self._identifier}]")
+                key = opt.split("=")[0]
+                if key in tracked_keys:
+                    raise RenderError(f"Option [{key}] already added for [cifs] type. [{self._identifier}]")
+                if key in disallowed_opts:
+                    raise RenderError(f"Option [{key}] is not allowed for [cifs] type. [{self._identifier}]")
+                opts.append(opt)
+                tracked_keys.add(key)
+
+        server = cifs_config["server"].lstrip("/")
+        path = cifs_config["path"].strip("/")
+        path = valid_fs_path_or_raise("/" + path).lstrip("/")
+
+        self._volume_mount_type_spec = "volume"
+        self._config = cifs_config
+        self._generated_name = get_hashed_name_for_volume(f"cifs_{self._identifier}", cifs_config)
+        self._volume_source = self._generated_name
+        self._volume_spec = {
+            "driver_opts": {
+                "type": "cifs",
+                "device": f"//{server}/{path}",
+                "o": f"{','.join([escape_dollar(opt) for opt in opts])}",
+            },
+        }
+
     @property
     def name(self) -> str:
         """Return the name of the volume."""
-        return self._identifier
+        return self._generated_name or self._identifier
 
     @property
     def source(self) -> str:
@@ -126,3 +187,8 @@ class Volume:
         if self.is_top_level_volume:
             return self._volume_spec
         return {}
+
+
+def get_hashed_name_for_volume(prefix: str, config: dict):
+    config_hash = hashlib.sha256(json.dumps(config).encode("utf-8")).hexdigest()
+    return f"{prefix}_{config_hash}"

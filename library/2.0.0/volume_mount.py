@@ -4,18 +4,19 @@ if TYPE_CHECKING:
     from render import Render
 
 try:
-    from .bind_mount import BindMount
+    from .mount_types import BindMountType, VolumeMountType
     from .error import RenderError
     from .volumes import Volume
 except ImportError:
-    from bind_mount import BindMount
+    from mount_types import BindMountType, VolumeMountType
     from error import RenderError
     from volumes import Volume
 
 
 class VolumeMount:
     _mount_spec_classes = {
-        "bind": BindMount,
+        "bind": BindMountType,
+        "volume": VolumeMountType,
     }
 
     def __init__(self, render_instance: "Render", mount_path: str, vol: Volume):
