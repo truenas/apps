@@ -94,4 +94,5 @@ class VolumeMount:
         self._spec.update(mount_spec.render())
 
     def render(self) -> dict:
+        """Render the volume mount specification."""
         return self._spec
