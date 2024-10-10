@@ -266,3 +266,14 @@ def test_add_ix_volume_volume_mount_with_options(mock_values):
             "bind": {"create_host_path": True, "propagation": "rslave"},
         }
     ]
+
+
+def test_add_volumes_with_duplicate_target(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume("test_volume", {"type": "host_path", "host_path_config": {"path": "/mnt/test"}})
+    render.volumes.add_volume("test_volume2", {"type": "host_path", "host_path_config": {"path": "/mnt/test"}})
+    c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+    with pytest.raises(Exception):
+        c1.volume_mounts.add_volume_mount("test_volume2", "/some/path")

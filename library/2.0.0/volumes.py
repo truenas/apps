@@ -115,8 +115,9 @@ class Volume:
                 f"Expected the key [{dataset_name}] to be set in [ix_volumes] for [ix_volume] type."
                 f"Available keys: [{', '.join(ix_volumes.keys())}]"
             )
+        path = valid_fs_path_or_raise(ix_volumes[dataset_name].rstrip("/"))
         self._volume_mount_type_spec = "bind"
-        self._volume_source = ix_volumes[dataset_name]
+        self._volume_source = path
         self._config = self._raw_config.get("ix_volume_config", {})
         self._volume_spec = None
 

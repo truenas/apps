@@ -1,11 +1,11 @@
 try:
     from .error import RenderError
     from .volumes import Volumes, Volume
-    from .validations import valid_host_path_propagation
+    from .validations import valid_host_path_propagation, valid_fs_path_or_raise
 except ImportError:
     from error import RenderError
     from volumes import Volumes, Volume
-    from validations import valid_host_path_propagation
+    from validations import valid_host_path_propagation, valid_fs_path_or_raise
 
 
 class VolumeMounts:
@@ -16,15 +16,25 @@ class VolumeMounts:
         self._volume_mounts: list[VolumeMount] = []
 
     def add_volume_mount(self, vol_identifier: str, mount_path: str):
+        mount_path = valid_fs_path_or_raise(mount_path.rstrip("/"))
         if vol_identifier not in self._volumes.volume_identifiers():
             raise RenderError(
                 f"Volume [{vol_identifier}] not found in defined volumes. "
                 f"Available volumes: [{', '.join(self._volumes.volume_identifiers())}]"
             )
 
+        if self._target_exists(mount_path):
+            raise RenderError(f"Container path [{mount_path}] already added")
+
         self._volume_mounts.append(
             VolumeMount(self._render_instance, mount_path, self._volumes.get_volume(vol_identifier))
         )
+
+    def _target_exists(self, target: str):
+        for mount in self._volume_mounts:
+            if mount._spec["target"] == target:
+                return True
+        return False
 
     def has_mounts(self):
         return len(self._volume_mounts) > 0
