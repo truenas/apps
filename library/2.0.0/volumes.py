@@ -43,8 +43,12 @@ class Volumes:
         self._volumes[identifier] = Volume(self._render_instance, identifier, config)
 
     def render(self) -> dict:
-        """Render all top-level volumes into a dictionary."""
-        return {v.name: v.render() for v in self._volumes.values() if v.is_top_level_volume}
+        """Render all top-level volumes into a dictionary suitable for Docker Compose."""
+        rendered_volumes = {}
+        for volume in self._volumes.values():
+            if volume.is_top_level_volume:
+                rendered_volumes[volume.name] = volume.render()
+        return rendered_volumes
 
 
 class Volume:

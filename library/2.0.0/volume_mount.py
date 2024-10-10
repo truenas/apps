@@ -43,7 +43,7 @@ class VolumeMounts:
 
     def render(self) -> list[dict]:
         """Render all volume mounts into a list of dictionaries."""
-        return [v.render() for v in sorted(self._volume_mounts, key=lambda v: v._source)]
+        return [v.render() for v in sorted(self._volume_mounts, key=lambda v: v.source)]
 
 
 class BindMount:
@@ -92,6 +92,11 @@ class VolumeMount:
 
         mount_spec = mount_spec_class(self._render_instance, vol)
         self._spec.update(mount_spec.render())
+
+    @property
+    def source(self) -> str:
+        """Return the source path or volume name."""
+        return self._source
 
     def render(self) -> dict:
         """Render the volume mount specification."""
