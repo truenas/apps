@@ -66,9 +66,9 @@ class Volume:
         # Volume name for volumes or path for bind mounts
         self._volume_source: str = ""
 
-        self._create_volume(identifier, config)
+        self._create_volume(config)
 
-    def _create_volume(self, identifier: str, config: dict):
+    def _create_volume(self, config: dict):
         vol_type = config.get("type", "")
         self._volume_type_processor_mapping(vol_type)()
 
@@ -80,8 +80,8 @@ class Volume:
 
         if vol_type not in vol_types:
             raise RenderError(
-                f"Volume type [{vol_type}] is not valid. "
-                f"Valid types are: [{', '.join(vol_types.keys())}] [{self._identifier}]"
+                f"Volume type [{vol_type}] is not valid. Valid types are: [{', '.join(vol_types.keys())}]. "
+                f"Got [{vol_type}]. [{self._identifier}]"
             )
 
         return vol_types[vol_type]
