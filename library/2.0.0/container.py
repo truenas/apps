@@ -12,6 +12,7 @@ try:
     from .error import RenderError
     from .formatter import escape_dollar
     from .healthcheck import Healthcheck
+    from .labels import Labels
     from .ports import Ports
     from .restart import RestartPolicy
     from .validations import valid_network_mode_or_raise, valid_cap_or_raise
@@ -26,6 +27,7 @@ except ImportError:
     from error import RenderError
     from formatter import escape_dollar
     from healthcheck import Healthcheck
+    from labels import Labels
     from ports import Ports
     from restart import RestartPolicy
     from validations import valid_network_mode_or_raise, valid_cap_or_raise
@@ -61,6 +63,7 @@ class Container:
         self.dns: Dns = Dns(self._render_instance)
         self.depends: Depends = Depends(self._render_instance)
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
+        self.labels: Labels = Labels(self._render_instance)
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
         self.ports: Ports = Ports(self._render_instance)
         self.volume_mounts: VolumeMounts = VolumeMounts(self._render_instance, self._volumes)
@@ -173,6 +176,9 @@ class Container:
 
         if self.environment.has_variables():
             result["environment"] = self.environment.render()
+
+        if self.labels.has_labels():
+            result["labels"] = self.labels.render()
 
         if self.dns.has_dns_nameservers():
             result["dns"] = self.dns.render_dns_nameservers()
