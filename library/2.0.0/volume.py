@@ -199,6 +199,14 @@ class Volume:
             },
         }
 
+    def is_mounted(self) -> bool:
+        """Check if the volume is mounted."""
+        for c in self._render_instance._containers.values():
+            for m in c.volume_mounts._volume_mounts:
+                if m.source == self.source:
+                    return True
+        return False
+
     @property
     def name(self) -> str:
         """Return the name of the volume."""

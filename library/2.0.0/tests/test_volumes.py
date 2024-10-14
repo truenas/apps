@@ -42,6 +42,15 @@ def test_add_volume_duplicate_identifier(mock_values):
         render.volumes.add_volume("test_volume", {"type": "host_path", "host_path_config": {"path": "/mnt/test"}})
 
 
+def test_volume_not_mounted(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume("test_volume", {"type": "host_path", "host_path_config": {"path": "/mnt/test"}})
+    with pytest.raises(Exception):
+        render.render()
+
+
 def test_add_volume_host_path_invalid_propagation(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

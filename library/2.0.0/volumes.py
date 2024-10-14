@@ -46,6 +46,9 @@ class Volumes:
         """Render all top-level volumes into a dictionary suitable for Docker Compose."""
         rendered_volumes = {}
         for volume in self._volumes.values():
+            print(f"Checking volume [{volume.name}]")
+            if not volume.is_mounted():
+                raise RenderError(f"Volume [{volume.name}] is not mounted in any container.")
             if volume.is_top_level_volume:
                 rendered_volumes[volume.name] = volume.render()
         return rendered_volumes
