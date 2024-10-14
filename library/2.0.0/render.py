@@ -52,6 +52,7 @@ class Render(object):
             "services": {c._name: c.render() for c in self._containers.values()},
         }
 
+        self.volumes.check_volumes()
         if self.volumes.has_volumes():
             result["volumes"] = self.volumes.render()
 
