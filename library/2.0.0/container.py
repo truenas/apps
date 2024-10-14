@@ -18,6 +18,7 @@ try:
     from .validations import valid_network_mode_or_raise, valid_cap_or_raise
     from .volumes import Volumes
     from .volume_mounts import VolumeMounts
+    from .new_volume_mount import VolumeMounts as NewVolumeMounts
 except ImportError:
     from depends import Depends
     from deploy import Deploy
@@ -33,6 +34,7 @@ except ImportError:
     from validations import valid_network_mode_or_raise, valid_cap_or_raise
     from volumes import Volumes
     from volume_mounts import VolumeMounts
+    from new_volume_mount import VolumeMounts as NewVolumeMounts
 
 
 # from .storage import Storage
@@ -67,6 +69,7 @@ class Container:
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
         self.ports: Ports = Ports(self._render_instance)
         self.volume_mounts: VolumeMounts = VolumeMounts(self._render_instance, self._volumes)
+        self.new_volume_mounts: NewVolumeMounts = NewVolumeMounts(self._render_instance)
 
         self._auto_set_network_mode()
 
@@ -194,5 +197,8 @@ class Container:
 
         if self.volume_mounts.has_mounts():
             result["volumes"] = self.volume_mounts.render()
+
+        if self.new_volume_mounts.has_mounts():
+            result["volumes"] = self.new_volume_mounts.render()
 
         return result

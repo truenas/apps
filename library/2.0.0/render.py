@@ -26,6 +26,7 @@ class Render(object):
         self.portals: Portals = Portals(render_instance=self)
         self.notes: Notes = Notes(render_instance=self)
         self.volumes = Volumes(render_instance=self)
+        self.new_volumes: dict = {}
 
         # self.networks = {}
 
