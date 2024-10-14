@@ -1,9 +1,19 @@
+import re
 import ipaddress
 
 try:
     from .error import RenderError
 except ImportError:
     from error import RenderError
+
+OCTAL_MODE_REGEX = re.compile(r"^0[0-7]{3}$")
+
+
+def valid_octal_mode(mode: str):
+    mode = str(mode)
+    if not OCTAL_MODE_REGEX.match(mode):
+        raise RenderError(f"Expected [mode] to be a octal string, got [{mode}]")
+    return mode
 
 
 def valid_host_path_propagation(propagation: str):

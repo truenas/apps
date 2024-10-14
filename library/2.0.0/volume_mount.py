@@ -4,11 +4,11 @@ if TYPE_CHECKING:
     from render import Render
 
 try:
-    from .mount_types import BindMountType, VolumeMountType
+    from .mount_types import BindMountType, VolumeMountType, TmpfsMountType
     from .error import RenderError
     from .volumes import Volume
 except ImportError:
-    from mount_types import BindMountType, VolumeMountType
+    from mount_types import BindMountType, VolumeMountType, TmpfsMountType
     from error import RenderError
     from volumes import Volume
 
@@ -17,6 +17,7 @@ class VolumeMount:
     _mount_spec_classes = {
         "bind": BindMountType,
         "volume": VolumeMountType,
+        "tmpfs": TmpfsMountType,
     }
 
     def __init__(self, render_instance: "Render", mount_path: str, vol: Volume):
@@ -31,6 +32,9 @@ class VolumeMount:
             "target": mount_path,
             "read_only": self.read_only,
         }
+        if self._type == "tmpfs":
+            # TMPFS volumes do not have a source
+            self._common_spec.pop("source")
 
         mount_spec_class = self._mount_spec_classes.get(self._type)
         if not mount_spec_class:

@@ -5,11 +5,13 @@ if TYPE_CHECKING:
 
 
 try:
+    from .error import RenderError
     from .volumes import Volume
-    from .validations import valid_host_path_propagation
+    from .validations import valid_host_path_propagation, valid_octal_mode
 except ImportError:
+    from error import RenderError
     from volumes import Volume
-    from validations import valid_host_path_propagation
+    from validations import valid_host_path_propagation, valid_octal_mode
 
 
 class BindMountType:
@@ -45,3 +47,34 @@ class VolumeMountType:
     def render(self) -> dict:
         """Render the volume mount specification."""
         return self._volume_mount_type_spec
+
+
+class TmpfsMountType:
+    def __init__(self, render_instance: "Render", vol: Volume):
+        self._render_instance = render_instance
+        self._vol: Volume = vol
+
+        config = vol.config
+        size = config.get("size", None)
+        mode = config.get("mode", None)
+
+        spec = {}
+        if size is not None or mode is not None:
+            spec = {"tmpfs": {}}
+
+            if size is not None:
+                if not isinstance(size, int):
+                    raise RenderError(f"Expected [size] to be an integer for [tmpfs] type, got [{size}]")
+                if not size > 0:
+                    raise RenderError(f"Expected [size] to be greater than 0 for [tmpfs] type, got [{size}]")
+                # Convert Mebibytes to Bytes
+                spec["tmpfs"]["size"] = size * 1024 * 1024
+            if mode is not None:
+                mode = valid_octal_mode(mode)
+                spec["tmpfs"]["mode"] = int(mode, 8)
+
+        self._tmpfs_mount_type_spec: dict = spec
+
+    def render(self) -> dict:
+        """Render the tmpfs mount specification."""
+        return self._tmpfs_mount_type_spec

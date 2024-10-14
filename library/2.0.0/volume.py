@@ -38,7 +38,7 @@ class Volume:
         # Docker's volume mount spec type
         self._volume_mount_type_spec: str = ""
         # Volume name for volumes or path for bind mounts
-        self._volume_source: str = ""
+        self._volume_source: str | None = None
 
         self._create_volume(config)
 
@@ -50,6 +50,7 @@ class Volume:
         vol_types = {
             "host_path": self._parse_host_path,
             "ix_volume": self._parse_ix_volume,
+            "tmpfs": self._parse_tmpfs,
             "cifs": self._parse_cifs,
             "nfs": self._parse_nfs,
         }
@@ -106,6 +107,14 @@ class Volume:
         self._volume_mount_type_spec = "bind"
         self._volume_source = path
         self._config = ix_config
+        self._volume_spec = None
+
+    def _parse_tmpfs(self):
+        tmpfs_config = self._raw_config.get("tmpfs_config") or {}
+
+        self._volume_mount_type_spec = "tmpfs"
+        self._volume_source = None
+        self._config = tmpfs_config
         self._volume_spec = None
 
     def _parse_cifs(self):
@@ -214,8 +223,11 @@ class Volume:
 
     @property
     def source(self) -> str:
-        """Return the source path or volume name."""
-        return self._volume_source
+        """
+        Return the source path for bind mounts or volume name for volumes.
+        If the volume is a temporary volume, returns empty string.
+        """
+        return self._volume_source or ""
 
     @property
     def mount_type(self) -> str:

@@ -629,3 +629,46 @@ def test_nfs_volume_with_options(mock_values):
             "volume": {"nocopy": False},
         }
     ]
+
+
+def test_tmpfs_invalid_size(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume("test_volume", {"type": "tmpfs", "tmpfs_config": {"size": "2"}})
+    with pytest.raises(Exception):
+        c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+
+
+def test_tmpfs_zero_size(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume("test_volume", {"type": "tmpfs", "tmpfs_config": {"size": 0}})
+    with pytest.raises(Exception):
+        c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+
+
+def test_tmpfs_invalid_mode(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume("test_volume", {"type": "tmpfs", "tmpfs_config": {"mode": "invalid"}})
+    with pytest.raises(Exception):
+        c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+
+
+def test_tmpfs_volume(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    render.volumes.add_volume("test_volume", {"type": "tmpfs", "tmpfs_config": {}})
+    c1.volume_mounts.add_volume_mount("test_volume", "/some/path")
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "tmpfs",
+            "target": "/some/path",
+            "read_only": False,
+        }
+    ]
