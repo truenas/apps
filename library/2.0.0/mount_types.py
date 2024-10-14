@@ -28,7 +28,6 @@ class TmpfsMountType:
             self.spec["tmpfs"]["size"] = size * 1024 * 1024
 
         if mode is not None:
-            # TODO: verify that the mode is valid
             mode = valid_octal_mode(mode)
             self.spec["tmpfs"]["mode"] = int(mode, 8)
 
