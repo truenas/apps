@@ -1,4 +1,6 @@
 import re
+import json
+import hashlib
 
 
 # Replaces all single dollar signs with double dollar signs
@@ -8,3 +10,8 @@ import re
 def escape_dollar(text):
     # https://regex101.com/r/tdbI7y/1
     return re.sub(r"(?<!\$)\$(?!\$)", r"$$", text)
+
+
+def get_hashed_name_for_volume(prefix: str, config: dict):
+    config_hash = hashlib.sha256(json.dumps(config).encode("utf-8")).hexdigest()
+    return f"{prefix}_{config_hash}"

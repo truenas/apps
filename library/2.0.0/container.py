@@ -16,9 +16,7 @@ try:
     from .ports import Ports
     from .restart import RestartPolicy
     from .validations import valid_network_mode_or_raise, valid_cap_or_raise
-    from .volumes import Volumes
-    from .volume_mounts import VolumeMounts
-    from .new_volume_mount import VolumeMounts as NewVolumeMounts
+    from .volume_mount import VolumeMounts
 except ImportError:
     from depends import Depends
     from deploy import Deploy
@@ -32,16 +30,11 @@ except ImportError:
     from ports import Ports
     from restart import RestartPolicy
     from validations import valid_network_mode_or_raise, valid_cap_or_raise
-    from volumes import Volumes
-    from volume_mounts import VolumeMounts
-    from new_volume_mount import VolumeMounts as NewVolumeMounts
-
-
-# from .storage import Storage
+    from volume_mount import VolumeMounts
 
 
 class Container:
-    def __init__(self, render_instance: "Render", volumes: Volumes, name: str, image: str):
+    def __init__(self, render_instance: "Render", name: str, image: str):
         self._render_instance = render_instance
         # self.volume_mounts = []
 
@@ -57,7 +50,6 @@ class Container:
         self._entrypoint: list[str] = []
         self._command: list[str] = []
         self._grace_period: int | None = None
-        self._volumes = volumes
         self.deploy: Deploy = Deploy(self._render_instance)
         self.networks: set[str] = set()
         self.devices: Devices = Devices(self._render_instance)
@@ -68,8 +60,7 @@ class Container:
         self.labels: Labels = Labels(self._render_instance)
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
         self.ports: Ports = Ports(self._render_instance)
-        self.volume_mounts: VolumeMounts = VolumeMounts(self._render_instance, self._volumes)
-        self.new_volume_mounts: NewVolumeMounts = NewVolumeMounts(self._render_instance)
+        self.volume_mounts: VolumeMounts = VolumeMounts(self._render_instance)
 
         self._auto_set_network_mode()
 
@@ -197,8 +188,5 @@ class Container:
 
         if self.volume_mounts.has_mounts():
             result["volumes"] = self.volume_mounts.render()
-
-        if self.new_volume_mounts.has_mounts():
-            result["volumes"] = self.new_volume_mounts.render()
 
         return result

@@ -6,14 +6,16 @@ try:
     from .functions import Functions
     from .notes import Notes
     from .portals import Portals
-    from .volumes import Volumes
+
+    # from .volumes import Volumes
 except ImportError:
     from container import Container
     from error import RenderError
     from functions import Functions
     from notes import Notes
     from portals import Portals
-    from volumes import Volumes
+
+    # from volumes import Volumes
 
 
 class Render(object):
@@ -25,7 +27,7 @@ class Render(object):
         self.funcs = Functions(render_instance=self).func_map()
         self.portals: Portals = Portals(render_instance=self)
         self.notes: Notes = Notes(render_instance=self)
-        self.volumes = Volumes(render_instance=self)
+        # self.volumes = Volumes(render_instance=self)
         self.new_volumes: dict = {}
 
         # self.networks = {}
@@ -34,7 +36,7 @@ class Render(object):
         return list(self._containers.keys())
 
     def add_container(self, name: str, image: str):
-        container = Container(self, self.volumes, name, image)
+        container = Container(self, name, image)
         if name in self._containers:
             raise RenderError(f"Container {name} already exists.")
         self._containers[name] = container
@@ -53,9 +55,12 @@ class Render(object):
             "services": {c._name: c.render() for c in self._containers.values()},
         }
 
-        self.volumes.check_volumes()
-        if self.volumes.has_volumes():
-            result["volumes"] = self.volumes.render()
+        # self.volumes.check_volumes()
+        # if self.volumes.has_volumes():
+        #     result["volumes"] = self.volumes.render()
+        if self.new_volumes:
+            # TODO: add a method to "add" volumes
+            result["volumes"] = self.new_volumes
 
         # if self.networks:
         #     result["networks"] = {...}
