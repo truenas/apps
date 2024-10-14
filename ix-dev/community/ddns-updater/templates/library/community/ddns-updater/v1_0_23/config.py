@@ -1,4 +1,4 @@
-from base_v1_1_2 import utils
+from base_v1_1_3 import utils
 import json
 
 valid_ip_dns_providers = [
@@ -63,9 +63,7 @@ def validate_public_ip_providers(items=[], valid=[], category="", allow_custom=F
                         f"Expected [custom] to be set when public ip provider is [custom] for [{category}]"
                     )
                 if not item["custom"].startswith("url:"):
-                    utils.throw_error(
-                        f"Expected [custom] to start with [url:] for [{category}]"
-                    )
+                    utils.throw_error(f"Expected [custom] to start with [url:] for [{category}]")
         if item["provider"] == "all":
             if len(items) > 1:
                 utils.throw_error(
@@ -135,9 +133,7 @@ def get_providers_config(items=[]):
                 f"Expected [provider] to be one of [{', '.join(providers_schema.keys())}], got [{item['provider']}]"
             )
         if not item.get("domain", ""):
-            utils.throw_error(
-                f"Expected [domain] to be set for provider [{item['provider']}]"
-            )
+            utils.throw_error(f"Expected [domain] to be set for provider [{item['provider']}]")
         if item.get("host", ""):
             warnings.append(
                 f"- Provider [{item['provider']}] has deprecated [host] field set, with value [{item['host']}]."
@@ -467,9 +463,7 @@ def get_provider_config(item={}):
 
     for required in provider_data["required"]:
         if required.get("func"):
-            result[required["provider_key"]] = required["func"](
-                required_key(item, required["ui_key"])
-            )
+            result[required["provider_key"]] = required["func"](required_key(item, required["ui_key"]))
         else:
             result[required["provider_key"]] = required_key(item, required["ui_key"])
     result.update(get_optional_data(item, provider_data))
@@ -502,9 +496,7 @@ def get_combo_data(item={}, combo={}):
         if required["ui_key"] not in item:
             return {}
         if required.get("func"):
-            result[required["provider_key"]] = required["func"](
-                required_key(item, required["ui_key"])
-            )
+            result[required["provider_key"]] = required["func"](required_key(item, required["ui_key"]))
         else:
             result[required["provider_key"]] = required_key(item, required["ui_key"])
     return result
@@ -515,9 +507,7 @@ def get_optional_data(item={}, data={}):
     for optional in data.get("optional", []):
         if optional["ui_key"] in item:
             if optional.get("func"):
-                result[optional["provider_key"]] = optional["func"](
-                    item[optional["ui_key"]]
-                )
+                result[optional["provider_key"]] = optional["func"](item[optional["ui_key"]])
             else:
                 result[optional["provider_key"]] = item[optional["ui_key"]]
         elif optional.get("default") is not None:

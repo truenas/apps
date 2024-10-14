@@ -1,4 +1,4 @@
-from base_v1_1_2 import utils
+from base_v1_1_3 import utils
 
 
 def validate(data):
@@ -12,24 +12,18 @@ def validate(data):
         and not multi_mode.get("enabled", False)
         and not len(multi_mode.get("entries", [])) > 0
     ):
-        utils.throw_error(
-            "[Multi Mode] must be enabled and entries must be set if more than 1 storage item is set"
-        )
+        utils.throw_error("[Multi Mode] must be enabled and entries must be set if more than 1 storage item is set")
 
     # make sure mount_paths in data["storage"]["data_dirs"] are unique
     mount_paths = [item["mount_path"].rstrip("/") for item in storage["data_dirs"]]
     if len(mount_paths) != len(set(mount_paths)):
-        utils.throw_error(
-            f"Mount paths in storage items must be unique, found duplicates: [{', '.join(mount_paths)}]"
-        )
+        utils.throw_error(f"Mount paths in storage items must be unique, found duplicates: [{', '.join(mount_paths)}]")
 
     if len(multi_mode.get("entries", [])) > 0:
         disallowed_keys = ["server"]
         for item in multi_mode["entries"]:
             if item in disallowed_keys:
-                utils.throw_error(
-                    f"MinIO: Value [{item}] is not allowed in [Multi Mode] items"
-                )
+                utils.throw_error(f"MinIO: Value [{item}] is not allowed in [Multi Mode] items")
 
             # /data{1...4}
             if item.startswith("/"):
