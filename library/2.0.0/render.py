@@ -33,7 +33,7 @@ class Render(object):
         return list(self._containers.keys())
 
     def add_container(self, name: str, image: str):
-        container = Container(self, self.volumes, name, image)
+        container = Container(self, name, image)
         if name in self._containers:
             raise RenderError(f"Container {name} already exists.")
         self._containers[name] = container
@@ -52,7 +52,6 @@ class Render(object):
             "services": {c._name: c.render() for c in self._containers.values()},
         }
 
-        self.volumes.check_volumes()
         if self.volumes.has_volumes():
             result["volumes"] = self.volumes.render()
 
