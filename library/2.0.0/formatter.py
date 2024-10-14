@@ -15,3 +15,10 @@ def escape_dollar(text):
 def get_hashed_name_for_volume(prefix: str, config: dict):
     config_hash = hashlib.sha256(json.dumps(config).encode("utf-8")).hexdigest()
     return f"{prefix}_{config_hash}"
+
+
+def merge_dicts_no_overwrite(dict1, dict2):
+    overlapping_keys = dict1.keys() & dict2.keys()
+    if overlapping_keys:
+        raise ValueError(f"Merging of dicts failed. Overlapping keys: {overlapping_keys}")
+    return {**dict1, **dict2}

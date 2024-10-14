@@ -16,7 +16,7 @@ try:
     from .ports import Ports
     from .restart import RestartPolicy
     from .validations import valid_network_mode_or_raise, valid_cap_or_raise
-    from .volume_mount import VolumeMounts
+    from .volume_mounts import VolumeMounts
 except ImportError:
     from depends import Depends
     from deploy import Deploy
@@ -30,7 +30,7 @@ except ImportError:
     from ports import Ports
     from restart import RestartPolicy
     from validations import valid_network_mode_or_raise, valid_cap_or_raise
-    from volume_mount import VolumeMounts
+    from volume_mounts import VolumeMounts
 
 
 class Container:

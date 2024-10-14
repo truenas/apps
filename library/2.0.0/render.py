@@ -6,16 +6,14 @@ try:
     from .functions import Functions
     from .notes import Notes
     from .portals import Portals
-
-    # from .volumes import Volumes
+    from .volumes import Volumes
 except ImportError:
     from container import Container
     from error import RenderError
     from functions import Functions
     from notes import Notes
     from portals import Portals
-
-    # from volumes import Volumes
+    from volumes import Volumes
 
 
 class Render(object):
@@ -27,8 +25,7 @@ class Render(object):
         self.funcs = Functions(render_instance=self).func_map()
         self.portals: Portals = Portals(render_instance=self)
         self.notes: Notes = Notes(render_instance=self)
-        # self.volumes = Volumes(render_instance=self)
-        self.new_volumes: dict = {}
+        self.volumes = Volumes(render_instance=self)
 
         # self.networks = {}
 
@@ -55,12 +52,8 @@ class Render(object):
             "services": {c._name: c.render() for c in self._containers.values()},
         }
 
-        # self.volumes.check_volumes()
-        # if self.volumes.has_volumes():
-        #     result["volumes"] = self.volumes.render()
-        if self.new_volumes:
-            # TODO: add a method to "add" volumes
-            result["volumes"] = self.new_volumes
+        if self.volumes.has_volumes():
+            result["volumes"] = self.volumes.render()
 
         # if self.networks:
         #     result["networks"] = {...}
