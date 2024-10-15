@@ -70,12 +70,12 @@ function process_dir() {
 
     if [ -z "$$dir" ]; then
         echo "Path is empty, skipping..."
-        exit 0
+        return 0
     fi
 
     if [ ! -d "$$dir" ]; then
         echo "Path [$$dir] does is not a directory, skipping..."
-        exit 0
+        return 0
     fi
 
     if [ "$$is_temporary" = "true" ]; then
@@ -86,7 +86,7 @@ function process_dir() {
 
     if [ "$$is_temporary" = "false" ] && [ -n "$$(ls -A $$dir)" ]; then
         echo "Path [$$dir] is not empty, skipping..."
-        exit 0
+        return 0
     fi
 
     echo "Current Ownership and Permissions on [$$dir]:"
