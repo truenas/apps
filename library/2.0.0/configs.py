@@ -70,12 +70,12 @@ class ContainerConfig:
         self.mode = mode
 
     def render(self):
-        result = {
+        result: dict[str, str | int] = {
             "source": self.source,
             "target": self.target,
         }
 
         if self.mode:
-            result["mode"] = self.mode
+            result["mode"] = int(self.mode, 8)
 
         return result
