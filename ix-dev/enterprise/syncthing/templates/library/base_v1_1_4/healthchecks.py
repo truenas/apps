@@ -96,7 +96,7 @@ def http_test(port, path, config=None):
     host = config.get("host", "127.0.0.1")
 
     return f"""
-    /bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&$${{hc_fd}} && cat <&$${{hc_fd}} | grep -q "200 OK"'
+    /bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&$${{hc_fd}} && cat <&$${{hc_fd}} | grep "200 OK"'
     """  # noqa
 
 
