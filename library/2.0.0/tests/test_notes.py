@@ -24,7 +24,7 @@ def mock_values():
 def test_notes(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     output = render.render()
     assert (
         output["x-notes"]
@@ -54,7 +54,7 @@ def test_notes_with_warnings(mock_values):
     render.notes.add_warning("this is not properly configured. fix it now!")
     render.notes.add_warning("that is not properly configured. fix it later!")
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     output = render.render()
     assert (
         output["x-notes"]
@@ -89,7 +89,7 @@ def test_notes_with_deprecations(mock_values):
     render.notes.add_deprecation("this is will be removed later. fix it now!")
     render.notes.add_deprecation("that is will be removed later. fix it later!")
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     output = render.render()
     assert (
         output["x-notes"]
@@ -129,7 +129,7 @@ some other info.
 """
     )
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     output = render.render()
     assert (
         output["x-notes"]
@@ -173,7 +173,7 @@ some other info.
 """
     )
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     output = render.render()
     assert (
         output["x-notes"]

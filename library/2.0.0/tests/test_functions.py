@@ -20,7 +20,7 @@ def mock_values():
 def test_funcs(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
 
     tests = [
         {"func": "auto_cast", "values": ["1"], "expected": 1},

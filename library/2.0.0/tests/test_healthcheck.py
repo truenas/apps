@@ -18,7 +18,7 @@ def mock_values():
 def test_disable_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"] == {"disable": True}
 
@@ -72,7 +72,7 @@ def test_set_options(mock_values):
 def test_adding_test_when_disabled(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.healthcheck.set_custom_test("echo $1")
 

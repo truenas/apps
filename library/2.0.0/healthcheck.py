@@ -29,7 +29,7 @@ class Healthcheck:
 
         return [escape_dollar(t) for t in self._test]
 
-    def disable_healthcheck(self):
+    def disable(self):
         self._disabled = True
 
     def set_custom_test(self, test: str | list[str]):

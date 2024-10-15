@@ -20,7 +20,7 @@ def mock_values():
 def test_add_volume_invalid_type(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.add_storage("/some/path", {"type": "invalid_type"})
 
@@ -28,7 +28,7 @@ def test_add_volume_invalid_type(mock_values):
 def test_add_volume_empty_mount_path(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.add_storage("", {"type": "tmpfs"})
 
@@ -36,7 +36,7 @@ def test_add_volume_empty_mount_path(mock_values):
 def test_add_volume_duplicate_mount_path(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     c1.add_storage("/some/path", {"type": "tmpfs"})
     with pytest.raises(Exception):
         c1.add_storage("/some/path", {"type": "tmpfs"})
@@ -45,7 +45,7 @@ def test_add_volume_duplicate_mount_path(mock_values):
 def test_add_volume_host_path_invalid_propagation(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {
         "type": "host_path",
         "host_path_config": {"path": "/mnt/test", "propagation": "invalid_propagation"},
@@ -57,7 +57,7 @@ def test_add_volume_host_path_invalid_propagation(mock_values):
 def test_add_host_path_volume_no_host_path_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {"type": "host_path"}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", host_path_config)
@@ -66,7 +66,7 @@ def test_add_host_path_volume_no_host_path_config(mock_values):
 def test_add_host_path_volume_no_path(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {"type": "host_path", "host_path_config": {"path": ""}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", host_path_config)
@@ -75,7 +75,7 @@ def test_add_host_path_volume_no_path(mock_values):
 def test_add_host_path_with_acl_no_path(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {"type": "host_path", "host_path_config": {"acl_enable": True, "acl": {"path": ""}}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", host_path_config)
@@ -84,7 +84,7 @@ def test_add_host_path_with_acl_no_path(mock_values):
 def test_add_host_path_volume_mount(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {"type": "host_path", "host_path_config": {"path": "/mnt/test"}}
     c1.add_storage("/some/path", host_path_config)
     output = render.render()
@@ -102,7 +102,7 @@ def test_add_host_path_volume_mount(mock_values):
 def test_add_host_path_volume_mount_with_acl(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {
         "type": "host_path",
         "host_path_config": {"path": "/mnt/test", "acl_enable": True, "acl": {"path": "/mnt/test/acl"}},
@@ -123,7 +123,7 @@ def test_add_host_path_volume_mount_with_acl(mock_values):
 def test_add_host_path_volume_mount_with_propagation(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {"type": "host_path", "host_path_config": {"path": "/mnt/test", "propagation": "slave"}}
     c1.add_storage("/some/path", host_path_config)
     output = render.render()
@@ -141,7 +141,7 @@ def test_add_host_path_volume_mount_with_propagation(mock_values):
 def test_add_host_path_volume_mount_with_create_host_path(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {"type": "host_path", "host_path_config": {"path": "/mnt/test", "create_host_path": True}}
     c1.add_storage("/some/path", host_path_config)
     output = render.render()
@@ -159,7 +159,7 @@ def test_add_host_path_volume_mount_with_create_host_path(mock_values):
 def test_add_host_path_volume_mount_with_read_only(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     host_path_config = {"type": "host_path", "read_only": True, "host_path_config": {"path": "/mnt/test"}}
     c1.add_storage("/some/path", host_path_config)
     output = render.render()
@@ -178,7 +178,7 @@ def test_add_ix_volume_invalid_dataset_name(mock_values):
     mock_values["ix_volumes"] = {"test_dataset": "/mnt/test"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     ix_volume_config = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "invalid_dataset"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", ix_volume_config)
@@ -188,7 +188,7 @@ def test_add_ix_volume_no_ix_volume_config(mock_values):
     mock_values["ix_volumes"] = {"test_dataset": "/mnt/test"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     ix_volume_config = {"type": "ix_volume"}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", ix_volume_config)
@@ -198,7 +198,7 @@ def test_add_ix_volume_volume_mount(mock_values):
     mock_values["ix_volumes"] = {"test_dataset": "/mnt/test"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     ix_volume_config = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset"}}
     c1.add_storage("/some/path", ix_volume_config)
     output = render.render()
@@ -217,7 +217,7 @@ def test_add_ix_volume_volume_mount_with_options(mock_values):
     mock_values["ix_volumes"] = {"test_dataset": "/mnt/test"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     ix_volume_config = {
         "type": "ix_volume",
         "ix_volume_config": {"dataset_name": "test_dataset", "propagation": "rslave", "create_host_path": True},
@@ -238,7 +238,7 @@ def test_add_ix_volume_volume_mount_with_options(mock_values):
 def test_cifs_volume_missing_server(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {"type": "cifs", "cifs_config": {"path": "/path", "username": "user", "password": "password"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", cifs_config)
@@ -247,7 +247,7 @@ def test_cifs_volume_missing_server(mock_values):
 def test_cifs_volume_missing_path(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {"type": "cifs", "cifs_config": {"server": "server", "username": "user", "password": "password"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", cifs_config)
@@ -256,7 +256,7 @@ def test_cifs_volume_missing_path(mock_values):
 def test_cifs_volume_missing_username(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {"type": "cifs", "cifs_config": {"server": "server", "path": "/path", "password": "password"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", cifs_config)
@@ -265,7 +265,7 @@ def test_cifs_volume_missing_username(mock_values):
 def test_cifs_volume_missing_password(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {"type": "cifs", "cifs_config": {"server": "server", "path": "/path", "username": "user"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", cifs_config)
@@ -274,7 +274,7 @@ def test_cifs_volume_missing_password(mock_values):
 def test_cifs_volume_without_cifs_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {"type": "cifs"}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", cifs_config)
@@ -283,7 +283,7 @@ def test_cifs_volume_without_cifs_config(mock_values):
 def test_cifs_volume_duplicate_option(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {
         "type": "cifs",
         "cifs_config": {
@@ -301,7 +301,7 @@ def test_cifs_volume_duplicate_option(mock_values):
 def test_cifs_volume_disallowed_option(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {
         "type": "cifs",
         "cifs_config": {
@@ -319,7 +319,7 @@ def test_cifs_volume_disallowed_option(mock_values):
 def test_cifs_volume_invalid_options(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {
         "type": "cifs",
         "cifs_config": {
@@ -337,7 +337,7 @@ def test_cifs_volume_invalid_options(mock_values):
 def test_cifs_volume_invalid_options2(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_config = {
         "type": "cifs",
         "cifs_config": {
@@ -355,7 +355,7 @@ def test_cifs_volume_invalid_options2(mock_values):
 def test_add_cifs_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_inner_config = {"server": "server", "path": "/path", "username": "user", "password": "pas$word"}
     cifs_config = {"type": "cifs", "cifs_config": cifs_inner_config}
     c1.add_storage("/some/path", cifs_config)
@@ -372,7 +372,7 @@ def test_add_cifs_volume(mock_values):
 def test_cifs_volume_with_options(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     cifs_inner_config = {
         "server": "server",
         "path": "/path",
@@ -401,7 +401,7 @@ def test_cifs_volume_with_options(mock_values):
 def test_nfs_volume_missing_server(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_config = {"type": "nfs", "nfs_config": {"path": "/path"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", nfs_config)
@@ -410,7 +410,7 @@ def test_nfs_volume_missing_server(mock_values):
 def test_nfs_volume_missing_path(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_config = {"type": "nfs", "nfs_config": {"server": "server"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", nfs_config)
@@ -419,7 +419,7 @@ def test_nfs_volume_missing_path(mock_values):
 def test_nfs_volume_without_nfs_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_config = {"type": "nfs"}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", nfs_config)
@@ -428,7 +428,7 @@ def test_nfs_volume_without_nfs_config(mock_values):
 def test_nfs_volume_duplicate_option(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_config = {
         "type": "nfs",
         "nfs_config": {"server": "server", "path": "/path", "options": ["verbose=true", "verbose=true"]},
@@ -440,7 +440,7 @@ def test_nfs_volume_duplicate_option(mock_values):
 def test_nfs_volume_disallowed_option(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_config = {"type": "nfs", "nfs_config": {"server": "server", "path": "/path", "options": ["addr=server"]}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", nfs_config)
@@ -449,7 +449,7 @@ def test_nfs_volume_disallowed_option(mock_values):
 def test_nfs_volume_invalid_options(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_config = {"type": "nfs", "nfs_config": {"server": "server", "path": "/path", "options": {"verbose": True}}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", nfs_config)
@@ -458,7 +458,7 @@ def test_nfs_volume_invalid_options(mock_values):
 def test_nfs_volume_invalid_options2(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_config = {"type": "nfs", "nfs_config": {"server": "server", "path": "/path", "options": [{"verbose": True}]}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", nfs_config)
@@ -467,7 +467,7 @@ def test_nfs_volume_invalid_options2(mock_values):
 def test_add_nfs_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_inner_config = {"server": "server", "path": "/path"}
     nfs_config = {"type": "nfs", "nfs_config": nfs_inner_config}
     c1.add_storage("/some/path", nfs_config)
@@ -482,7 +482,7 @@ def test_add_nfs_volume(mock_values):
 def test_nfs_volume_with_options(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     nfs_inner_config = {"server": "server", "path": "/path", "options": ["vers=3.0", "verbose=true"]}
     nfs_config = {"type": "nfs", "nfs_config": nfs_inner_config}
     c1.add_storage("/some/path", nfs_config)
@@ -505,7 +505,7 @@ def test_nfs_volume_with_options(mock_values):
 def test_tmpfs_invalid_size(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     vol_config = {"type": "tmpfs", "tmpfs_config": {"size": "2"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", vol_config)
@@ -514,7 +514,7 @@ def test_tmpfs_invalid_size(mock_values):
 def test_tmpfs_zero_size(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     vol_config = {"type": "tmpfs", "tmpfs_config": {"size": 0}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", vol_config)
@@ -523,7 +523,7 @@ def test_tmpfs_zero_size(mock_values):
 def test_tmpfs_invalid_mode(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     vol_config = {"type": "tmpfs", "tmpfs_config": {"mode": "invalid"}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", vol_config)
@@ -532,7 +532,7 @@ def test_tmpfs_invalid_mode(mock_values):
 def test_tmpfs_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     vol_config = {"type": "tmpfs"}
     c1.add_storage("/some/path", vol_config)
     output = render.render()
@@ -548,7 +548,7 @@ def test_tmpfs_volume(mock_values):
 def test_docker_volume_missing_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     vol_config = {"type": "volume", "volume_config": {}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", vol_config)
@@ -557,7 +557,7 @@ def test_docker_volume_missing_config(mock_values):
 def test_docker_volume_missing_volume_name(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     vol_config = {"type": "volume", "volume_config": {"volume_name": ""}}
     with pytest.raises(Exception):
         c1.add_storage("/some/path", vol_config)
@@ -566,7 +566,7 @@ def test_docker_volume_missing_volume_name(mock_values):
 def test_docker_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}}
     c1.add_storage("/some/path", vol_config)
     output = render.render()
@@ -585,7 +585,7 @@ def test_docker_volume(mock_values):
 def test_anonymous_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     vol_config = {"type": "anonymous", "volume_config": {"nocopy": True}}
     c1.add_storage("/some/path", vol_config)
     output = render.render()

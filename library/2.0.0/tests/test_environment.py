@@ -30,7 +30,7 @@ def test_auto_add_vars(mock_values):
 
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     output = render.render()
     envs = output["services"]["test_container"]["environment"]
     assert len(envs) == 9
@@ -49,7 +49,7 @@ def test_add_from_all_sources(mock_values):
     mock_values["TZ"] = "Etc/UTC"
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     c1.environment.add_env("APP_ENV", "test_value")
     c1.environment.add_user_envs(
         [
@@ -66,7 +66,7 @@ def test_add_from_all_sources(mock_values):
 def test_user_add_vars(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     c1.environment.add_user_envs(
         [
             {"name": "MY_ENV", "value": "test_value"},
@@ -82,7 +82,7 @@ def test_user_add_vars(mock_values):
 def test_user_add_duplicate_vars(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.environment.add_user_envs(
             [
@@ -95,7 +95,7 @@ def test_user_add_duplicate_vars(mock_values):
 def test_user_env_without_name(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.environment.add_user_envs(
             [
@@ -108,7 +108,7 @@ def test_user_env_try_to_overwrite_auto_vars(mock_values):
     mock_values["TZ"] = "Etc/UTC"
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     c1.environment.add_user_envs(
         [
             {"name": "TZ", "value": "test_value"},
@@ -121,7 +121,7 @@ def test_user_env_try_to_overwrite_auto_vars(mock_values):
 def test_user_env_try_to_overwrite_app_dev_vars(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     c1.environment.add_user_envs(
         [
             {"name": "PORT", "value": "test_value"},
@@ -136,7 +136,7 @@ def test_app_dev_vars_try_to_overwrite_auto_vars(mock_values):
     mock_values["TZ"] = "Etc/UTC"
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     c1.environment.add_env("TZ", "test_value")
     with pytest.raises(Exception):
         render.render()
@@ -145,7 +145,7 @@ def test_app_dev_vars_try_to_overwrite_auto_vars(mock_values):
 def test_app_dev_no_name(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.environment.add_env("", "test_value")
 
@@ -153,7 +153,7 @@ def test_app_dev_no_name(mock_values):
 def test_app_dev_duplicate_vars(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     c1.environment.add_env("PORT", "test_value")
     with pytest.raises(Exception):
         c1.environment.add_env("PORT", "test_value2")
@@ -162,7 +162,7 @@ def test_app_dev_duplicate_vars(mock_values):
 def test_format_vars(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable_healthcheck()
+    c1.healthcheck.disable()
     c1.environment.add_env("APP_ENV", "test_$value")
     c1.environment.add_env("APP_ENV_BOOL", True)
     c1.environment.add_env("APP_ENV_INT", 10)
