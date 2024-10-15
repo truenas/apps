@@ -113,6 +113,19 @@ class DockerVolumeStorage:
         return StorageItemResult(source=self.source, volume_spec=self.volume_spec, mount_spec=self.mount_spec)
 
 
+class AnonymousVolumeStorage:
+    """Parses storage item with type anonymous."""
+
+    def __init__(self, render_instance: "Render", config: dict):
+        self._render_instance = render_instance
+        volume_config = config.get("volume_config", {}) or {}
+        self.mount_spec = VolumeMountType(self._render_instance, volume_config).render()
+
+    def render(self):
+        # Anonymous volumes do not have a top level definition
+        return StorageItemResult(source=None, volume_spec=None, mount_spec=self.mount_spec)
+
+
 class CifsStorage:
     """Parses storage item with type cifs."""
 

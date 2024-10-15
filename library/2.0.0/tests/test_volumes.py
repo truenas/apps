@@ -580,3 +580,16 @@ def test_docker_volume(mock_values):
         }
     ]
     assert output["volumes"] == {"test_volume": {}}
+
+
+def test_anonymous_volume(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    vol_config = {"type": "anonymous", "volume_config": {"nocopy": True}}
+    c1.volume_mounts.add_volume_mount("/some/path", vol_config)
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {"type": "volume", "target": "/some/path", "read_only": False, "volume": {"nocopy": True}}
+    ]
+    assert "volumes" not in output
