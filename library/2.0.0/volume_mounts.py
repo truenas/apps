@@ -22,7 +22,7 @@ class VolumeMounts:
         self._render_instance = render_instance
         self._volume_mounts: set[VolumeMount] = set()
 
-    def add_volume_mount(self, mount_path: str, config: dict):
+    def add(self, mount_path: str, config: dict):
         mount_path = valid_fs_path_or_raise(mount_path)
         if mount_path in [m.mount_path for m in self._volume_mounts]:
             raise RenderError(f"Mount path [{mount_path}] already used for another volume mount")

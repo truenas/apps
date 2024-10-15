@@ -50,6 +50,7 @@ class Container:
         self._entrypoint: list[str] = []
         self._command: list[str] = []
         self._grace_period: int | None = None
+        self._volume_mounts: VolumeMounts = VolumeMounts(self._render_instance)
         self.deploy: Deploy = Deploy(self._render_instance)
         self.networks: set[str] = set()
         self.devices: Devices = Devices(self._render_instance)
@@ -57,10 +58,11 @@ class Container:
         self.dns: Dns = Dns(self._render_instance)
         self.depends: Depends = Depends(self._render_instance)
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
+        # TODO: have a known labels dict in the config and parse it automatically
+        # at render time so all the containers are defined
         self.labels: Labels = Labels(self._render_instance)
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
         self.ports: Ports = Ports(self._render_instance)
-        self.volume_mounts: VolumeMounts = VolumeMounts(self._render_instance)
 
         self._auto_set_network_mode()
 
@@ -124,6 +126,9 @@ class Container:
     def set_command(self, command: list[str]):
         self._command = [escape_dollar(e) for e in command]
 
+    def add_storage(self, mount_path: str, config: dict):
+        self._volume_mounts.add(mount_path, config)
+
     def render(self) -> dict[str, Any]:
         if self._network_mode and self.networks:
             raise RenderError("Cannot set both [network_mode] and [networks]")
@@ -186,7 +191,7 @@ class Container:
         if self.depends.has_dependencies():
             result["depends_on"] = self.depends.render()
 
-        if self.volume_mounts.has_mounts():
-            result["volumes"] = self.volume_mounts.render()
+        if self._volume_mounts.has_mounts():
+            result["volumes"] = self._volume_mounts.render()
 
         return result
