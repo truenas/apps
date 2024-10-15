@@ -6,10 +6,10 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
-    from .validations import valid_host_path_propagation, valid_octal_mode
+    from .validations import valid_host_path_propagation, valid_octal_mode_or_raise
 except ImportError:
     from error import RenderError
-    from validations import valid_host_path_propagation, valid_octal_mode
+    from validations import valid_host_path_propagation, valid_octal_mode_or_raise
 
 
 class TmpfsMountType:
@@ -28,7 +28,7 @@ class TmpfsMountType:
             self.spec["tmpfs"]["size"] = size * 1024 * 1024
 
         if mode is not None:
-            mode = valid_octal_mode(mode)
+            mode = valid_octal_mode_or_raise(mode)
             self.spec["tmpfs"]["mode"] = int(mode, 8)
 
         if not self.spec["tmpfs"]:

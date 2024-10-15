@@ -100,6 +100,7 @@ class Resources:
 def profile_mapping(profile: str):
     profiles = {
         "low": (1, 512),
+        "medium": (2, 1024),
     }
 
     if profile not in profiles:

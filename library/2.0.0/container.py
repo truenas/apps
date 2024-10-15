@@ -4,6 +4,7 @@ if TYPE_CHECKING:
     from render import Render
 
 try:
+    from .configs import ContainerConfigs
     from .depends import Depends
     from .deploy import Deploy
     from .devices import Devices
@@ -18,6 +19,7 @@ try:
     from .validations import valid_network_mode_or_raise, valid_cap_or_raise
     from .volume_mounts import VolumeMounts
 except ImportError:
+    from configs import ContainerConfigs
     from depends import Depends
     from deploy import Deploy
     from devices import Devices
@@ -36,7 +38,6 @@ except ImportError:
 class Container:
     def __init__(self, render_instance: "Render", name: str, image: str):
         self._render_instance = render_instance
-        # self.volume_mounts = []
 
         self._name: str = name
         self._image: str = self._resolve_image(image)
@@ -51,6 +52,7 @@ class Container:
         self._command: list[str] = []
         self._grace_period: int | None = None
         self._volume_mounts: VolumeMounts = VolumeMounts(self._render_instance)
+        self.configs: ContainerConfigs = ContainerConfigs(self._render_instance, self._render_instance.configs)
         self.deploy: Deploy = Deploy(self._render_instance)
         self.networks: set[str] = set()
         self.devices: Devices = Devices(self._render_instance)
@@ -141,6 +143,9 @@ class Container:
             "cap_drop": sorted(self._cap_drop),
             "healthcheck": self.healthcheck.render(),
         }
+
+        if self.configs.has_configs():
+            result["configs"] = self.configs.render()
 
         if self._grace_period is not None:
             result["stop_grace_period"] = self._grace_period

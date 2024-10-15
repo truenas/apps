@@ -28,6 +28,7 @@ class VolumeMounts:
             raise RenderError(f"Mount path [{mount_path}] already used for another volume mount")
 
         volume_mount = VolumeMount(self._render_instance, mount_path, config)
+        # permissions_config = {} # TODO:
         self._volume_mounts.add(volume_mount)
 
     def has_mounts(self) -> bool:

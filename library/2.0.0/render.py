@@ -2,6 +2,7 @@ import copy
 
 try:
     from .container import Container
+    from .configs import Configs
     from .error import RenderError
     from .functions import Functions
     from .notes import Notes
@@ -9,6 +10,7 @@ try:
     from .volumes import Volumes
 except ImportError:
     from container import Container
+    from configs import Configs
     from error import RenderError
     from functions import Functions
     from notes import Notes
@@ -20,14 +22,22 @@ class Render(object):
     def __init__(self, values):
         self._original_values: dict = values
         self._containers: dict[str, Container] = {}
+        self.values = values
+        self._add_images_internal_use()
         self.values: dict = copy.deepcopy(values)
 
+        self.configs = Configs(render_instance=self)
         self.funcs = Functions(render_instance=self).func_map()
         self.portals: Portals = Portals(render_instance=self)
         self.notes: Notes = Notes(render_instance=self)
         self.volumes = Volumes(render_instance=self)
 
-        # self.networks = {}
+    def _add_images_internal_use(self):
+        if not self.values.get("images"):
+            self.values["images"] = {}
+
+        if "python_permissions_image" not in self.values["images"]:
+            self.values["images"]["python_permissions_image"] = {"repository": "python", "tag": "3.13.0-slim-bookworm"}
 
     def container_names(self):
         return list(self._containers.keys())
@@ -54,6 +64,9 @@ class Render(object):
 
         if self.volumes.has_volumes():
             result["volumes"] = self.volumes.render()
+
+        if self.configs.has_configs():
+            result["configs"] = self.configs.render()
 
         # if self.networks:
         #     result["networks"] = {...}

@@ -9,7 +9,7 @@ except ImportError:
 OCTAL_MODE_REGEX = re.compile(r"^0[0-7]{3}$")
 
 
-def valid_octal_mode(mode: str):
+def valid_octal_mode_or_raise(mode: str):
     mode = str(mode)
     if not OCTAL_MODE_REGEX.match(mode):
         raise RenderError(f"Expected [mode] to be a octal string, got [{mode}]")
