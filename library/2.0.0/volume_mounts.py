@@ -8,24 +8,26 @@ try:
     from .formatter import merge_dicts_no_overwrite
     from .validations import valid_fs_path_or_raise
     from .storage_types import (
-        StorageItemResult,
-        TmpfsStorage,
+        CifsStorage,
+        DockerVolumeStorage,
         HostPathStorage,
         IxVolumeStorage,
-        CifsStorage,
         NfsStorage,
+        StorageItemResult,
+        TmpfsStorage,
     )
 except ImportError:
     from error import RenderError
     from formatter import merge_dicts_no_overwrite
     from validations import valid_fs_path_or_raise
     from storage_types import (
-        StorageItemResult,
-        TmpfsStorage,
+        CifsStorage,
+        DockerVolumeStorage,
         HostPathStorage,
         IxVolumeStorage,
-        CifsStorage,
         NfsStorage,
+        StorageItemResult,
+        TmpfsStorage,
     )
 
 
@@ -64,11 +66,12 @@ class VolumeMount:
         self.volume_mount_spec: dict = {}
 
         _type_spec_mapping = {
+            "cifs": {"class": CifsStorage, "spec_type": "volume"},
             "host_path": {"class": HostPathStorage, "spec_type": "bind"},
             "ix_volume": {"class": IxVolumeStorage, "spec_type": "bind"},
-            "tmpfs": {"class": TmpfsStorage, "spec_type": "tmpfs"},
-            "cifs": {"class": CifsStorage, "spec_type": "volume"},
             "nfs": {"class": NfsStorage, "spec_type": "volume"},
+            "tmpfs": {"class": TmpfsStorage, "spec_type": "tmpfs"},
+            "volume": {"class": DockerVolumeStorage, "spec_type": "volume"},
             # TODO: anonymous/temporary volumes
         }
 

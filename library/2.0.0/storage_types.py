@@ -40,10 +40,10 @@ class HostPathStorage:
     def __init__(self, render_instance: "Render", config: dict):
         self._render_instance = render_instance
         host_path_config = config.get("host_path_config", {})
-        self.mount_spec = BindMountType(self._render_instance, host_path_config).render()
 
         if not host_path_config:
             raise RenderError("Expected [host_path_config] to be set for [host_path] type.")
+        self.mount_spec = BindMountType(self._render_instance, host_path_config).render()
 
         path = ""
         if host_path_config.get("acl_enable", False):
@@ -66,10 +66,10 @@ class IxVolumeStorage:
     def __init__(self, render_instance: "Render", config: dict):
         self._render_instance = render_instance
         ix_volume_config = config.get("ix_volume_config", {})
-        self.mount_spec = BindMountType(self._render_instance, ix_volume_config).render()
 
         if not ix_volume_config:
             raise RenderError("Expected [ix_volume_config] to be set for [ix_volume] type.")
+        self.mount_spec = BindMountType(self._render_instance, ix_volume_config).render()
 
         dataset_name = ix_volume_config.get("dataset_name")
         if not dataset_name:
@@ -84,11 +84,33 @@ class IxVolumeStorage:
             )
 
         path = valid_fs_path_or_raise(ix_volumes[dataset_name].rstrip("/"))
-
         self.source = path
 
     def render(self):
         return StorageItemResult(source=self.source, volume_spec=None, mount_spec=self.mount_spec)
+
+
+class DockerVolumeStorage:
+    """Parses storage item with type volume."""
+
+    def __init__(self, render_instance: "Render", config: dict):
+        self._render_instance = render_instance
+        volume_config = config.get("volume_config", {})
+
+        if not volume_config:
+            raise RenderError("Expected [volume_config] to be set for [volume] type.")
+        self.mount_spec = VolumeMountType(self._render_instance, volume_config).render()
+
+        volume_name = volume_config.get("volume_name")
+        if not volume_name:
+            raise RenderError("Expected [volume_config.volume_name] to be set for [volume] type.")
+
+        # Top level docker volumes dont have a config, but need an empty dict
+        self.volume_spec = {}
+        self.source = volume_name
+
+    def render(self):
+        return StorageItemResult(source=self.source, volume_spec=self.volume_spec, mount_spec=self.mount_spec)
 
 
 class CifsStorage:
@@ -98,9 +120,9 @@ class CifsStorage:
         self._render_instance = render_instance
         cifs_config = config.get("cifs_config", {})
 
-        self.mount_spec = VolumeMountType(self._render_instance, cifs_config).render()
         if not cifs_config:
             raise RenderError("Expected [cifs_config] to be set for [cifs] type.")
+        self.mount_spec = VolumeMountType(self._render_instance, cifs_config).render()
 
         required_keys = ["server", "path", "username", "password"]
         for key in required_keys:
@@ -154,9 +176,9 @@ class NfsStorage:
         self._render_instance = render_instance
         nfs_config = config.get("nfs_config", {})
 
-        self.mount_spec = VolumeMountType(self._render_instance, nfs_config).render()
         if not nfs_config:
             raise RenderError("Expected [nfs_config] to be set for [nfs] type.")
+        self.mount_spec = VolumeMountType(self._render_instance, nfs_config).render()
 
         required_keys = ["server", "path"]
         for key in required_keys:

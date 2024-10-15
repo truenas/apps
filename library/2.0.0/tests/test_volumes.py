@@ -543,3 +543,40 @@ def test_tmpfs_volume(mock_values):
             "read_only": False,
         }
     ]
+
+
+def test_docker_volume_missing_config(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    vol_config = {"type": "volume", "volume_config": {}}
+    with pytest.raises(Exception):
+        c1.volume_mounts.add_volume_mount("/some/path", vol_config)
+
+
+def test_docker_volume_missing_volume_name(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    vol_config = {"type": "volume", "volume_config": {"volume_name": ""}}
+    with pytest.raises(Exception):
+        c1.volume_mounts.add_volume_mount("/some/path", vol_config)
+
+
+def test_docker_volume(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable_healthcheck()
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}}
+    c1.volume_mounts.add_volume_mount("/some/path", vol_config)
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "volume",
+            "source": "test_volume",
+            "target": "/some/path",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
+    ]
+    assert output["volumes"] == {"test_volume": {}}
