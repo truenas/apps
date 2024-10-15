@@ -6,31 +6,15 @@ if TYPE_CHECKING:
 try:
     from .error import RenderError
     from .formatter import merge_dicts_no_overwrite
+    from .volume_mount_types import BindMountType, VolumeMountType, TmpfsMountType
     from .validations import valid_fs_path_or_raise
-    from .storage_types import (
-        AnonymousVolumeStorage,
-        CifsStorage,
-        DockerVolumeStorage,
-        HostPathStorage,
-        IxVolumeStorage,
-        NfsStorage,
-        StorageItemResult,
-        TmpfsStorage,
-    )
+    from .volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
 except ImportError:
     from error import RenderError
     from formatter import merge_dicts_no_overwrite
+    from volume_mount_types import BindMountType, VolumeMountType, TmpfsMountType
     from validations import valid_fs_path_or_raise
-    from storage_types import (
-        AnonymousVolumeStorage,
-        CifsStorage,
-        DockerVolumeStorage,
-        HostPathStorage,
-        IxVolumeStorage,
-        NfsStorage,
-        StorageItemResult,
-        TmpfsStorage,
-    )
+    from volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
 
 
 class VolumeMounts:
@@ -54,74 +38,59 @@ class VolumeMounts:
 
 
 class VolumeMount:
-    # TODO: create a type for config
     def __init__(self, render_instance: "Render", mount_path: str, config: dict):
         self._render_instance = render_instance
         self.mount_path: str = mount_path
-        self.read_only: bool = config.get("read_only", False)
 
-        self.source: str | None = None  # tmpfs does not have a source
-        self.spec_type: str = ""
+        storage_type: str = config.get("type", "")
+        if not storage_type:
+            raise RenderError("Expected [type] to be set for volume mounts.")
 
-        self.spec_config_for_type: dict = {}
+        match storage_type:
+            case "host_path":
+                spec_type = "bind"
+                mount_config = config.get("host_path_config", {}) or {}
+                mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
+                source = HostPathSource(self._render_instance, mount_config).get()
+            case "ix_volume":
+                spec_type = "bind"
+                mount_config = config.get("ix_volume_config", {}) or {}
+                mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
+                source = IxVolumeSource(self._render_instance, mount_config).get()
+            case "tmpfs":
+                spec_type = "tmpfs"
+                mount_config = config.get("tmpfs_config", {}) or {}
+                mount_type_specific_definition = TmpfsMountType(self._render_instance, mount_config).render()
+                source = None
+            case "nfs":
+                spec_type = "volume"
+                mount_config = config.get("nfs_config", {}) or {}
+                mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
+                source = NfsSource(self._render_instance, mount_config).get()
+            case "cifs":
+                spec_type = "volume"
+                mount_config = config.get("cifs_config", {}) or {}
+                mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
+                source = CifsSource(self._render_instance, mount_config).get()
+            case "volume":
+                spec_type = "volume"
+                mount_config = config.get("volume_config", {}) or {}
+                mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
+                source = VolumeSource(self._render_instance, mount_config).get()
+            case "temporary" | "anonymous":
+                spec_type = "volume"
+                mount_config = config.get("volume_config", {}) or {}
+                mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
+                source = None
+            case _:
+                raise RenderError(f"Storage type [{storage_type}] is not supported for volume mounts.")
 
-        self.volume_mount_spec: dict = {}
+        common_spec = {"type": spec_type, "target": self.mount_path, "read_only": config.get("read_only", False)}
+        if source is not None:
+            common_spec["source"] = source
+            self._render_instance.volumes.add_volume(source, storage_type, mount_config)
 
-        _type_spec_mapping = {
-            "anonymous": {"class": AnonymousVolumeStorage, "spec_type": "volume"},
-            "cifs": {"class": CifsStorage, "spec_type": "volume"},
-            "host_path": {"class": HostPathStorage, "spec_type": "bind"},
-            "ix_volume": {"class": IxVolumeStorage, "spec_type": "bind"},
-            "nfs": {"class": NfsStorage, "spec_type": "volume"},
-            "tmpfs": {"class": TmpfsStorage, "spec_type": "tmpfs"},
-            "volume": {"class": DockerVolumeStorage, "spec_type": "volume"},
-            # TODO: temporary volumes
-        }
-
-        vol_type = config.get("type", None)
-        if vol_type not in _type_spec_mapping:
-            valid_types = ", ".join(_type_spec_mapping.keys())
-            raise RenderError(f"Volume type [{vol_type}] is not valid. Valid options are: [{valid_types}]")
-
-        # Parse the config for the type
-        storage_item: StorageItemResult = _type_spec_mapping[vol_type]["class"](self._render_instance, config).render()
-
-        # Set the type in the mount type for the spec
-        self.spec_type = _type_spec_mapping[vol_type]["spec_type"]
-
-        # Make sure source is not empty for all but tmpfs and anonymous
-        if self.spec_type != "tmpfs" and vol_type != "anonymous":
-            if not storage_item.source:
-                raise RenderError(f"Missing source for volume type [{vol_type}]")
-
-        # Fetch the source (path for bind, volume name for volume)
-        self.source = storage_item.source
-        if vol_type == "anonymous":
-            # anonymous have no source.
-            self.source = None
-
-        # Fetch the type specific config for the mount spec
-        self.spec_config_for_type = storage_item.mount_spec
-
-        # No source or volume spec for anonymous
-        if self.spec_type == "volume" and vol_type != "anonymous":
-            assert self.source is not None
-            assert storage_item.volume_spec is not None
-            self._render_instance.volumes.add_volume(self.source, storage_item.volume_spec)
+        self.volume_mount_spec = merge_dicts_no_overwrite(common_spec, mount_type_specific_definition)
 
     def render(self) -> dict:
-        result = {
-            "target": self.mount_path,
-            "read_only": self.read_only,
-        }
-
-        if self.spec_type is not None:
-            result["type"] = self.spec_type
-
-        if self.source is not None:
-            result["source"] = self.source
-
-        if self.spec_config_for_type:
-            result = merge_dicts_no_overwrite(result, self.spec_config_for_type)
-
-        return result
+        return self.volume_mount_spec
