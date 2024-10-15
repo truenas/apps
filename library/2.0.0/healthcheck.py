@@ -150,14 +150,7 @@ def http_test(config: dict) -> str:
     path = valid_http_path_or_raise(get_key(config, "path", "/", False))
     host = get_key(config, "host", "127.0.0.1", False)
 
-    http_cmd = "/bin/bash -c '"
-    http_cmd += f"exec {{health_check_fd}}<>/dev/tcp/{host}/{port} && "
-    http_cmd += f'echo -e "GET {path} HTTP/1.1\\r\\n'
-    http_cmd += f"Host: {host}\\r\\n"
-    http_cmd += 'Connection: close\\r\\n\\r\\n"'
-    http_cmd += " >&${health_check_fd} && cat <&${health_check_fd}'"
-
-    return http_cmd
+    return f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep -q "200 OK"'"""  # noqa
 
 
 def netcat_test(config: dict) -> str:
