@@ -26,8 +26,9 @@ def test_no_permissions_container_added(mock_values):
     if render.has_permissions_actions():
         c1.depends.add_dependency(render.permissions_container_name(), "service_completed_successfully")
     output = render.render()
-    assert "depends_on" not in output["services"]["test_container"]
+    assert "configs" not in output
     assert "ix-permissions" not in output["services"]
+    assert "depends_on" not in output["services"]["test_container"]
 
 
 def test_permissions_container_added(mock_values):
@@ -80,3 +81,69 @@ def test_permissions_container_added(mock_values):
         {"source": "permissions_actions_data", "target": "/script/actions.json", "mode": 320},
         {"source": "permissions_run_script", "target": "/script/run.py", "mode": 448},
     ]
+
+
+def test_permissions_container_different_config_for_same_volume(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    c1.add_storage("/some/path", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+    with pytest.raises(Exception):
+        c2.add_storage("/some/path", vol_config, {"uid": 1001, "gid": 1001, "mode": "check"})
+
+
+def test_permissions_container_invalid_is_temporary(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", vol_config, {"uid": 1000, "gid": 1000, "mode": "check", "is_temporary": "yes"})
+
+
+def test_permissions_container_missing_uid(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", vol_config, {"uid": "", "gid": 1000, "mode": "check"})
+
+
+def test_permissions_container_missing_gid(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", vol_config, {"uid": 1000, "gid": "", "mode": "check"})
+
+
+def test_permissions_container_invalid_mode(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", vol_config, {"uid": 1000, "gid": 1000, "mode": "invalid"})

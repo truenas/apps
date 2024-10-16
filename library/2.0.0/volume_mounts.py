@@ -72,7 +72,7 @@ class VolumeMounts:
         if not isinstance(is_temporary, bool):
             raise RenderError("Expected [is_temporary] to be a boolean")
 
-        if uid is None or gid is None:
+        if not isinstance(uid, int) or not isinstance(gid, int):
             raise RenderError("Expected [uid] and [gid] to be set when [auto_permissions] is enabled")
 
         if chmod is not None:
