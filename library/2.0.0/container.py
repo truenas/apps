@@ -128,8 +128,8 @@ class Container:
     def set_command(self, command: list[str]):
         self._command = [escape_dollar(e) for e in command]
 
-    def add_storage(self, mount_path: str, config: dict):
-        self._volume_mounts.add(mount_path, config)
+    def add_storage(self, mount_path: str, config: dict, permission_config: dict | None = None):
+        self._volume_mounts.add(mount_path, config, permission_config)
 
     def render(self) -> dict[str, Any]:
         if self._network_mode and self.networks:

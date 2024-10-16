@@ -2,6 +2,7 @@ import copy
 
 try:
     from .container import Container
+    from .container_permissions import ContainerPermissions
     from .configs import Configs
     from .error import RenderError
     from .functions import Functions
@@ -10,6 +11,7 @@ try:
     from .volumes import Volumes
 except ImportError:
     from container import Container
+    from container_permissions import ContainerPermissions
     from configs import Configs
     from error import RenderError
     from functions import Functions
@@ -26,6 +28,8 @@ class Render(object):
         self._add_images_internal_use()
         self.values: dict = copy.deepcopy(values)
 
+        self._permissions_container: ContainerPermissions = ContainerPermissions(self)
+
         self.configs = Configs(render_instance=self)
         self.funcs = Functions(render_instance=self).func_map()
         self.portals: Portals = Portals(render_instance=self)
@@ -39,6 +43,12 @@ class Render(object):
         if "python_permissions_image" not in self.values["images"]:
             self.values["images"]["python_permissions_image"] = {"repository": "python", "tag": "3.13.0-slim-bookworm"}
 
+    def has_permissions_actions(self):
+        return self._permissions_container.has_actions()
+
+    def permissions_container_name(self):
+        return self._permissions_container._name
+
     def container_names(self):
         return list(self._containers.keys())
 
@@ -50,6 +60,9 @@ class Render(object):
         return container
 
     def render(self):
+        if self.has_permissions_actions():
+            self._permissions_container.finalize_container()
+
         if self.values != self._original_values:
             raise RenderError("Values have been modified since the renderer was created.")
 

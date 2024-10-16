@@ -1,5 +1,6 @@
 import pytest
 
+
 from render import Render
 
 
@@ -191,11 +192,7 @@ def test_entrypoint(mock_values):
     c1.set_entrypoint(["/bin/bash", "-c", "echo hello $MY_ENV"])
     c1.healthcheck.disable()
     output = render.render()
-    assert output["services"]["test_container"]["entrypoint"] == [
-        "/bin/bash",
-        "-c",
-        "echo hello $$MY_ENV",
-    ]
+    assert output["services"]["test_container"]["entrypoint"] == ["/bin/bash", "-c", "echo hello $$MY_ENV"]
 
 
 def test_command(mock_values):
