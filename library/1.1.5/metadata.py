@@ -40,6 +40,9 @@ def get_portals(portals: list):
         name = portal.get("name", "Web UI")
         scheme = portal.get("scheme", "http")
         path = portal.get("path", "/")
+        host = portal.get("host", "0.0.0.0")
+        if not host:  # In case it is set to ""
+            host = "0.0.0.0"
 
         if not name:
             utils.throw_error("Expected [portal.name] to be set")
@@ -54,15 +57,13 @@ def get_portals(portals: list):
         if not portal.get("port"):
             utils.throw_error("Expected [portal.port] to be set")
         if not path.startswith("/"):
-            utils.throw_error(
-                f"Expected [portal.path] to start with /, got [{portal['path']}]"
-            )
+            utils.throw_error(f"Expected [portal.path] to start with [/], got [{portal['path']}]")
 
         result.append(
             {
                 "name": name,
                 "scheme": scheme,
-                "host": portal.get("host", "0.0.0.0"),
+                "host": host,
                 "port": portal["port"],
                 "path": path,
             }
