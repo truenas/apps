@@ -104,21 +104,27 @@ def fix_perms(path, chmod):
     print(f"Changing permissions to {chmod} on: [{path}]")
     os.chmod(path, int(chmod, 8))
     print("Permissions after changes:")
-    print_chmod()
+    print_chmod_stat()
 
 def fix_owner(path, uid, gid):
     print(f"Changing ownership to {uid}:{gid} on: [{path}]")
     os.chown(path, uid, gid)
     print("Ownership after changes:")
-    print_chown()
+    print_chown_stat()
 
-def print_chown():
+def print_chown_stat():
     curr_stat = os.stat(action["mount_path"])
     print(f"Ownership: [{curr_stat.st_uid}:{curr_stat.st_gid}]")
 
-def print_chmod():
+def print_chmod_stat():
     curr_stat = os.stat(action["mount_path"])
     print(f"Permissions: [{oct(curr_stat.st_mode)[3:]}]")
+
+def print_chown_diff(curr_stat, uid, gid):
+    print(f"Ownership: wanted [{uid}:{gid}], got [{curr_stat.st_uid}:{curr_stat.st_gid}].", end=" ")
+
+def print_chmod_diff(curr_stat, mode):
+    print(f"Permissions: wanted [{mode}], got [{oct(curr_stat.st_mode)[3:]}].", end=" ")
 
 def perform_action(action):
     print(f"=== Applying configuration on volume with source [{action['source']}] ===")
@@ -144,10 +150,10 @@ def perform_action(action):
         print(f"Path [{action['mount_path']}] is not empty, skipping...")
         return
 
-
     print(f"Current Ownership and Permissions on [{action['mount_path']}]:")
-    print_chown()
-    print_chmod()
+    curr_stat = os.stat(action["mount_path"])
+    print_chown_diff(curr_stat, action["uid"], action["gid"])
+    print_chmod_diff(curr_stat, action["chmod"])
     print("---")
 
     if action["mode"] == "always":
@@ -158,13 +164,10 @@ def perform_action(action):
             fix_perms(action["mount_path"], action["chmod"])
         return
 
-    if action["mode"] == "check":
+    elif action["mode"] == "check":
         curr_stat = os.stat(action["mount_path"])
-        # no new line
-        print(
-            f"Ownership: wanted [{action['uid']}:{action['gid']}], "
-            f"got [{curr_stat.st_uid}:{curr_stat.st_gid}].", end=" "
-        )
+        print_chown_diff(curr_stat, action["uid"], action["gid"])
+
         if curr_stat.st_uid != action["uid"] or curr_stat.st_gid != action["gid"]:
             print("Ownership is incorrect. Fixing...")
             fix_owner(action["mount_path"], action["uid"], action["gid"])
@@ -174,10 +177,7 @@ def perform_action(action):
         if not action["chmod"]:
             print("Skipping permissions check, chmod is falsy")
         else:
-            print(
-                f"Permissions: wanted [{action['chmod']}], "
-                f"got [{oct(curr_stat.st_mode)[3:]}].", end=" "
-            )
+            print_chmod_diff(curr_stat, action["chmod"])
             if oct(curr_stat.st_mode)[3:] != action["chmod"]:
                 print("Permissions are incorrect. Fixing...")
                 fix_perms(action["mount_path"], action["chmod"])
