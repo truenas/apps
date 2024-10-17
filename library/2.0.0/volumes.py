@@ -49,7 +49,6 @@ class Volume:
                 self.volume_spec = DockerVolume(self._render_instance, config).get()
             case _:
                 self.volume_spec = None
-                pass
 
     def render(self):
         return self.volume_spec
