@@ -303,6 +303,7 @@ services:
     {% endif %}
     volumes: {{ volume_mounts.items | tojson }}
 
+{% if values.nextcloud.cron.enabled %}
   {# See later if we want allow running custom commands on cron. #}
   {{ values.consts.cron_container_name }}:
     user: "0:0"
@@ -316,7 +317,7 @@ services:
       - -c
     command:
       - |
-        echo "{{ values.nextcloud.schedule }} php -f /var/www/html/cron.php" > /var/spool/cron/crontabs/www-data || { echo "Failed to create crontab"; exit 1; }
+        echo "{{ values.nextcloud.cron.schedule }} php -f /var/www/html/cron.php" > /var/spool/cron/crontabs/www-data || { echo "Failed to create crontab"; exit 1; }
         /cron.sh || { echo "Failed to run cron"; exit 1; }
     configs:
       - source: occ
@@ -341,6 +342,7 @@ services:
     {% set cron_test = "pidof busybox > /dev/null" %}
     healthcheck: {{ ix_lib.base.healthchecks.check_health(cron_test) | tojson }}
     volumes: {{ volume_mounts.items | tojson }}
+{% endif %}
 
   {% set resource_without_gpus = ix_lib.base.utils.copy_dict(values.resources) %}
   {% do resource_without_gpus.pop("gpus", None) %}
