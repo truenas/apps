@@ -17,7 +17,7 @@ try:
     from .ports import Ports
     from .restart import RestartPolicy
     from .validations import valid_network_mode_or_raise, valid_cap_or_raise
-    from .volume_mounts import VolumeMounts
+    from .storage import Storage
 except ImportError:
     from configs import ContainerConfigs
     from depends import Depends
@@ -32,7 +32,7 @@ except ImportError:
     from ports import Ports
     from restart import RestartPolicy
     from validations import valid_network_mode_or_raise, valid_cap_or_raise
-    from volume_mounts import VolumeMounts
+    from storage import Storage
 
 
 class Container:
@@ -40,7 +40,7 @@ class Container:
         self._render_instance = render_instance
 
         self._name: str = name
-        self._image: str = self._resolve_image(image)
+        self._image: str = self._resolve_image(image)  # TODO: account for inline dockerfile
         self._user: str = ""
         self._tty: bool = False
         self._stdin_open: bool = False
@@ -51,7 +51,7 @@ class Container:
         self._entrypoint: list[str] = []
         self._command: list[str] = []
         self._grace_period: int | None = None
-        self._volume_mounts: VolumeMounts = VolumeMounts(self._render_instance)
+        self._storage: Storage = Storage(self._render_instance)
         self.configs: ContainerConfigs = ContainerConfigs(self._render_instance, self._render_instance.configs)
         self.deploy: Deploy = Deploy(self._render_instance)
         self.networks: set[str] = set()
@@ -129,7 +129,7 @@ class Container:
         self._command = [escape_dollar(e) for e in command]
 
     def add_storage(self, mount_path: str, config: dict, permission_config: dict | None = None):
-        self._volume_mounts.add(mount_path, config, permission_config)
+        self._storage.add(mount_path, config, permission_config)
 
     def render(self) -> dict[str, Any]:
         if self._network_mode and self.networks:
@@ -196,7 +196,7 @@ class Container:
         if self.depends.has_dependencies():
             result["depends_on"] = self.depends.render()
 
-        if self._volume_mounts.has_mounts():
-            result["volumes"] = self._volume_mounts.render()
+        if self._storage.has_mounts():
+            result["volumes"] = self._storage.render()
 
         return result
