@@ -1,5 +1,4 @@
 import copy
-import json
 
 try:
     from .container import Container
