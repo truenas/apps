@@ -91,6 +91,7 @@ def get_script():
     return """
 import os
 import json
+import time
 import shutil
 
 with open("/script/actions.json", "r") as f:
@@ -121,12 +122,13 @@ def print_chmod_stat():
     print(f"Permissions: [{oct(curr_stat.st_mode)[3:]}]")
 
 def print_chown_diff(curr_stat, uid, gid):
-    print(f"Ownership: wanted [{uid}:{gid}], got [{curr_stat.st_uid}:{curr_stat.st_gid}].", end=" ")
+    print(f"Ownership: wanted [{uid}:{gid}], got [{curr_stat.st_uid}:{curr_stat.st_gid}].")
 
 def print_chmod_diff(curr_stat, mode):
-    print(f"Permissions: wanted [{mode}], got [{oct(curr_stat.st_mode)[3:]}].", end=" ")
+    print(f"Permissions: wanted [{mode}], got [{oct(curr_stat.st_mode)[3:]}].")
 
 def perform_action(action):
+    start_time = time.time()
     print(f"=== Applying configuration on volume with source [{action['source']}] ===")
 
     if not os.path.isdir(action["mount_path"]):
@@ -165,9 +167,6 @@ def perform_action(action):
         return
 
     elif action["mode"] == "check":
-        curr_stat = os.stat(action["mount_path"])
-        print_chown_diff(curr_stat, action["uid"], action["gid"])
-
         if curr_stat.st_uid != action["uid"] or curr_stat.st_gid != action["gid"]:
             print("Ownership is incorrect. Fixing...")
             fix_owner(action["mount_path"], action["uid"], action["gid"])
@@ -177,17 +176,18 @@ def perform_action(action):
         if not action["chmod"]:
             print("Skipping permissions check, chmod is falsy")
         else:
-            print_chmod_diff(curr_stat, action["chmod"])
             if oct(curr_stat.st_mode)[3:] != action["chmod"]:
                 print("Permissions are incorrect. Fixing...")
                 fix_perms(action["mount_path"], action["chmod"])
             else:
                 print("Permissions are correct. Skipping...")
 
-    print("=== Finished applying configuration on volume with source [{action['source']}] ===")
-    print("")
+    print(f"Time taken: {(time.time() - start_time) * 1000:.2f}ms")
+    print(f"=== Finished applying configuration on volume with source [{action['source']}] ===")
 
 if __name__ == "__main__":
+    start_time = time.time()
     for action in actions_data:
         perform_action(action)
+    print(f"Total time taken: {(time.time() - start_time) * 1000:.2f}ms")
 """

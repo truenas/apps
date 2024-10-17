@@ -58,7 +58,7 @@ def test_permissions_container_added(mock_values):
     assert output["configs"]["permissions_run_script"]["content"] != ""
     assert (
         output["configs"]["permissions_actions_data"]["content"]
-        == '[{"mount_path": "/mnt/permissions/test_volume", "mode": "check", "uid": 1000, "gid": 1000, "chmod": null, "is_temporary": false}, {"mount_path": "/mnt/permissions/test_volume2", "mode": "check", "uid": 1001, "gid": 1001, "chmod": null, "is_temporary": false}]'  # noqa
+        == '[{"mount_path": "/mnt/permissions/test_volume", "source": "test_volume", "mode": "check", "uid": 1000, "gid": 1000, "chmod": null, "is_temporary": false}, {"mount_path": "/mnt/permissions/test_volume2", "source": "test_volume2", "mode": "check", "uid": 1001, "gid": 1001, "chmod": null, "is_temporary": false}]'  # noqa
     )
     perms_container = output["services"][render.permissions_container_name()]
     assert perms_container["volumes"] == [
