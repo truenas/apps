@@ -26,6 +26,7 @@ class Storage:
         volume_mount = VolumeMount(self._render_instance, mount_path, config)
         self._volume_mounts.add(volume_mount)
 
+        # Volumes without source is not able to be shared across containers
         source = volume_mount.volume_mount_spec.get("source", "")
         if not source:
             return
@@ -33,7 +34,6 @@ class Storage:
         action = self.parse_permissions_config(source, config, permission_config)
         if not action:
             return
-
         # Add the action to the permissions container
         self._render_instance._permissions_container.add_action(source=source, action=action)
 

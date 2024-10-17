@@ -58,7 +58,7 @@ class ContainerPermissions:
         self._container.healthcheck.disable()
 
         script = "#!/usr/bin/env python3\n"
-        script += inspect.getsource(permissions_script)
+        script += inspect.getsource(_permissions_script)
         self._container.configs.add("permissions_run_script", script, "/script/run.py", "0700")
         self._container.set_entrypoint(["python3", "/script/run.py"])
 
@@ -87,7 +87,7 @@ class ContainerPermissions:
         self._container.configs.add("permissions_actions_data", actions_data_json, "/script/actions.json", "0500")
 
 
-def permissions_script():
+def _permissions_script():
     import json
 
     # TODO:
