@@ -1,4 +1,5 @@
 import copy
+import json
 
 try:
     from .container import Container
@@ -22,11 +23,11 @@ except ImportError:
 
 class Render(object):
     def __init__(self, values):
-        self._original_values: dict = values
         self._containers: dict[str, Container] = {}
         self.values = values
         self._add_images_internal_use()
-        self.values: dict = copy.deepcopy(values)
+        # Make a copy after we inject the images
+        self._original_values: dict = copy.deepcopy(self.values)
 
         self._permissions_container: ContainerPermissions = ContainerPermissions(self)
 
@@ -60,11 +61,11 @@ class Render(object):
         return container
 
     def render(self):
+        if self.values != self._original_values:
+            raise RenderError(f"Values have been modified since the renderer was created.\n\n {n} != {o}\n\n")
+
         if self.has_permissions_actions():
             self._permissions_container.finalize_container()
-
-        if self.values != self._original_values:
-            raise RenderError("Values have been modified since the renderer was created.")
 
         if not self._containers:
             raise RenderError("No containers added.")

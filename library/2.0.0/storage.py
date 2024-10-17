@@ -1,3 +1,4 @@
+import copy
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -38,35 +39,38 @@ class Storage:
         self._render_instance._permissions_container.add_action(source=source, action=action)
 
     def parse_permissions_config(self, source: str, config: dict, permission_config: dict | None):
-        if not permission_config:
+        perm_config = copy.deepcopy(permission_config) or {}
+        vol_config = copy.deepcopy(config) or {}
+
+        if not perm_config:
             return
 
         # Volumes without source is not able to be shared across containers
         if not source:
             return
 
-        if config.get("type", "") == "temporary":
-            permission_config["is_temporary"] = True
+        if vol_config.get("type", "") == "temporary":
+            perm_config["is_temporary"] = True
 
         # If the volume is an ix_volume, we need to set auto_permissions
-        if config.get("ix_volume_config", {}):
-            config["auto_permissions"] = True
+        if vol_config.get("ix_volume_config", {}):
+            vol_config["auto_permissions"] = True
 
         # Nothing to do if auto_permissions is disabled
-        if not config.get("auto_permissions", False):
+        if not vol_config.get("auto_permissions", False):
             return
 
         # ACL are always preferred and we should ignore auto_permissions
-        if config.get("ix_volume_config", {}).get("acl_enable", False):
+        if vol_config.get("ix_volume_config", {}).get("acl_enable", False):
             return
-        if config.get("host_path_config", {}).get("acl_enable", False):
+        if vol_config.get("host_path_config", {}).get("acl_enable", False):
             return
 
-        is_temporary = permission_config.get("is_temporary", False)
-        uid = permission_config.get("uid", None)
-        gid = permission_config.get("gid", None)
-        chmod = permission_config.get("chmod", None)
-        mode = permission_config.get("mode", None)
+        is_temporary = perm_config.get("is_temporary", False)
+        uid = perm_config.get("uid", None)
+        gid = perm_config.get("gid", None)
+        chmod = perm_config.get("chmod", None)
+        mode = perm_config.get("mode", None)
 
         if not isinstance(is_temporary, bool):
             raise RenderError("Expected [is_temporary] to be a boolean")
@@ -82,7 +86,7 @@ class Storage:
             raise RenderError(f"Expected [mode] to be one of [{', '.join(valid_modes)}], got [{mode}]")
 
         return {
-            "config": config,
+            "config": vol_config,
             "source": source,
             "uid": uid,
             "gid": gid,
