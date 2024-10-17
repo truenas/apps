@@ -62,7 +62,7 @@ class Render(object):
 
     def render(self):
         if self.values != self._original_values:
-            raise RenderError(f"Values have been modified since the renderer was created.\n\n {n} != {o}\n\n")
+            raise RenderError("Values have been modified since the renderer was created.")
 
         if self.has_permissions_actions():
             self._permissions_container.finalize_container()
