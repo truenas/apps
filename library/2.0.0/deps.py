@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, TypedDict, NotRequired
 
 if TYPE_CHECKING:
     from render import Render
+    from storage import IxStorage
 
 try:
     from .error import RenderError
@@ -16,7 +17,7 @@ class PostgresConfig(TypedDict):
     password: str
     database: str
     port: NotRequired[int]
-    volume: dict  # TODO: Define a type for this, its used in many places
+    volume: "IxStorage"
 
 
 class MariadbConfig(TypedDict):
@@ -26,13 +27,13 @@ class MariadbConfig(TypedDict):
     root_password: NotRequired[str]
     port: NotRequired[int]
     auto_upgrade: NotRequired[bool]
-    volume: dict  # TODO: Define a type for this, its used in many places
+    volume: "IxStorage"
 
 
 class RedisConfig(TypedDict):
     password: str
     port: NotRequired[int]
-    volume: dict  # TODO: Define a type for this, its used in many places
+    volume: "IxStorage"
 
 
 class Deps:

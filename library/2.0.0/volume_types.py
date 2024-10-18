@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from render import Render
+    from storage import IxStorageNfsConfig, IxStorageCifsConfig, IxStorageVolumeConfig
 
 
 try:
@@ -15,7 +16,7 @@ except ImportError:
 
 
 class NfsVolume:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageNfsConfig"):
         self._render_instance = render_instance
 
         if not config:
@@ -27,13 +28,14 @@ class NfsVolume:
                 raise RenderError(f"Expected [{key}] to be set for [nfs] type")
 
         opts = [f"addr={config['server']}"]
-        if config.get("options"):
-            if not isinstance(config["options"], list):
+        cfg_options = config.get("options")
+        if cfg_options:
+            if not isinstance(cfg_options, list):
                 raise RenderError("Expected [nfs_config.options] to be a list for [nfs] type")
 
             tracked_keys: set[str] = set()
             disallowed_opts = ["addr"]
-            for opt in config["options"]:
+            for opt in cfg_options:
                 if not isinstance(opt, str):
                     raise RenderError("Options for [nfs] type must be a list of strings.")
 
@@ -61,7 +63,7 @@ class NfsVolume:
 
 
 class CifsVolume:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageCifsConfig"):
         self._render_instance = render_instance
         self.volume_spec: dict = {}
 
@@ -78,16 +80,18 @@ class CifsVolume:
             f"password={config['password']}",
         ]
 
-        if config.get("domain"):
-            opts.append(f'domain={config["domain"]}')
+        domain = config.get("domain")
+        if domain:
+            opts.append(f"domain={domain}")
 
-        if config.get("options"):
-            if not isinstance(config["options"], list):
+        cfg_options = config.get("options")
+        if cfg_options:
+            if not isinstance(cfg_options, list):
                 raise RenderError("Expected [cifs_config.options] to be a list for [cifs] type")
 
             tracked_keys: set[str] = set()
             disallowed_opts = ["user", "password", "domain"]
-            for opt in config["options"]:
+            for opt in cfg_options:
                 if not isinstance(opt, str):
                     raise RenderError("Options for [cifs] type must be a list of strings.")
 
@@ -120,7 +124,7 @@ class CifsVolume:
 
 
 class DockerVolume:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageVolumeConfig"):
         self._render_instance = render_instance
         self.volume_spec: dict = {}
 

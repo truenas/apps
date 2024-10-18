@@ -6,9 +6,11 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
+    from .storage import IxStorageVolumeLikeConfigs
     from .volume_types import NfsVolume, CifsVolume, DockerVolume
 except ImportError:
     from error import RenderError
+    from storage import IxStorageVolumeLikeConfigs
     from volume_types import NfsVolume, CifsVolume, DockerVolume
 
 
@@ -17,7 +19,12 @@ class Volumes:
         self._render_instance = render_instance
         self._volumes: dict[str, Volume] = {}
 
-    def add_volume(self, source: str, storage_type: str, config: dict):
+    def add_volume(
+        self,
+        source: str,
+        storage_type: str,
+        config: "IxStorageVolumeLikeConfigs",
+    ):
         # This method can be called many times from the volume mounts
         # Only add the volume if it is not already added, but dont raise an error
         if source == "":
@@ -36,17 +43,22 @@ class Volumes:
 
 
 class Volume:
-    def __init__(self, render_instance: "Render", storage_type: str, config: dict):
+    def __init__(
+        self,
+        render_instance: "Render",
+        storage_type: str,
+        config: "IxStorageVolumeLikeConfigs",
+    ):
         self._render_instance = render_instance
         self.volume_spec: dict | None = {}
 
         match storage_type:
             case "nfs":
-                self.volume_spec = NfsVolume(self._render_instance, config).get()
+                self.volume_spec = NfsVolume(self._render_instance, config).get()  # type: ignore
             case "cifs":
-                self.volume_spec = CifsVolume(self._render_instance, config).get()
+                self.volume_spec = CifsVolume(self._render_instance, config).get()  # type: ignore
             case "volume" | "temporary":
-                self.volume_spec = DockerVolume(self._render_instance, config).get()
+                self.volume_spec = DockerVolume(self._render_instance, config).get()  # type: ignore
             case _:
                 self.volume_spec = None
 

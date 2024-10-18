@@ -1,5 +1,5 @@
 import copy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict, Literal, NotRequired, Union
 
 if TYPE_CHECKING:
     from render import Render
@@ -14,12 +14,75 @@ except ImportError:
     from volume_mount import VolumeMount
 
 
+class IxStorageTmpfsConfig(TypedDict):
+    size: NotRequired[int]
+    mode: NotRequired[str]
+
+
+class AclConfig(TypedDict, total=False):
+    path: str
+
+
+class IxStorageHostPathConfig(TypedDict):
+    path: NotRequired[str]  # Either this or acl.path must be set
+    acl_enable: NotRequired[bool]
+    acl: NotRequired[AclConfig]
+    create_host_path: NotRequired[bool]
+    propagation: NotRequired[Literal["shared", "slave", "private", "rshared", "rslave", "rprivate"]]
+
+
+class IxStorageIxVolumeConfig(TypedDict):
+    dataset_name: str
+    acl_enable: NotRequired[bool]
+    acl_entries: NotRequired[AclConfig]
+    create_host_path: NotRequired[bool]
+    propagation: NotRequired[Literal["shared", "slave", "private", "rshared", "rslave", "rprivate"]]
+
+
+class IxStorageVolumeConfig(TypedDict):
+    volume_name: str
+    nocopy: NotRequired[bool]
+
+
+class IxStorageNfsConfig(TypedDict):
+    server: str
+    path: str
+    options: NotRequired[list[str]]
+
+
+class IxStorageCifsConfig(TypedDict):
+    server: str
+    path: str
+    username: str
+    password: str
+    domain: NotRequired[str]
+    options: NotRequired[list[str]]
+
+
+IxStorageVolumeLikeConfigs = Union[IxStorageVolumeConfig, IxStorageNfsConfig, IxStorageCifsConfig, IxStorageTmpfsConfig]
+IxStorageBindLikeConfigs = Union[IxStorageHostPathConfig, IxStorageIxVolumeConfig]
+IxStorageLikeConfigs = Union[IxStorageBindLikeConfigs, IxStorageVolumeLikeConfigs]
+
+
+class IxStorage(TypedDict):
+    type: Literal["ix_volume", "host_path", "tmpfs", "volume", "anonymous", "temporary"]
+    read_only: NotRequired[bool]
+    auto_permissions: NotRequired[bool]
+
+    ix_volume_config: NotRequired[IxStorageIxVolumeConfig]
+    host_path_config: NotRequired[IxStorageHostPathConfig]
+    tmpfs_config: NotRequired[IxStorageTmpfsConfig]
+    volume_config: NotRequired[IxStorageVolumeConfig]
+    nfs_config: NotRequired[IxStorageNfsConfig]
+    cifs_config: NotRequired[IxStorageCifsConfig]
+
+
 class Storage:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._volume_mounts: set[VolumeMount] = set()
 
-    def add(self, mount_path: str, config: dict, permission_config: dict | None = None):
+    def add(self, mount_path: str, config: "IxStorage", permission_config: dict | None = None):
         mount_path = valid_fs_path_or_raise(mount_path)
         if mount_path in [m.mount_path for m in self._volume_mounts]:
             raise RenderError(f"Mount path [{mount_path}] already used for another volume mount")
@@ -38,7 +101,7 @@ class Storage:
         # Add the action to the permissions container
         self._render_instance._permissions_container.add_action(source=source, action=action)
 
-    def parse_permissions_config(self, source: str, config: dict, permission_config: dict | None):
+    def parse_permissions_config(self, source: str, config: "IxStorage", permission_config: dict | None):
         perm_config = copy.deepcopy(permission_config) or {}
         vol_config = copy.deepcopy(config) or {}
 

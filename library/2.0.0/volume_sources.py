@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from render import Render
+    from storage import IxStorageHostPathConfig, IxStorageIxVolumeConfig, IxStorageVolumeConfig
 
 try:
     from .error import RenderError
@@ -14,7 +15,7 @@ except ImportError:
 
 
 class HostPathSource:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageHostPathConfig"):
         self._render_instance = render_instance
         self.source: str = ""
 
@@ -23,12 +24,12 @@ class HostPathSource:
 
         path = ""
         if config.get("acl_enable", False):
-            acl = config.get("acl", {})
-            if not acl.get("path"):
+            acl_path = config.get("acl", {}).get("path")
+            if not acl_path:
                 raise RenderError("Expected [host_path_config.acl.path] to be set for [host_path] type.")
-            path = valid_fs_path_or_raise(acl["path"])
+            path = valid_fs_path_or_raise(acl_path)
         else:
-            path = valid_fs_path_or_raise(config["path"])
+            path = valid_fs_path_or_raise(config.get("path", ""))
 
         self.source = path.rstrip("/")
 
@@ -37,7 +38,7 @@ class HostPathSource:
 
 
 class IxVolumeSource:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageIxVolumeConfig"):
         self._render_instance = render_instance
         self.source: str = ""
 
@@ -88,7 +89,7 @@ class NfsSource:
 
 
 class VolumeSource:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageVolumeConfig"):
         self._render_instance = render_instance
         self.source: str = ""
 

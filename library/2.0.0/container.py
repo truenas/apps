@@ -2,6 +2,7 @@ from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from render import Render
+    from storage import IxStorage
 
 try:
     from .configs import ContainerConfigs
@@ -145,7 +146,7 @@ class Container:
     def set_command(self, command: list[str]):
         self._command = [escape_dollar(e) for e in command]
 
-    def add_storage(self, mount_path: str, config: dict, permission_config: dict | None = None):
+    def add_storage(self, mount_path: str, config: "IxStorage", permission_config: dict | None = None):
         self._storage.add(mount_path, config, permission_config)
 
     def render(self) -> dict[str, Any]:

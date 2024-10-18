@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from render import Render
+    from storage import IxStorageTmpfsConfig, IxStorageVolumeConfig, IxStorageBindLikeConfigs
 
 
 try:
@@ -13,7 +14,7 @@ except ImportError:
 
 
 class TmpfsMountType:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageTmpfsConfig"):
         self._render_instance = render_instance
         self.spec = {"tmpfs": {}}
         size = config.get("size", None)
@@ -40,7 +41,7 @@ class TmpfsMountType:
 
 
 class BindMountType:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageBindLikeConfigs"):
         self._render_instance = render_instance
         self.spec: dict = {}
 
@@ -60,7 +61,7 @@ class BindMountType:
 
 
 class VolumeMountType:
-    def __init__(self, render_instance: "Render", config: dict):
+    def __init__(self, render_instance: "Render", config: "IxStorageVolumeConfig"):
         self._render_instance = render_instance
         self.spec: dict = {}
 
