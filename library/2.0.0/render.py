@@ -4,6 +4,7 @@ try:
     from .container import Container
     from .container_permissions import ContainerPermissions
     from .configs import Configs
+    from .deps import Deps
     from .error import RenderError
     from .functions import Functions
     from .notes import Notes
@@ -13,6 +14,7 @@ except ImportError:
     from container import Container
     from container_permissions import ContainerPermissions
     from configs import Configs
+    from deps import Deps
     from error import RenderError
     from functions import Functions
     from notes import Notes
@@ -29,6 +31,8 @@ class Render(object):
         self._original_values: dict = copy.deepcopy(self.values)
 
         self._permissions_container: ContainerPermissions = ContainerPermissions(self)
+
+        self.deps: Deps = Deps(self)
 
         self.configs = Configs(render_instance=self)
         self.funcs = Functions(render_instance=self).func_map()
