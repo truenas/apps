@@ -11,7 +11,7 @@ try:
     from .dns import Dns
     from .environment import Environment
     from .error import RenderError
-    from .formatter import escape_dollar
+    from .formatter import escape_dollar, get_image_with_hashed_data
     from .healthcheck import Healthcheck
     from .labels import Labels
     from .ports import Ports
@@ -26,7 +26,7 @@ except ImportError:
     from dns import Dns
     from environment import Environment
     from error import RenderError
-    from formatter import escape_dollar
+    from formatter import escape_dollar, get_image_with_hashed_data
     from healthcheck import Healthcheck
     from labels import Labels
     from ports import Ports
@@ -41,6 +41,7 @@ class Container:
 
         self._name: str = name
         self._image: str = self._resolve_image(image)  # TODO: account for inline dockerfile
+        self._build_image: str = ""
         self._user: str = ""
         self._tty: bool = False
         self._stdin_open: bool = False
@@ -87,6 +88,22 @@ class Container:
             raise RenderError(f"Tag not found for image [{image}]")
 
         return f"{repo}:{tag}"
+
+    def build_image(self, content: list[str | None]):
+        dockerfile = f"FROM {self._image}\n"
+        for line in content:
+            if not line:
+                continue
+            if line.startswith("FROM"):
+                # TODO: This will also block multi-stage builds
+                # We can revisit this later if we need it
+                raise RenderError(
+                    "FROM cannot be used in build image. Define the base image when creating the container."
+                )
+            dockerfile += line + "\n"
+
+        self._build_image = dockerfile
+        self._image = get_image_with_hashed_data(self._image, dockerfile)
 
     def set_user(self, user: int, group: int):
         for i in (user, group):
@@ -143,6 +160,8 @@ class Container:
             "cap_drop": sorted(self._cap_drop),
             "healthcheck": self.healthcheck.render(),
         }
+        if self._build_image:
+            result["build"] = {"tags": [self._image], "dockerfile_inline": self._build_image}
 
         if self.configs.has_configs():
             result["configs"] = self.configs.render()
