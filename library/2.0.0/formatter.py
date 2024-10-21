@@ -18,7 +18,7 @@ def get_hashed_name_for_volume(prefix: str, config: dict):
 
 
 def get_hash_with_prefix(prefix: str, data: str):
-    return f"{prefix}_{hashlib.sha256(data.encode("utf-8")).hexdigest()}"
+    return f"{prefix}_{hashlib.sha256(data.encode('utf-8')).hexdigest()}"
 
 
 def merge_dicts_no_overwrite(dict1, dict2):
