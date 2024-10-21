@@ -2,7 +2,6 @@ import copy
 
 try:
     from .container import Container
-    from .container_permissions import ContainerPermissions
     from .configs import Configs
     from .deps import Deps
     from .error import RenderError
@@ -12,7 +11,6 @@ try:
     from .volumes import Volumes
 except ImportError:
     from container import Container
-    from container_permissions import ContainerPermissions
     from configs import Configs
     from deps import Deps
     from error import RenderError
@@ -30,8 +28,6 @@ class Render(object):
         # Make a copy after we inject the images
         self._original_values: dict = copy.deepcopy(self.values)
 
-        self._permissions_container: ContainerPermissions = ContainerPermissions(self)
-
         self.deps: Deps = Deps(self)
 
         self.configs = Configs(render_instance=self)
@@ -47,12 +43,6 @@ class Render(object):
         if "python_permissions_image" not in self.values["images"]:
             self.values["images"]["python_permissions_image"] = {"repository": "python", "tag": "3.13.0-slim-bookworm"}
 
-    def has_permissions_actions(self):
-        return self._permissions_container.has_actions()
-
-    def permissions_container_name(self):
-        return self._permissions_container._name
-
     def container_names(self):
         return list(self._containers.keys())
 
@@ -66,9 +56,6 @@ class Render(object):
     def render(self):
         if self.values != self._original_values:
             raise RenderError("Values have been modified since the renderer was created.")
-
-        if self.has_permissions_actions():
-            self._permissions_container.finalize_container()
 
         if not self._containers:
             raise RenderError("No containers added.")

@@ -545,6 +545,18 @@ def test_tmpfs_volume(mock_values):
     ]
 
 
+def test_temporary_volume(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    vol_config = {"type": "temporary", "volume_config": {"volume_name": "test_temp_volume"}}
+    c1.add_storage("/some/path", vol_config)
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {"type": "volume", "target": "/some/path", "read_only": False, "volume": {"nocopy": False}}
+    ]
+
+
 def test_docker_volume_missing_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

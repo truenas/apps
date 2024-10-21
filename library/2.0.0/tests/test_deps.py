@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from render import Render
@@ -32,16 +33,21 @@ def test_add_postgres(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    render.deps.postgres(
+    perms_container = render.deps.perms("perms_container")
+    p = render.deps.postgres(
         "pg_container",
         "pg_image",
         {
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
         },
+        perms_container,
     )
+    if perms_container.has_actions():
+        perms_container.activate()
+        p.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
     assert "devices" not in output["services"]["pg_container"]
     assert "reservations" not in output["services"]["pg_container"]["deploy"]["resources"]
@@ -73,6 +79,9 @@ def test_add_postgres(mock_values):
         "POSTGRES_DB": "test_database",
         "POSTGRES_PORT": "5432",
     }
+    assert output["services"]["pg_container"]["depends_on"] == {
+        "perms_container": {"condition": "service_completed_successfully"}
+    }
 
 
 def test_add_redis_missing_config(mock_values):
@@ -92,14 +101,19 @@ def test_add_redis(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    render.deps.redis(
+    perms_container = render.deps.perms("perms_container")
+    r = render.deps.redis(
         "redis_container",
         "redis_image",
         {
             "password": "test_password",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
         },
+        perms_container,
     )
+    if perms_container.has_actions():
+        perms_container.activate()
+        r.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
     assert "devices" not in output["services"]["redis_container"]
     assert "reservations" not in output["services"]["redis_container"]["deploy"]["resources"]
@@ -130,6 +144,9 @@ def test_add_redis(mock_values):
         "REDIS_PASSWORD": "test_password",
         "REDIS_PORT_NUMBER": "6379",
     }
+    assert output["services"]["redis_container"]["depends_on"] == {
+        "perms_container": {"condition": "service_completed_successfully"}
+    }
 
 
 def test_add_mariadb_missing_config(mock_values):
@@ -149,16 +166,21 @@ def test_add_mariadb(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    render.deps.mariadb(
+    perms_container = render.deps.perms("perms_container")
+    m = render.deps.mariadb(
         "mariadb_container",
         "mariadb_image",
         {
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
         },
+        perms_container,
     )
+    if perms_container.has_actions():
+        perms_container.activate()
+        m.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
     assert "devices" not in output["services"]["mariadb_container"]
     assert "reservations" not in output["services"]["mariadb_container"]["deploy"]["resources"]
@@ -191,3 +213,98 @@ def test_add_mariadb(mock_values):
         "MARIADB_DATABASE": "test_database",
         "MARIADB_AUTO_UPGRADE": "true",
     }
+    assert output["services"]["mariadb_container"]["depends_on"] == {
+        "perms_container": {"condition": "service_completed_successfully"}
+    }
+
+
+def test_add_perms_container(mock_values):
+    mock_values["ix_volumes"] = {
+        "test_dataset1": "/mnt/test/1",
+        "test_dataset2": "/mnt/test/2",
+        "test_dataset3": "/mnt/test/3",
+    }
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+
+    # fmt: off
+    volume_perms = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    volume_no_perms = {"type": "volume", "volume_config": {"volume_name": "test_volume"}}
+    host_path_perms = {"type": "host_path", "host_path_config": {"path": "/mnt/test"}, "auto_permissions": True}
+    host_path_no_perms = {"type": "host_path", "host_path_config": {"path": "/mnt/test"}}
+    host_path_acl_perms = {"type": "host_path", "host_path_config": {"acl":{"path": "/mnt/test"}, "acl_enable": True}, "auto_permissions": True} # noqa
+    ix_volume_no_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset1"}}
+    ix_volume_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset2"}, "auto_permissions": True} # noqa
+    ix_volume_acl_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset3", "acl_enable": True}, "auto_permissions": True} # noqa
+    temp_volume = {"type": "temporary", "volume_config": {"volume_name": "test_temp_volume"}}
+    # fmt: on
+
+    c1.add_storage("/some/path1", volume_perms)
+    c1.add_storage("/some/path2", volume_no_perms)
+    c1.add_storage("/some/path3", host_path_perms)
+    c1.add_storage("/some/path4", host_path_no_perms)
+    c1.add_storage("/some/path5", host_path_acl_perms)
+    c1.add_storage("/some/path6", ix_volume_no_perms)
+    c1.add_storage("/some/path7", ix_volume_perms)
+    c1.add_storage("/some/path8", ix_volume_acl_perms)
+    c1.add_storage("/some/path9", temp_volume)
+
+    perms_container = render.deps.perms("test_perms_container")
+    perms_container.add_action("data", volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_action("data2", volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_action("data3", host_path_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_action("data4", host_path_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_action("data5", host_path_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_action("data6", ix_volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_action("data7", ix_volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_action("data8", ix_volume_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_action("data9", temp_volume, {"uid": 1000, "gid": 1000, "mode": "check"})
+
+    if perms_container.has_actions():
+        perms_container.activate()
+        c1.depends.add_dependency("test_perms_container", "service_completed_successfully")
+    output = render.render()
+    assert output["services"]["test_container"]["depends_on"] == {
+        "test_perms_container": {"condition": "service_completed_successfully"}
+    }
+    assert output["configs"]["permissions_run_script"]["content"] != ""
+    # fmt: off
+    content = [
+        {"mount_path": "/mnt/permission/data", "is_temporary": False, "source": "data", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data3", "is_temporary": False, "source": "data3", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data6", "is_temporary": False, "source": "data6", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data7", "is_temporary": False, "source": "data7", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data9", "is_temporary": True, "source": "data9", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+    ]
+    # fmt: on
+    assert output["configs"]["permissions_actions_data"]["content"] == json.dumps(content)
+
+
+def test_add_duplicate_perms_action(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    c1.add_storage("/some/path", vol_config)
+    perms_container = render.deps.perms("test_perms_container")
+    perms_container.add_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+    with pytest.raises(Exception):
+        perms_container.add_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+
+
+def test_add_perm_action_without_auto_perms_enabled(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": False}
+    c1.add_storage("/some/path", vol_config)
+    perms_container = render.deps.perms("test_perms_container")
+    perms_container.add_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+    if perms_container.has_actions():
+        perms_container.activate()
+        c1.depends.add_dependency("test_perms_container", "service_completed_successfully")
+    output = render.render()
+    assert "configs" not in output
+    assert "ix-test_perms_container" not in output["services"]
+    assert "depends_on" not in output["services"]["test_container"]
