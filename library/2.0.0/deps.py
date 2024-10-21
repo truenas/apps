@@ -45,7 +45,7 @@ class PermsContainer:
         self.actions: set[str] = set()
         self.parsed_configs: list[dict] = []
 
-    def add_action(self, identifier: str, volume_config: "IxStorage", action_config: dict):
+    def add_or_skip_action(self, identifier: str, volume_config: "IxStorage", action_config: dict):
         identifier = self.normalize_identifier_for_path(identifier)
         if identifier in self.actions:
             raise RenderError(f"Action with id [{identifier}] already used for another permission action")
@@ -272,7 +272,7 @@ class Deps:
         c.deploy.resources.remove_devices()
 
         c.add_storage("/var/lib/postgresql/data", config["volume"])
-        perms_instance.add_action("postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"})
+        perms_instance.add_or_skip_action("postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"})
 
         c.environment.add_env("POSTGRES_USER", config["user"])
         c.environment.add_env("POSTGRES_PASSWORD", config["password"])
@@ -296,7 +296,7 @@ class Deps:
         c.deploy.resources.remove_devices()
 
         c.add_storage("/bitnami/redis/data", config["volume"])
-        perms_instance.add_action("redis_data", config["volume"], {"uid": 1001, "gid": 0, "mode": "check"})
+        perms_instance.add_or_skip_action("redis_data", config["volume"], {"uid": 1001, "gid": 0, "mode": "check"})
 
         c.environment.add_env("ALLOW_EMPTY_PASSWORD", "no")
         c.environment.add_env("REDIS_PASSWORD", config["password"])
@@ -321,7 +321,7 @@ class Deps:
         c.deploy.resources.remove_devices()
 
         c.add_storage("/var/lib/mysql", config["volume"])
-        perms_instance.add_action("mariadb_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"})
+        perms_instance.add_or_skip_action("mariadb_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"})
 
         c.environment.add_env("MARIADB_USER", config["user"])
         c.environment.add_env("MARIADB_PASSWORD", config["password"])

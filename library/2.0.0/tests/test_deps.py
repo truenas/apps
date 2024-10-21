@@ -251,15 +251,15 @@ def test_add_perms_container(mock_values):
     c1.add_storage("/some/path9", temp_volume)
 
     perms_container = render.deps.perms("test_perms_container")
-    perms_container.add_action("data", volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_action("data2", volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_action("data3", host_path_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_action("data4", host_path_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_action("data5", host_path_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_action("data6", ix_volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_action("data7", ix_volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_action("data8", ix_volume_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_action("data9", temp_volume, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data", volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data2", volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data3", host_path_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data4", host_path_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data5", host_path_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data6", ix_volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data7", ix_volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data8", ix_volume_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data9", temp_volume, {"uid": 1000, "gid": 1000, "mode": "check"})
 
     if perms_container.has_actions():
         perms_container.activate()
@@ -288,9 +288,9 @@ def test_add_duplicate_perms_action(mock_values):
     vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
     c1.add_storage("/some/path", vol_config)
     perms_container = render.deps.perms("test_perms_container")
-    perms_container.add_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
     with pytest.raises(Exception):
-        perms_container.add_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+        perms_container.add_or_skip_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
 
 
 def test_add_perm_action_without_auto_perms_enabled(mock_values):
@@ -300,7 +300,7 @@ def test_add_perm_action_without_auto_perms_enabled(mock_values):
     vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": False}
     c1.add_storage("/some/path", vol_config)
     perms_container = render.deps.perms("test_perms_container")
-    perms_container.add_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
     if perms_container.has_actions():
         perms_container.activate()
         c1.depends.add_dependency("test_perms_container", "service_completed_successfully")
