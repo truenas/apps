@@ -271,11 +271,11 @@ def test_add_perms_container(mock_values):
     assert output["configs"]["permissions_run_script"]["content"] != ""
     # fmt: off
     content = [
-        {"mount_path": "/mnt/permission/data", "is_temporary": False, "source": "data", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data3", "is_temporary": False, "source": "data3", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data6", "is_temporary": False, "source": "data6", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data7", "is_temporary": False, "source": "data7", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data9", "is_temporary": True, "source": "data9", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data", "is_temporary": False, "identifier": "data", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data3", "is_temporary": False, "identifier": "data3", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data6", "is_temporary": False, "identifier": "data6", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data7", "is_temporary": False, "identifier": "data7", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data9", "is_temporary": True, "identifier": "data9", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
     ]
     # fmt: on
     assert output["configs"]["permissions_actions_data"]["content"] == json.dumps(content)
