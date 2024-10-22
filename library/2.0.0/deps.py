@@ -100,7 +100,7 @@ class PermsContainer:
             "action_data": {
                 "mount_path": mount_path,
                 "is_temporary": is_temporary,
-                "source": identifier,
+                "identifier": identifier,
                 "mode": mode,
                 "uid": uid,
                 "gid": gid,
@@ -108,8 +108,8 @@ class PermsContainer:
             },
         }
 
-    def normalize_identifier_for_path(self, source: str):
-        return source.rstrip("/").lstrip("/").lower().replace("/", "_").replace(".", "-").replace(" ", "-")
+    def normalize_identifier_for_path(self, identifier: str):
+        return identifier.rstrip("/").lstrip("/").lower().replace("/", "_").replace(".", "-").replace(" ", "-")
 
     def has_actions(self):
         return bool(self.actions)
@@ -188,7 +188,7 @@ def print_chmod_diff(curr_stat, mode):
 
 def perform_action(action):
     start_time = time.time()
-    print(f"=== Applying configuration on volume with source [{action['source']}] ===")
+    print(f"=== Applying configuration on volume with identifier [{action['identifier']}] ===")
 
     if not os.path.isdir(action["mount_path"]):
         print(f"Path [{action['mount_path']}] is not a directory, skipping...")
@@ -242,7 +242,7 @@ def perform_action(action):
                 print("Permissions are correct. Skipping...")
 
     print(f"Time taken: {(time.time() - start_time) * 1000:.2f}ms")
-    print(f"=== Finished applying configuration on volume with source [{action['source']}] ===")
+    print(f"=== Finished applying configuration on volume with identifier [{action['identifier']}] ===")
 
 if __name__ == "__main__":
     start_time = time.time()
