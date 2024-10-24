@@ -25,7 +25,10 @@
 
 {% do backend.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do exporter.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do frontend.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+  # FIXME: v2.4.0 change this to rootless
+{# {% do frontend.set_user(values.consts.run_as_user, values.consts.run_as_group) %} #}
+{% do frontend.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+{% do frontend.set_user(0, 0) %}
 
 {% do backend.healthcheck.set_test("curl", {"port": values.consts.backend_port, "path": "/readyz"}) %}
 {% do exporter.healthcheck.set_test("curl", {"port": values.consts.exporter_port, "path": "/readyz"}) %}
@@ -42,10 +45,12 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
+{% set redis_uri = "redis://default:%s@%s:6379/0"|format(values.penpot.redis_password, values.consts.redis_container_name) %}
+
 {% do backend.environment.add_env("PENPOT_TELEMETRY_ENABLED", values.penpot.enable_telemetry) %}
 {% do backend.environment.add_env("PENPOT_HTTP_SERVER_PORT", values.consts.backend_port) %}
 {% do backend.environment.add_env("PENPOT_HTTP_SERVER_HOST", "0.0.0.0") %}
-{% do backend.environment.add_env("PENPOT_REDIS_URI", "redis://%s:6379/0"|format(values.consts.redis_container_name)) %}
+{% do backend.environment.add_env("PENPOT_REDIS_URI", redis_uri) %}
 {% do backend.environment.add_env("PENPOT_DATABASE_USERNAME", values.consts.db_user) %}
 {% do backend.environment.add_env("PENPOT_DATABASE_PASSWORD", values.penpot.db_password) %}
 {% do backend.environment.add_env("PENPOT_DATABASE_URI", "postgresql://%s:5432/%s"|format(values.consts.postgres_container_name, values.consts.db_name)) %}
@@ -55,7 +60,7 @@
 {% do backend.environment.add_user_envs(values.penpot.additional_envs) %}
 
 {% do exporter.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
-{% do exporter.environment.add_env("PENPOT_REDIS_URI", "redis://%s:6379/0"|format(values.consts.redis_container_name)) %}
+{% do exporter.environment.add_env("PENPOT_REDIS_URI", redis_uri) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_PORT", values.consts.exporter_port) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_HOST", "0.0.0.0") %}
 
@@ -83,5 +88,7 @@
   {% do exporter.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do frontend.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
+
+{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
 
 {{ tpl.render() | tojson }}
