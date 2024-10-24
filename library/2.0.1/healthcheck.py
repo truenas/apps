@@ -182,7 +182,7 @@ def postgres_test(config: dict) -> str:
     port = get_key(config, "port", 5432, False)
     host = get_key(config, "host", "127.0.0.1", False)
 
-    return f"pg_isready -h {host} -p {port} -U $POSTGRES_USERNAME -d $POSTGRES_DATABASE"
+    return f"pg_isready -h {host} -p {port} -U $POSTGRES_USER -d $POSTGRES_DB"
 
 
 def mariadb_test(config: dict) -> str:

@@ -56,7 +56,7 @@ def test_add_postgres(mock_values):
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["pg_container"]["healthcheck"] == {
-        "test": "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USERNAME -d $$POSTGRES_DATABASE",
+        "test": "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB",
         "interval": "10s",
         "timeout": "5s",
         "retries": 30,
