@@ -242,7 +242,8 @@ def perform_action(action):
                 print("Permissions are correct. Skipping...")
 
     print(f"Time taken: {(time.time() - start_time) * 1000:.2f}ms")
-    print(f"=== Finished applying configuration on volume with identifier [{action['identifier']}] ===")
+    print(f"=== Finished applying configuration on volume with identifier [{action['identifier']}] ==")
+    print()
 
 if __name__ == "__main__":
     start_time = time.time()
