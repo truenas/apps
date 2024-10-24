@@ -13,15 +13,15 @@
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
 
 {% set redis_config = {
-  "password": values.penpot.password,
+  "password": values.penpot.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
 {% do backend.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do backend.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do exporter.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
-{% do frontend.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
+{% do exporter.depends.add_dependency(values.consts.penpot_backend_container_name, "service_healthy") %}
+{% do frontend.depends.add_dependency(values.consts.penpot_backend_container_name, "service_healthy") %}
 
 {% do backend.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do exporter.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
@@ -29,6 +29,8 @@
 
 {% do backend.healthcheck.set_test("curl", {"port": values.consts.backend_port, "path": "/readyz"}) %}
 {% do exporter.healthcheck.set_test("curl", {"port": values.consts.exporter_port, "path": "/readyz"}) %}
+{% do frontend.healthcheck.disable() %}
+{# {% do frontend.healthcheck.set_test("curl", {"port": values.consts.frontend_port, "path": "/readyz"}) %} #}
 
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check", "chmod": "0777"} %}
 {% do backend.add_storage(values.consts.assets_path, values.storage.assets) %}
@@ -60,11 +62,15 @@
 {% do frontend.environment.add_env("PENPOT_BACKEND_URI", "http://%s:%d"|format(values.consts.penpot_backend_container_name, values.consts.backend_port)) %}
 {% do frontend.environment.add_env("PENPOT_EXPORTER_URI", "http://%s:%d"|format(values.consts.penpot_exporter_container_name, values.consts.exporter_port)) %}
 
-{% set flags = ["%s-%s"|format("enabled" if flag.enabled else "disabled", flag.name) for flag in values.penpot.flags] %}
-{% if flags %}
-  {% do backend.environment.add_env("PENPOT_FLAGS", " ".join(flags)) %}
-  {% do frontend.environment.add_env("PENPOT_FLAGS", " ".join(flags)) %}
-  {% do exporter.environment.add_env("PENPOT_FLAGS", " ".join(flags)) %}
+{% set flags = namespace(x=[]) %}
+{% for flag in values.penpot.flags %}
+  {% do flags.x.append("%s-%s"|format("enabled" if flag.enabled else "disabled", flag.name)) %}
+{% endfor %}
+
+{% if flags.x %}
+  {% do backend.environment.add_env("PENPOT_FLAGS", " ".join(flags.x)) %}
+  {% do frontend.environment.add_env("PENPOT_FLAGS", " ".join(flags.x)) %}
+  {% do exporter.environment.add_env("PENPOT_FLAGS", " ".join(flags.x)) %}
 {% endif %}
 
 {% do frontend.ports.add_port(values.network.web_port, values.consts.frontend_port) %}
