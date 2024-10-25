@@ -32,8 +32,7 @@
 
 {% do backend.healthcheck.set_test("curl", {"port": values.consts.backend_port, "path": "/readyz"}) %}
 {% do exporter.healthcheck.set_test("curl", {"port": values.consts.exporter_port, "path": "/readyz"}) %}
-{% do frontend.healthcheck.disable() %} # FIXME: add healthcheck
-{# {% do frontend.healthcheck.set_test("curl", {"port": values.consts.frontend_port, "path": "/readyz"}) %} #}
+{% do frontend.healthcheck.set_test("curl", {"port": values.consts.frontend_port, "path": "/readyz"}) %}
 
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check", "chmod": "0777"} %}
 {% do backend.add_storage(values.consts.assets_path, values.storage.assets) %}
@@ -58,18 +57,29 @@
 {% do backend.environment.add_env("PENPOT_ASSETS_STORAGE_BACKEND", "assets-fs") %}
 {% do backend.environment.add_env("PENPOT_STORAGE_ASSETS_FS_DIRECTORY", values.consts.assets_path) %}
 {% do backend.environment.add_user_envs(values.penpot.additional_envs) %}
+{% do backend.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
 
 {% do exporter.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
 {% do exporter.environment.add_env("PENPOT_REDIS_URI", redis_uri) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_PORT", values.consts.exporter_port) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_HOST", "0.0.0.0") %}
 
+{% do frontend.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
 {% do frontend.environment.add_env("PENPOT_BACKEND_URI", "http://%s:%d"|format(values.consts.penpot_backend_container_name, values.consts.backend_port)) %}
 {% do frontend.environment.add_env("PENPOT_EXPORTER_URI", "http://%s:%d"|format(values.consts.penpot_exporter_container_name, values.consts.exporter_port)) %}
 
 {% set flags = namespace(x=[]) %}
+{% set flag_names = values.penpot.flags | map(attribute="name") | list %}
+{% if flag_names | unique | list | length != flag_names | length %}
+  {% do tpl.funcs.fail("Flag names must be unique, got [%s]"|format(flag_names | join(", "))) %}
+{% endif %}
+
 {% for flag in values.penpot.flags %}
-  {% do flags.x.append("%s-%s"|format("enabled" if flag.enabled else "disabled", flag.name)) %}
+  {% if flag.name.startswith("enable-") or flag.name.startswith("disable-") %}
+    {% do tpl.funcs.fail("Flag name [%s] cannot start with [enable-] or [disable-], use the checkbox instead."|format(flag.name)) %}
+  {% endif %}
+
+  {% do flags.x.append("%s-%s"|format("enable" if flag.enabled else "disable", flag.name)) %}
 {% endfor %}
 
 {% if flags.x %}
