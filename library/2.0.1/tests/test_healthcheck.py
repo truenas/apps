@@ -172,7 +172,7 @@ def test_postgres_healthcheck(mock_values):
     output = render.render()
     assert (
         output["services"]["test_container"]["healthcheck"]["test"]
-        == "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USERNAME -d $$POSTGRES_DATABASE"
+        == "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB"
     )
 
 
