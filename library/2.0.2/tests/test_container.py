@@ -66,6 +66,7 @@ def test_hostname(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.set_hostname("test_hostname")
+    c1.healthcheck.disable()
     output = render.render()
     assert output["services"]["test_container"]["hostname"] == "test_hostname"
 
