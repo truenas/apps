@@ -62,6 +62,14 @@ def test_stdin(mock_values):
     assert output["services"]["test_container"]["stdin_open"] is True
 
 
+def test_hostname(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.set_hostname("test_hostname")
+    output = render.render()
+    assert output["services"]["test_container"]["hostname"] == "test_hostname"
+
+
 def test_grace_period(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
