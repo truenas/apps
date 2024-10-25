@@ -28,7 +28,7 @@
 
   {# Default name plus index only if cluster size > 1 #}
   {% if values.asigra.cluster_size > 1 %}
-    {% set container_name = "%s-%d" |format(values.consts.asigra_container_name, loop.index0) %}
+    {% set container_name = "%s-%d" |format(values.consts.asigra_container_name, loop.index0 + 1) %}
   {% endif %}
   {% do asigra_container_names.x.append(container_name) %}
 
@@ -38,6 +38,8 @@
   {% do c.set_user(0, 0) %}
   {% do c.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
   {% do c.healthcheck.set_custom_test("/Health-Check.sh") %}
+
+  {% do c.set_hostname(container_name) %}
 
   {% do c.add_storage(values.consts.data_path, values.storage.data) %}
   {% for store in values.storage.additional_storage %}
@@ -67,7 +69,7 @@
       {% do c.depends.add_dependency(asigra_container_names.x[0], "service_healthy") %}
     {% endif %}
     {% do c.environment.add_env("CLUSTER_SIZE", values.asigra.cluster_size) %}
-    {% do c.environment.add_env("CLUSTERID", loop.index0) %}
+    {% do c.environment.add_env("CLUSTERID", loop.index0 + 1) %}
 
   {% endif %}
 {% endfor %}

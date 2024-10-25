@@ -46,6 +46,7 @@ class Container:
         self._user: str = ""
         self._tty: bool = False
         self._stdin_open: bool = False
+        self._hostname: str = ""
         self._cap_drop: set[str] = set(["ALL"])  # Drop all capabilities by default and add caps granularly
         self._cap_add: set[str] = set()
         self._security_opt: set[str] = set(["no-new-privileges"])
@@ -118,6 +119,9 @@ class Container:
     def set_stdin(self, enabled: bool = False):
         self._stdin_open = enabled
 
+    def set_hostname(self, hostname: str):
+        self._hostname = hostname
+
     def set_grace_period(self, grace_period: int):
         if grace_period < 0:
             raise RenderError(f"Grace period [{grace_period}] cannot be negative")
@@ -161,6 +165,10 @@ class Container:
             "cap_drop": sorted(self._cap_drop),
             "healthcheck": self.healthcheck.render(),
         }
+
+        if self._hostname:
+            result["hostname"] = self._hostname
+
         if self._build_image:
             result["build"] = {"tags": [self._image], "dockerfile_inline": self._build_image}
 
