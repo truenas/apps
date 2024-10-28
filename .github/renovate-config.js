@@ -50,6 +50,11 @@ module.exports = {
       },
     },
     {
+      matchManagers: ["github-actions"],
+      addLabels: ["actions"],
+      groupName: "gh-actions",
+    },
+    {
       matchDatasources: ["docker"],
       matchUpdateTypes: ["major"],
       labels: ["major"],
