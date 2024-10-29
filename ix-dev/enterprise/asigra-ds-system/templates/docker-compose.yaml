@@ -21,13 +21,17 @@
 {% set perms_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set postgres_container = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_conf, perms_container) %}
 
+{# Asigra needs the hostname to be set, even if the PGHOST is set and internal dns resolves to the container #}
+{% do postgers_container.set_hostname(values.consts.postgres_container_name) %}
+
 {# Create asigra containers #}
 {% set asigra_container_names = namespace(x=[]) %}
-{% for i in range(values.asigra.cluster_size) %}
+{% set cluster_size = values.asigra.cluster_size or 1 %}
+{% for i in range(cluster_size) %}
   {% set container_name = values.consts.asigra_container_name %}
 
   {# Default name plus index only if cluster size > 1 #}
-  {% if values.asigra.cluster_size > 1 %}
+  {% if cluster_size > 1 %}
     {% set container_name = "%s-%d" |format(values.consts.asigra_container_name, loop.index0 + 1) %}
   {% endif %}
   {% do asigra_container_names.x.append(container_name) %}
@@ -57,21 +61,21 @@
   {% do c.environment.add_env("ADMINPASSWORD", values.asigra.admin_password) %}
   {% do c.environment.add_env("OPERPASSWORD", values.asigra.operator_password) %}
 
-  {% if values.asigra.cluster_size == 1 %}
+  {% if cluster_size == 1 %}
 
     {% do c.ports.add_port(values.network.client_port, 4401) %}
     {% do c.ports.add_port(values.network.admin_port, 4404) %}
 
   {% else %}
 
-    {% do c.environment.add_env("CLUSTERSIZE", values.asigra.cluster_size) %}
+    {% do c.environment.add_env("CLUSTERSIZE", cluster_size) %}
     {% do c.environment.add_env("CLUSTERID", loop.index0 + 1) %}
 
   {% endif %}
 {% endfor %}
 
 {# On cluster size > 1, we need to create a haproxy container #}
-{% if values.asigra.cluster_size > 1 %}
+{% if cluster_size > 1 %}
   {% set haproxy_container = tpl.add_container(values.consts.haproxy_container_name, "haproxy_image") %}
   {% do haproxy_container.set_user(568, 568) %}
   {% do haproxy_container.ports.add_port(values.network.client_port, 4401) %}
