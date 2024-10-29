@@ -53,6 +53,7 @@ module.exports = {
       matchManagers: ["github-actions"],
       addLabels: ["actions"],
       groupName: "gh-actions",
+      additionalBranchPrefix: "gh-actions",
     },
     {
       matchDatasources: ["docker"],
