@@ -129,7 +129,7 @@ class PermsContainer:
         # Don't attach any devices
         c.deploy.resources.remove_devices()
         c.deploy.resources.set_profile("medium")
-        c.restart.set_policy("on-failure", maximum_retry_count=0)
+        c.restart.set_policy("on-failure", maximum_retry_count=1)
         c.healthcheck.disable()
 
         c.set_entrypoint(["python3", "/script/run.py"])
