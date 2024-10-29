@@ -1,0 +1,529 @@
+name: 9d7c15ab5256a397d4f108676ac1e9e4
+services:
+  cron:
+    build:
+      context: /Users/skois/projects/ix/apps/ix-dev/stable/nextcloud/templates/rendered
+      dockerfile_inline: |
+        FROM nextcloud:30.0.1
+        RUN apt update || { echo 'Failed to update apt cache. Exiting...'; exit 1; }
+        RUN apt install -y --no-install-recommends ffmpeg || { echo 'Failed to install [ffmpeg]. Exiting...'; exit 1; }
+        RUN apt install -y --no-install-recommends smbclient || { echo 'Failed to install [smbclient]. Exiting...'; exit 1; }
+        RUN apt install -y --no-install-recommends libsmbclient-dev || { echo 'Failed to install [libsmbclient-dev]. Exiting...'; exit 1; }
+        RUN pecl install smbclient || { echo 'Failed to install [smbclient]. Exiting...'; exit 1; }
+        RUN docker-php-ext-enable smbclient || { echo 'Failed to install [smbclient]. Exiting...'; exit 1; }
+        RUN ldd "$$(php -r 'echo ini_get("extension_dir");')"/smbclient.so || { echo 'Failed to install [smbclient.so]. Exiting...'; exit 1; }
+      tags:
+        - ix-nextcloud:30.0.1_90cfe2e93908023302c2ea87d27b33180746b9ffdfbb7ed6ac92c36042cf7dbe
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - NET_BIND_SERVICE
+      - NET_RAW
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    command:
+      - |-
+        echo '*/5 * * * * php -f /var/www/html/cron.php' > /var/spool/cron/crontabs/www-data || { echo 'Failed to create crontab'; exit 1; }
+        /cron.sh || { echo 'Failed to run cron'; exit 1; }
+    configs:
+      - source: limitrequestbody.conf
+        target: /etc/apache2/conf-enabled/limitrequestbody.conf
+      - source: occ
+        target: /usr/local/bin/occ
+        mode: 493
+      - source: opcache.ini
+        target: /usr/local/etc/php/conf.d/opcache-z-99.ini
+      - source: php.ini
+        target: /usr/local/etc/php/conf.d/nextcloud-z-99.ini
+    depends_on:
+      nextcloud:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    entrypoint:
+      - /bin/sh
+      - -c
+    environment:
+      NEXTCLOUD_ADMIN_PASSWORD: password
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_DATA_DIR: /var/www/html/data
+      NEXTCLOUD_TRUSTED_DOMAINS: 127.0.0.1 localhost nextcloud cloud.example.com:443
+      NVIDIA_VISIBLE_DEVICES: void
+      PHP_MEMORY_LIMIT: 512M
+      PHP_UPLOAD_LIMIT: 3G
+      POSTGRES_DB: nextcloud
+      POSTGRES_HOST: postgres:5432
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: nextcloud
+      REDIS_HOST: redis
+      REDIS_HOST_PASSWORD: password
+      REDIS_HOST_PORT: "6379"
+      TZ: Etc/UTC
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pidof busybox > /dev/null
+      timeout: 5s
+      interval: 10s
+      retries: 30
+      start_period: 10s
+    image: ix-nextcloud:30.0.1_90cfe2e93908023302c2ea87d27b33180746b9ffdfbb7ed6ac92c36042cf7dbe
+    networks:
+      default: null
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    user: "0:0"
+    volumes:
+      - type: volume
+        target: /tmp
+        volume: {}
+      - type: bind
+        source: /opt/tests/mnt/host_html/html
+        target: /var/www/html
+        bind:
+          propagation: rprivate
+          create_host_path: true
+      - type: bind
+        source: /opt/tests/mnt/host_html/config
+        target: /var/www/html/config
+        bind:
+          propagation: rprivate
+          create_host_path: true
+      - type: bind
+        source: /opt/tests/mnt/host_html/custom_apps
+        target: /var/www/html/custom_apps
+        bind:
+          propagation: rprivate
+          create_host_path: true
+      - type: bind
+        source: /opt/tests/mnt/host_html/themes
+        target: /var/www/html/themes
+        bind:
+          propagation: rprivate
+          create_host_path: true
+  nextcloud:
+    build:
+      context: /Users/skois/projects/ix/apps/ix-dev/stable/nextcloud/templates/rendered
+      dockerfile_inline: |
+        FROM nextcloud:30.0.1
+        RUN apt update || { echo 'Failed to update apt cache. Exiting...'; exit 1; }
+        RUN apt install -y --no-install-recommends ffmpeg || { echo 'Failed to install [ffmpeg]. Exiting...'; exit 1; }
+        RUN apt install -y --no-install-recommends smbclient || { echo 'Failed to install [smbclient]. Exiting...'; exit 1; }
+        RUN apt install -y --no-install-recommends libsmbclient-dev || { echo 'Failed to install [libsmbclient-dev]. Exiting...'; exit 1; }
+        RUN pecl install smbclient || { echo 'Failed to install [smbclient]. Exiting...'; exit 1; }
+        RUN docker-php-ext-enable smbclient || { echo 'Failed to install [smbclient]. Exiting...'; exit 1; }
+        RUN ldd "$$(php -r 'echo ini_get("extension_dir");')"/smbclient.so || { echo 'Failed to install [smbclient.so]. Exiting...'; exit 1; }
+      tags:
+        - ix-nextcloud:30.0.1_90cfe2e93908023302c2ea87d27b33180746b9ffdfbb7ed6ac92c36042cf7dbe
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - NET_BIND_SERVICE
+      - NET_RAW
+      - SETGID
+      - SETUID
+    cap_drop:
+      - ALL
+    configs:
+      - source: ix-update-hosts-script.sh
+        target: /docker-entrypoint-hooks.d/before-starting/ix-update-hosts-script.sh
+        mode: 493
+      - source: limitrequestbody.conf
+        target: /etc/apache2/conf-enabled/limitrequestbody.conf
+      - source: occ
+        target: /usr/local/bin/occ
+        mode: 493
+      - source: opcache.ini
+        target: /usr/local/etc/php/conf.d/opcache-z-99.ini
+      - source: php.ini
+        target: /usr/local/etc/php/conf.d/nextcloud-z-99.ini
+    depends_on:
+      permissions:
+        condition: service_completed_successfully
+        required: true
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    environment:
+      NEXTCLOUD_ADMIN_PASSWORD: password
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_DATA_DIR: /var/www/html/data
+      NEXTCLOUD_TRUSTED_DOMAINS: 127.0.0.1 localhost nextcloud cloud.example.com:443
+      NVIDIA_VISIBLE_DEVICES: void
+      PHP_MEMORY_LIMIT: 512M
+      PHP_UPLOAD_LIMIT: 3G
+      POSTGRES_DB: nextcloud
+      POSTGRES_HOST: postgres:5432
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: nextcloud
+      REDIS_HOST: redis
+      REDIS_HOST_PASSWORD: password
+      REDIS_HOST_PORT: "6379"
+      TZ: Etc/UTC
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'curl --silent --output /dev/null --show-error --fail --header "Host: localhost" http://127.0.0.1:80/status.php'
+      timeout: 5s
+      interval: 10s
+      retries: 30
+      start_period: 10s
+    image: ix-nextcloud:30.0.1_90cfe2e93908023302c2ea87d27b33180746b9ffdfbb7ed6ac92c36042cf7dbe
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 0.0.0.0
+        target: 80
+        published: "8080"
+        protocol: tcp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    user: "0:0"
+    volumes:
+      - type: volume
+        target: /tmp
+        volume: {}
+      - type: bind
+        source: /opt/tests/mnt/host_html/html
+        target: /var/www/html
+        bind:
+          propagation: rprivate
+          create_host_path: true
+      - type: bind
+        source: /opt/tests/mnt/host_html/config
+        target: /var/www/html/config
+        bind:
+          propagation: rprivate
+          create_host_path: true
+      - type: bind
+        source: /opt/tests/mnt/host_html/custom_apps
+        target: /var/www/html/custom_apps
+        bind:
+          propagation: rprivate
+          create_host_path: true
+      - type: bind
+        source: /opt/tests/mnt/host_html/themes
+        target: /var/www/html/themes
+        bind:
+          propagation: rprivate
+          create_host_path: true
+  permissions:
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+    cap_drop:
+      - ALL
+    configs:
+      - source: permissions_actions_data
+        target: /script/actions.json
+        mode: 320
+      - source: permissions_run_script
+        target: /script/run.py
+        mode: 448
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "1073741824"
+    entrypoint:
+      - python3
+      - /script/run.py
+    environment:
+      NVIDIA_VISIBLE_DEVICES: void
+      TZ: Etc/UTC
+    healthcheck:
+      disable: true
+    image: python:3.13.0-slim-bookworm
+    networks:
+      default: null
+    restart: on-failure:1
+    security_opt:
+      - no-new-privileges
+    user: "0:0"
+    volumes:
+      - type: bind
+        source: /opt/tests/mnt/postgres_data
+        target: /mnt/permission/postgres_data
+        bind:
+          propagation: rprivate
+          create_host_path: true
+      - type: volume
+        target: /mnt/permission/redis_data
+        volume: {}
+  postgres:
+    cap_drop:
+      - ALL
+    depends_on:
+      permissions:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: void
+      POSTGRES_DB: nextcloud
+      POSTGRES_PASSWORD: password
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: nextcloud
+      TZ: Etc/UTC
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB
+      timeout: 5s
+      interval: 10s
+      retries: 30
+      start_period: 10s
+    image: postgres:13.16
+    networks:
+      default: null
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    user: 999:999
+    volumes:
+      - type: bind
+        source: /opt/tests/mnt/postgres_data
+        target: /var/lib/postgresql/data
+        bind:
+          propagation: rprivate
+          create_host_path: true
+  redis:
+    cap_drop:
+      - ALL
+    depends_on:
+      permissions:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    environment:
+      ALLOW_EMPTY_PASSWORD: "no"
+      NVIDIA_VISIBLE_DEVICES: void
+      REDIS_PASSWORD: password
+      REDIS_PORT_NUMBER: "6379"
+      TZ: Etc/UTC
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli -h 127.0.0.1 -p 6379 -a $$REDIS_PASSWORD ping | grep -q PONG
+      timeout: 5s
+      interval: 10s
+      retries: 30
+      start_period: 10s
+    image: bitnami/redis:7.4.1
+    networks:
+      default: null
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    user: "1001:0"
+    volumes:
+      - type: volume
+        target: /bitnami/redis/data
+        volume: {}
+networks:
+  default:
+    name: 9d7c15ab5256a397d4f108676ac1e9e4_default
+configs:
+  ix-update-hosts-script.sh:
+    name: 9d7c15ab5256a397d4f108676ac1e9e4_ix-update-hosts-script.sh
+    content: |-
+      #!/bin/bash
+      set -e
+      config_file="/var/www/html/config/config.php"
+
+      echo "Updating database and redis host in config.php"
+      sed -i "s/\('dbhost' => '\)[^']*postgres:5432',/\1postgres:5432',/" "$$config_file"
+      occ config:system:set redis host --value="redis"
+  limitrequestbody.conf:
+    name: 9d7c15ab5256a397d4f108676ac1e9e4_limitrequestbody.conf
+    content: LimitRequestBody 3221225472
+  occ:
+    name: 9d7c15ab5256a397d4f108676ac1e9e4_occ
+    content: |-
+      #!/bin/bash
+      uid="$$(id -u)"
+      gid="$$(id -g)"
+      if [ "$$uid" = "0" ]; then
+        user='www-data'
+        group='www-data'
+      else
+        user="$$uid"
+        group="$$gid"
+      fi
+      run_as() {
+        if [ "$$(id -u)" = "0" ]; then
+          su -p "$$user" -s /bin/bash -c "php /var/www/html/occ $$(printf '%q ' "$$@")"
+        else
+          /bin/bash -c "php /var/www/html/occ $$(printf '%q ' "$$@")"
+        fi
+      }
+      run_as "$$@"
+  opcache.ini:
+    name: 9d7c15ab5256a397d4f108676ac1e9e4_opcache.ini
+    content: opcache.memory_consumption=128
+  permissions_actions_data:
+    name: 9d7c15ab5256a397d4f108676ac1e9e4_permissions_actions_data
+    content: '[{"mount_path": "/mnt/permission/postgres_data", "is_temporary": false, "identifier": "postgres_data", "mode": "check", "uid": 999, "gid": 999, "chmod": null}, {"mount_path": "/mnt/permission/redis_data", "is_temporary": true, "identifier": "redis_data", "mode": "check", "uid": 1001, "gid": 0, "chmod": null}]'
+  permissions_run_script:
+    name: 9d7c15ab5256a397d4f108676ac1e9e4_permissions_run_script
+    content: |
+      #!/usr/bin/env python3
+
+      import os
+      import json
+      import time
+      import shutil
+
+      with open("/script/actions.json", "r") as f:
+          actions_data = json.load(f)
+
+      if not actions_data:
+          # If this script is called, there should be actions data
+          raise ValueError("No actions data found")
+
+      def fix_perms(path, chmod):
+          print(f"Changing permissions to {chmod} on: [{path}]")
+          os.chmod(path, int(chmod, 8))
+          print("Permissions after changes:")
+          print_chmod_stat()
+
+      def fix_owner(path, uid, gid):
+          print(f"Changing ownership to {uid}:{gid} on: [{path}]")
+          os.chown(path, uid, gid)
+          print("Ownership after changes:")
+          print_chown_stat()
+
+      def print_chown_stat():
+          curr_stat = os.stat(action["mount_path"])
+          print(f"Ownership: [{curr_stat.st_uid}:{curr_stat.st_gid}]")
+
+      def print_chmod_stat():
+          curr_stat = os.stat(action["mount_path"])
+          print(f"Permissions: [{oct(curr_stat.st_mode)[3:]}]")
+
+      def print_chown_diff(curr_stat, uid, gid):
+          print(f"Ownership: wanted [{uid}:{gid}], got [{curr_stat.st_uid}:{curr_stat.st_gid}].")
+
+      def print_chmod_diff(curr_stat, mode):
+          print(f"Permissions: wanted [{mode}], got [{oct(curr_stat.st_mode)[3:]}].")
+
+      def perform_action(action):
+          start_time = time.time()
+          print(f"=== Applying configuration on volume with identifier [{action['identifier']}] ===")
+
+          if not os.path.isdir(action["mount_path"]):
+              print(f"Path [{action['mount_path']}] is not a directory, skipping...")
+              return
+
+          if action["is_temporary"]:
+              print(f"Path [{action['mount_path']}] is a temporary directory, ensuring it is empty...")
+              for item in os.listdir(action["mount_path"]):
+                  item_path = os.path.join(action["mount_path"], item)
+
+                  # Exclude the safe directory, where we can use to mount files temporarily
+                  if os.path.basename(item_path) == "ix-safe":
+                      continue
+                  if os.path.isdir(item_path):
+                      shutil.rmtree(item_path)
+                  else:
+                      os.remove(item_path)
+
+          if not action["is_temporary"] and os.listdir(action["mount_path"]):
+              print(f"Path [{action['mount_path']}] is not empty, skipping...")
+              return
+
+          print(f"Current Ownership and Permissions on [{action['mount_path']}]:")
+          curr_stat = os.stat(action["mount_path"])
+          print_chown_diff(curr_stat, action["uid"], action["gid"])
+          print_chmod_diff(curr_stat, action["chmod"])
+          print("---")
+
+          if action["mode"] == "always":
+              fix_owner(action["mount_path"], action["uid"], action["gid"])
+              if not action["chmod"]:
+                  print("Skipping permissions check, chmod is falsy")
+              else:
+                  fix_perms(action["mount_path"], action["chmod"])
+              return
+
+          elif action["mode"] == "check":
+              if curr_stat.st_uid != action["uid"] or curr_stat.st_gid != action["gid"]:
+                  print("Ownership is incorrect. Fixing...")
+                  fix_owner(action["mount_path"], action["uid"], action["gid"])
+              else:
+                  print("Ownership is correct. Skipping...")
+
+              if not action["chmod"]:
+                  print("Skipping permissions check, chmod is falsy")
+              else:
+                  if oct(curr_stat.st_mode)[3:] != action["chmod"]:
+                      print("Permissions are incorrect. Fixing...")
+                      fix_perms(action["mount_path"], action["chmod"])
+                  else:
+                      print("Permissions are correct. Skipping...")
+
+          print(f"Time taken: {(time.time() - start_time) * 1000:.2f}ms")
+          print(f"=== Finished applying configuration on volume with identifier [{action['identifier']}] ==")
+          print()
+
+      if __name__ == "__main__":
+          start_time = time.time()
+          for action in actions_data:
+              perform_action(action)
+          print(f"Total time taken: {(time.time() - start_time) * 1000:.2f}ms")
+  php.ini:
+    name: 9d7c15ab5256a397d4f108676ac1e9e4_php.ini
+    content: max_execution_time=30
+x-notes: |
+  # Welcome to TrueNAS SCALE
+
+  Thank you for installing <app_name>!
+
+  ## Documentation
+
+  Documentation for <app_name> can be found at https://www.truenas.com/docs.
+
+  ## Bug reports
+
+  If you find a bug in this app, please file an issue at
+  https://ixsystems.atlassian.net or https://github.com/truenas/apps
+
+  ## Feature requests or improvements
+
+  If you find a feature request for this app, please file an issue at
+  https://ixsystems.atlassian.net or https://github.com/truenas/apps
+x-portals:
+  - host: 0.0.0.0
+    name: Web UI
+    path: /
+    port: 8080
+    scheme: http
+
