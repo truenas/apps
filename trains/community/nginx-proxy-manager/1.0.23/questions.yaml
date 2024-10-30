@@ -1,16 +1,18 @@
 groups:
-  - name: Asigra DS-System Configuration
-    description: Configure Asigra DS-System
+  - name: Nginx Proxy Manager Configuration
+    description: Configure Nginx Proxy Manager
+  - name: User and Group Configuration
+    description: Configure User and Group for Nginx Proxy Manager
   - name: Network Configuration
-    description: Configure Network for Asigra DS-System
+    description: Configure Network for Nginx Proxy Manager
   - name: Storage Configuration
-    description: Configure Storage for Asigra DS-System
+    description: Configure Storage for Nginx Proxy Manager
   - name: Resources Configuration
-    description: Configure Resources for Asigra DS-System
+    description: Configure Resources for Nginx Proxy Manager
 
 questions:
   - variable: TZ
-    group: Asigra DS-System Configuration
+    group: Nginx Proxy Manager Configuration
     label: Timezone
     schema:
       type: string
@@ -18,54 +20,16 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: asigra
+
+  - variable: npm
     label: ""
-    group: Asigra DS-System Configuration
+    group: Nginx Proxy Manager Configuration
     schema:
       type: dict
       attrs:
-        - variable: db_password
-          label: Database Password
-          description: The password for Asigra DS-System.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-        - variable: admin_password
-          label: Admin Password
-          description: The password for the DS-Operator admin interface.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-        - variable: operator_password
-          label: Operator Password
-          description: The password for the DS-Operator.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-        - variable: language
-          label: Language
-          description: The language for the DS-Operator.
-          schema:
-            type: string
-            default: "en"
-            required: true
-        - variable: cluster_size
-          label: Cluster Size
-          description: The number of nodes in the cluster.
-          schema:
-            type: int
-            default: 1
-            min: 1
-            required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Asigra DS-System.
+          description: Configure additional environment variables for Nginx Proxy Manager.
           schema:
             type: list
             default: []
@@ -85,6 +49,28 @@ questions:
                       schema:
                         type: string
                         required: true
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Nginx Proxy Manager files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Nginx Proxy Manager files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
@@ -92,25 +78,73 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: client_port
-          label: DS-Client Port
-          description: The port on which the DS-Client is exposed.
+        - variable: web_port
+          label: WebUI Port
+          description: The port for Nginx Proxy Manager WebUI
           schema:
             type: int
-            default: 34401
+            default: 30020
             required: true
             $ref:
               - definitions/port
-        - variable: admin_port
-          label: DS-Operator Admin Port
-          description: The port on which the DS-Operator admin interface is exposed.
+        - variable: http_port
+          label: HTTP Port
+          description: The port for Nginx Proxy Manager HTTP
           schema:
             type: int
-            default: 34404
+            default: 30021
             required: true
             $ref:
               - definitions/port
-
+        - variable: https_port
+          label: HTTPS Port
+          description: The port for Nginx Proxy Manager HTTPS
+          schema:
+            type: int
+            default: 30022
+            required: true
+            $ref:
+              - definitions/port
+        - variable: additional_ports
+          label: Additional Ports
+          description: Additional ports for Nginx Proxy Manager.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: port
+                label: Port
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: target
+                      label: Container Port
+                      description: The target port for the container.
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: published
+                      label: Host Port
+                      description: The port on the host.
+                      schema:
+                        type: int
+                        required: true
+                        $ref:
+                          - definitions/port
+                    - variable: protocol
+                      label: Protocol
+                      description: The protocol for the port.
+                      schema:
+                        type: string
+                        required: true
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -118,8 +152,8 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Asigra DS-System Data Storage
-          description: The path to store Asigra DS-System Data.
+          label: Nginx Proxy Manager Data Storage
+          description: The path to store Nginx Proxy Manager Data.
           schema:
             type: dict
             attrs:
@@ -195,9 +229,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: postgres_data
-          label: Asigra DS-System Postgres Data Storage
-          description: The path to store Asigra DS-System Postgres Data.
+        - variable: certs
+          label: Nginx Proxy Manager Certs Storage
+          description: The path to store Nginx Proxy Manager Certs.
           schema:
             type: dict
             attrs:
@@ -239,7 +273,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "postgres_data"
+                        default: "certs"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -273,10 +307,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Asigra DS-System.
+          description: Additional storage for Nginx Proxy Manager.
           schema:
             type: list
             default: []
@@ -372,8 +405,6 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
-                              $ref:
-                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -424,23 +455,15 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Asigra DS-System.
+                description: CPUs limit for Nginx Proxy Manager.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Asigra DS-System.
+                description: Memory limit for Nginx Proxy Manager.
                 schema:
                   type: int
                   default: 4096
                   required: true
-        - variable: gpus
-          group: Resources Configuration
-          label: GPU Configuration
-          schema:
-            type: dict
-            $ref:
-              - "definitions/gpu_configuration"
-            attrs: []
