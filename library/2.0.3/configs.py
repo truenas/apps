@@ -5,9 +5,11 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
+    from .formatter import escape_dollar
     from .validations import valid_octal_mode_or_raise, valid_fs_path_or_raise
 except ImportError:
     from error import RenderError
+    from formatter import escape_dollar
     from validations import valid_octal_mode_or_raise, valid_fs_path_or_raise
 
 
@@ -33,7 +35,10 @@ class Configs:
         return bool(self._configs)
 
     def render(self):
-        return {c["name"]: {"content": c["data"]} for c in sorted(self._configs.values(), key=lambda c: c["name"])}
+        return {
+            c["name"]: {"content": escape_dollar(c["data"])}
+            for c in sorted(self._configs.values(), key=lambda c: c["name"])
+        }
 
 
 class ContainerConfigs:

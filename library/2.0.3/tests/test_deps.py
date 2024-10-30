@@ -82,6 +82,7 @@ def test_add_postgres(mock_values):
     assert output["services"]["pg_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
     }
+    assert output["services"]["perms_container"]["restart"] == "on-failure:1"
 
 
 def test_add_redis_missing_config(mock_values):
