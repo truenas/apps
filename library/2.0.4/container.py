@@ -70,10 +70,24 @@ class Container:
         self.ports: Ports = Ports(self._render_instance)
 
         self._auto_set_network_mode()
+        self._auto_add_labels()
 
     def _auto_set_network_mode(self):
         if self._render_instance.values.get("network", {}).get("host_network", False):
             self.set_network_mode("host")
+
+    def _auto_add_labels(self):
+        labels = self._render_instance.values.get("labels", [])
+        if not labels:
+            return
+
+        for label in labels:
+            containers = label.get("containers", [])
+            if not containers:
+                raise RenderError("Labels must have at least one container")
+
+            if self._name in containers:
+                self.labels.add_label(label["key"], label["value"])
 
     def _resolve_image(self, image: str):
         images = self._render_instance.values["images"]
