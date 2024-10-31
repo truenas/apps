@@ -261,6 +261,21 @@ class Deps:
         return PermsContainer(self._render_instance, name)
 
     def postgres(self, name: str, image: str, config: PostgresConfig, perms_instance: PermsContainer):
+        return PostgresContainer(self._render_instance, name, image, config, perms_instance)
+
+    def redis(self, name: str, image: str, config: RedisConfig, perms_instance: PermsContainer):
+        return RedisContainer(self._render_instance, name, image, config, perms_instance)
+
+    def mariadb(self, name: str, image: str, config: MariadbConfig, perms_instance: PermsContainer):
+        return MariadbContainer(self._render_instance, name, image, config, perms_instance)
+
+
+class PostgresContainer:
+    def __init__(
+        self, render_instance: "Render", name: str, image: str, config: PostgresConfig, perms_instance: PermsContainer
+    ):
+        self._render_instance = render_instance
+
         for key in ("user", "password", "database", "volume"):
             if key not in config:
                 raise RenderError(f"Expected [{key}] to be set for postgres")
@@ -273,18 +288,33 @@ class Deps:
         c.deploy.resources.remove_devices()
 
         c.add_storage("/var/lib/postgresql/data", config["volume"])
-        perms_instance.add_or_skip_action("postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"})
+        perms_instance.add_or_skip_action(
+            f"${name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
+        )
 
         c.environment.add_env("POSTGRES_USER", config["user"])
         c.environment.add_env("POSTGRES_PASSWORD", config["password"])
         c.environment.add_env("POSTGRES_DB", config["database"])
         c.environment.add_env("POSTGRES_PORT", port)
 
-        # Return container for further configuration
+        # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
-        return c
+        self._container = c
 
-    def redis(self, name: str, image: str, config: RedisConfig, perms_instance: PermsContainer):
+    @property
+    def container(self):
+        return self._container
+
+    def get_url(self, variant: str):
+        pass
+
+
+class RedisContainer:
+    def __init__(
+        self, render_instance: "Render", name: str, image: str, config: RedisConfig, perms_instance: PermsContainer
+    ):
+        self._render_instance = render_instance
+
         for key in ("password", "volume"):
             if key not in config:
                 raise RenderError(f"Expected [{key}] to be set for redis")
@@ -303,11 +333,22 @@ class Deps:
         c.environment.add_env("REDIS_PASSWORD", config["password"])
         c.environment.add_env("REDIS_PORT_NUMBER", port)
 
-        # Return container for further configuration
-        # For example: c.depends.add_dependency("other_container", "service_started")
-        return c
+        self._container = c
 
-    def mariadb(self, name: str, image: str, config: MariadbConfig, perms_instance: PermsContainer):
+    @property
+    def container(self):
+        return self._container
+
+    def get_url(self, variant: str):
+        pass
+
+
+class MariadbContainer:
+    def __init__(
+        self, render_instance: "Render", name: str, image: str, config: MariadbConfig, perms_instance: PermsContainer
+    ):
+        self._render_instance = render_instance
+
         for key in ("user", "password", "database", "volume"):
             if key not in config:
                 raise RenderError(f"Expected [{key}] to be set for mariadb")
@@ -331,6 +372,11 @@ class Deps:
         c.environment.add_env("MARIADB_AUTO_UPGRADE", str(auto_upgrade).lower())
         c.set_command(["--port", str(port)])
 
-        # Return container for further configuration
-        # For example: c.depends.add_dependency("other_container", "service_started")
-        return c
+        self._container = c
+
+    @property
+    def container(self):
+        return self._container
+
+    def get_url(self, variant: str):
+        pass
