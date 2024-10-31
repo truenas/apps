@@ -24,16 +24,16 @@
 {% endfor %}
 
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.uploads, **{"mount_path": "/listmonk/uploads"}),
-  values=values, perm_opts={"mount_path": "/mnt/listmonk/uploads", "mode": "check", "uid": values.consts.run_as_user, "gid": values.consts.run_as_group}
+  values=values, perm_opts={"mount_path": "/mnt/listmonk/uploads", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
 
 {% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
-  perm_opts={"mount_path": "/mnt/listmonk/tmp", "mode": "check", "uid": values.consts.run_as_user, "gid": values.consts.run_as_group}
+  perm_opts={"mount_path": "/mnt/listmonk/tmp", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
 )) %}
 
 {% for store in values.storage.additional_storage %}
   {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
-    perm_opts={"mount_path": "/mnt/listmonk/dir_%s"|format(loop.index0), "mode": "check", "uid": values.consts.run_as_user, "gid": values.consts.run_as_group}
+    perm_opts={"mount_path": "/mnt/listmonk/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
   )) %}
 {% endfor %}
 
@@ -60,6 +60,7 @@
 services:
   {{ values.consts.init_container_name }}:
     image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
+    user: "0:0"
     restart: on-failure
     deploy:
       resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
@@ -85,7 +86,7 @@ services:
     volumes: {{ volume_mounts.items | tojson }}
 
   {{ values.consts.listmonk_container_name }}:
-    user: {{ "%d:%d" | format(values.consts.run_as_user, values.consts.run_as_group) }}
+    user: "0:0"
     image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
     restart: unless-stopped
     deploy:
@@ -100,7 +101,9 @@ services:
       {{ values.consts.perms_container_name }}:
         condition: service_completed_successfully
     {% endif %}
-    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
+    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+    cap_add: {{ caps.add | tojson }}
+    cap_drop: {{ caps.drop | tojson }}
     security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
     {% if values.network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
