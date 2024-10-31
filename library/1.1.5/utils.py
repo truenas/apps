@@ -88,9 +88,7 @@ def get_image(images={}, name=""):
     if name not in images:
         throw_error(f"Expected [images.{name}] to be set")
     if not images[name].get("repository") or not images[name].get("tag"):
-        throw_error(
-            f"Expected [images.{name}.repository] and [images.{name}.tag] to be set"
-        )
+        throw_error(f"Expected [images.{name}.repository] and [images.{name}.tag] to be set")
 
     return f"{images[name]['repository']}:{images[name]['tag']}"
 
@@ -109,13 +107,8 @@ def copy_dict(dict):
     return dict.copy()
 
 
-# Replaces all single dollar signs with double dollar signs
-# Docker tries to expand shell variables, so we need to
-# escape them in multiple places
-# It will not replace dollar signs that are already escaped
-def escape_dollar(text):
-    # https://regex101.com/r/tdbI7y/1
-    return re.sub(r"(?<!\$)\$(?!\$)", r"$$", text)
+def escape_dollar(text: str) -> str:
+    return text.replace("$", "$$")
 
 
 def auto_cast(value):
