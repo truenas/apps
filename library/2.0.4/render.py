@@ -66,6 +66,14 @@ class Render(object):
             "services": {c._name: c.render() for c in self._containers.values()},
         }
 
+        # Make sure that after services are rendered
+        # there are no labels that target a non-existent container
+        # This is to prevent typos
+        for label in self.values.get("labels", []):
+            for c in label.get("containers", []):
+                if c not in self.container_names():
+                    raise RenderError(f"Label [{label['key']}] references container [{c}] which does not exist")
+
         if self.volumes.has_volumes():
             result["volumes"] = self.volumes.render()
 

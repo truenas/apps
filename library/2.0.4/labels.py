@@ -17,6 +17,9 @@ class Labels:
         self._labels: dict[str, str] = {}
 
     def add_label(self, key: str, value: str):
+        if not key:
+            raise RenderError("Labels must have a key")
+
         if key.startswith("com.docker.compose"):
             raise RenderError(f"Label [{key}] cannot start with [com.docker.compose] as it is reserved")
 
