@@ -7,7 +7,7 @@ def get_args(data):
     if data.get("advertise_exit_node"):
         args.append("--advertise-exit-node")
     if data.get("webclient"):
-        args.append("--webclient")
+        args.append("--webclient=true")
 
     reserved_keys = ["--advertise-exit-node", "--hostname", "--authkey", "--webclient"]
     for arg in data.get("extra_args", []):
