@@ -39,7 +39,7 @@ def test_add_postgres(mock_values):
         "pg_image",
         {
             "user": "test_user",
-            "password": "test_password",
+            "password": "test_@password",
             "database": "test_database",
             "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
         },
@@ -47,8 +47,11 @@ def test_add_postgres(mock_values):
     )
     if perms_container.has_actions():
         perms_container.activate()
-        p.depends.add_dependency("perms_container", "service_completed_successfully")
+        p.container.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
+    assert (
+        p.get_url("postgres") == "postgres://test_user:test_%40password@pg_container:5432/test_database?sslmode=disable"
+    )
     assert "devices" not in output["services"]["pg_container"]
     assert "reservations" not in output["services"]["pg_container"]["deploy"]["resources"]
     assert output["services"]["pg_container"]["image"] == "postgres:latest"
@@ -75,7 +78,7 @@ def test_add_postgres(mock_values):
         "TZ": "Etc/UTC",
         "NVIDIA_VISIBLE_DEVICES": "void",
         "POSTGRES_USER": "test_user",
-        "POSTGRES_PASSWORD": "test_password",
+        "POSTGRES_PASSWORD": "test_@password",
         "POSTGRES_DB": "test_database",
         "POSTGRES_PORT": "5432",
     }
@@ -114,7 +117,7 @@ def test_add_redis(mock_values):
     )
     if perms_container.has_actions():
         perms_container.activate()
-        r.depends.add_dependency("perms_container", "service_completed_successfully")
+        r.container.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
     assert "devices" not in output["services"]["redis_container"]
     assert "reservations" not in output["services"]["redis_container"]["deploy"]["resources"]
@@ -181,7 +184,7 @@ def test_add_mariadb(mock_values):
     )
     if perms_container.has_actions():
         perms_container.activate()
-        m.depends.add_dependency("perms_container", "service_completed_successfully")
+        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
     assert "devices" not in output["services"]["mariadb_container"]
     assert "reservations" not in output["services"]["mariadb_container"]["deploy"]["resources"]
