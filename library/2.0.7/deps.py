@@ -292,7 +292,7 @@ class PostgresContainer:
 
         c.add_storage("/var/lib/postgresql/data", config["volume"])
         perms_instance.add_or_skip_action(
-            f"${name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
+            f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
         )
 
         c.environment.add_env("POSTGRES_USER", config["user"])

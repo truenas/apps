@@ -228,6 +228,9 @@ def test_add_perms_container(mock_values):
         "test_dataset2": "/mnt/test/2",
         "test_dataset3": "/mnt/test/3",
     }
+    mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "latest"}
+    mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
+    mock_values["images"]["mariadb_image"] = {"repository": "mariadb", "tag": "latest"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -265,9 +268,44 @@ def test_add_perms_container(mock_values):
     perms_container.add_or_skip_action("data8", ix_volume_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
     perms_container.add_or_skip_action("data9", temp_volume, {"uid": 1000, "gid": 1000, "mode": "check"})
 
+    postgres = render.deps.postgres(
+        "postgres_container",
+        "postgres_image",
+        {
+            "user": "test_user",
+            "password": "test_password",
+            "database": "test_database",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+        },
+        perms_container,
+    )
+    redis = render.deps.redis(
+        "redis_container",
+        "redis_image",
+        {
+            "password": "test_password",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+        },
+        perms_container,
+    )
+    mariadb = render.deps.mariadb(
+        "mariadb_container",
+        "mariadb_image",
+        {
+            "user": "test_user",
+            "password": "test_password",
+            "database": "test_database",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+        },
+        perms_container,
+    )
+
     if perms_container.has_actions():
         perms_container.activate()
         c1.depends.add_dependency("test_perms_container", "service_completed_successfully")
+        postgres.container.depends.add_dependency("test_perms_container", "service_completed_successfully")
+        redis.container.depends.add_dependency("test_perms_container", "service_completed_successfully")
+        mariadb.container.depends.add_dependency("test_perms_container", "service_completed_successfully")
     output = render.render()
     assert output["services"]["test_container"]["depends_on"] == {
         "test_perms_container": {"condition": "service_completed_successfully"}
@@ -280,6 +318,9 @@ def test_add_perms_container(mock_values):
         {"mount_path": "/mnt/permission/data6", "is_temporary": False, "identifier": "data6", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
         {"mount_path": "/mnt/permission/data7", "is_temporary": False, "identifier": "data7", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
         {"mount_path": "/mnt/permission/data9", "is_temporary": True, "identifier": "data9", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/postgres_container_postgres_data", "is_temporary": False, "identifier": "postgres_container_postgres_data", "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/redis_container_redis_data", "is_temporary": False, "identifier": "redis_container_redis_data", "mode": "check", "uid": 1001, "gid": 0, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/mariadb_container_mariadb_data", "is_temporary": False, "identifier": "mariadb_container_mariadb_data", "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
     ]
     # fmt: on
     assert output["configs"]["permissions_actions_data"]["content"] == json.dumps(content)
