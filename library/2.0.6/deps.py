@@ -323,6 +323,8 @@ class PostgresContainer:
                 return f"postgres://{creds}@{addr}/{db}?sslmode=disable"
             case "postgresql":
                 return f"postgresql://{creds}@{addr}/{db}?sslmode=disable"
+            case "host_port":
+                return addr
             case _:
                 raise RenderError(f"Expected [variant] to be one of [postgres, postgresql], got [{variant}]")
 
