@@ -1,5 +1,6 @@
 import os
 import json
+import urllib.parse
 from typing import TYPE_CHECKING, TypedDict, NotRequired
 
 if TYPE_CHECKING:
@@ -275,12 +276,14 @@ class PostgresContainer:
         self, render_instance: "Render", name: str, image: str, config: PostgresConfig, perms_instance: PermsContainer
     ):
         self._render_instance = render_instance
+        self._name = name
+        self._config = config
 
         for key in ("user", "password", "database", "volume"):
             if key not in config:
                 raise RenderError(f"Expected [{key}] to be set for postgres")
 
-        port = valid_port_or_raise(config.get("port") or 5432)
+        port = valid_port_or_raise(self._get_port())
 
         c = self._render_instance.add_container(name, image)
         c.set_user(999, 999)
@@ -305,8 +308,23 @@ class PostgresContainer:
     def container(self):
         return self._container
 
+    def _get_port(self):
+        return self._config.get("port") or 5432
+
     def get_url(self, variant: str):
-        pass
+        user = urllib.parse.quote_plus(self._config["user"])
+        password = urllib.parse.quote_plus(self._config["password"])
+        creds = f"{user}:{password}"
+        addr = f"{self._name}:{self._get_port()}"
+        db = self._config["database"]
+
+        match variant:
+            case "postgres":
+                return f"postgres://{creds}@{addr}/{db}?sslmode=disable"
+            case "postgresql":
+                return f"postgresql://{creds}@{addr}/{db}?sslmode=disable"
+            case _:
+                raise RenderError(f"Expected [variant] to be one of [postgres, postgresql], got [{variant}]")
 
 
 class RedisContainer:
@@ -333,14 +351,13 @@ class RedisContainer:
         c.environment.add_env("REDIS_PASSWORD", config["password"])
         c.environment.add_env("REDIS_PORT_NUMBER", port)
 
+        # Store container for further configuration
+        # For example: c.depends.add_dependency("other_container", "service_started")
         self._container = c
 
     @property
     def container(self):
         return self._container
-
-    def get_url(self, variant: str):
-        pass
 
 
 class MariadbContainer:
@@ -372,11 +389,10 @@ class MariadbContainer:
         c.environment.add_env("MARIADB_AUTO_UPGRADE", str(auto_upgrade).lower())
         c.set_command(["--port", str(port)])
 
+        # Store container for further configuration
+        # For example: c.depends.add_dependency("other_container", "service_started")
         self._container = c
 
     @property
     def container(self):
         return self._container
-
-    def get_url(self, variant: str):
-        pass
