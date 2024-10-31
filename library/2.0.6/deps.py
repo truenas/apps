@@ -332,6 +332,7 @@ class RedisContainer:
         self, render_instance: "Render", name: str, image: str, config: RedisConfig, perms_instance: PermsContainer
     ):
         self._render_instance = render_instance
+        self._name = name
 
         for key in ("password", "volume"):
             if key not in config:
@@ -345,7 +346,9 @@ class RedisContainer:
         c.deploy.resources.remove_devices()
 
         c.add_storage("/bitnami/redis/data", config["volume"])
-        perms_instance.add_or_skip_action("redis_data", config["volume"], {"uid": 1001, "gid": 0, "mode": "check"})
+        perms_instance.add_or_skip_action(
+            f"{self._name}_redis_data", config["volume"], {"uid": 1001, "gid": 0, "mode": "check"}
+        )
 
         c.environment.add_env("ALLOW_EMPTY_PASSWORD", "no")
         c.environment.add_env("REDIS_PASSWORD", config["password"])
@@ -365,6 +368,7 @@ class MariadbContainer:
         self, render_instance: "Render", name: str, image: str, config: MariadbConfig, perms_instance: PermsContainer
     ):
         self._render_instance = render_instance
+        self._name = name
 
         for key in ("user", "password", "database", "volume"):
             if key not in config:
@@ -380,7 +384,9 @@ class MariadbContainer:
         c.deploy.resources.remove_devices()
 
         c.add_storage("/var/lib/mysql", config["volume"])
-        perms_instance.add_or_skip_action("mariadb_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"})
+        perms_instance.add_or_skip_action(
+            f"{self._name}_mariadb_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
+        )
 
         c.environment.add_env("MARIADB_USER", config["user"])
         c.environment.add_env("MARIADB_PASSWORD", config["password"])
