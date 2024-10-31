@@ -6,8 +6,10 @@ def get_args(data):
 
     if data.get("advertise_exit_node"):
         args.append("--advertise-exit-node")
+    if data.get("webclient"):
+        args.append("--webclient")
 
-    reserved_keys = ["--advertise-exit-node", "--hostname", "--authkey"]
+    reserved_keys = ["--advertise-exit-node", "--hostname", "--authkey", "--webclient"]
     for arg in data.get("extra_args", []):
         for key in reserved_keys:
             if arg.startswith(key):
