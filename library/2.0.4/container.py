@@ -84,7 +84,7 @@ class Container:
         for label in labels:
             containers = label.get("containers", [])
             if not containers:
-                raise RenderError("Labels must have at least one container")
+                raise RenderError(f'Label [{label.get("key", "")}] must have at least one container')
 
             if self._name in containers:
                 self.labels.add_label(label["key"], label["value"])
