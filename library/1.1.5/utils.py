@@ -27,12 +27,8 @@ def basic_auth_header(username, password):
     return f"Basic {security.basic_auth(username, password)}"
 
 
-def bcrypt_hash(password, escape=True):
-    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-    if escape:
-        # Docker compose will try to expand the value, so we need to escape it
-        return hashed.replace("$", "$$")
-    return hashed
+def bcrypt_hash(password):
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def match_regex(value, regex):
