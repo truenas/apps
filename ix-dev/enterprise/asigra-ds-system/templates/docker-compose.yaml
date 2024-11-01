@@ -19,10 +19,10 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set perms_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set postgres_container = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_conf, perms_container) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_conf, perms_container) %}
 
 {# Asigra needs the hostname to be set, even if the PGHOST is set and internal dns resolves to the container #}
-{% do postgres_container.set_hostname(values.consts.postgres_container_name) %}
+{% do postgres.container.set_hostname(values.consts.postgres_container_name) %}
 
 {# Create asigra containers #}
 {% set asigra_container_names = namespace(x=[]) %}
@@ -92,7 +92,7 @@
 
 {% if perms_container.has_actions() %}
   {% do perms_container.activate() %}
-  {% do postgres_container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
 {{ tpl.render() | tojson }}
