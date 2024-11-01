@@ -29,13 +29,15 @@ class VolumeMount:
             case "host_path":
                 spec_type = "bind"
                 mount_config = config.get("host_path_config")
-                assert mount_config is not None
+                if mount_config is None:
+                    raise RenderError("Expected [host_path_config] to be set for [host_path] type.")
                 mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
                 source = HostPathSource(self._render_instance, mount_config).get()
             case "ix_volume":
                 spec_type = "bind"
                 mount_config = config.get("ix_volume_config")
-                assert mount_config is not None
+                if mount_config is None:
+                    raise RenderError("Expected [ix_volume_config] to be set for [ix_volume] type.")
                 mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
                 source = IxVolumeSource(self._render_instance, mount_config).get()
             case "tmpfs":
@@ -46,25 +48,29 @@ class VolumeMount:
             case "nfs":
                 spec_type = "volume"
                 mount_config = config.get("nfs_config")
-                assert mount_config is not None
+                if mount_config is None:
+                    raise RenderError("Expected [nfs_config] to be set for [nfs] type.")
                 mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
                 source = NfsSource(self._render_instance, mount_config).get()
             case "cifs":
                 spec_type = "volume"
                 mount_config = config.get("cifs_config")
-                assert mount_config is not None
+                if mount_config is None:
+                    raise RenderError("Expected [cifs_config] to be set for [cifs] type.")
                 mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
                 source = CifsSource(self._render_instance, mount_config).get()
             case "volume":
                 spec_type = "volume"
                 mount_config = config.get("volume_config")
-                assert mount_config is not None
+                if mount_config is None:
+                    raise RenderError("Expected [volume_config] to be set for [volume] type.")
                 mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
                 source = VolumeSource(self._render_instance, mount_config).get()
             case "temporary" | "anonymous":
                 spec_type = "volume"
                 mount_config = config.get("volume_config")
-                assert mount_config is not None
+                if mount_config is None:
+                    raise RenderError("Expected [volume_config] to be set for [volume] type.")
                 mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
                 source = None
             case _:
