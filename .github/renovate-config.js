@@ -106,7 +106,7 @@ module.exports = {
     ),
     customVersioning(
       // 2.462.1-jdk17
-      "^(?<major>\\d+)\\.(?<minor>\\d+)-jdk17",
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-jdk17",
       ["jenkins/jenkins"]
     ),
     customVersioning(
