@@ -27,7 +27,6 @@ class Devices:
 
         if resources.get("gpus", {}).get("use_all_gpus", False):
             self.add_device("/dev/dri", "/dev/dri", allow_disallowed=True)
-            self._container_device_paths.add("/dev/dri")
 
     def add_device(self, host_device: str, container_device: str, cgroup_perm: str = "", allow_disallowed=False):
         # Host device can be mapped to multiple container devices,
@@ -37,6 +36,9 @@ class Devices:
 
         self._devices.add(Device(host_device, container_device, cgroup_perm, allow_disallowed))
         self._container_device_paths.add(container_device)
+
+    def add_usb_bus(self):
+        self.add_device("/dev/bus/usb", "/dev/bus/usb", allow_disallowed=True)
 
     def has_devices(self):
         return len(self._devices) > 0
