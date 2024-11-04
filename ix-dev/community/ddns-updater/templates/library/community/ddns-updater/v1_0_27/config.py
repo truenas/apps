@@ -177,7 +177,7 @@ providers_schema = {
     "cloudflare": {
         "required": [
             {"provider_key": "zone_identifier", "ui_key": "cloudflare_zone_id"},
-            {"provider_key": "ttl", "ui_key": "cloudflare_ttl"},
+            {"provider_key": "ttl", "ui_key": "cloudflare_ttl", "type": "int"},
         ],
         "optional": [{"provider_key": "proxied", "ui_key": "cloudflare_proxied"}],
         "combos": [
@@ -273,7 +273,7 @@ providers_schema = {
     "gandi": {
         "required": [
             {"provider_key": "key", "ui_key": "gandi_key"},
-            {"provider_key": "ttl", "ui_key": "gandi_ttl"},
+            {"provider_key": "ttl", "ui_key": "gandi_ttl", "type": "int"},
         ],
     },
     "gcp": {
@@ -307,7 +307,7 @@ providers_schema = {
             {"provider_key": "token", "ui_key": "hetzner_token"},
             {"provider_key": "zone_identifier", "ui_key": "hetzner_zone_identifier"},
         ],
-        "optional": [{"provider_key": "ttl", "ui_key": "hetzner_ttl"}],
+        "optional": [{"provider_key": "ttl", "ui_key": "hetzner_ttl", "type": "int"}],
     },
     "infomaniak": {
         "required": [
@@ -340,7 +340,7 @@ providers_schema = {
         "required": [
             {"provider_key": "token", "ui_key": "namecom_token"},
             {"provider_key": "username", "ui_key": "namecom_username"},
-            {"provider_key": "ttl", "ui_key": "namecom_ttl"},
+            {"provider_key": "ttl", "ui_key": "namecom_ttl", "type": "int"},
         ],
     },
     "netcup": {
@@ -395,7 +395,7 @@ providers_schema = {
             {"provider_key": "api_key", "ui_key": "porkbun_api_key"},
             {"provider_key": "secret_api_key", "ui_key": "porkbun_secret_api_key"},
         ],
-        "optional": [{"provider_key": "ttl", "ui_key": "porkbun_ttl"}],
+        "optional": [{"provider_key": "ttl", "ui_key": "porkbun_ttl", "type": "int"}],
     },
     "route53": {
         "required": [
@@ -404,7 +404,7 @@ providers_schema = {
             {"provider_key": "zone_id", "ui_key": "route53_zone_id"},
         ],
         "optional": [
-            {"provider_key": "ttl", "ui_key": "route53_ttl"},
+            {"provider_key": "ttl", "ui_key": "route53_ttl", "type": "int"},
         ],
     },
     "selfhost.de": {
@@ -417,7 +417,7 @@ providers_schema = {
         "required": [
             {"provider_key": "username", "ui_key": "servercow_username"},
             {"provider_key": "password", "ui_key": "servercow_password"},
-            {"provider_key": "ttl", "ui_key": "servercow_ttl"},
+            {"provider_key": "ttl", "ui_key": "servercow_ttl", "type": "int"},
         ],
     },
     "spdyn": {
@@ -465,7 +465,11 @@ def get_provider_config(item={}):
         if required.get("func"):
             result[required["provider_key"]] = required["func"](required_key(item, required["ui_key"]))
         else:
-            result[required["provider_key"]] = required_key(item, required["ui_key"])
+            match required.get("type", ""):
+                case "int":
+                    result[required["provider_key"]] = int(required_key(item, required["ui_key"]))
+                case _:
+                    result[required["provider_key"]] = str(required_key(item, required["ui_key"]))
     result.update(get_optional_data(item, provider_data))
 
     combo_data = {}
