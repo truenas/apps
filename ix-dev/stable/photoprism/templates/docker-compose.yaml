@@ -55,11 +55,6 @@ services:
     {% if values.network.dns_opts %}
     dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
     {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test(
-      port=values.network.web_port, path="/health",
-      config={"scheme": "https" if values.network.certificate_id else "http"}
-    ) %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     {% set app_env = {
       "PHOTOPRISM_HTTP_PORT": values.network.web_port,
       "PHOTOPRISM_ADMIN_PASSWORD": values.photoprism.admin_password,
@@ -70,7 +65,15 @@ services:
       "PHOTOPRISM_IMPORT_PATH": values.consts.import_path,
       "PHOTOPRISM_ORIGINALS_PATH": values.consts.originals_path,
     } %}
-    {% if values.photoprism.site_url and app_env.update({"PHOTOPRISM_SITE_URL": values.photoprism.site_url}) %}{% endif %}
+    {% set url_path = namespace(x="/") %}
+    {% if values.photoprism.site_url %}
+      {% do app_env.update({"PHOTOPRISM_SITE_URL": values.photoprism.site_url}) %}
+      {% set no_scheme = values.photoprism.site_url.split("://")[1] %}
+      {% set path = no_scheme.split("/")[1:] %}
+      {% if path %}
+        {% set url_path.x = "/" + path[0] %}
+      {% endif %}
+    {% endif %}
     {% if values.network.certificate_id %}
       {% if not values.photoprism.site_url and ix_lib.base.utils.throw_error("Expected [photoprism.site_url] to be set when [network.certificate_id] is be set") %}{% endif %}
       {% do app_env.update({
@@ -80,6 +83,11 @@ services:
       }) %}
     {% endif %}
     environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.photoprism.additional_envs,values=values) | tojson }}
+    {% set test = ix_lib.base.healthchecks.curl_test(
+      port=values.network.web_port, path="%s/health"|format(url_path.x)|replace("//", "/"),
+      config={"scheme": "https" if values.network.certificate_id else "http"}
+    ) %}
+    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
     {% if not values.network.host_network %}
     ports:
       - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
@@ -90,5 +98,5 @@ services:
 volumes: {{ volumes.items | tojson }}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}]) | tojson }}
+x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port, "path": url_path.x, "scheme": "https" if values.network.certificate_id else "http"}]) | tojson }}
 x-notes: {{ ix_lib.base.metadata.get_notes("Photoprism") | tojson }}
