@@ -90,3 +90,20 @@ def test_automatically_add_gpu_devices(mock_values):
     c1.healthcheck.disable()
     output = render.render()
     assert output["services"]["test_container"]["devices"] == ["/dev/dri:/dev/dri"]
+
+
+def test_add_usb_bus(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.devices.add_usb_bus()
+    output = render.render()
+    assert output["services"]["test_container"]["devices"] == ["/dev/bus/usb:/dev/bus/usb"]
+
+
+def test_add_usb_bus_disallowed(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.devices.add_device("/dev/bus/usb", "/dev/bus/usb")
