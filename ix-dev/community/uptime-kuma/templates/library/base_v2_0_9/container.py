@@ -54,6 +54,7 @@ class Container:
         self._entrypoint: list[str] = []
         self._command: list[str] = []
         self._grace_period: int | None = None
+        self._shm_size: int | None = None
         self._storage: Storage = Storage(self._render_instance)
         self.configs: ContainerConfigs = ContainerConfigs(self._render_instance, self._render_instance.configs)
         self.deploy: Deploy = Deploy(self._render_instance)
@@ -167,6 +168,9 @@ class Container:
     def add_storage(self, mount_path: str, config: "IxStorage"):
         self._storage.add(mount_path, config)
 
+    def set_shm_size_mb(self, size: int):
+        self._shm_size = size
+
     @property
     def storage(self):
         return self._storage
@@ -198,6 +202,9 @@ class Container:
 
         if self._user:
             result["user"] = self._user
+
+        if self._shm_size is not None:
+            result["shm_size"] = f"{self._shm_size}M"
 
         if self._cap_add:
             result["cap_add"] = sorted(self._cap_add)
