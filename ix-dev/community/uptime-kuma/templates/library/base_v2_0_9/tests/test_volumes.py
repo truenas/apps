@@ -614,7 +614,13 @@ def test_add_docker_socket(mock_values):
     c1.storage.add_docker_socket()
     output = render.render()
     assert output["services"]["test_container"]["volumes"] == [
-        {"type": "bind", "source": "/var/run/docker.sock", "target": "/var/run/docker.sock", "read_only": True}
+        {
+            "type": "bind",
+            "source": "/var/run/docker.sock",
+            "target": "/var/run/docker.sock",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
     ]
 
 
@@ -625,7 +631,13 @@ def test_add_docker_socket_not_read_only(mock_values):
     c1.storage.add_docker_socket(read_only=False)
     output = render.render()
     assert output["services"]["test_container"]["volumes"] == [
-        {"type": "bind", "source": "/var/run/docker.sock", "target": "/var/run/docker.sock", "read_only": False}
+        {
+            "type": "bind",
+            "source": "/var/run/docker.sock",
+            "target": "/var/run/docker.sock",
+            "read_only": False,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
     ]
 
 
@@ -636,5 +648,11 @@ def test_add_docker_socket_mount_path(mock_values):
     c1.storage.add_docker_socket(mount_path="/some/path")
     output = render.render()
     assert output["services"]["test_container"]["volumes"] == [
-        {"type": "bind", "source": "/var/run/docker.sock", "target": "/some/path", "read_only": True}
+        {
+            "type": "bind",
+            "source": "/var/run/docker.sock",
+            "target": "/some/path",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
     ]
