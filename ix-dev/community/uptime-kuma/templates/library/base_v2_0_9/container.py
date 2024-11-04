@@ -167,6 +167,10 @@ class Container:
     def add_storage(self, mount_path: str, config: "IxStorage"):
         self._storage.add(mount_path, config)
 
+    @property
+    def storage(self):
+        return self._storage
+
     def render(self) -> dict[str, Any]:
         if self._network_mode and self.networks:
             raise RenderError("Cannot set both [network_mode] and [networks]")

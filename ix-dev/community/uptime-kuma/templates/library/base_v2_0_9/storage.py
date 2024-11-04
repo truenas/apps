@@ -89,6 +89,14 @@ class Storage:
         volume_mount = VolumeMount(self._render_instance, mount_path, config)
         self._volume_mounts.add(volume_mount)
 
+    def add_docker_socket(self, read_only: bool = True, mount_path: str = "/var/run/docker.sock"):
+        cfg: "IxStorage" = {
+            "type": "host_path",
+            "read_only": read_only,
+            "host_path_config": {"path": "/var/run/docker.sock", "create_host_path": False},
+        }
+        self.add(mount_path, cfg)
+
     def has_mounts(self) -> bool:
         return bool(self._volume_mounts)
 

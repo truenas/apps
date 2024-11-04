@@ -1,8 +1,8 @@
 import copy
 
 try:
-    from .container import Container
     from .configs import Configs
+    from .container import Container
     from .deps import Deps
     from .error import RenderError
     from .functions import Functions
@@ -10,8 +10,8 @@ try:
     from .portals import Portals
     from .volumes import Volumes
 except ImportError:
-    from container import Container
     from configs import Configs
+    from container import Container
     from deps import Deps
     from error import RenderError
     from functions import Functions
