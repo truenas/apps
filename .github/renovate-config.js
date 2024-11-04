@@ -74,8 +74,8 @@ module.exports = {
     },
     {
       matchDatasources: ["docker"],
-      groupName: "enterprise",
       labels: ["enterprise"],
+      minimumReleaseAge: "21 days",
       matchFileNames: ["ix-dev/enterprise/**"],
     },
     // Custom versioning matching
