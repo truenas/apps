@@ -342,6 +342,9 @@ class RedisContainer:
             if key not in config:
                 raise RenderError(f"Expected [{key}] to be set for redis")
 
+        if " " in config["password"]:
+            raise RenderError("Redis password cannot contain spaces")
+
         port = valid_port_or_raise(config.get("port") or 6379)
 
         c = self._render_instance.add_container(name, image)

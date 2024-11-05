@@ -76,6 +76,7 @@ class CifsVolume:
                 raise RenderError(f"Expected [{key}] to be set for [cifs] type")
 
         opts = [
+            "noperm",
             f"user={config['username']}",
             f"password={config['password']}",
         ]
@@ -90,7 +91,7 @@ class CifsVolume:
                 raise RenderError("Expected [cifs_config.options] to be a list for [cifs] type")
 
             tracked_keys: set[str] = set()
-            disallowed_opts = ["user", "password", "domain"]
+            disallowed_opts = ["user", "password", "domain", "noperm"]
             for opt in cfg_options:
                 if not isinstance(opt, str):
                     raise RenderError("Options for [cifs] type must be a list of strings.")
