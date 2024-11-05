@@ -97,6 +97,15 @@ def test_invalid_user(mock_values):
         c1.set_user(-100, 1000)
 
 
+def test_shm_size(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.set_shm_size_mb(10)
+    output = render.render()
+    assert output["services"]["test_container"]["shm_size"] == "10M"
+
+
 def test_valid_caps(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
