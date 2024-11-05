@@ -362,7 +362,9 @@ def test_add_cifs_volume(mock_values):
     output = render.render()
     vol_name = get_hashed_name_for_volume("cifs", cifs_inner_config)
     assert output["volumes"] == {
-        vol_name: {"driver_opts": {"type": "cifs", "device": "//server/path", "o": "password=pas$$word,user=user"}}
+        vol_name: {
+            "driver_opts": {"type": "cifs", "device": "//server/path", "o": "noperm,password=pas$$word,user=user"}
+        }
     }
     assert output["services"]["test_container"]["volumes"] == [
         {"type": "volume", "source": vol_name, "target": "/some/path", "read_only": False, "volume": {"nocopy": False}}
@@ -389,7 +391,7 @@ def test_cifs_volume_with_options(mock_values):
             "driver_opts": {
                 "type": "cifs",
                 "device": "//server/path",
-                "o": "password=pas$$word,user=user,verbose=true,vers=3.0",
+                "o": "noperm,password=pas$$word,user=user,verbose=true,vers=3.0",
             }
         }
     }
