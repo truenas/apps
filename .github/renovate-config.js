@@ -75,13 +75,13 @@ module.exports = {
     {
       matchDatasources: ["docker"],
       labels: ["enterprise"],
-      minimumReleaseAge: "21 days",
+      groupName: "enterprise",
       matchFileNames: ["ix-dev/enterprise/**"],
     },
     // Custom versioning matching
     customVersioning(
       // There are tags with date format (24.08.0), but newer versions are semver
-      "^(?<major>\\d{2})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "^(?<major>\\d{1,2})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["linuxserver/deluge", "linuxserver/diskover", "linuxserver/transmission"]
     ),
     customVersioning(
