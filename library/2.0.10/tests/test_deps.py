@@ -100,6 +100,19 @@ def test_add_redis_missing_config(mock_values):
         )
 
 
+def test_add_redis_with_password_with_spaces(mock_values):
+    mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        render.deps.redis(
+            "test_container",
+            "test_image",
+            {"password": "test password", "volume": {}},  # type: ignore
+        )
+
+
 def test_add_redis(mock_values):
     mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
     render = Render(mock_values)
