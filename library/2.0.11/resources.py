@@ -87,6 +87,10 @@ class Resources:
     def has_resources(self):
         return len(self._limits) > 0 or len(self._reservations) > 0
 
+    def has_gpus(self):
+        gpu_devices = [d for d in self._reservations.get("devices", []) if "gpu" in d["capabilities"]]
+        return len(gpu_devices) > 0
+
     def render(self):
         result = {}
         if self._limits:
