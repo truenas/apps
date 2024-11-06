@@ -15,7 +15,6 @@ class Devices:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._devices: set[Device] = set()
-        self._has_gpus: bool = False
 
         # Tracks all container device paths to make sure they are not duplicated
         self._container_device_paths: set[str] = set()
@@ -27,7 +26,6 @@ class Devices:
         resources = self._render_instance.values.get("resources", {})
 
         if resources.get("gpus", {}).get("use_all_gpus", False):
-            self._has_gpus = True
             self.add_device("/dev/dri", "/dev/dri", allow_disallowed=True)
 
     def add_device(self, host_device: str, container_device: str, cgroup_perm: str = "", allow_disallowed=False):
@@ -48,13 +46,15 @@ class Devices:
     # Mainly will be used from dependencies
     # There is no reason to pass devices to
     # redis or postgres for example
-    def remove_gpus(self):
-        self._has_gpus = False
-        self._devices = {d for d in self._devices if d.host_device != "/dev/dri"}
-        self._container_device_paths = {d for d in self._container_device_paths if d != "/dev/dri"}
+    def remove_devices(self):
+        self._devices.clear()
+        self._container_device_paths.clear()
 
     def has_gpus(self):
-        return self._has_gpus
+        for d in self._devices:
+            if d.host_device == "/dev/dri":
+                return True
+        return False
 
     def render(self) -> list[str]:
         return sorted([d.render() for d in self._devices])

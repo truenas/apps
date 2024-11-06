@@ -98,7 +98,7 @@ def test_remove_gpu_devices(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    c1.devices.remove_gpus()
+    c1.devices.remove_devices()
     output = render.render()
     assert "devices" not in output["services"]["test_container"]
     assert "group_add" not in output["services"]["test_container"]
