@@ -97,6 +97,33 @@ def test_invalid_user(mock_values):
         c1.set_user(-100, 1000)
 
 
+def test_add_group(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_group(1000)
+    c1.add_group("video")
+    output = render.render()
+    assert output["services"]["test_container"]["group_add"] == [1000, "video"]
+
+
+def test_add_duplicate_group(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_group(1000)
+    with pytest.raises(Exception):
+        c1.add_group(1000)
+
+
+def test_add_group_as_string(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.add_group("1000")
+
+
 def test_shm_size(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

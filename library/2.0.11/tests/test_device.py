@@ -90,6 +90,18 @@ def test_automatically_add_gpu_devices(mock_values):
     c1.healthcheck.disable()
     output = render.render()
     assert output["services"]["test_container"]["devices"] == ["/dev/dri:/dev/dri"]
+    assert output["services"]["test_container"]["group_add"] == [107, 44]
+
+
+def test_remove_gpu_devices(mock_values):
+    mock_values["resources"] = {"gpus": {"use_all_gpus": True}}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.devices.remove_gpus()
+    output = render.render()
+    assert "devices" not in output["services"]["test_container"]
+    assert "group_add" not in output["services"]["test_container"]
 
 
 def test_add_usb_bus(mock_values):

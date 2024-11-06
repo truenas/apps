@@ -50,6 +50,7 @@ class Container:
         self._cap_drop: set[str] = set(["ALL"])  # Drop all capabilities by default and add caps granularly
         self._cap_add: set[str] = set()
         self._security_opt: set[str] = set(["no-new-privileges"])
+        self._group_add: set[int | str] = set()
         self._network_mode: str = ""
         self._entrypoint: list[str] = []
         self._command: list[str] = []
@@ -128,6 +129,16 @@ class Container:
                 raise RenderError(f"User/Group [{i}] is not valid")
         self._user = f"{user}:{group}"
 
+    def add_group(self, group: int | str):
+        if isinstance(group, str):
+            group = str(group).strip()
+            if group.isdigit():
+                raise RenderError(f"Group is a number [{group}] but passed as a string")
+
+        if group in self._group_add:
+            raise RenderError(f"Group [{group}] already added")
+        self._group_add.add(group)
+
     def set_tty(self, enabled: bool = False):
         self._tty = enabled
 
@@ -171,6 +182,10 @@ class Container:
     def set_shm_size_mb(self, size: int):
         self._shm_size = size
 
+    def remove_gpus(self):
+        self.deploy.resources.remove_devices()
+        self.devices.remove_gpus()
+
     @property
     def storage(self):
         return self._storage
@@ -202,6 +217,13 @@ class Container:
 
         if self._user:
             result["user"] = self._user
+
+        if self.deploy.resources.has_gpus() or self.devices.has_gpus():
+            self.add_group(44)  # video
+            self.add_group(107)  # render
+
+        if self._group_add:
+            result["group_add"] = sorted(self._group_add, key=lambda g: str(g))
 
         if self._shm_size is not None:
             result["shm_size"] = f"{self._shm_size}M"

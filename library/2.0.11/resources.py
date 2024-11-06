@@ -87,6 +87,9 @@ class Resources:
     def has_resources(self):
         return len(self._limits) > 0 or len(self._reservations) > 0
 
+    def has_gpus(self):
+        return len(self._reservations.get("devices", [])) > 0
+
     def render(self):
         result = {}
         if self._limits:

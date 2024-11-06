@@ -128,7 +128,8 @@ class PermsContainer:
         c.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"])
 
         # Don't attach any devices
-        c.deploy.resources.remove_devices()
+        c.remove_gpus()
+
         c.deploy.resources.set_profile("medium")
         c.restart.set_policy("on-failure", maximum_retry_count=1)
         c.healthcheck.disable()
@@ -288,7 +289,7 @@ class PostgresContainer:
         c = self._render_instance.add_container(name, image)
         c.set_user(999, 999)
         c.healthcheck.set_test("postgres")
-        c.deploy.resources.remove_devices()
+        c.remove_gpus()
 
         c.add_storage("/var/lib/postgresql/data", config["volume"])
         perms_instance.add_or_skip_action(
@@ -350,7 +351,7 @@ class RedisContainer:
         c = self._render_instance.add_container(name, image)
         c.set_user(1001, 0)
         c.healthcheck.set_test("redis")
-        c.deploy.resources.remove_devices()
+        c.remove_gpus()
 
         c.add_storage("/bitnami/redis/data", config["volume"])
         perms_instance.add_or_skip_action(
@@ -388,7 +389,7 @@ class MariadbContainer:
         c = self._render_instance.add_container(name, image)
         c.set_user(999, 999)
         c.healthcheck.set_test("mariadb")
-        c.deploy.resources.remove_devices()
+        c.remove_gpus()
 
         c.add_storage("/var/lib/mysql", config["volume"])
         perms_instance.add_or_skip_action(
