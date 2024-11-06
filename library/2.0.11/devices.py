@@ -43,5 +43,18 @@ class Devices:
     def has_devices(self):
         return len(self._devices) > 0
 
+    # Mainly will be used from dependencies
+    # There is no reason to pass devices to
+    # redis or postgres for example
+    def remove_devices(self):
+        self._devices.clear()
+        self._container_device_paths.clear()
+
+    def has_gpus(self):
+        for d in self._devices:
+            if d.host_device == "/dev/dri":
+                return True
+        return False
+
     def render(self) -> list[str]:
         return sorted([d.render() for d in self._devices])
