@@ -182,9 +182,9 @@ class Container:
     def set_shm_size_mb(self, size: int):
         self._shm_size = size
 
-    def remove_gpus(self):
+    def remove_devices(self):
         self.deploy.resources.remove_devices()
-        self.devices.remove_gpus()
+        self.devices.remove_devices()
 
     @property
     def storage(self):
@@ -218,7 +218,7 @@ class Container:
         if self._user:
             result["user"] = self._user
 
-        if self.deploy.resources.has_gpus() or self.devices.has_gpus():
+        if self.deploy.resources.has_gpus() or self.devices.has_devices():
             self.add_group(44)  # video
             self.add_group(107)  # render
 
