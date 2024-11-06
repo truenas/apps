@@ -182,6 +182,9 @@ class Container:
     def set_shm_size_mb(self, size: int):
         self._shm_size = size
 
+    # Easily remove devices from the container
+    # Useful in dependencies like postgres and redis
+    # where there is no need to pass devices to them
     def remove_devices(self):
         self.deploy.resources.remove_devices()
         self.devices.remove_devices()

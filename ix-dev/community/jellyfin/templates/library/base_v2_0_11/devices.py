@@ -50,6 +50,9 @@ class Devices:
         self._devices.clear()
         self._container_device_paths.clear()
 
+    # Check if there are any gpu devices
+    # Used to determine if we should add groups
+    # like 'video' to the container
     def has_gpus(self):
         for d in self._devices:
             if d.host_device == "/dev/dri":
