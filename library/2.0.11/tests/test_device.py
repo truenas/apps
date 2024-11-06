@@ -90,7 +90,7 @@ def test_automatically_add_gpu_devices(mock_values):
     c1.healthcheck.disable()
     output = render.render()
     assert output["services"]["test_container"]["devices"] == ["/dev/dri:/dev/dri"]
-    assert output["services"]["test_container"]["group_add"] == [107, 44]
+    assert output["services"]["test_container"]["group_add"] == [44, 107]
 
 
 def test_remove_gpu_devices(mock_values):

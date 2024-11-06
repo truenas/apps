@@ -68,7 +68,7 @@ def test_automatically_add_gpus(mock_values):
         "driver": "nvidia",
         "device_ids": ["uuid_0", "uuid_1"],
     }
-    assert output["services"]["test_container"]["group_add"] == [107, 44]
+    assert output["services"]["test_container"]["group_add"] == [44, 107]
 
 
 def test_gpu_without_uuid(mock_values):
