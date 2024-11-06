@@ -66,11 +66,16 @@ class VolumeMount:
                     raise RenderError("Expected [volume_config] to be set for [volume] type.")
                 mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
                 source = VolumeSource(self._render_instance, mount_config).get()
-            case "temporary" | "anonymous":
+            case "temporary":
                 spec_type = "volume"
                 mount_config = config.get("volume_config")
                 if mount_config is None:
-                    raise RenderError("Expected [volume_config] to be set for [volume] type.")
+                    raise RenderError("Expected [volume_config] to be set for [temporary] type.")
+                mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
+                source = VolumeSource(self._render_instance, mount_config).get()
+            case "anonymous":
+                spec_type = "volume"
+                mount_config = config.get("volume_config") or {}
                 mount_type_specific_definition = VolumeMountType(self._render_instance, mount_config).render()
                 source = None
             case _:
