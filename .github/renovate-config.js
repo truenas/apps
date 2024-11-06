@@ -87,6 +87,11 @@ module.exports = {
       ["linuxserver/deluge", "linuxserver/diskover", "linuxserver/transmission"]
     ),
     customVersioning(
+      // 1.40.2.8395-c67dce28e
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>[a-z0-9-]+)$",
+      ["plexinc/pms-docker"]
+    ),
+    customVersioning(
       // Older versions was 20220101 and newer versions are 240101
       "^(?<major>\\d{2})(?<minor>\\d{2})(?<patch>\\d{2})$",
       ["photoprism/photoprism"]
