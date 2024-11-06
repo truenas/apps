@@ -6,6 +6,8 @@
 {%- set id_tool_dir_files = values.consts.identity_tool_dir_files %}
 {%- set flags = "--identity-dir %s"|format(id_path) %}
 
+[ ! -w {{ config_dir }} ] && { echo "Config directory is not writable."; exit 1; }
+
 echo "Checking for identity certificate..."
 if ! [ -f "{{ id_path }}/ca.cert" ] && ! [ -f "{{ id_path }}/identity.cert" ]; then
   echo "Downloading identity generator tool..."; mkdir -p {{ id_tool_dir }}
