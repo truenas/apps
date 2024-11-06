@@ -226,7 +226,7 @@ class Container:
             self.add_group(107)  # render
 
         if self._group_add:
-            result["group_add"] = sorted(self._group_add, key=lambda g: str(g))
+            result["group_add"] = sorted(self._group_add, key=lambda g: (isinstance(g, str), g))
 
         if self._shm_size is not None:
             result["shm_size"] = f"{self._shm_size}M"
