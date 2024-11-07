@@ -23,8 +23,13 @@
 {% do c1.add_storage("/cache", values.storage.cache) %}
 {% do perm_container.add_or_skip_action("cache", values.storage.cache, perm_config) %}
 
-{% do c1.add_storage("/config/transcodes", dict(values.storage.transcodes, **{"tmpfs_config": {"mode": "0777"}})) %}
-{% do perm_container.add_or_skip_action("transcodes", values.storage.transcodes, perm_config) %}
+{% set static_transcodes_options = {
+  "tmpfs_config": {"mode": "0777"},
+  "volume_config": {"volume_name": "jellyfin-transcodes"},
+} %}
+{% set transcodes_storage = dict(values.storage.transcodes, **static_transcodes_options) %}
+{% do c1.add_storage("/config/transcodes", transcodes_storage) %}
+{% do perm_container.add_or_skip_action("transcodes", transcodes_storage, perm_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
