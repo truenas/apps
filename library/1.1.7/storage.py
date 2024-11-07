@@ -294,6 +294,7 @@ def _process_cifs(data):
             utils.throw_error(f"Expected [{key}] to be set for [cifs] type")
 
     opts = [
+        "noperm",
         f"user={data['cifs_config']['username']}",
         f"password={data['cifs_config']['password']}",
     ]
@@ -304,7 +305,7 @@ def _process_cifs(data):
         if not isinstance(data["cifs_config"]["options"], list):
             utils.throw_error("Expected [cifs_config.options] to be a list for [cifs] type")
 
-        disallowed_opts = ["user", "password", "domain"]
+        disallowed_opts = ["user", "password", "domain", "noperm"]
         for opt in data["cifs_config"]["options"]:
             if not isinstance(opt, str):
                 utils.throw_error("Expected [cifs_config.options] to be a list of strings for [cifs] type")
