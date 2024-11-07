@@ -1,5 +1,5 @@
-# FlareSolverr
+# Filestash
 
-[FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) - Proxy server to bypass Cloudflare protection
+[Filestash](https://github.com/mickael-kerjean/filestash) - a file manager / web client
 
-FlareSolverr is a proxy server to bypass Cloudflare and DDoS-GUARD protection.
+Filestash is a file manager / web client for SFTP, S3, FTP, WebDAV, Git, Minio, LDAP, CalDAV, CardDAV, Mysql, Backblaze, ...
