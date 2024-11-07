@@ -555,7 +555,13 @@ def test_temporary_volume(mock_values):
     c1.add_storage("/some/path", vol_config)
     output = render.render()
     assert output["services"]["test_container"]["volumes"] == [
-        {"type": "volume", "target": "/some/path", "read_only": False, "volume": {"nocopy": False}}
+        {
+            "source": "test_temp_volume",
+            "type": "volume",
+            "target": "/some/path",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
     ]
 
 

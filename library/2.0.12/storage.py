@@ -39,7 +39,7 @@ class IxStorageIxVolumeConfig(TypedDict):
 
 
 class IxStorageVolumeConfig(TypedDict):
-    volume_name: str
+    volume_name: NotRequired[str]
     nocopy: NotRequired[bool]
 
 
@@ -64,7 +64,7 @@ IxStorageLikeConfigs = Union[IxStorageBindLikeConfigs, IxStorageVolumeLikeConfig
 
 
 class IxStorage(TypedDict):
-    type: Literal["ix_volume", "host_path", "tmpfs", "volume", "anonymous"]
+    type: Literal["ix_volume", "host_path", "tmpfs", "volume", "anonymous", "temporary"]
     read_only: NotRequired[bool]
     auto_permissions: NotRequired[bool]
 
