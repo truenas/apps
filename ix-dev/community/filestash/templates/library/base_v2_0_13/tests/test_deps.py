@@ -123,17 +123,22 @@ def test_add_redis(mock_values):
         "redis_container",
         "redis_image",
         {
-            "password": "test_password",
+            "password": "test&password@",
             "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
         },
         perms_container,
     )
+    c1.environment.add_env("REDIS_URL", r.get_url("redis"))
     if perms_container.has_actions():
         perms_container.activate()
         r.container.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
     assert "devices" not in output["services"]["redis_container"]
     assert "reservations" not in output["services"]["redis_container"]["deploy"]["resources"]
+    assert (
+        output["services"]["test_container"]["environment"]["REDIS_URL"]
+        == "redis://default:test%26password%40@redis_container:6379"
+    )
     assert output["services"]["redis_container"]["image"] == "redis:latest"
     assert output["services"]["redis_container"]["user"] == "1001:0"
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -158,7 +163,7 @@ def test_add_redis(mock_values):
         "TZ": "Etc/UTC",
         "NVIDIA_VISIBLE_DEVICES": "void",
         "ALLOW_EMPTY_PASSWORD": "no",
-        "REDIS_PASSWORD": "test_password",
+        "REDIS_PASSWORD": "test&password@",
         "REDIS_PORT_NUMBER": "6379",
     }
     assert output["services"]["redis_container"]["depends_on"] == {
