@@ -104,7 +104,7 @@ def test_add_group(mock_values):
     c1.add_group(1000)
     c1.add_group("video")
     output = render.render()
-    assert output["services"]["test_container"]["group_add"] == [1000, "video"]
+    assert output["services"]["test_container"]["group_add"] == [568, 1000, "video"]
 
 
 def test_add_duplicate_group(mock_values):

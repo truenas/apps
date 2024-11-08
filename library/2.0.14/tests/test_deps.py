@@ -76,6 +76,8 @@ def test_add_postgres(mock_values):
     ]
     assert output["services"]["pg_container"]["environment"] == {
         "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
         "POSTGRES_USER": "test_user",
         "POSTGRES_PASSWORD": "test_@password",
@@ -161,6 +163,8 @@ def test_add_redis(mock_values):
     ]
     assert output["services"]["redis_container"]["environment"] == {
         "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
         "ALLOW_EMPTY_PASSWORD": "no",
         "REDIS_PASSWORD": "test&password@",
@@ -228,6 +232,8 @@ def test_add_mariadb(mock_values):
     ]
     assert output["services"]["mariadb_container"]["environment"] == {
         "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
         "MARIADB_USER": "test_user",
         "MARIADB_PASSWORD": "test_password",

@@ -33,7 +33,7 @@ def test_auto_add_vars(mock_values):
     c1.healthcheck.disable()
     output = render.render()
     envs = output["services"]["test_container"]["environment"]
-    assert len(envs) == 9
+    assert len(envs) == 11
     assert envs["TZ"] == "Etc/UTC"
     assert envs["PUID"] == "1000"
     assert envs["UID"] == "1000"
@@ -41,6 +41,8 @@ def test_auto_add_vars(mock_values):
     assert envs["PGID"] == "1000"
     assert envs["GID"] == "1000"
     assert envs["GROUP_ID"] == "1000"
+    assert envs["UMASK"] == "002"
+    assert envs["UMASK_SET"] == "002"
     assert envs["NVIDIA_DRIVER_CAPABILITIES"] == "all"
     assert envs["NVIDIA_VISIBLE_DEVICES"] == "uuid_0,uuid_1"
 
