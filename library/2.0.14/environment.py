@@ -31,6 +31,9 @@ class Environment:
 
     def _add_generic_variables(self):
         self._auto_variables["TZ"] = self._render_instance.values.get("TZ", "Etc/UTC")
+        self._auto_variables["UMASK"] = self._render_instance.values.get("UMASK", "002")
+        self._auto_variables["UMASK_SET"] = self._render_instance.values.get("UMASK", "002")
+
         run_as = self._render_instance.values.get("run_as", {})
         user = run_as.get("user")
         group = run_as.get("group")

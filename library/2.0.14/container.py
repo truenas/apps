@@ -65,14 +65,16 @@ class Container:
         self.dns: Dns = Dns(self._render_instance)
         self.depends: Depends = Depends(self._render_instance)
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
-        # TODO: have a known labels dict in the config and parse it automatically
-        # at render time so all the containers are defined
         self.labels: Labels = Labels(self._render_instance)
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
         self.ports: Ports = Ports(self._render_instance)
 
         self._auto_set_network_mode()
         self._auto_add_labels()
+        self._auto_add_groups()
+
+    def _auto_add_groups(self):
+        self.add_group(568)
 
     def _auto_set_network_mode(self):
         if self._render_instance.values.get("network", {}).get("host_network", False):
