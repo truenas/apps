@@ -199,6 +199,7 @@ class Container:
 
         result = {
             "image": self._image,
+            "platform": "linux/amd64",
             "tty": self._tty,
             "stdin_open": self._stdin_open,
             "restart": self.restart.render(),

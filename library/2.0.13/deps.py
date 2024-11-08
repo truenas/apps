@@ -338,6 +338,7 @@ class RedisContainer:
     ):
         self._render_instance = render_instance
         self._name = name
+        self._config = config
 
         for key in ("password", "volume"):
             if key not in config:
@@ -346,7 +347,7 @@ class RedisContainer:
         if " " in config["password"]:
             raise RenderError("Redis password cannot contain spaces")
 
-        port = valid_port_or_raise(config.get("port") or 6379)
+        port = valid_port_or_raise(self._get_port())
 
         c = self._render_instance.add_container(name, image)
         c.set_user(1001, 0)
@@ -365,6 +366,17 @@ class RedisContainer:
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
         self._container = c
+
+    def _get_port(self):
+        return self._config.get("port") or 6379
+
+    def get_url(self, variant: str):
+        addr = f"{self._name}:{self._get_port()}"
+        password = urllib.parse.quote_plus(self._config["password"])
+
+        match variant:
+            case "redis":
+                return f"redis://default:{password}@{addr}"
 
     @property
     def container(self):
