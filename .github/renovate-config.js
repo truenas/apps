@@ -87,6 +87,11 @@ module.exports = {
       ["linuxserver/deluge", "linuxserver/diskover", "linuxserver/transmission"]
     ),
     customVersioning(
+      // v0.8.1-omnibus
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-omnibus$",
+      ["ghcr.io/analogj/scrutiny"]
+    ),
+    customVersioning(
       // 1.40.2.8395-c67dce28e
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>[a-z0-9-]+)$",
       ["plexinc/pms-docker"]
