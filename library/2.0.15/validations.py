@@ -9,6 +9,13 @@ except ImportError:
 OCTAL_MODE_REGEX = re.compile(r"^0[0-7]{3}$")
 
 
+def valid_redis_password_or_raise(password: str):
+    forbidden_chars = [" ", "'"]
+    for char in forbidden_chars:
+        if char in password:
+            raise RenderError(f"Redis password cannot contain [{char}]")
+
+
 def valid_octal_mode_or_raise(mode: str):
     mode = str(mode)
     if not OCTAL_MODE_REGEX.match(mode):
