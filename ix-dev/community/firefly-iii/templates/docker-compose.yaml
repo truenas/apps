@@ -18,7 +18,6 @@
 
 {% set app_url = values.firefly_iii.app_url.rstrip("/") %}
 {% set static_cron_token = tpl.funcs.secure_string(32) %}
-{% set cron_job_url = "http://%s:8080/api/v1/cron/%s"|format(values.consts.firefly_iii_container_name, static_cron_token) %}
 
 {% set c1 = tpl.add_container(values.consts.firefly_iii_container_name, "image") %}
 {% set cron = tpl.add_container(values.consts.firefly_iii_cron_container_name, "alpine_image") %}
@@ -63,7 +62,7 @@
 {% do cron.environment.add_env("CRON_TOKEN", static_cron_token) %}
 {% do cron.set_entrypoint(["sh", "-c"]) %}
 {% set cmd = [
-  'echo "0 3 * * * wget -qO- %s" | crontab -'|format(cron_job_url),
+  'echo "0 3 * * * wget -qO- http://%s:8080/api/v1/cron/$CRON_TOKEN" | crontab -'|format(values.consts.firefly_iii_container_name),
   '[[ $? -eq 0 ]] || { echo "Failed to set cron job"; exit 1; }',
   "crond -f -L /dev/stdout"
 ]|join("\n") %}
