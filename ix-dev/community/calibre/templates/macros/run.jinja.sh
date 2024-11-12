@@ -7,7 +7,6 @@
   "--trusted-ips=192.168.0.0/16,172.16.0.0/12,10.0.0.0/8",
 ]) -%}
 
-# export XDG_RUNTIME_DIR=/tmp/runtime-root
 if [ ! -f {{ values.consts.books_path }}/metadata.db ]; then
   echo 'Creating an empty calibre metadata database at [{{ values.consts.books_path }}/metadata.db]'
   touch {{ values.consts.books_path }}/metadata.db
