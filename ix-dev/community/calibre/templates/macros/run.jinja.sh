@@ -7,9 +7,9 @@
   "--trusted-ips=192.168.0.0/16,172.16.0.0/12,10.0.0.0/8",
 ]) -%}
 
-if [ ! -f {{ values.consts.books_path }}/metadata.db ]; then
-  echo 'Creating an empty calibre metadata database at [{{ values.consts.books_path }}/metadata.db]'
-  touch {{ values.consts.books_path }}/metadata.db
+if [ ! -f {{ values.consts.media_path }}/metadata.db ]; then
+  echo 'Creating an empty calibre metadata database at [{{ values.consts.media_path }}/metadata.db]'
+  touch {{ values.consts.media_path }}/metadata.db
 fi
 
 {%- if values.calibre.enable_auth -%}
@@ -24,5 +24,5 @@ if [ ! -f {{ user_db }} ]; then
 fi
 {%- endif %}
 
-/usr/bin/calibre-server {{ flags.x | join(" ") }} {{ values.consts.books_path }}
+/usr/bin/calibre-server {{ flags.x | join(" ") }} {{ values.consts.media_path }}
 {% endmacro %}
