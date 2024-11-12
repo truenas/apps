@@ -9,10 +9,20 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
-    from .validations import valid_port_or_raise, valid_fs_path_or_raise, valid_octal_mode_or_raise
+    from .validations import (
+        valid_port_or_raise,
+        valid_fs_path_or_raise,
+        valid_octal_mode_or_raise,
+        valid_redis_password_or_raise,
+    )
 except ImportError:
     from error import RenderError
-    from validations import valid_port_or_raise, valid_fs_path_or_raise, valid_octal_mode_or_raise
+    from validations import (
+        valid_port_or_raise,
+        valid_fs_path_or_raise,
+        valid_octal_mode_or_raise,
+        valid_redis_password_or_raise,
+    )
 
 
 class PostgresConfig(TypedDict):
@@ -344,8 +354,7 @@ class RedisContainer:
             if key not in config:
                 raise RenderError(f"Expected [{key}] to be set for redis")
 
-        if " " in config["password"]:
-            raise RenderError("Redis password cannot contain spaces")
+        valid_redis_password_or_raise(config["password"])
 
         port = valid_port_or_raise(self._get_port())
 
