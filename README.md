@@ -1,12 +1,8 @@
 # Apps Catalog
 
-## ⚠️ **Contributions**
+## **Contributions**
 
-We are actively working on making the core library more user-friendly.
-This process may involve breaking changes to the API.
-Therefore, please wait for an update on when we will start accepting pull requests.
-
-Thank you for your understanding.
+See [CONTRIBUTIONS.md](CONTRIBUTIONS.md)
 
 ## Parity Status with truenas/charts (100% 🚀)
 
