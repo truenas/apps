@@ -2,6 +2,10 @@
 
 Thank you for your interest in contributing to the Apps Catalog.
 
+If you start working on something, please either open an issue and state that you are working on it,
+make a comment on existing issues, or open a PR (even if it's empty!). This will help avoid
+duplicate work!
+
 ## Library
 
 The library is written in Python and is located in the `/library/2.x.x` directory.
