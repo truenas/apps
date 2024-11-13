@@ -1,5 +1,7 @@
 {% macro config_py(file = "", items = []) -%}
 #!/usr/bin/env python3
+import os
+import shutil
 import argparse
 from configparser import ConfigParser
 
@@ -38,9 +40,15 @@ def update_config(config_file: str, key: str, value: str) -> None:
     print(f'Config updated: [{section}] {option} = {value}')
 
 def main():
+    CONFIG_FILE = "{{ file }}"
+    if not os.path.isfile(CONFIG_FILE):
+        print("Copying over default configuration ...")
+        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        shutil.copy("/app/qBittorrent.conf", CONFIG_FILE)
+
     try:
         {%- for item in items %}
-        update_config("{{ file }}", "{{ item[0] }}", "{{ item[1] }}")
+        update_config(CONFIG_FILE, "{{ item[0] }}", "{{ item[1] }}")
         {%- endfor %}
     except ValueError as e:
         print(f"Error: {e}")
