@@ -141,6 +141,9 @@ class Container:
             raise RenderError(f"Group [{group}] already added")
         self._group_add.add(group)
 
+    def get_current_groups(self) -> list[str]:
+        return [str(g) for g in self._group_add]
+
     def set_tty(self, enabled: bool = False):
         self._tty = enabled
 
