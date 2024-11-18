@@ -85,6 +85,11 @@ class Functions:
             merged_dict.update(dictionary)
         return merged_dict
 
+    def _disallow_chars(self, string, chars, key):
+        for char in chars:
+            if char in string:
+                raise RenderError(f"Disallowed character [{char}] in [{key}]")
+
     def func_map(self):
         # TODO: Check what is no longer used and remove
         return {
@@ -102,4 +107,5 @@ class Functions:
             "merge_dicts": self._merge_dicts,
             "must_match_regex": self._must_match_regex,
             "secure_string": self._secure_string,
+            "disallow_chars": self._disallow_chars,
         }
