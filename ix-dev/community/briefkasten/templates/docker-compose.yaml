@@ -6,11 +6,11 @@
 
 {% set pg_config = {
   "user": values.consts.db_user,
-  "password": values.briefkasten.db_password,
+  "password": values.briefkasten.postgres_password,
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
+{% set postgres = tpl.deps.postgres(values.consts.pg_container_name, "postgres_image", pg_config, perm_container) %}
 
 {% set envs = namespace(x={
   "PORT": values.network.web_port,
@@ -62,7 +62,7 @@
 ]) %}
 
 {% do c1.set_user(values.consts.run_user, values.consts.run_group) %}
-{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.pg_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
 {% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port}) %}
 
@@ -82,6 +82,6 @@
 
 {% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
 
-{% do c1.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
 
 {{ tpl.render() | tojson }}
