@@ -62,6 +62,13 @@ def parse_args():
         type=bool,
         help="Wait for user input before stopping the app",
     )
+    parser.add_argument(
+        "--with-migration-helpers",
+        required=False,
+        default=False,
+        type=bool,
+        help="Copy migration helpers",
+    )
     parsed = parser.parse_args()
 
     return {
@@ -72,6 +79,7 @@ def parse_args():
         "render_only_debug": parsed.render_only_debug,
         "project": secrets.token_hex(16),
         "wait": parsed.wait,
+        "with_migration_helpers": parsed.with_migration_helpers,
     }
 
 
@@ -84,6 +92,7 @@ def print_info():
     print_stderr(f"  - render-only: [{args['render_only']}]")
     print_stderr(f"  - render-only-debug: [{args['render_only_debug']}]")
     print_stderr(f"  - wait: [{args['wait']}]")
+    print_stderr(f"  - with-migration-helpers: [{args['with_migration_helpers']}]")
 
 
 def command_exists(command):
@@ -239,9 +248,7 @@ def get_parsed_containers():
     # Outputs one container per line, in json format
     cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
-    all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode(
-        "utf-8"
-    )
+    all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
     parsed_containers = []
     for line in all_containers.split("\n"):
         if not line:
@@ -378,9 +385,7 @@ def run_app():
             return res.returncode or 99
 
         failed_containers = get_failed_containers()
-        failed_containers_names = "\n".join(
-            [f"\t-{c['Name']} ({c['ID']})" for c in failed_containers]
-        )
+        failed_containers_names = "\n".join([f"\t-{c['Name']} ({c['ID']})" for c in failed_containers])
         if not failed_containers:
             print_stderr("✅ No failed containers found")
 
@@ -390,9 +395,7 @@ def run_app():
                 + f"failed containers that failed to start:\n {failed_containers_names}"
             )
         for container in failed_containers:
-            print_stderr(
-                f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data"
-            )
+            print_stderr(f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data")
             print_inspect_data(container)
 
         # https://github.com/docker/compose/issues/10596
@@ -408,9 +411,7 @@ def run_app():
 
 def check_app_dir_exists():
     if not os.path.exists(f"ix-dev/{args['train']}/{args['app']}"):
-        print_stderr(
-            f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist"
-        )
+        print_stderr(f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist")
         sys.exit(1)
 
 
@@ -455,9 +456,7 @@ def copy_migration_helpers():
         return
 
     print_stderr("Copying migration helpers")
-    target_helpers_dir = (
-        f"ix-dev/{args['train']}/{args['app']}/migrations/migration_helpers"
-    )
+    target_helpers_dir = f"ix-dev/{args['train']}/{args['app']}/migrations/migration_helpers"
     os.makedirs(target_helpers_dir, exist_ok=True)
     if pathlib.Path(target_helpers_dir).exists():
         shutil.rmtree(target_helpers_dir, ignore_errors=True)
@@ -498,7 +497,8 @@ def main():
     pull_app_catalog_container()
     copy_lib()
     copy_macros()
-    copy_migration_helpers()
+    if args["with_migration_helpers"]:
+        copy_migration_helpers()
     generate_item_file()
     check_required_commands()
     render_compose()
