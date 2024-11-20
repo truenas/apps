@@ -1,112 +1,46 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{% set pg_storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
-{% set pg_volume_mounts = namespace(items=[]) %}
-{# Stores the perms container volume mounts #}
-{% set perms_mounts = namespace(items=[]) %}
-{# Stores the perms container dirs #}
-{% set perms_dirs = namespace(items=[]) %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/var/roundcube/config"}))) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.html, **{"mount_path": "/var/www/html"}))) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.temps, **{"mount_path": "/tmp/roundcube-temp"}))) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"})) %}
+{% set c1 = tpl.add_container(values.consts.roundcube_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.roundcube.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/?ping=ping"}) %}
+
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_TYPE", "pgsql") %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_HOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_PORT", 5432) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_USER", values.consts.db_user) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_NAME", values.consts.db_name) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_PASSWORD", values.roundcube.db_password) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_SKIN", values.roundcube.skin) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DEFAULT_HOST", values.roundcube.default_host) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DEFAULT_PORT", values.roundcube.default_port) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_SMTP_SERVER", values.roundcube.smtp_server) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_SMTP_PORT", values.roundcube.smtp_port) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_PLUGINS", values.roundcube.plugins | join(",")) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_ASPELL_PACKAGES", values.roundcube.aspell_dicts | join(",")) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE", "%dM" | format(values.roundcube.upload_max_size)) %}
+{% do c1.environment.add_user_envs(values.roundcube.additional_envs) %}
+
+{% do c1.add_storage("/var/roundcube/config", values.storage.config) %}
+{% do c1.add_storage("/var/www/html", values.storage.html) %}
+{% do c1.add_storage("/tmp/roundcube-temp", values.storage.temps) %}
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+  {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
-{% endfor %}
+{% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
 
-{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
-  perm_opts={"mount_path": "/mnt/postgres/tmp", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group}
-)) %}
-{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
-  values=values, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group,}
-)) %}
-{% for item in pg_storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and pg_volume_mounts.items.append(item.vol_mount) %}{% endif %}
-  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
-{% endfor %}
+{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
 
-{# Containers #}
-services:
-  {{ values.consts.roundcube_container_name }}:
-    user: "0:0"
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    depends_on:
-      {{ values.consts.postgres_container_name }}:
-        condition: service_healthy
-    {% if perms_dirs.items %}
-      {{ values.consts.perms_container_name }}:
-        condition: service_completed_successfully
-    {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test(port=80, path="/?ping=ping") %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    environment: {{ ix_lib.base.environment.envs(app={
-      "ROUNDCUBEMAIL_DB_TYPE": "pgsql",
-      "ROUNDCUBEMAIL_DB_HOST": values.consts.postgres_container_name,
-      "ROUNDCUBEMAIL_DB_PORT": 5432,
-      "ROUNDCUBEMAIL_DB_USER": values.consts.db_user,
-      "ROUNDCUBEMAIL_DB_NAME": values.consts.db_name,
-      "ROUNDCUBEMAIL_DB_PASSWORD": values.roundcube.db_password,
-      "ROUNDCUBEMAIL_SKIN": values.roundcube.skin,
-      "ROUNDCUBEMAIL_DEFAULT_HOST": values.roundcube.default_host,
-      "ROUNDCUBEMAIL_DEFAULT_PORT": values.roundcube.default_port,
-      "ROUNDCUBEMAIL_SMTP_SERVER": values.roundcube.smtp_server,
-      "ROUNDCUBEMAIL_SMTP_PORT": values.roundcube.smtp_port,
-      "ROUNDCUBEMAIL_PLUGINS": values.roundcube.plugins | join(","),
-      "ROUNDCUBEMAIL_ASPELL_PACKAGES": values.roundcube.aspell_dicts | join(","),
-      "ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE": "%dM" | format(values.roundcube.upload_max_size),
-    }, user=values.roundcube.additional_envs, values=values) | tojson }}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": 80, "published": values.network.web_port}) | tojson }}
-    volumes: {{ volume_mounts.items | tojson }}
-
-  {% if perms_dirs.items %}
-  {{ values.consts.perms_container_name }}: {{ ix_lib.base.permissions.perms_container(items=perms_dirs.items, volumes=perms_mounts.items) | tojson }}
-  {% endif %}
-
-  {% set resource_without_gpus = ix_lib.base.utils.copy_dict(values.resources) %}
-  {% do resource_without_gpus.pop("gpus", None) %}
-  {{ values.consts.postgres_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
-    "image": ix_lib.base.utils.get_image(images=values.images, name="postgres_image"),
-    "volumes": pg_volume_mounts.items,
-    "user": values.consts.pg_run_user, "group": values.consts.pg_run_group,
-    "db_user": values.consts.db_user, "db_name": values.consts.db_name,
-    "db_password": values.roundcube.db_password,
-    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
-    "depends_on": {
-      values.consts.perms_container_name: {
-        "condition": "service_completed_successfully"
-      } if perms_dirs.items else {}
-    }
-  }) | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
-{% endif %}
-
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Roundcube") | tojson }}
+{{ tpl.render() | tojson }}
