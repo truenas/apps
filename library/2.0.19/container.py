@@ -41,13 +41,13 @@ class Container:
         self._render_instance = render_instance
 
         self._name: str = name
-        self._image: str = self._resolve_image(image)  # TODO: account for inline dockerfile
+        self._image: str = self._resolve_image(image)
         self._build_image: str = ""
         self._user: str = ""
         self._tty: bool = False
         self._stdin_open: bool = False
-        self._init: bool = False
-        self._read_only: bool = False
+        self._init: bool | None = None
+        self._read_only: bool | None = None
         self._hostname: str = ""
         self._cap_drop: set[str] = set(["ALL"])  # Drop all capabilities by default and add caps granularly
         self._cap_add: set[str] = set()
@@ -228,6 +228,12 @@ class Container:
 
         if self.configs.has_configs():
             result["configs"] = self.configs.render()
+
+        if self._init is not None:
+            result["init"] = self._init
+
+        if self._read_only is not None:
+            result["read_only"] = self._read_only
 
         if self._grace_period is not None:
             result["stop_grace_period"] = self._grace_period

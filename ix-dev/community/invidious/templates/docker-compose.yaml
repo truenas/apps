@@ -21,7 +21,7 @@
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port}) %}
-{% do c1.environment.add_env("INVIDIOUS_CONFIG_PATH", "%s/config.yaml"|format(values.consts.config_path)) %}
+{% do c1.environment.add_env("INVIDIOUS_CONFIG_FILE", "%s/config.yaml"|format(values.consts.config_path)) %}
 {% do c1.environment.add_user_envs(values.invidious.additional_envs) %}
 
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -32,14 +32,16 @@
 {% do db_fetch.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do db_fetch.healthcheck.disable() %}
 {% do db_fetch.restart.set_policy("on-failure", 1) %}
-{% do db_fetch.configs.add("apply_db_seed.sh", config_macro.apply_db_seed(values=values), "/apply_db_seed.sh", "0755") %}
-{% do db_fetch.set_entrypoint("/apply_db_seed.sh") %}
+{% do db_fetch.deploy.resources.set_profile("low") %}
+{% do db_fetch.configs.add("fetch_db_seed.sh", config_macro.fetch_db_seed(values=values), "/fetch_db_seed.sh", "0755") %}
+{% do db_fetch.set_entrypoint(["/fetch_db_seed.sh"]) %}
 
 {% do db_seed.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do db_seed.healthcheck.disable() %}
 {% do db_seed.restart.set_policy("on-failure", 1) %}
-{% do db_seed.configs.add("fetch_db_seed.sh", config_macro.fetch_db_seed(values=values), "/fetch_db_seed.sh", "0755") %}
-{% do db_seed.set_entrypoint("/fetch_db_seed.sh") %}
+{% do db_seed.deploy.resources.set_profile("low") %}
+{% do db_seed.configs.add("apply_db_seed.sh", config_macro.apply_db_seed(values=values), "/apply_db_seed.sh", "0755") %}
+{% do db_seed.set_entrypoint(["/apply_db_seed.sh"]) %}
 {% do db_seed.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do db_seed.depends.add_dependency(values.consts.db_seed_fetch_container_name, "service_completed_successfully") %}
 {% do db_seed.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
@@ -78,8 +80,9 @@
 {% do config.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do config.healthcheck.disable() %}
 {% do config.restart.set_policy("on-failure", 1) %}
+{% do config.deploy.resources.set_profile("low") %}
 {% do config.configs.add("config.sh", config_macro.config(values=values, cfg=cfg.x), "/setup/config.sh", "0755") %}
-{% do config.set_entrypoint("/setup/config.sh") %}
+{% do config.set_entrypoint(["/setup/config.sh"]) %}
 {% do config.depends.add_dependency(values.consts.db_seed_apply_container_name, "service_completed_successfully") %}
 
 {# {% set temp_config = {"type": "temporary", {"volume_config": {"volume_name": "temp"}}} %}
@@ -90,7 +93,6 @@
 {% do perm_container.add_or_skip_action("tmp", "/tmp", perms_config) %} #}
 
 {% set shared_volume_config = {"type": "temporary", "volume_config": {"volume_name": "shared"}} %}
-{% do c1.add_storage("/shared", shared_volume_config) %}
 {% do db_fetch.add_storage("/shared", shared_volume_config) %}
 {% do db_seed.add_storage("/shared", shared_volume_config) %}
 {% do config.add_storage("/shared", shared_volume_config) %}

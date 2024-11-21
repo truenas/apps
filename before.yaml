@@ -1,0 +1,548 @@
+name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91
+services:
+  config:
+    cap_drop:
+      - ALL
+    configs:
+      - source: config.sh
+        target: /setup/config.sh
+        mode: 493
+    depends_on:
+      db_seed_apply:
+        condition: service_completed_successfully
+        required: true
+      permissions:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    entrypoint:
+      - /setup/config.sh
+    environment:
+      TZ: Etc/UTC
+    image: mikefarah/yq:4.44.5
+    networks:
+      default: null
+    restart: on-failure
+    security_opt:
+      - no-new-privileges
+    user: 1000:1000
+    volumes:
+      - type: volume
+        source: invidious-config
+        target: /config
+        volume: {}
+      - type: volume
+        source: tmp
+        target: /tmp
+        volume: {}
+      - type: volume
+        source: shared
+        target: /shared
+        volume: {}
+  db_seed_apply:
+    cap_drop:
+      - ALL
+    configs:
+      - source: apply_db_seed.sh
+        target: /apply_db_seed.sh
+        mode: 493
+    depends_on:
+      db_seed_fetch:
+        condition: service_completed_successfully
+        required: true
+      postgres:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    entrypoint:
+      - /apply_db_seed.sh
+    environment:
+      PGHOST: postgres
+      PGPASSWORD: password
+      PGPORT: "5432"
+      POSTGRES_DB: kemal
+      POSTGRES_USER: kemal
+      TZ: Etc/UTC
+    image: postgres:15.9
+    networks:
+      default: null
+    restart: on-failure
+    security_opt:
+      - no-new-privileges
+    user: 1000:1000
+    volumes:
+      - type: volume
+        source: invidious-config
+        target: /config
+        volume: {}
+      - type: volume
+        source: tmp
+        target: /tmp
+        volume: {}
+      - type: volume
+        source: shared
+        target: /shared
+        volume: {}
+  db_seed_fetch:
+    cap_drop:
+      - ALL
+    configs:
+      - source: fetch_db_seed.sh
+        target: /fetch_db_seed.sh
+        mode: 493
+    depends_on:
+      permissions:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    entrypoint:
+      - /fetch_db_seed.sh
+    environment:
+      TZ: Etc/UTC
+    image: bitnami/git:latest
+    networks:
+      default: null
+    restart: on-failure
+    security_opt:
+      - no-new-privileges
+    user: 1000:1000
+    volumes:
+      - type: volume
+        source: invidious-config
+        target: /config
+        volume: {}
+      - type: volume
+        source: tmp
+        target: /tmp
+        volume: {}
+      - type: volume
+        source: shared
+        target: /shared
+        volume: {}
+  invidious:
+    cap_drop:
+      - ALL
+    depends_on:
+      config:
+        condition: service_completed_successfully
+        required: true
+      permissions:
+        condition: service_completed_successfully
+        required: true
+      postgres:
+        condition: service_healthy
+        required: true
+      signature-helper:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    environment:
+      INVIDIOUS_CONFIG_FILE: /config/config.yaml
+      TZ: Etc/UTC
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - nc -z -w 1 127.0.0.1 8080
+      timeout: 5s
+      interval: 10s
+      retries: 30
+      start_period: 10s
+    image: quay.io/invidious/invidious:2.20241110.0
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 0.0.0.0
+        target: 8080
+        published: "8080"
+        protocol: tcp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    user: 1000:1000
+    volumes:
+      - type: volume
+        source: invidious-config
+        target: /config
+        volume: {}
+      - type: volume
+        source: tmp
+        target: /tmp
+        volume: {}
+      - type: volume
+        source: shared
+        target: /shared
+        volume: {}
+  permissions:
+    command:
+      - |2-
+        function process_dir() {
+            local dir=$$1
+            local mode=$$2
+            local uid=$$3
+            local gid=$$4
+            local chmod=$$5
+            local is_temporary=$$6
+
+            local fix_owner="false"
+            local fix_perms="false"
+
+            if [ -z "$$dir" ]; then
+                echo "Path is empty, skipping..."
+                return 0
+            fi
+
+            if [ ! -d "$$dir" ]; then
+                echo "Path [$$dir] does is not a directory, skipping..."
+                return 0
+            fi
+
+            if [ "$$is_temporary" = "true" ]; then
+                echo "Path [$$dir] is a temporary directory, ensuring it is empty..."
+                # Exclude the safe directory, where we can use to mount files temporarily
+                find "$$dir" -mindepth 1 -maxdepth 1 ! -name "ix-safe" -exec rm -rf {} +
+            fi
+
+            if [ "$$is_temporary" = "false" ] && [ -n "$$(ls -A $$dir)" ]; then
+                echo "Path [$$dir] is not empty, skipping..."
+                return 0
+            fi
+
+            echo "Current Ownership and Permissions on [$$dir]:"
+            echo "chown: $$(stat -c "%u %g" "$$dir")"
+            echo "chmod: $$(stat -c "%a" "$$dir")"
+
+            if [ "$$mode" = "always" ]; then
+                fix_owner="true"
+                fix_perms="true"
+            fi
+
+            if [ "$$mode" = "check" ]; then
+                if [ $$(stat -c %u "$$dir") -eq $$uid ] && [ $$(stat -c %g "$$dir") -eq $$gid ]; then
+                    echo "Ownership is correct. Skipping..."
+                    fix_owner="false"
+                else
+                    echo "Ownership is incorrect. Fixing..."
+                    fix_owner="true"
+                fi
+
+                if [ "$$chmod" = "false" ]; then
+                    echo "Skipping permissions check, chmod is false"
+                elif [ -n "$$chmod" ]; then
+                    if [ $$(stat -c %a "$$dir") -eq $$chmod ]; then
+                        echo "Permissions are correct. Skipping..."
+                        fix_perms="false"
+                    else
+                        echo "Permissions are incorrect. Fixing..."
+                        fix_perms="true"
+                    fi
+                fi
+            fi
+
+            if [ "$$fix_owner" = "true" ]; then
+                echo "Changing ownership to $$uid:$$gid on: [$$dir]"
+                chown -R "$$uid:$$gid" "$$dir"
+                echo "Finished changing ownership"
+                echo "Ownership after changes:"
+                stat -c "%u %g" "$$dir"
+            fi
+
+            if [ -n "$$chmod" ] && [ "$$fix_perms" = "true" ]; then
+                echo "Changing permissions to $$chmod on: [$$dir]"
+                chmod -R "$$chmod" "$$dir"
+                echo "Finished changing permissions"
+                echo "Permissions after changes:"
+                stat -c "%a" "$$dir"
+            fi
+        }
+
+        process_dir /mnt/postgres/tmp check 999 999 false true
+        process_dir /mnt/postgres/data check 999 999 false false
+        process_dir /mnt/invidious/config check 1000 1000 false false
+        process_dir /mnt/invidious/tmp check 1000 1000 false true
+        process_dir /mnt/invidious/shared check 1000 1000 false true
+    deploy:
+      resources:
+        limits:
+          cpus: 1
+          memory: "536870912"
+    entrypoint:
+      - bash
+      - -c
+    image: bash
+    networks:
+      default: null
+    user: root
+    volumes:
+      - type: volume
+        source: tmp
+        target: /mnt/postgres/tmp
+        volume: {}
+      - type: volume
+        source: invidious-postgres-data
+        target: /mnt/postgres/data
+        volume: {}
+      - type: volume
+        source: invidious-config
+        target: /mnt/invidious/config
+        volume: {}
+      - type: volume
+        source: tmp
+        target: /mnt/invidious/tmp
+        volume: {}
+      - type: volume
+        source: shared
+        target: /mnt/invidious/shared
+        volume: {}
+  postgres:
+    cap_drop:
+      - ALL
+    depends_on:
+      permissions:
+        condition: service_completed_successfully
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    environment:
+      POSTGRES_DB: kemal
+      POSTGRES_PASSWORD: password
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: kemal
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -h 127.0.0.1 -p 5432 -d kemal -U kemal
+      timeout: 5s
+      interval: 10s
+      retries: 30
+      start_period: 10s
+    image: postgres:15.9
+    networks:
+      default: null
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    user: 999:999
+    volumes:
+      - type: volume
+        source: tmp
+        target: /tmp
+        volume: {}
+      - type: volume
+        source: invidious-postgres-data
+        target: /var/lib/postgresql/data
+        volume: {}
+  signature-helper:
+    cap_drop:
+      - ALL
+    command:
+      - --tcp
+      - 0.0.0.0:12999
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    environment:
+      RUST_LOG: info
+      TZ: Etc/UTC
+    healthcheck:
+      disable: true
+    image: quay.io/invidious/inv-sig-helper:latest
+    init: true
+    networks:
+      default: null
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    user: 10001:10001
+networks:
+  default:
+    name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91_default
+volumes:
+  invidious-config:
+    name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91_invidious-config
+  invidious-postgres-data:
+    name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91_invidious-postgres-data
+  shared:
+    name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91_shared
+  tmp:
+    name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91_tmp
+configs:
+  apply_db_seed.sh:
+    name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91_apply_db_seed.sh
+    content: |
+      #!/bin/sh
+
+      touch "/config/config.yaml"
+      if [ -f "/config/config.yaml" ]; then
+        echo "Found existing config file [/config/config.yaml]."
+        echo "Treating it as an existing installation. Skipping step [apply_db_seed]..."
+
+        echo "If you are re-installing, please remove the file and restart the app."
+        echo "After it is up and running, you can update the config file to your needs and restart the app."
+        exit 0
+      fi
+
+      echo "Applying seed..."
+      cd /shared/seed/docker
+      ./init-invidious-db.sh || { echo "Failed to apply seed"; exit 1; }
+      echo "Done!"
+  config.sh:
+    name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91_config.sh
+    content: |
+      #!/bin/sh
+      if [ ! -f "/config/config.yaml" ]; then
+        echo "File [/config/config.yaml] does not exist. Copying default config..."
+        cp -v "/shared/config.example.yaml" "/config/config.yaml"
+      else
+        echo "File [/config/config.yaml] exists!"
+      fi
+
+      echo "Updating [/config/config.yaml] file..."
+      echo ''
+      echo "Updating [check_tables] key..."
+      yq -i '.check_tables = true' "/config/config.yaml"
+      echo "New value for [check_tables]: $$(yq '.check_tables' "/config/config.yaml")"
+      echo ''
+      echo "Updating [database_url] key..."
+      yq -i '.database_url = "postgres://kemal:password@postgres:5432/kemal?sslmode=disable"' "/config/config.yaml"
+      echo "New value for [database_url]: $$(yq '.database_url' "/config/config.yaml")"
+      echo ''
+      echo "Updating [db.user] key..."
+      yq -i '.db.user = "kemal"' "/config/config.yaml"
+      echo "New value for [db.user]: $$(yq '.db.user' "/config/config.yaml")"
+      echo ''
+      echo "Updating [db.password] key..."
+      yq -i '.db.password = "password"' "/config/config.yaml"
+      echo "New value for [db.password]: $$(yq '.db.password' "/config/config.yaml")"
+      echo ''
+      echo "Updating [db.dbname] key..."
+      yq -i '.db.dbname = "kemal"' "/config/config.yaml"
+      echo "New value for [db.dbname]: $$(yq '.db.dbname' "/config/config.yaml")"
+      echo ''
+      echo "Updating [db.host] key..."
+      yq -i '.db.host = "postgres"' "/config/config.yaml"
+      echo "New value for [db.host]: $$(yq '.db.host' "/config/config.yaml")"
+      echo ''
+      echo "Updating [db.port] key..."
+      yq -i '.db.port = 5432' "/config/config.yaml"
+      echo "New value for [db.port]: $$(yq '.db.port' "/config/config.yaml")"
+      echo ''
+      echo "Updating [hmac_key] key..."
+      yq -i '.hmac_key = "secret"' "/config/config.yaml"
+      echo "New value for [hmac_key]: $$(yq '.hmac_key' "/config/config.yaml")"
+      echo ''
+      echo "Updating [host_binding] key..."
+      yq -i '.host_binding = "0.0.0.0"' "/config/config.yaml"
+      echo "New value for [host_binding]: $$(yq '.host_binding' "/config/config.yaml")"
+      echo ''
+      echo "Updating [port] key..."
+      yq -i '.port = 8080' "/config/config.yaml"
+      echo "New value for [port]: $$(yq '.port' "/config/config.yaml")"
+      echo ''
+      echo "Updating [admins] key..."
+      yq -i '.admins = ["admin@example.com", "admin2@example.com"]' "/config/config.yaml"
+      echo "New value for [admins]: $$(yq '.admins' "/config/config.yaml")"
+      echo ''
+      echo "Updating [registration_enabled] key..."
+      yq -i '.registration_enabled = true' "/config/config.yaml"
+      echo "New value for [registration_enabled]: $$(yq '.registration_enabled' "/config/config.yaml")"
+      echo ''
+      echo "Updating [login_enabled] key..."
+      yq -i '.login_enabled = true' "/config/config.yaml"
+      echo "New value for [login_enabled]: $$(yq '.login_enabled' "/config/config.yaml")"
+      echo ''
+      echo "Updating [captcha_enabled] key..."
+      yq -i '.captcha_enabled = true' "/config/config.yaml"
+      echo "New value for [captcha_enabled]: $$(yq '.captcha_enabled' "/config/config.yaml")"
+      echo ''
+      echo "Updating [signature_server] key..."
+      yq -i '.signature_server = "signature-helper:12999"' "/config/config.yaml"
+      echo "New value for [signature_server]: $$(yq '.signature_server' "/config/config.yaml")"
+      echo ''
+      echo "Updating [po_token] key..."
+      yq -i '.po_token = "token"' "/config/config.yaml"
+      echo "New value for [po_token]: $$(yq '.po_token' "/config/config.yaml")"
+      echo ''
+      echo "Updating [visitor_data] key..."
+      yq -i '.visitor_data = "other-token"' "/config/config.yaml"
+      echo "New value for [visitor_data]: $$(yq '.visitor_data' "/config/config.yaml")"
+      echo "Done!"
+  fetch_db_seed.sh:
+    name: 18bcb9d61e470e0a0c6a9d5f6f1ccc91_fetch_db_seed.sh
+    content: |
+      #!/bin/sh
+
+      touch "/config/config.yaml"
+      if [ -f "/config/config.yaml" ]; then
+        echo "Found existing config file [/config/config.yaml]."
+        echo "Treating it as an existing installation. Skipping step [fetch_db_seed]..."
+
+        echo "If you are re-installing, please remove the file and restart the app."
+        echo "After it is up and running, you can update the config file to your needs and restart the app."
+        exit 0
+      fi
+
+      mkdir -p /shared/seed
+      cd /shared/seed
+
+      echo "Fetching seed..."
+      git init || { echo "Failed to initialize git repo"; exit 1; }
+      git remote add invidious https://github.com/iv-org/invidious.git || { echo "Failed to add remote"; exit 1; }
+      git fetch invidious || { echo "Failed to fetch remote"; exit 1; }
+      # Get the following directories: config, docker
+      git checkout invidious/master -- config docker || { echo "Failed to checkout"; exit 1; }
+      echo "Fetched seed successfully"
+
+      mv -fv config/config.example.yml /shared/config.example.yaml || { echo "Failed to move config"; exit 1; }
+      mv -fv config docker || { echo "Failed to move files"; exit 1; }
+      echo "Done!"
+x-notes: |
+  # Welcome to TrueNAS SCALE
+
+  Thank you for installing Invidious!
+
+
+
+
+  ## Documentation
+
+  Documentation for Invidious can be found at https://www.truenas.com/docs.
+
+  ## Bug reports
+
+  If you find a bug in this app, please file an issue at
+  https://ixsystems.atlassian.net or https://github.com/truenas/apps
+
+  ## Feature requests or improvements
+
+  If you find a feature request for this app, please file an issue at
+  https://ixsystems.atlassian.net or https://github.com/truenas/apps
+x-portals:
+  - host: 0.0.0.0
+    name: Web UI
+    path: /
+    port: 8080
+    scheme: http
+
