@@ -46,6 +46,8 @@ class Container:
         self._user: str = ""
         self._tty: bool = False
         self._stdin_open: bool = False
+        self._init: bool = False
+        self._read_only: bool = False
         self._hostname: str = ""
         self._cap_drop: set[str] = set(["ALL"])  # Drop all capabilities by default and add caps granularly
         self._cap_add: set[str] = set()
@@ -149,6 +151,12 @@ class Container:
 
     def set_stdin(self, enabled: bool = False):
         self._stdin_open = enabled
+
+    def set_init(self, enabled: bool = False):
+        self._init = enabled
+
+    def set_read_only(self, enabled: bool = False):
+        self._read_only = enabled
 
     def set_hostname(self, hostname: str):
         self._hostname = hostname
