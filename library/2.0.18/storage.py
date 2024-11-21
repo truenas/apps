@@ -28,6 +28,7 @@ class IxStorageHostPathConfig(TypedDict):
     acl: NotRequired[AclConfig]
     create_host_path: NotRequired[bool]
     propagation: NotRequired[Literal["shared", "slave", "private", "rshared", "rslave", "rprivate"]]
+    auto_permissions: NotRequired[bool]  # Only when acl_enable is false
 
 
 class IxStorageIxVolumeConfig(TypedDict):
@@ -36,11 +37,13 @@ class IxStorageIxVolumeConfig(TypedDict):
     acl_entries: NotRequired[AclConfig]
     create_host_path: NotRequired[bool]
     propagation: NotRequired[Literal["shared", "slave", "private", "rshared", "rslave", "rprivate"]]
+    auto_permissions: NotRequired[bool]  # Only when acl_enable is false
 
 
 class IxStorageVolumeConfig(TypedDict):
     volume_name: NotRequired[str]
     nocopy: NotRequired[bool]
+    auto_permissions: NotRequired[bool]
 
 
 class IxStorageNfsConfig(TypedDict):
@@ -66,7 +69,6 @@ IxStorageLikeConfigs = Union[IxStorageBindLikeConfigs, IxStorageVolumeLikeConfig
 class IxStorage(TypedDict):
     type: Literal["ix_volume", "host_path", "tmpfs", "volume", "anonymous", "temporary"]
     read_only: NotRequired[bool]
-    auto_permissions: NotRequired[bool]
 
     ix_volume_config: NotRequired[IxStorageIxVolumeConfig]
     host_path_config: NotRequired[IxStorageHostPathConfig]

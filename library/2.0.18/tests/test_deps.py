@@ -41,7 +41,7 @@ def test_add_postgres(mock_values):
             "user": "test_user",
             "password": "test_@password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
         },
         perms_container,
     )
@@ -126,7 +126,7 @@ def test_add_redis(mock_values):
         "redis_image",
         {
             "password": "test&password@",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
         },
         perms_container,
     )
@@ -200,7 +200,7 @@ def test_add_mariadb(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
         },
         perms_container,
     )
@@ -260,14 +260,14 @@ def test_add_perms_container(mock_values):
     c1.healthcheck.disable()
 
     # fmt: off
-    volume_perms = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    volume_perms = {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}}
     volume_no_perms = {"type": "volume", "volume_config": {"volume_name": "test_volume"}}
-    host_path_perms = {"type": "host_path", "host_path_config": {"path": "/mnt/test"}, "auto_permissions": True}
+    host_path_perms = {"type": "host_path", "host_path_config": {"path": "/mnt/test", "auto_permissions": True}}
     host_path_no_perms = {"type": "host_path", "host_path_config": {"path": "/mnt/test"}}
-    host_path_acl_perms = {"type": "host_path", "host_path_config": {"acl":{"path": "/mnt/test"}, "acl_enable": True}, "auto_permissions": True} # noqa
+    host_path_acl_perms = {"type": "host_path", "host_path_config": {"acl": {"path": "/mnt/test"}, "acl_enable": True, "auto_permissions": True}} # noqa
     ix_volume_no_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset1"}}
-    ix_volume_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset2"}, "auto_permissions": True} # noqa
-    ix_volume_acl_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset3", "acl_enable": True}, "auto_permissions": True} # noqa
+    ix_volume_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset2", "auto_permissions": True}} # noqa
+    ix_volume_acl_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset3", "acl_enable": True, "auto_permissions": True}} # noqa
     temp_volume = {"type": "temporary", "volume_config": {"volume_name": "test_temp_volume"}}
     # fmt: on
 
@@ -299,7 +299,7 @@ def test_add_perms_container(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
         },
         perms_container,
     )
@@ -308,7 +308,7 @@ def test_add_perms_container(mock_values):
         "redis_image",
         {
             "password": "test_password",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
         },
         perms_container,
     )
@@ -319,7 +319,7 @@ def test_add_perms_container(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True},
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
         },
         perms_container,
     )
@@ -354,7 +354,7 @@ def test_add_duplicate_perms_action(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": True}
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}}
     c1.add_storage("/some/path", vol_config)
     perms_container = render.deps.perms("test_perms_container")
     perms_container.add_or_skip_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
@@ -366,7 +366,7 @@ def test_add_perm_action_without_auto_perms_enabled(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume"}, "auto_permissions": False}
+    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": False}}
     c1.add_storage("/some/path", vol_config)
     perms_container = render.deps.perms("test_perms_container")
     perms_container.add_or_skip_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
