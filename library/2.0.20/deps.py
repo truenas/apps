@@ -103,7 +103,8 @@ class PermsContainer:
                 if not ix_vol_config.get("auto_permissions", True):
                     return None
             case _:
-                raise RenderError(f"Unknown volume type [{vol_type}]")
+                # Skip for other types
+                return None
 
         if mode not in valid_modes:
             raise RenderError(f"Expected [mode] to be one of [{', '.join(valid_modes)}], got [{mode}]")

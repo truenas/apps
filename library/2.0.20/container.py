@@ -184,10 +184,10 @@ class Container:
         self._network_mode = valid_network_mode_or_raise(mode, self._render_instance.container_names())
 
     def set_entrypoint(self, entrypoint: list[str]):
-        self._entrypoint = [escape_dollar(e) for e in entrypoint]
+        self._entrypoint = [escape_dollar(str(e)) for e in entrypoint]
 
     def set_command(self, command: list[str]):
-        self._command = [escape_dollar(e) for e in command]
+        self._command = [escape_dollar(str(e)) for e in command]
 
     def add_storage(self, mount_path: str, config: "IxStorage"):
         self._storage.add(mount_path, config)
