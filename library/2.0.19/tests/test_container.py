@@ -53,6 +53,24 @@ def test_tty(mock_values):
     assert output["services"]["test_container"]["tty"] is True
 
 
+def test_init(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.set_init(True)
+    c1.healthcheck.disable()
+    output = render.render()
+    assert output["services"]["test_container"]["init"] is True
+
+
+def test_read_only(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.set_read_only(True)
+    c1.healthcheck.disable()
+    output = render.render()
+    assert output["services"]["test_container"]["read_only"] is True
+
+
 def test_stdin(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
