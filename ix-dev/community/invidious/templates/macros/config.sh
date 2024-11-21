@@ -14,7 +14,7 @@ echo "Updating [{{ cfg_path }}] file..."
 echo ''
 echo "Updating [{{ key }}] key..."
 yq -i '.{{ key }} = {{ value|tojson }}' "{{ cfg_path }}"
-echo "New value for [{{ key }}]: $$(yq '.{{ key }}' "{{ cfg_path }}")"
+echo "New value for [{{ key }}]: $(yq '.{{ key }}' "{{ cfg_path }}")"
 {%- endfor %}
 {%- endfor %}
 echo "Done!"
