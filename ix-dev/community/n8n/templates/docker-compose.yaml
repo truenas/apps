@@ -1,184 +1,96 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
 {% if values.n8n.web_host.startswith("https://") or values.n8n.web_host.startswith("http://") %}
-  {% do ix_lib.base.utils.throw_error("Expected [n8n.web_host] to not start with [http(s)://]") %}
+  {% do tpl.funcs.fail("Expected [n8n.web_host] to not start with [http(s)://]") %}
 {% endif %}
 {% if values.n8n.web_host.endswith("/") %}
-  {% do ix_lib.base.utils.throw_error("Expected [n8n.web_host] to not end with [/]") %}
+  {% do tpl.funcs.fail("Expected [n8n.web_host] to not end with [/]") %}
 {% endif %}
 {% if ":" in values.n8n.web_host %}
-  {% do ix_lib.base.utils.throw_error("Expected [n8n.web_host] to not contain port [:###]") %}
+  {% do tpl.funcs.fail("Expected [n8n.web_host] to not contain port [:###]") %}
 {% endif %}
 
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{% set pg_storage_items = namespace(items=[]) %}
-{% set redis_storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
-{% set pg_volume_mounts = namespace(items=[]) %}
-{% set redis_volume_mounts = namespace(items=[]) %}
-{# Stores the perms container volume mounts #}
-{% set perms_mounts = namespace(items=[]) %}
-{# Stores the perms container dirs #}
-{% set perms_dirs = namespace(items=[]) %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.data_path}),
-  values=values, perm_opts={"mount_path": "/mnt/n8n/data", "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
-)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/.cache"})) %}
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.n8n.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
+
+{% set redis_config = {
+  "password": values.n8n.redis_password,
+  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+
+{% set proto = "https" if values.network.certificate_id else "http" %}
+
+{% set c1 = tpl.add_container(values.consts.n8n_container_name, "image") %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port, "path": "/healthz", "scheme": proto}) %}
+
+{% do c1.environment.add_env("NODE_ENV", "production") %}
+{% do c1.environment.add_env("N8N_PATH", "/") %}
+{% do c1.environment.add_env("N8N_PORT", values.network.web_port) %}
+{% do c1.environment.add_env("N8N_HOST", values.n8n.web_host) %}
+{% do c1.environment.add_env("GENERIC_TIMEZONE", values.TZ) %}
+{% do c1.environment.add_env("N8N_SECURE_COOKIE", values.network.certificate_id != None) %}
+{% do c1.environment.add_env("N8N_PROTOCOL", "https" if values.network.certificate_id else "http") %}
+{% do c1.environment.add_env("N8N_USER_FOLDER", values.consts.data_path) %}
+{% do c1.environment.add_env("DB_TYPE", "postgresdb") %}
+{% do c1.environment.add_env("EXECUTIONS_MODE", "regular") %}
+{% do c1.environment.add_env("N8N_ENCRYPTION_KEY", values.n8n.encryption_key) %}
+{% do c1.environment.add_env("DB_POSTGRESDB_USER", values.consts.db_user) %}
+{% do c1.environment.add_env("DB_POSTGRESDB_PASSWORD", values.n8n.db_password) %}
+{% do c1.environment.add_env("DB_POSTGRESDB_DATABASE", values.consts.db_name) %}
+{% do c1.environment.add_env("DB_POSTGRESDB_HOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("DB_POSTGRESDB_PORT", 5432) %}
+{% do c1.environment.add_env("DEBUG", "true") %}
+{% do c1.environment.add_env("QUEUE_BULL_REDIS_USERNAME", "default") %}
+{% do c1.environment.add_env("QUEUE_BULL_REDIS_DB", 0) %}
+{% do c1.environment.add_env("QUEUE_BULL_REDIS_PORT", 6379) %}
+{% do c1.environment.add_env("QUEUE_BULL_REDIS_HOST", values.consts.redis_container_name) %}
+{% do c1.environment.add_env("QUEUE_BULL_REDIS_PASSWORD", values.n8n.redis_password) %}
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("N8N_SSL_KEY", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("N8N_SSL_CERT", values.consts.ssl_cert_path) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.n8n.additional_envs) %}
+
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% do c1.add_storage("/tmp", {"type": "anonymous"}) %}
+{% do c1.add_storage("/.cache", {"type": "anonymous"}) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
-  perm_opts={"mount_path": "/mnt/n8n/dir_%s"|format(loop.index0), "mode": "check", "uid": values.run_as.user, "gid": values.run_as.group}
-  )) %}
-{% endfor %}
-
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
-{% endfor %}
-
-{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
-  perm_opts={"mount_path": "/mnt/pgvecto/tmp", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group}
-)) %}
-{% do pg_storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.postgres_data, **{"mount_path": "/var/lib/postgresql/data"}),
-  values=values, perm_opts={"mount_path": "/mnt/postgres/data", "mode": "check", "uid": values.consts.pg_run_user, "gid": values.consts.pg_run_group,}
-)) %}
-{% for item in pg_storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and pg_volume_mounts.items.append(item.vol_mount) %}{% endif %}
-  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
-{% endfor %}
-
-{% do redis_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
-  perm_opts={"mount_path": "/mnt/redis/tmp", "mode": "check", "uid": values.consts.redis_run_user, "gid": values.consts.redis_run_group}
-)) %}
-{% do redis_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/bitnami/redis/data"},
-  perm_opts={"mount_path": "/mnt/redis/data", "mode": "check", "uid": values.consts.redis_run_user, "gid": values.consts.redis_run_group}
-)) %}
-{% for item in redis_storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and redis_volume_mounts.items.append(item.vol_mount) %}{% endif %}
-  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if values.network.certificate_id %}
-configs:
-  private:
-    content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
-  public:
-    content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
 
-{# Containers #}
-services:
-  {{ values.consts.n8n_container_name }}:
-    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if values.network.certificate_id %}
-    configs:
-      - source: private
-        target: {{ values.consts.ssl_key_path }}
-      - source: public
-        target: {{ values.consts.ssl_cert_path }}
-    {% endif %}
-    depends_on:
-      {{ values.consts.redis_container_name }}:
-        condition: service_healthy
-      {{ values.consts.postgres_container_name }}:
-        condition: service_healthy
-    {% if perms_dirs.items %}
-      {{ values.consts.perms_container_name }}:
-        condition: service_completed_successfully
-    {% endif %}
-    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    {% set test = ix_lib.base.healthchecks.wget_test(port=values.network.web_port, path="/healthz", config={"scheme": "https" if values.network.certificate_id else "http"}) %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    {% set app_env = {
-      "NODE_ENV": "production",
-      "N8N_PATH": "/",
-      "N8N_PORT": values.network.web_port,
-      "N8N_HOST": values.n8n.web_host,
-      "GENERIC_TIMEZONE": values.TZ,
-      "N8N_SECURE_COOKIE":  values.network.certificate_id != None,
-      "N8N_PROTOCOL": "https" if values.network.certificate_id else "http",
-      "N8N_USER_FOLDER": values.consts.data_path,
-      "DB_TYPE": "postgresdb",
-      "EXECUTIONS_MODE": "regular",
-      "N8N_ENCRYPTION_KEY": values.n8n.encryption_key,
-      "DB_POSTGRESDB_USER": values.consts.db_user,
-      "DB_POSTGRESDB_PASSWORD": values.n8n.db_password,
-      "DB_POSTGRESDB_DATABASE": values.consts.db_name,
-      "DB_POSTGRESDB_HOST": values.consts.postgres_container_name,
-      "DB_POSTGRESDB_PORT": 5432,
-      "DEBUG": "true",
-      "QUEUE_BULL_REDIS_USERNAME": "default",
-      "QUEUE_BULL_REDIS_DB": 0,
-      "QUEUE_BULL_REDIS_PORT": 6379,
-      "QUEUE_BULL_REDIS_HOST": values.consts.redis_container_name,
-      "QUEUE_BULL_REDIS_PASSWORD": values.n8n.redis_password,
-    } %}
-    {% if values.network.certificate_id %}
-      {% do app_env.update({
-        "N8N_SSL_KEY": values.consts.ssl_key_path,
-        "N8N_SSL_CERT": values.consts.ssl_cert_path,
-      }) %}
-    {% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.n8n.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
+{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
 
-  {% if perms_dirs.items %}
-  {{ values.consts.perms_container_name }}: {{ ix_lib.base.permissions.perms_container(items=perms_dirs.items, volumes=perms_mounts.items) | tojson }}
-  {% endif %}
-
-  {% set resource_without_gpus = ix_lib.base.utils.copy_dict(values.resources) %}
-  {% do resource_without_gpus.pop("gpus", None) %}
-  {{ values.consts.postgres_container_name }}: {{ ix_lib.base.postgres.pg_container(data={
-    "image": ix_lib.base.utils.get_image(images=values.images, name="postgres_image"),
-    "volumes": pg_volume_mounts.items,
-    "user": values.consts.pg_run_user, "group": values.consts.pg_run_group,
-    "db_user": values.consts.db_user, "db_name": values.consts.db_name,
-    "db_password": values.n8n.db_password,
-    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
-    "depends_on": {
-      values.consts.perms_container_name: {
-        "condition": "service_completed_successfully"
-      } if perms_dirs.items else {}
-    }
-  }) | tojson }}
-
-  {{ values.consts.redis_container_name }}: {{ ix_lib.base.redis.redis_container(data={
-    "image": ix_lib.base.utils.get_image(images=values.images, name="redis_image"),
-    "volumes": redis_volume_mounts.items,
-    "user": values.consts.redis_run_user, "group": values.consts.redis_run_group,
-    "password": values.n8n.redis_password,
-    "dns_opts": values.network.dns_opts, "resources": resource_without_gpus,
-    "depends_on": {
-      values.consts.perms_container_name: {
-        "condition": "service_completed_successfully"
-      } if perms_dirs.items else {}
-    }
-  }) | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("n8n") | tojson }}
+{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto}) %}
+
+{{ tpl.render() | tojson }}
