@@ -67,31 +67,44 @@ class PermsContainer:
             self.actions.add(identifier)
 
     def parse_action(self, identifier: str, volume_config: "IxStorage", action_config: dict):
-        valid_modes = ["always", "check"]
+        valid_modes = [
+            "always",  # Always set permissions, without checking.
+            "check",  # Check if permissions are correct, and set them if not.
+        ]
         mode = action_config.get("mode", "check")
         uid = action_config.get("uid", None)
         gid = action_config.get("gid", None)
         chmod = action_config.get("chmod", None)
         mount_path = os.path.join("/mnt/permission", identifier)
 
-        auto_perms = volume_config.get("auto_permissions", False)
+        auto_perms = False
         is_temporary = False
+
+        ix_vol_config = volume_config.get("ix_volume_config", {})
+        host_path_config = volume_config.get("host_path_config", {})
+        docker_volume_config = volume_config.get("volume_config", {})
+
+        # Skip ACL enabled volumes
+        if ix_vol_config.get("acl_enable", False):
+            return None
+        if host_path_config.get("acl_enable", False):
+            return None
+
+        if ix_vol_config:
+            # For ix_volumes, we default to auto_permissions = True
+            auto_perms = ix_vol_config.get("auto_permissions", True)
+
+        if host_path_config:
+            auto_perms = host_path_config.get("auto_permissions", False)
+
+        if docker_volume_config:
+            auto_perms = docker_volume_config.get("auto_permissions", False)
+
         # If it is a temporary volume, we force auto permissions
         # and set is_temporary to True, so it will be cleaned up
         if volume_config.get("type", "") == "temporary":
             is_temporary = True
             auto_perms = True
-
-        # Skip ACL enabled volumes
-        if volume_config.get("ix_volume_config", {}).get("acl_enable", False):
-            return None
-        if volume_config.get("host_path_config", {}).get("acl_enable", False):
-            return None
-
-        # On ix_volumes, we set auto permissions with "check" mode
-        if volume_config.get("ix_volume_config", {}):
-            auto_perms = True
-            mode = "check"
 
         # Skip volumes that do not have auto permissions set
         if not auto_perms:
