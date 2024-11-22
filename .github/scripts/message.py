@@ -17,7 +17,7 @@ def get_files_from_env(env_var: str):
 
 
 trains_to_check = ["test", "stable", "enterprise"]
-account_to_notify = ["@stavros-k"]
+account_to_notify = ["@truenas/docs-team"]
 
 
 def process(changed_files=[], added_files=[]):
