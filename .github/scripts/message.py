@@ -16,9 +16,11 @@ def get_files_from_env(env_var: str):
         exit(1)
 
 
-def process(changed_files=[], added_files=[]):
-    trains_to_check = ["test", "stable", "enterprise"]
+trains_to_check = ["test", "stable", "enterprise"]
+account_to_notify = ["@stavros-k"]
 
+
+def process(changed_files=[], added_files=[]):
     changes = {}
 
     for file in changed_files:
@@ -71,6 +73,9 @@ def generate_message(changes):
             message += "\n"
         message += "---\n\n"
 
+    if message != "":
+        message += "Notifying the following about changes to the trains:\n"
+        message += ", ".join(account_to_notify)
     return message
 
 
