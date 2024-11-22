@@ -19,6 +19,7 @@ jobs:
         id: changed-files
         uses: tj-actions/changed-files@v42
         with:
+          json: true
           files_yaml: |
             enterprise:
               - ix-dev/enterprise/**
@@ -27,13 +28,8 @@ jobs:
             test:
               - ix-dev/test/**
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Generate message
-        id: message
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v3
         if: ${{
           steps.changed-files.outputs.enterprise_added_files != '' ||
           steps.changed-files.outputs.enterprise_modified_files != '' ||
@@ -42,26 +38,23 @@ jobs:
           steps.changed-files.outputs.test_added_files != '' ||
           steps.changed-files.outputs.test_modified_files != ''
           }}
-        run: |
-          {
-            python3 .github/scripts/message.py "Enterprise" "added" "${{ steps.changed-files.outputs.enterprise_added_files }}" || true
-            python3 .github/scripts/message.py "Enterprise" "modified" "${{ steps.changed-files.outputs.enterprise_modified_files }}" ||
-            python3 .github/scripts/message.py "Stable" "added" "${{ steps.changed-files.outputs.stable_added_files }}" || true
-            python3 .github/scripts/message.py "Stable" "modified" "${{ steps.changed-files.outputs.stable_modified_files }}" || true
-            python3 .github/scripts/message.py "Test" "added" "${{ steps.changed-files.outputs.test_added_files }}" || true
-            python3 .github/scripts/message.py "Test" "modified" "${{ steps.changed-files.outputs.test_modified_files }}" || true
-          } > message.txt
-
-          cat message.txt
-          echo "message='$(cat message.txt)'" >> $GITHUB_OUTPUT
-
-      - name: Comment PR
-        uses: thollander/actions-comment-pull-request@v3
-        if: ${{ steps.message.outputs.message != '' }}
         with:
           comment-tag: docs-team-comment
           message: |
-            ${{ steps.message.outputs.message }}
+            ${{ steps.changed-files.outputs.enterprise_added_files != '' || steps.changed-files.outputs.enterprise_modified_files != '' && '## `Enterprise train`' || '' }}
+
+            ${{ steps.changed-files.outputs.enterprise_added_files != '' && format('Files added:<br><br>{0}', join(fromJson(steps.changed-files.outputs.enterprise_added_files), '<br><br>')) || '' }}
+            ${{ steps.changed-files.outputs.enterprise_modified_files != '' && format('Files modified:<br><br>{0}', join(fromJson(steps.changed-files.outputs.enterprise_modified_files), '<br><br>')) || '' }}
+
+            ${{ steps.changed-files.outputs.stable_added_files != '' || steps.changed-files.outputs.stable_modified_files != '' && '## `Stable train`' || '' }}
+
+            ${{ steps.changed-files.outputs.stable_added_files != '' && format('Files added:<br><br>{0}', join(fromJson(steps.changed-files.outputs.stable_added_files), '<br><br>')) || '' }}
+            ${{ steps.changed-files.outputs.stable_modified_files != '' && format('Files modified:<br><br>{0}', join(fromJson(steps.changed-files.outputs.stable_modified_files), '<br><br>')) || '' }}
+
+            ${{ steps.changed-files.outputs.test_added_files != '' || steps.changed-files.outputs.test_modified_files != '' && '## `Test train`' || '' }}
+
+            ${{ steps.changed-files.outputs.test_added_files != '' && format('Files added:<br><br>{0}', join(fromJson(steps.changed-files.outputs.test_added_files), '<br><br>')) || '' }}
+            ${{ steps.changed-files.outputs.test_modified_files != '' && format('Files modified:<br><br>{0}', join(fromJson(steps.changed-files.outputs.test_modified_files), '<br><br>')) || '' }}
 
             Notifying the following about changes to the trains:
             ${{ env.accounts_to_notify }}
