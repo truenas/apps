@@ -1,0 +1,40 @@
+on:
+  pull_request: {}
+
+jobs:
+  notify-teams:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v42
+        with:
+          files_yaml: |
+            enterprise:
+              - ix-dev/enterprise/**
+            stable:
+              - ix-dev/stable/**
+            test:
+              - ix-dev/test/**
+
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: |
+            ${{ steps.changed-files.outputs.enterprise_added_files != '' && 'added enterprise @stavros-k' || '' }}
+            ${{ steps.changed-files.outputs.stable_added_files != '' && 'added stable @stavros-k' || '' }}
+            ${{ steps.changed-files.outputs.test_added_files != '' && 'added test @stavros-k' || '' }}
+
+            ${{ steps.changed-files.outputs.enterprise_all_modified_files != '' && 'changed enterprise @stavros-k' || '' }}
+            ${{ steps.changed-files.outputs.stable_all_modified_files != '' && 'chagned stable @stavros-k' || '' }}
+            ${{ steps.changed-files.outputs.test_all_modified_files != '' && 'changed test @stavros-k' || '' }}
+
+          comment-tag: docs-team-comment
+
+permissions:
+  pull-requests: write
+  contents: read
