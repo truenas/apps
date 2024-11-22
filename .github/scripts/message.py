@@ -70,10 +70,12 @@ def generate_message(changes):
                 message += "Added files:\n"
                 for file in changes[train]["apps"][app]["added"]:
                     message += f"- `{file}`\n"
+                message += "\n"
             if len(changes[train]["apps"][app]["modified"]) > 0:
                 message += "Modified files:\n"
                 for file in changes[train]["apps"][app]["modified"]:
                     message += f"- `{file}`\n"
+                message += "\n"
             message += "\n---\n\n"
 
     if message != "":
