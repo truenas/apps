@@ -40,10 +40,11 @@ def process(changed_files=[], added_files=[]):
         if app not in changes[train]["apps"]:
             changes[train]["apps"][app] = {"areas": set([]), "added": set([]), "modified": set([])}
 
+        trimmed_file_name = file.replace(f"ix-dev/{train}/{app}/", "")
         if file in added_files:
-            changes[train]["apps"][app]["added"].add(file)
+            changes[train]["apps"][app]["added"].add(trimmed_file_name)
         else:
-            changes[train]["apps"][app]["modified"].add(file)
+            changes[train]["apps"][app]["modified"].add(trimmed_file_name)
 
         if file.endswith("questions.yaml"):
             changes[train]["apps"][app]["areas"].add("ui")
