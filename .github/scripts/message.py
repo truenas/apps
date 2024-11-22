@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-import yaml
 
 
 def get_files_from_env(env_var: str):
