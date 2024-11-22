@@ -37,6 +37,8 @@ def process(changed_files=[], added_files=[]):
 
         if file in added_files:
             changes[train]["apps"][app]["added"].add(file)
+        else:
+            changes[train]["apps"][app]["modified"].add(file)
 
         if file.endswith("questions.yaml"):
             changes[train]["apps"][app]["areas"].add("ui")
@@ -53,7 +55,7 @@ def process(changed_files=[], added_files=[]):
 def generate_message(changes):
     message = ""
     for train in changes:
-        message += f"## `{train}` train\n"
+        message += f"## `{train}` train\n\n"
         for app in changes[train]["apps"]:
             message += f"### `{app}` app\n"
             if len(changes[train]["apps"][app]["areas"]) > 0:
@@ -67,7 +69,7 @@ def generate_message(changes):
                 for file in changes[train]["apps"][app]["modified"]:
                     message += f"- Modified `{file}`\n"
             message += "\n"
-        message += "---\n"
+        message += "---\n\n"
 
     return message
 
