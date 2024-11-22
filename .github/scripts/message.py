@@ -30,9 +30,12 @@ def process(changed_files=[], added_files=[]):
         if train not in trains_to_check:
             continue
 
+        app = file.split("/")[2]
+        if file.startswith(f"ix-dev/{train}/{app}/templates/library/base_"):
+            continue
+
         if train not in changes:
             changes[train] = {"apps": {}}
-        app = file.split("/")[2]
 
         if app not in changes[train]["apps"]:
             changes[train]["apps"][app] = {"areas": set([]), "added": set([]), "modified": set([])}
