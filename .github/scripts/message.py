@@ -61,9 +61,9 @@ def process(changed_files=[], added_files=[]):
 def generate_message(changes):
     message = ""
     for train in sorted(changes):
-        message += f"## `{train.title()}` train\n\n"
+        message += f"## `{train.title()}`\n\n"
         for app in sorted(changes[train]["apps"]):
-            message += f"### - `{app.title()}` app\n"
+            message += f"- `{app.title()}`\n"
             if len(changes[train]["apps"][app]["areas"]) > 0:
                 fmt_areas = [f"`{a}`" for a in changes[train]["apps"][app]["areas"]]
                 message += f"Affected areas: {', '.join(fmt_areas)}\n"
