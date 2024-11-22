@@ -63,7 +63,7 @@ def generate_message(changes):
     for train in sorted(changes):
         message += f"## `{train.title()}`\n\n"
         for app in sorted(changes[train]["apps"]):
-            message += f"- `{app.title()}`\n"
+            message += f"### {app.title()}\n"
             if len(changes[train]["apps"][app]["areas"]) > 0:
                 fmt_areas = [f"`{a}`" for a in changes[train]["apps"][app]["areas"]]
                 message += f"Affected areas: {', '.join(fmt_areas)}\n"
