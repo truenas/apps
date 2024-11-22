@@ -57,7 +57,7 @@ def generate_message(changes):
         for app in changes[train]["apps"]:
             message += f"### `{app}` app\n"
             if len(changes[train]["apps"][app]["areas"]) > 0:
-                message += f"Affected areas: {', '.join(changes[train]["apps"][app]["areas"])}\n"
+                message += f"Affected areas: {', '.join(changes[train]['apps'][app]['areas'])}\n"
             if len(changes[train]["apps"][app]["added"]) > 0:
                 message += "Added files:\n"
                 for file in changes[train]["apps"][app]["added"]:
