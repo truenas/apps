@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import yaml
 
 
 def get_files_from_env(env_var: str):
@@ -60,21 +61,21 @@ def process(changed_files=[], added_files=[]):
 
 def generate_message(changes):
     message = ""
-    for train in changes:
+    for train in sorted(changes):
         message += f"## `{train.title()}` train\n\n"
-        for app in changes[train]["apps"]:
+        for app in sorted(changes[train]["apps"]):
             message += f"### - `{app.title()}` app\n"
             if len(changes[train]["apps"][app]["areas"]) > 0:
                 fmt_areas = [f"`{a}`" for a in changes[train]["apps"][app]["areas"]]
                 message += f"Affected areas: {', '.join(fmt_areas)}\n"
             if len(changes[train]["apps"][app]["added"]) > 0:
                 message += "Added files:\n"
-                for file in changes[train]["apps"][app]["added"]:
+                for file in sorted(changes[train]["apps"][app]["added"]):
                     message += f"- `{file}`\n"
                 message += "\n"
             if len(changes[train]["apps"][app]["modified"]) > 0:
                 message += "Modified files:\n"
-                for file in changes[train]["apps"][app]["modified"]:
+                for file in sorted(changes[train]["apps"][app]["modified"]):
                     message += f"- `{file}`\n"
                 message += "\n"
             message += "\n---\n\n"
