@@ -59,17 +59,17 @@ def generate_message(changes):
     for train in changes:
         message += f"## `{train}` train\n\n"
         for app in changes[train]["apps"]:
-            message += f"### `{app}` app\n"
+            message += f"- `{app}` app\n"
             if len(changes[train]["apps"][app]["areas"]) > 0:
-                message += f"Affected areas: {', '.join(changes[train]['apps'][app]['areas'])}\n"
+                message += f"  Affected areas: {', '.join(changes[train]['apps'][app]['areas'])}\n"
             if len(changes[train]["apps"][app]["added"]) > 0:
-                message += "Added files:\n"
+                message += "  Added files:\n"
                 for file in changes[train]["apps"][app]["added"]:
                     message += f"- `{file}`\n"
             if len(changes[train]["apps"][app]["modified"]) > 0:
-                message += "Modified files:\n"
+                message += "  Modified files:\n"
                 for file in changes[train]["apps"][app]["modified"]:
-                    message += f"- Modified `{file}`\n"
+                    message += f"- `{file}`\n"
             message += "\n"
         message += "---\n\n"
 
