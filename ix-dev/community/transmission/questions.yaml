@@ -7,6 +7,8 @@ groups:
     description: Configure Network for Transmission
   - name: Storage Configuration
     description: Configure Storage for Transmission
+  - name: Labels Configuration
+    description: Configure Labels for Transmission
   - name: Resources Configuration
     description: Configure Resources for Transmission
 
@@ -34,16 +36,21 @@ questions:
             type: list
             default: []
             items:
-              - variable: key
-                label: Key
+              - variable: additional_config_item
+                label: Additional Configuration Item
                 schema:
-                  type: string
-                  required: true
-              - variable: value
-                label: Value
-                schema:
-                  type: string
-                  required: true
+                  type: dict
+                  attrs:
+                    - variable: key
+                      label: Key
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+                        required: true
         - variable: additional_envs
           label: Additional Environment Variables
           description: Configure additional environment variables for Transmission.
@@ -296,6 +303,27 @@ questions:
           schema:
             type: boolean
             default: true
+        - variable: mount_incomplete_as_separate_storage
+          label: Mount Incomplete Directory as Separate Storage
+          description: |
+            Mount Incomplete Dir as Separate Storage. </br>
+            Use this if you want to use different storage.</br>
+            If its going to be on the same storage medium, it's better to
+            keep this disabled.
+          schema:
+            type: boolean
+            show_if: [["enable_incomplete_dir", "=", true]]
+            default: true
+        - variable: incomplete_dir_path
+          label: Incomplete Dir Storage
+          description: The path to store Incomplete Dir.
+          schema:
+            type: path
+            show_if:
+              - ["enable_incomplete_dir", "=", true]
+              - ["mount_incomplete_as_separate_storage", "=", true]
+            required: true
+            default: /downloads/incomplete
         - variable: downloads_incomplete
           label: Transmission Completed Downloads Storage
           description: The path to store Transmission Completed Downloads.
@@ -323,6 +351,9 @@ questions:
                 description: The path inside the container to mount the storage.
                 schema:
                   type: path
+                  # TODO: Once we have migrations,
+                  # move this to the incomplete_dir variable and remove the
+                  # the show_if condition for mount_incomplete_as_separate_storage
                   default: "/downloads/incomplete"
                   required: true
               - variable: ix_volume_config
@@ -519,6 +550,43 @@ questions:
                             description: The domain to use for the SMB share.
                             schema:
                               type: string
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: transmission
+                            description: transmission
+
   - variable: resources
     label: ""
     group: Resources Configuration
