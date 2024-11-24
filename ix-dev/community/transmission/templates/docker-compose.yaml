@@ -17,7 +17,14 @@
 }) %}
 
 {% if values.storage.enable_incomplete_dir %}
-  {% do config.x.update({"incomplete-dir": values.storage.downloads_incomplete.mount_path}) %}
+  {% if not values.storage.mount_incomplete_as_separate_storage %}
+    {% if not values.storage.incomplete_dir_path.startswith(values.storage.downloads_complete.mount_path) %}
+      {% do tpl.funcs.fail("Incomplete Dir Path [%s] must be inside Downloads Complete Path [%s], when 'Mount Incomplete Directory as Separate Storage' is disabled." | format(values.storage.incomplete_dir_path, values.storage.downloads_complete.mount_path)) %}
+    {% endif %}
+  {% endif %}
+
+  {% set path = values.storage.downloads_incomplete.mount_path if values.storage.mount_incomplete_as_separate_storage else values.storage.incomplete_dir_path %}
+  {% do config.x.update({"incomplete-dir": path}) %}
 {% endif %}
 
 {% for item in values.transmission.additional_config %}
@@ -37,7 +44,7 @@
 
 {% do c1.add_storage("/config", values.storage.config) %}
 {% do c1.add_storage(values.storage.downloads_complete.mount_path, values.storage.downloads_complete) %}
-{% if values.storage.enable_incomplete_dir %}
+{% if values.storage.enable_incomplete_dir and values.storage.mount_incomplete_as_separate_storage %}
   {% do c1.add_storage(values.storage.downloads_incomplete.mount_path, values.storage.downloads_incomplete) %}
 {% endif %}
 
