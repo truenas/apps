@@ -47,6 +47,9 @@ class Render(object):
         return list(self._containers.keys())
 
     def add_container(self, name: str, image: str):
+        name = name.strip()
+        if not name:
+            raise RenderError("Container name cannot be empty")
         container = Container(self, name, image)
         if name in self._containers:
             raise RenderError(f"Container {name} already exists.")

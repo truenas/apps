@@ -16,6 +16,12 @@ def mock_values():
     }
 
 
+def test_empty_container_name(mock_values):
+    render = Render(mock_values)
+    with pytest.raises(Exception):
+        render.add_container("  ", "test_image")
+
+
 def test_resolve_image(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
