@@ -1,18 +1,19 @@
-import os
 import sys
 import json
 
 
-def get_files_from_env(env_var: str):
-    json_files = os.getenv(env_var, "")
+def get_files_from_file(file: str):
+    with open(file, "r") as f:
+        json_files = f.read()
+
     if not json_files:
-        print(f"Environment variable {env_var} is empty", file=sys.stderr)
+        print(f"File {file} is empty", file=sys.stderr)
         exit(1)
 
     try:
         return json.loads(json_files.replace("\\", ""))
     except json.JSONDecodeError:
-        print(f"Failed to decode JSON from {env_var}", file=sys.stderr)
+        print(f"Failed to decode JSON from {file}", file=sys.stderr)
         exit(1)
 
 
@@ -85,9 +86,13 @@ def generate_message(changes):
     return message
 
 
+ALL_CHANGED_FILE = ".github/outputs/all_changed_files.json"
+ADDED_FILE = ".github/outputs/added_files.json"
+
+
 def main():
-    changed_files = get_files_from_env("CHANGED_FILES")
-    added_files = get_files_from_env("ADDED_FILES")
+    changed_files = get_files_from_file(ALL_CHANGED_FILE)
+    added_files = get_files_from_file(ADDED_FILE)
 
     print(process(changed_files, added_files))
 
