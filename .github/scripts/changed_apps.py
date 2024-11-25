@@ -18,13 +18,13 @@ def get_changed_files():
         json_files = f.read()
 
     if not json_files:
-        print("No changed files found", file=sys.stderr)
+        print(f"File [{OUTPUT_FILE}] is empty", file=sys.stderr)
         exit(1)
 
     try:
         return json.loads(json_files.replace("\\", ""))
     except json.JSONDecodeError:
-        print("Failed to decode JSON from CHANGED_FILES", file=sys.stderr)
+        print(f"Failed to decode JSON from [{OUTPUT_FILE}] file", file=sys.stderr)
         exit(1)
 
 
