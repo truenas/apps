@@ -331,6 +331,7 @@ def test_add_perms_container(mock_values):
         redis.container.depends.add_dependency("test_perms_container", "service_completed_successfully")
         mariadb.container.depends.add_dependency("test_perms_container", "service_completed_successfully")
     output = render.render()
+    assert output["services"]["test_perms_container"]["network_mode"] == "none"
     assert output["services"]["test_container"]["depends_on"] == {
         "test_perms_container": {"condition": "service_completed_successfully"}
     }
