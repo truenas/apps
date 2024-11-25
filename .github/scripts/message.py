@@ -6,10 +6,6 @@ def get_files_from_file(file: str):
     with open(file, "r") as f:
         json_files = f.read()
 
-    if not json_files:
-        print(f"File {file} is empty", file=sys.stderr)
-        exit(1)
-
     try:
         return json.loads(json_files.replace("\\", ""))
     except json.JSONDecodeError:
