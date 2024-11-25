@@ -3,26 +3,28 @@
 import pathlib
 import json
 import sys
-import os
 import re
 
 APP_REGEX = re.compile(r"^ix-dev\/([-\w\.]+)\/([-\w\.]+)")
 TEST_VALUES_DIR = "templates/test_values"
+OUTPUT_FILE = ".github/outputs/all_changed_files.json"
 EXCLUDE_TESTS = [
     "stable/storj",
 ]
 
 
 def get_changed_files():
-    json_files = os.getenv("CHANGED_FILES", "")
+    with open(OUTPUT_FILE, "r") as f:
+        json_files = f.read()
+
     if not json_files:
-        print("Environment variable CHANGED_FILES is empty", file=sys.stderr)
+        print(f"File [{OUTPUT_FILE}] is empty", file=sys.stderr)
         exit(1)
 
     try:
         return json.loads(json_files.replace("\\", ""))
     except json.JSONDecodeError:
-        print("Failed to decode JSON from CHANGED_FILES", file=sys.stderr)
+        print(f"Failed to decode JSON from [{OUTPUT_FILE}] file", file=sys.stderr)
         exit(1)
 
 
