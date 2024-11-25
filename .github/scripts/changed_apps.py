@@ -17,7 +17,6 @@ def get_changed_files():
     with open(OUTPUT_FILE, "r") as f:
         json_files = f.read()
 
-    print(json_files, file=sys.stderr)
     if not json_files:
         print("No changed files found", file=sys.stderr)
         exit(1)
