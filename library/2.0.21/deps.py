@@ -145,6 +145,7 @@ class PermsContainer:
         c = self._render_instance.add_container(self._name, "python_permissions_image")
         c.set_user(0, 0)
         c.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"])
+        c.set_network_mode("none")
 
         # Don't attach any devices
         c.remove_devices()
