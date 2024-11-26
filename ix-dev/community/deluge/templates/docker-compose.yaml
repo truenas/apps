@@ -1,87 +1,40 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% from "macros/setup.py.jinja" import setup_py %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.downloads, **{"mount_path": "/downloads"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set config = tpl.add_container(values.consts.init_container_name, "image") %}
+{% do config.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do config.restart.set_policy("on-failure", 1) %}
+{% do config.healthcheck.disable() %}
+{% do config.set_network_mode("none") %}
+{% do config.deploy.resources.set_profile("low") %}
+{% do config.remove_devices() %}
+{% do config.configs.add("setup.py", setup_py(values), "/setup.py", "0755") %}
+{% do config.set_entrypoint(["python", "/setup.py"]) %}
 
-{% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
-{% endfor %}
+{% set c1 = tpl.add_container(values.consts.deluge_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/"}) %}
+{% do c1.environment.add_user_envs(values.deluge.additional_env) %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
-
-{# Containers #}
-services:
-  {{ values.consts.init_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512m
-    entrypoint: python
-    command:
-      - -c
-      - |
-        from deluge.config import Config
-        import os
-        import shutil
-        if not os.path.exists('/config/core.conf'):
-          print('Copying default config')
-          shutil.copyfile('/defaults/core.conf', '/config/core.conf')
-        print('Loading config')
-        config = Config('/config/core.conf')
-        print('Setting listen ports to {{ values.network.torrent_port }}')
-        config['listen_ports'] = [{{ values.network.torrent_port }}, {{ values.network.torrent_port }}]
-        print('Saving config')
-        Config.save(config)
-        print('Done')
-    volumes: {{ volume_mounts.items | tojson }}
-  {{ values.consts.deluge_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    depends_on:
-      {{ values.consts.init_container_name }}:
-        condition: service_completed_successfully
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test(port=8112, path="/") %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    environment: {{ ix_lib.base.environment.envs(app={}, user=values.deluge.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": 8112, "published": values.network.web_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.torrent_port, "published": values.network.torrent_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.torrent_port, "published": values.network.torrent_port, "protocol": "udp"}) | tojson }}
-      {% if values.network.expose_daemon_port %}
-      - {{ ix_lib.base.ports.get_port(port={"target": 58846, "published": values.network.daemon_port}) | tojson }}
-      {% endif %}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+{% if not values.network.host_network %}
+  {% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
+  {% do c1.ports.add_port(values.network.torrent_port, values.network.torrent_port) %}
+  {% do c1.ports.add_port(values.network.torrent_port, values.network.torrent_port, {"protocol": "udp"}) %}
+  {% if values.network.expose_daemon_port %}
+    {% do c1.ports.add_port(values.network.daemon_port, values.consts.internal_daemon_port) %}
+  {% endif %}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": 8112 if values.network.host_network else values.network.web_port}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Deluge") | tojson }}
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do config.add_storage("/config", values.storage.config) %}
+
+{% do c1.add_storage("/downloads", values.storage.downloads) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add_portal({"port": values.consts.internal_web_port if values.network.host_network else values.network.web_port}) %}
+
+{{ tpl.render() | tojson }}
