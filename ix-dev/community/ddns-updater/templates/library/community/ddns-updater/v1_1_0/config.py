@@ -1,5 +1,5 @@
-from base_v1_1_7 import utils
 import json
+
 
 valid_ip_dns_providers = [
     "all",
@@ -47,118 +47,6 @@ valid_ip_fetchers = [
     "dns",
 ]
 valid_ip_versions = ["", "ipv4", "ipv6"]
-
-
-def validate_public_ip_providers(items=[], valid=[], category="", allow_custom=False):
-
-    for item in items:
-        if not item.get("provider"):
-            utils.throw_error(f"Expected [provider] to be set for [{category}]")
-        if item["provider"] == "custom":
-            if not allow_custom:
-                utils.throw_error(f"Custom provider is not supported for [{category}]")
-            else:
-                if not item.get("custom"):
-                    utils.throw_error(
-                        f"Expected [custom] to be set when public ip provider is [custom] for [{category}]"
-                    )
-                if not item["custom"].startswith("url:"):
-                    utils.throw_error(f"Expected [custom] to start with [url:] for [{category}]")
-        if item["provider"] == "all":
-            if len(items) > 1:
-                utils.throw_error(
-                    f"Expected only 1 item in [{category}] with [provider] set to [all], got [{len(items)}]"
-                )
-        if item["provider"] not in valid:
-            utils.throw_error(
-                f"Expected [provider] to be one of [{', '.join(valid)}], got [{item['provider']}] for [{category}]"
-            )
-
-
-def get_public_ip_providers(category: str, items=[]):
-    result = []
-
-    if category == "PUBLICIP_DNS_PROVIDERS":
-        validate_public_ip_providers(
-            items,
-            valid=valid_ip_dns_providers,
-            category="Public IP DNS Providers",
-            allow_custom=True,
-        )
-    elif category == "PUBLICIP_HTTP_PROVIDERS":
-        validate_public_ip_providers(
-            items,
-            valid=valid_ip_http_providers,
-            category="Public IP HTTP Providers",
-            allow_custom=True,
-        )
-    elif category == "PUBLICIPV4_HTTP_PROVIDERS":
-        validate_public_ip_providers(
-            items,
-            valid=valid_ipv4_http_providers,
-            category="Public IPv4 HTTP Providers",
-            allow_custom=True,
-        )
-    elif category == "PUBLICIPV6_HTTP_PROVIDERS":
-        validate_public_ip_providers(
-            items,
-            valid=valid_ipv6_http_providers,
-            category="Public IPv6 HTTP Providers",
-            allow_custom=True,
-        )
-    elif category == "PUBLICIP_FETCHERS":
-        validate_public_ip_providers(
-            items,
-            valid=valid_ip_fetchers,
-            category="Public IP Fetchers",
-            allow_custom=True,
-        )
-
-    for item in items:
-        if item["provider"] == "custom":
-            result.append(item["custom"])
-        else:
-            result.append(item["provider"])
-
-    return ",".join(result)
-
-
-def get_providers_config(items=[]):
-    result = []
-    warnings = []
-
-    for item in items:
-        if item["provider"] not in providers_schema.keys():
-            utils.throw_error(
-                f"Expected [provider] to be one of [{', '.join(providers_schema.keys())}], got [{item['provider']}]"
-            )
-        if not item.get("domain", ""):
-            utils.throw_error(f"Expected [domain] to be set for provider [{item['provider']}]")
-        if item.get("host", ""):
-            warnings.append(
-                f"- Provider [{item['provider']}] has deprecated [host] field set, with value [{item['host']}]."
-            )
-        if not item.get("ip_version", "") in valid_ip_versions:
-            utils.throw_error(
-                f"Expected [ip_version] to be one of [{', '.join(valid_ip_versions)}], got [{item['ip_version']}]"
-            )
-
-        result.append(
-            {
-                "provider": item["provider"],
-                "domain": item["domain"],
-                "ip_version": item.get("ip_version", ""),
-                **get_provider_config(item),
-            }
-        )
-
-    return {"result": {"settings": result}, "warnings": warnings}
-
-
-def required_key(item={}, key=""):
-    if not item.get(key):
-        utils.throw_error(f"Expected [{key}] to be set for [{item['provider']}]")
-    return item[key]
 
 
 providers_schema = {
@@ -452,75 +340,180 @@ providers_schema = {
 }
 
 
-def get_provider_config(item={}):
-    if item["provider"] not in providers_schema:
-        utils.throw_error(
-            f"Expected [provider] to be one of [{', '.join(providers_schema.keys())}], got [{item['provider']}]"
-        )
+class Config:
+    def __init__(self, tpl, values):
+        self.fail = tpl.funcs["fail"]
+        self.warn = tpl.notes.add_warning
+        self.values = values
 
-    result = {}
-    provider_data = providers_schema[item["provider"]]
+    def validate_public_ip_providers(self, items=[], valid=[], category="", allow_custom=False):
+        for item in items:
+            if not item.get("provider"):
+                self.fail(f"Expected [provider] to be set for [{category}]")
+            if item["provider"] == "custom":
+                if not allow_custom:
+                    self.fail(f"Custom provider is not supported for [{category}]")
+                else:
+                    if not item.get("custom"):
+                        self.fail(f"Expected [custom] to be set when public ip provider is [custom] for [{category}]")
+                    if not item["custom"].startswith("url:"):
+                        self.fail(f"Expected [custom] to start with [url:] for [{category}]")
+            if item["provider"] == "all":
+                if len(items) > 1:
+                    self.fail(f"Expected only 1 item in [{category}] with [provider] set to [all], got [{len(items)}]")
+            if item["provider"] not in valid:
+                self.fail(
+                    f"Expected [provider] to be one of [{', '.join(valid)}], got [{item['provider']}] for [{category}]"
+                )
 
-    for required in provider_data["required"]:
-        if required.get("func"):
-            result[required["provider_key"]] = required["func"](required_key(item, required["ui_key"]))
-        else:
-            match required.get("type", ""):
-                case "int":
-                    result[required["provider_key"]] = int(required_key(item, required["ui_key"]))
-                case _:
-                    result[required["provider_key"]] = str(required_key(item, required["ui_key"]))
-    result.update(get_optional_data(item, provider_data))
+    def get_public_ip_providers(self, category: str, items=[]):
+        result = []
 
-    combo_data = {}
-    for combo in provider_data.get("combos", []):
-        if combo_data:
-            break
+        if category == "PUBLICIP_DNS_PROVIDERS":
+            self.validate_public_ip_providers(
+                items,
+                valid=valid_ip_dns_providers,
+                category="Public IP DNS Providers",
+                allow_custom=True,
+            )
+        elif category == "PUBLICIP_HTTP_PROVIDERS":
+            self.validate_public_ip_providers(
+                items,
+                valid=valid_ip_http_providers,
+                category="Public IP HTTP Providers",
+                allow_custom=True,
+            )
+        elif category == "PUBLICIPV4_HTTP_PROVIDERS":
+            self.validate_public_ip_providers(
+                items,
+                valid=valid_ipv4_http_providers,
+                category="Public IPv4 HTTP Providers",
+                allow_custom=True,
+            )
+        elif category == "PUBLICIPV6_HTTP_PROVIDERS":
+            self.validate_public_ip_providers(
+                items,
+                valid=valid_ipv6_http_providers,
+                category="Public IPv6 HTTP Providers",
+                allow_custom=True,
+            )
+        elif category == "PUBLICIP_FETCHERS":
+            self.validate_public_ip_providers(
+                items,
+                valid=valid_ip_fetchers,
+                category="Public IP Fetchers",
+                allow_custom=True,
+            )
 
-        combo_data = get_combo_data(item, combo)
-        # Go to next combo
-        if not combo_data:
-            continue
-
-        result.update(combo_data)
-        result.update(get_optional_data(item, combo))
-
-    if not combo_data and provider_data.get("combos", []):
-        utils.throw_error(
-            f"Expected provider [{item['provider']}] to have at least one of the following combinations: "
-            + f"{', '.join(get_combos_printout(provider_data['combos']))}"
-        )
-
-    return result
-
-
-def get_combo_data(item={}, combo={}):
-    result = {}
-    for required in combo["required"]:
-        if required["ui_key"] not in item:
-            return {}
-        if required.get("func"):
-            result[required["provider_key"]] = required["func"](required_key(item, required["ui_key"]))
-        else:
-            result[required["provider_key"]] = required_key(item, required["ui_key"])
-    return result
-
-
-def get_optional_data(item={}, data={}):
-    result = {}
-    for optional in data.get("optional", []):
-        if optional["ui_key"] in item:
-            if optional.get("func"):
-                result[optional["provider_key"]] = optional["func"](item[optional["ui_key"]])
+        for item in items:
+            if item["provider"] == "custom":
+                result.append(item["custom"])
             else:
-                result[optional["provider_key"]] = item[optional["ui_key"]]
-        elif optional.get("default") is not None:
-            result[optional["provider_key"]] = optional["default"]
-    return result
+                result.append(item["provider"])
 
+        return ",".join(result)
 
-def get_combos_printout(combos=[]):
-    result = []
-    for combo in combos:
-        result.append(f"[{', '.join([r['provider_key'] for r in combo['required']])}]")
-    return result
+    def get_providers_config(self, items=[]):
+        result = []
+
+        for item in items:
+            if item["provider"] not in providers_schema.keys():
+                self.fail(
+                    f"Expected [provider] to be one of [{', '.join(providers_schema.keys())}], got [{item['provider']}]"
+                )
+            if not item.get("domain", ""):
+                self.fail(f"Expected [domain] to be set for provider [{item['provider']}]")
+            if item.get("host", ""):
+                self.warn(
+                    f"Provider [{item['provider']}] has deprecated [host] field set, with value [{item['host']}]."
+                )
+            if not item.get("ip_version", "") in valid_ip_versions:
+                self.fail(
+                    f"Expected [ip_version] to be one of [{', '.join(valid_ip_versions)}], got [{item['ip_version']}]"
+                )
+
+            result.append(
+                {
+                    "provider": item["provider"],
+                    "domain": item["domain"],
+                    "ip_version": item.get("ip_version", ""),
+                    **self.get_provider_config(item),
+                }
+            )
+
+        return {"settings": result}
+
+    def required_key(self, item={}, key=""):
+        if not item.get(key):
+            self.fail(f"Expected [{key}] to be set for [{item['provider']}]")
+        return item[key]
+
+    def get_provider_config(self, item={}):
+        if item["provider"] not in providers_schema:
+            self.fail(
+                f"Expected [provider] to be one of [{', '.join(providers_schema.keys())}], got [{item['provider']}]"
+            )
+
+        result = {}
+        provider_data = providers_schema[item["provider"]]
+
+        for required in provider_data["required"]:
+            if required.get("func"):
+                result[required["provider_key"]] = required["func"](self.required_key(item, required["ui_key"]))
+            else:
+                match required.get("type", ""):
+                    case "int":
+                        result[required["provider_key"]] = int(self.required_key(item, required["ui_key"]))
+                    case _:
+                        result[required["provider_key"]] = str(self.required_key(item, required["ui_key"]))
+        result.update(self.get_optional_data(item, provider_data))
+
+        combo_data = {}
+        for combo in provider_data.get("combos", []):
+            if combo_data:
+                break
+
+            combo_data = self.get_combo_data(item, combo)
+            # Go to next combo
+            if not combo_data:
+                continue
+
+            result.update(combo_data)
+            result.update(self.get_optional_data(item, combo))
+
+        if not combo_data and provider_data.get("combos", []):
+            self.fail(
+                f"Expected provider [{item['provider']}] to have at least one of the following combinations: "
+                + f"{', '.join(self.get_combos_printout(provider_data['combos']))}"
+            )
+
+        return result
+
+    def get_combo_data(self, item={}, combo={}):
+        result = {}
+        for required in combo["required"]:
+            if required["ui_key"] not in item:
+                return {}
+            if required.get("func"):
+                result[required["provider_key"]] = required["func"](self.required_key(item, required["ui_key"]))
+            else:
+                result[required["provider_key"]] = self.required_key(item, required["ui_key"])
+        return result
+
+    def get_optional_data(self, item={}, data={}):
+        result = {}
+        for optional in data.get("optional", []):
+            if optional["ui_key"] in item:
+                if optional.get("func"):
+                    result[optional["provider_key"]] = optional["func"](item[optional["ui_key"]])
+                else:
+                    result[optional["provider_key"]] = item[optional["ui_key"]]
+            elif optional.get("default") is not None:
+                result[optional["provider_key"]] = optional["default"]
+        return result
+
+    def get_combos_printout(self, combos=[]):
+        result = []
+        for combo in combos:
+            result.append(f"[{', '.join([r['provider_key'] for r in combo['required']])}]")
+        return result
