@@ -9,8 +9,10 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
+    from .volume_sources import HostPathSource, IxVolumeSource
 except ImportError:
     from error import RenderError
+    from volume_sources import HostPathSource, IxVolumeSource
 
 
 class Functions:
@@ -85,10 +87,32 @@ class Functions:
             merged_dict.update(dictionary)
         return merged_dict
 
-    def _disallow_chars(self, string, chars, key):
+    def _disallow_chars(self, string: str, chars: list[str], key: str):
         for char in chars:
             if char in string:
                 raise RenderError(f"Disallowed character [{char}] in [{key}]")
+        return string
+
+    def _get_host_path(self, storage):
+        source_type = storage.get("type", "")
+        if not source_type:
+            raise RenderError("Expected [type] to be set for volume mounts.")
+
+        match source_type:
+            case "host_path":
+                mount_config = storage.get("host_path_config")
+                if mount_config is None:
+                    raise RenderError("Expected [host_path_config] to be set for [host_path] type.")
+                host_source = HostPathSource(self._render_instance, mount_config).get()
+                return host_source
+            case "ix_volume":
+                mount_config = storage.get("ix_volume_config")
+                if mount_config is None:
+                    raise RenderError("Expected [ix_volume_config] to be set for [ix_volume] type.")
+                ix_source = IxVolumeSource(self._render_instance, mount_config).get()
+                return ix_source
+            case _:
+                raise RenderError(f"Storage type [{source_type}] does not support host path.")
 
     def func_map(self):
         # TODO: Check what is no longer used and remove
@@ -108,4 +132,5 @@ class Functions:
             "must_match_regex": self._must_match_regex,
             "secure_string": self._secure_string,
             "disallow_chars": self._disallow_chars,
+            "get_host_path": self._get_host_path,
         }
