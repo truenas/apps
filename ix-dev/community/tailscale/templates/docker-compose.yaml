@@ -49,11 +49,15 @@
 {% do c1.add_storage("/var/run/tailscale", {"type":"tmpfs", "tmpfs_config": {"mode": "0755"}}) %}
 
 {% do c1.add_storage(values.consts.state_path, values.storage.state) %}
-{% do perm_container.add_or_skip_action("state", values.storage.state, perm_config) %}
+{% if values.tailscale.userspace %}
+  {% do perm_container.add_or_skip_action("state", values.storage.state, perm_config) %}
+{% endif %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
-  {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+  {% if values.tailscale.userspace %}
+    {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+  {% endif %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
