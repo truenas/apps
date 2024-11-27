@@ -28,12 +28,27 @@ jobs:
 
       - name: Matrix Output
         id: changed-apps
-        # env:
-        #   CHANGED_FILES: ${{ steps.changed-files-json.outputs.all_changed_files }}
         run: |
           out=$(python3 .github/scripts/changed_apps.py)
           echo "changed-apps=${out}" >> $GITHUB_OUTPUT
           echo "change-count=$(echo "${out}" | jq -r '.include | length')" >> $GITHUB_OUTPUT
+
+      - name: Message Generation
+        id: message
+        run: |
+          python3 .github/scripts/message.py > pr-comment.txt
+          if [ "$(cat pr-comment.txt)" != "" ]; then
+            echo "message=true" >> $GITHUB_OUTPUT
+          else
+            echo "message=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v3
+        if: steps.message.outputs.message == 'true'
+        continue-on-error: true
+        with:
+          comment-tag: notify-teams
+          file-path: pr-comment.txt
 
   run-apps:
     name: Run Docker Compose Render/Install
