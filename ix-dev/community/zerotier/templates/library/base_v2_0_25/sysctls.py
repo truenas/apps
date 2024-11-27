@@ -26,7 +26,7 @@ class Sysctls:
             raise RenderError(f"Sysctl [{key}] requires a value")
         if key in self._sysctls:
             raise RenderError(f"Sysctl [{key}] already added")
-        self._sysctls[key] = value
+        self._sysctls[key] = str(value)
 
     def has_sysctls(self):
         return bool(self._sysctls)

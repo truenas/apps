@@ -23,7 +23,7 @@ def test_add_sysctl(mock_values):
     c1.sysctls.add("net.ipv4.ip_forward", 1)
     c1.sysctls.add("fs.mqueue.msg_max", 100)
     output = render.render()
-    assert output["services"]["test_container"]["sysctls"] == {"net.ipv4.ip_forward": 1, "fs.mqueue.msg_max": 100}
+    assert output["services"]["test_container"]["sysctls"] == {"net.ipv4.ip_forward": "1", "fs.mqueue.msg_max": "100"}
 
 
 def test_add_net_sysctl_with_host_network(mock_values):
