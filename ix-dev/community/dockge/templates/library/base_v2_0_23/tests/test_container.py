@@ -148,6 +148,27 @@ def test_add_group_as_string(mock_values):
         c1.add_group("1000")
 
 
+def test_add_docker_socket(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_docker_socket()
+    output = render.render()
+    assert output["services"]["test_container"]["group_add"] == [568, 999]
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/var/run/docker.sock",
+            "target": "/var/run/docker.sock",
+            "read_only": True,
+            "bind": {
+                "propagation": "rprivate",
+                "create_host_path": False,
+            },
+        }
+    ]
+
+
 def test_shm_size(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

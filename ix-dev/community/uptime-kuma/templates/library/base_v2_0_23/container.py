@@ -192,6 +192,10 @@ class Container:
     def add_storage(self, mount_path: str, config: "IxStorage"):
         self._storage.add(mount_path, config)
 
+    def add_docker_socket(self, read_only: bool = True, mount_path: str = "/var/run/docker.sock"):
+        self.add_group(999)
+        self._storage._add_docker_socket(read_only, mount_path)
+
     def set_shm_size_mb(self, size: int):
         self._shm_size = size
 
