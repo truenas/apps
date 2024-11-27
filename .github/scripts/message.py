@@ -80,7 +80,7 @@ def generate_message(changes: dict | None = None):
                 message += "\n"
             message += "\n---\n\n"
 
-    if not message:
+    if message:
         message += "Notifying the following about changes to the trains:\n"
         message += ", ".join(account_to_notify)
     return message
