@@ -619,7 +619,7 @@ def test_add_docker_socket(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    c1.storage.add_docker_socket()
+    c1.storage._add_docker_socket()
     output = render.render()
     assert output["services"]["test_container"]["volumes"] == [
         {
@@ -636,7 +636,7 @@ def test_add_docker_socket_not_read_only(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    c1.storage.add_docker_socket(read_only=False)
+    c1.storage._add_docker_socket(read_only=False)
     output = render.render()
     assert output["services"]["test_container"]["volumes"] == [
         {
@@ -653,7 +653,7 @@ def test_add_docker_socket_mount_path(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    c1.storage.add_docker_socket(mount_path="/some/path")
+    c1.storage._add_docker_socket(mount_path="/some/path")
     output = render.render()
     assert output["services"]["test_container"]["volumes"] == [
         {

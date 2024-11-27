@@ -18,6 +18,7 @@ def mock_values():
 
 
 def test_funcs(mock_values):
+    mock_values["ix_volumes"] = {"test": "/mnt/test123"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -49,6 +50,18 @@ def test_funcs(mock_values):
         {"func": "must_match_regex", "values": ["my_user", "^[0-9]$"], "expect_raise": True},
         {"func": "must_match_regex", "values": ["1", "^[0-9]$"], "expected": "1"},
         {"func": "secure_string", "values": [10], "expect_regex": r"^[a-zA-Z0-9-_]+$"},
+        {"func": "disallow_chars", "values": ["my_user", ["$", "@"], "my_key"], "expected": "my_user"},
+        {"func": "disallow_chars", "values": ["my_user$", ["$", "@"], "my_key"], "expect_raise": True},
+        {
+            "func": "get_host_path",
+            "values": [{"type": "host_path", "host_path_config": {"path": "/mnt/test"}}],
+            "expected": "/mnt/test",
+        },
+        {
+            "func": "get_host_path",
+            "values": [{"type": "ix_volume", "ix_volume_config": {"dataset_name": "test"}}],
+            "expected": "/mnt/test123",
+        },
     ]
 
     for test in tests:
