@@ -1,107 +1,44 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% from "macros/setup.sh" import setup %}
+{% from "macros/config.yaml" import config %}
 
-{% set jobs_path = "/root/.fscrawler" %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.jobs, **{"mount_path": jobs_path}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set c1 = tpl.add_container(values.consts.fscrawler_container_name, values.fscrawler.image_selector) %}
+{% set init = tpl.add_container(values.consts.init_container_name, values.fscrawler.image_selector) %}
 
-{% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
-{% endfor %}
+{% do init.healthcheck.disable() %}
+{% do init.remove_devices() %}
+{% do init.deploy.resources.set_profile("low") %}
+{% do init.set_network_mode("none") %}
+{% do init.restart.set_policy("on-failure", 1) %}
+{% do init.configs.add("example_config", config(values), values.consts.example_config_path) %}
+{% do init.configs.add("setup.sh", setup(values), "/setup.sh", "0755") %}
+{% do init.set_entrypoint(["/setup.sh"]) %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+{% do c1.healthcheck.disable() %}
+{% do c1.set_entrypoint(["fscrawler"]) %}
+{% set cmd = namespace(x=[
+  values.fscrawler.job_name,
+  "--loop", values.fscrawler.loop,
+]) %}
+{% if values.fscrawler.restart %}
+  {% do cmd.x.append("--restart") %}
+{% endif %}
+{% if values.network.enable_rest %}
+  {% do cmd.x.append("--rest") %}
+{% endif %}
+{% do c1.set_command(cmd.x) %}
 
-configs:
-  example_config:
-    # A default config file that users will need to edit
-    content: |
-      # It will be updated automatically on every start based on the configuration
-      name: {{ values.fscrawler.job_name }}
-      elasticsearch:
-        username: elastic
-        password: <password>
-        nodes:
-          - url: http://<node_ip>:<port>
-      {% if values.network.enable_rest %}
-      rest:
-        url: http://0.0.0.0:{{ values.network.rest_port }}/fscrawler
-        # Optionally
-        # enable_cors: true/false
-      {% endif %}
-
-{# Containers #}
-services:
-  {{ values.consts.init_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.fscrawler.image_selector) }}
-    configs:
-      - source: example_config
-        target: /example/_settings.example.yaml
-    healthcheck:
-      disable: true
-    deploy:
-      resources:
-        limits:
-          cpus: "1"
-          memory: "512m"
-    entrypoint: /bin/sh
-    command:
-      - -c
-      - |
-        echo "Ensuring job config directory {{ jobs_path }}/{{ values.fscrawler.job_name }} exists"
-        mkdir -p {{ jobs_path }}/{{ values.fscrawler.job_name }}
-        {# Copy/Overwrite an example settings file to the config directory #}
-        echo "Copying example config file to {{ jobs_path }}/{{ values.fscrawler.job_name }}/_settings.example.yaml"
-        cp -f /example/_settings.example.yaml {{ jobs_path }}/{{ values.fscrawler.job_name }}/_settings.example.yaml
-    volumes: {{ volume_mounts.items | tojson }}
-  {{ values.consts.fscrawler_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.fscrawler.image_selector) }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    depends_on:
-      {{ values.consts.init_container_name }}:
-        condition: service_completed_successfully
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    entrypoint: "fscrawler"
-    command:
-      - "{{ values.fscrawler.job_name }}"
-      - --loop
-      - "{{ values.fscrawler.loop }}"
-      {% if values.fscrawler.restart %}
-      - --restart
-      {% endif %}
-      {% if values.network.enable_rest %}
-      - --rest
-      {% endif %}
-    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    healthcheck:
-      disable: true
-    environment: {{ ix_lib.base.environment.envs(app={}, user=values.fscrawler.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network and values.network.enable_rest %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.rest_port, "published": values.network.rest_port}) | tojson }}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+{% do c1.environment.add_user_envs(values.fscrawler.additional_envs) %}
+{% if values.network.enable_rest %}
+  {% do c1.ports.add_port(values.network.rest_port, values.network.rest_port) %}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("FSCrawler") | tojson }}
+{% do c1.add_storage(values.consts.jobs_path, values.storage.jobs) %}
+{% do init.add_storage(values.consts.jobs_path, values.storage.jobs) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
