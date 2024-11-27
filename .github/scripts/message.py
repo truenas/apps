@@ -17,7 +17,9 @@ trains_to_check = ["test", "stable", "enterprise"]
 account_to_notify = ["@truenas/docs-team"]
 
 
-def process(changed_files=[], added_files=[]):
+def process(changed_files: list[str] | None = None, added_files: list[str] | None = None):
+    changed_files = changed_files or []
+    added_files = added_files or []
     changes = {}
 
     for file in changed_files:
@@ -55,7 +57,9 @@ def process(changed_files=[], added_files=[]):
     return generate_message(changes)
 
 
-def generate_message(changes):
+def generate_message(changes: dict | None = None):
+    changes = changes or {}
+
     message = ""
     for train in sorted(changes):
         message += f"## `{train.title()}`\n\n"
@@ -76,7 +80,7 @@ def generate_message(changes):
                 message += "\n"
             message += "\n---\n\n"
 
-    if message != "":
+    if message:
         message += "Notifying the following about changes to the trains:\n"
         message += ", ".join(account_to_notify)
     return message
