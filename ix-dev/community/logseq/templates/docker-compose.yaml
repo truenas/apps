@@ -6,9 +6,9 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port, "path": "/health", "scheme": proto}) %}
 {% do c1.environment.add_user_envs(values.logseq.additional_envs) %}
-
 {% do c1.configs.add("nginx.conf", nginx_conf(values), "/etc/nginx/conf.d/default.conf") %}
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
@@ -19,7 +19,7 @@
 {% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
 
 {% set nginx_cache_config = {"type": "temporary", "volume_config": {"volume_name": "nginx-cache"}} %}
-{% set tmp_perms_config = dict(perms_config, **{"chmod": "0770"}) %}
+{% set tmp_perms_config = dict(perms_config) %}
 {% do c1.add_storage("/var/cache/nginx", nginx_cache_config) %}
 {% do perm_container.add_or_skip_action("nginx-cache", nginx_cache_config, tmp_perms_config) %}
 

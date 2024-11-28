@@ -75,6 +75,7 @@ class PermsContainer:
         uid = action_config.get("uid", None)
         gid = action_config.get("gid", None)
         chmod = action_config.get("chmod", None)
+        recursive = action_config.get("recursive", False)
         mount_path = os.path.join("/mnt/permission", identifier)
         is_temporary = False
 
@@ -84,6 +85,7 @@ class PermsContainer:
                 # If it is a temporary volume, we force auto permissions
                 # and set is_temporary to True, so it will be cleaned up
                 is_temporary = True
+                recursive = True
             case "volume":
                 if not volume_config.get("volume_config", {}).get("auto_permissions", False):
                     return None
@@ -121,6 +123,7 @@ class PermsContainer:
                 "mount_path": mount_path,
                 "is_temporary": is_temporary,
                 "identifier": identifier,
+                "recursive": recursive,
                 "mode": mode,
                 "uid": uid,
                 "gid": gid,
@@ -182,15 +185,23 @@ if not actions_data:
     # If this script is called, there should be actions data
     raise ValueError("No actions data found")
 
-def fix_perms(path, chmod):
-    print(f"Changing permissions to {chmod} on: [{path}]")
+def fix_perms(path, chmod, recursive=False):
+    print(f"Changing permissions{' recursively ' if recursive else ' '}to {chmod} on: [{path}]")
     os.chmod(path, int(chmod, 8))
+    if recursive:
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                os.chmod(os.path.join(root, f), int(chmod, 8))
     print("Permissions after changes:")
     print_chmod_stat()
 
-def fix_owner(path, uid, gid):
-    print(f"Changing ownership to {uid}:{gid} on: [{path}]")
+def fix_owner(path, uid, gid, recursive=False):
+    print(f"Changing ownership{' recursively ' if recursive else ' '}to {uid}:{gid} on: [{path}]")
     os.chown(path, uid, gid)
+    if recursive:
+        for root, dirs, files in os.walk(path):
+            for f in files:
+                os.chown(os.path.join(root, f), uid, gid)
     print("Ownership after changes:")
     print_chown_stat()
 
@@ -240,17 +251,17 @@ def perform_action(action):
     print("---")
 
     if action["mode"] == "always":
-        fix_owner(action["mount_path"], action["uid"], action["gid"])
+        fix_owner(action["mount_path"], action["uid"], action["gid"], action["recursive"])
         if not action["chmod"]:
             print("Skipping permissions check, chmod is falsy")
         else:
-            fix_perms(action["mount_path"], action["chmod"])
+            fix_perms(action["mount_path"], action["chmod"], action["recursive"])
         return
 
     elif action["mode"] == "check":
         if curr_stat.st_uid != action["uid"] or curr_stat.st_gid != action["gid"]:
             print("Ownership is incorrect. Fixing...")
-            fix_owner(action["mount_path"], action["uid"], action["gid"])
+            fix_owner(action["mount_path"], action["uid"], action["gid"], action["recursive"])
         else:
             print("Ownership is correct. Skipping...")
 
@@ -259,7 +270,7 @@ def perform_action(action):
         else:
             if oct(curr_stat.st_mode)[3:] != action["chmod"]:
                 print("Permissions are incorrect. Fixing...")
-                fix_perms(action["mount_path"], action["chmod"])
+                fix_perms(action["mount_path"], action["chmod"], action["recursive"])
             else:
                 print("Permissions are correct. Skipping...")
 
