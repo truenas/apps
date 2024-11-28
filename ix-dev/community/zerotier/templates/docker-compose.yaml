@@ -1,71 +1,38 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set tun_dev = "/dev/net/tun" %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(
-  data={"type": "host_path", "mount_path": tun_dev, "host_path_config": {"path": tun_dev, "create_host_path": false} },
-)) %}
+{% set c1 = tpl.add_container(values.consts.zerotier_container_name, "image") %}
+{% do c1.add_caps(["NET_ADMIN", "NET_RAW", "AUDIT_WRITE", "CHOWN", "DAC_OVERRIDE", "FOWNER", "NET_BIND_SERVICE", "SETGID", "SETUID", "SETPCAP", "SYS_ADMIN"]) %}
+{% do c1.healthcheck.set_custom_test("/healthcheck.sh") %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/var/lib/zerotier-one"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
-{% for store in values.storage.additional_storage %}
-  {% set _ = storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+{% set cmd = namespace(x=[]) %}
+{% for net in values.zerotier.networks %}
+  {% do cmd.x.append(net|lower) %}
+{% else %}
+  {% do tpl.funcs.fail("Zerotier requires at least one network to be configured") %}
 {% endfor %}
+{% do c1.set_command(cmd.x) %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
-
-{# Containers #}
-services:
-  {{ values.consts.zerotier_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% else %}
-    sysctls:
-      net.ipv4.ip_forward: 1
-      net.ipv6.conf.all.forwarding: 1
-    {% endif %}
-    command:
-    {% for net in values.zerotier.networks %}
-      - "{{ net|lower }}"
-    {% else %}
-      {% do ix_lib.base.utils.throw_error("Zerotier requires at least one network to be configured") %}
-    {% endfor %}
-    {% set caps = ix_lib.base.security.get_caps(add=["NET_ADMIN", "NET_RAW", "AUDIT_WRITE", "CHOWN", "DAC_OVERRIDE", "FOWNER", "NET_BIND_SERVICE", "SETGID", "SETUID", "SETPCAP", "SYS_ADMIN"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health("/healthcheck.sh") | tojson }}
-    {% set app_env = {} %}
-    {% if values.zerotier.auth_token %}
-      {% do app_env.update({"ZEROTIER_API_TOKEN": values.zerotier.auth_token}) %}
-    {% endif %}
-    {% if values.zerotier.identity_public %}
-      {% do app_env.update({"ZEROTIER_IDENTITY_PUBLIC": values.zerotier.identity_public}) %}
-    {% endif %}
-    {% if values.zerotier.identity_secret %}
-      {% do app_env.update({"ZEROTIER_IDENTITY_SECRET": values.zerotier.identity_secret}) %}
-    {% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.zerotier.additional_envs, values=values) | tojson }}
-    volumes: {{ volume_mounts.items | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+{% if not values.network.host_network %}
+  {% do c1.sysctls.add("net.ipv4.ip_forward", 1) %}
+  {% do c1.sysctls.add("net.ipv6.conf.all.forwarding", 1) %}
 {% endif %}
 
-x-notes: {{ ix_lib.base.metadata.get_notes("Zerotier") | tojson }}
+{% if values.zerotier.auth_token %}
+  {% do c1.environment.add_env("ZEROTIER_API_TOKEN", values.zerotier.auth_token) %}
+{% endif %}
+{% if values.zerotier.identity_public %}
+  {% do c1.environment.add_env("ZEROTIER_IDENTITY_PUBLIC", values.zerotier.identity_public) %}
+{% endif %}
+{% if values.zerotier.identity_secret %}
+  {% do c1.environment.add_env("ZEROTIER_IDENTITY_SECRET", values.zerotier.identity_secret) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.zerotier.additional_envs) %}
+
+{% do c1.add_tun_device(read_only=False) %}
+{% do c1.add_storage("/var/lib/zerotier-one", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
