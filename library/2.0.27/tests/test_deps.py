@@ -338,14 +338,14 @@ def test_add_perms_container(mock_values):
     assert output["configs"]["permissions_run_script"]["content"] != ""
     # fmt: off
     content = [
-        {"mount_path": "/mnt/permission/data", "is_temporary": False, "identifier": "data", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data3", "is_temporary": False, "identifier": "data3", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data6", "is_temporary": False, "identifier": "data6", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data7", "is_temporary": False, "identifier": "data7", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data9", "is_temporary": True, "identifier": "data9", "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/postgres_container_postgres_data", "is_temporary": False, "identifier": "postgres_container_postgres_data", "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/redis_container_redis_data", "is_temporary": False, "identifier": "redis_container_redis_data", "mode": "check", "uid": 1001, "gid": 0, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/mariadb_container_mariadb_data", "is_temporary": False, "identifier": "mariadb_container_mariadb_data", "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data", "is_temporary": False, "identifier": "data", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data3", "is_temporary": False, "identifier": "data3", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data6", "is_temporary": False, "identifier": "data6", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data7", "is_temporary": False, "identifier": "data7", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/data9", "is_temporary": True, "identifier": "data9", "recursive": True, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/postgres_container_postgres_data", "is_temporary": False, "identifier": "postgres_container_postgres_data", "recursive": False, "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/redis_container_redis_data", "is_temporary": False, "identifier": "redis_container_redis_data", "recursive": False, "mode": "check", "uid": 1001, "gid": 0, "chmod": None}, # noqa
+        {"mount_path": "/mnt/permission/mariadb_container_mariadb_data", "is_temporary": False, "identifier": "mariadb_container_mariadb_data", "recursive": False, "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
     ]
     # fmt: on
     assert output["configs"]["permissions_actions_data"]["content"] == json.dumps(content)
