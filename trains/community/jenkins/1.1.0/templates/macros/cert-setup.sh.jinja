@@ -1,0 +1,37 @@
+{% macro cert_setup_script(values, random_cert_pass) -%}
+{%- set p12 = "/tmp/certs/ix.p12" %}
+{%- set key = "%s/%s"|format(values.consts.temp_certs_path, values.consts.key_name) %}
+{%- set cert = "%s/%s"|format(values.consts.temp_certs_path, values.consts.crt_name) %}
+{%- set keystore = "%s/%s"|format(values.consts.keystore_path, values.consts.keystore_name) %}
+#!/bin/sh
+mkdir -p /tmp/certs || { echo "Failed to create temp p12 certs path"; exit 1; }
+mkdir -p {{ values.consts.temp_certs_path }} || { echo "Failed to create temp certs path"; exit 1; }
+mkdir -p {{ values.consts.keystore_path }} || { echo "Failed to create keystore path"; exit 1; }
+
+if [ -f "{{ p12 }}" ]; then
+    echo "Cleaning up old p12 certificate"
+    rm -f "{{ p12 }}" || { echo "Failed to clean up old p12 certificate"; exit 1; }
+fi
+
+echo "Generating new p12 from key and cert"
+if [ -f "{{ key }}" ] && [ -f "{{ cert }}" ]; then
+    echo "Found key and cert, generating p12 certificate"
+    openssl pkcs12 -inkey "{{ key }}" -in "{{ cert }}" \
+        -export -out "{{ p12 }}" \
+        -password pass:{{ random_cert_pass }} || { echo "Failed to generate p12 certificate"; exit 1; }
+    echo "Successfully generated p12 certificate"
+
+    if [ -f "{{ keystore }}" ]; then
+        echo "Cleaning up old keystore"; rm -f "{{ keystore }}"
+    fi
+
+    echo "Importing certificate into a new java keystore"
+    keytool -importkeystore -srckeystore "{{ p12 }}" -srcstoretype pkcs12 \
+        -destkeystore "{{ keystore }}" -deststoretype JKS \
+        -srcstorepass "{{ random_cert_pass }}" \
+        -deststorepass "{{ random_cert_pass }}" || { echo "Failed to import certificate"; exit 1; }
+    echo "Certificate imported into keystore"
+else
+    echo "Failed to find key and cert, skipping certificate import"; exit 1
+fi
+{%- endmacro %}
