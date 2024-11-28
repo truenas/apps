@@ -1,100 +1,67 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": "/data"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set c1 = tpl.add_container(values.consts.minecraft_container_name, values.minecraft.image_selector) %}
+{% do c1.set_tty(true) %}
+{% do c1.set_stdin(true) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_custom_test("mc-health") %}
+{% do c1.healthcheck.set_start_period(120) %}
 
-{% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
-{% endfor %}
-
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
-
-{# Containers #}
-services:
-  {{ values.consts.minecraft_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.minecraft.image_selector) }}
-    restart: unless-stopped
-    tty: true
-    stdin_open: true
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test="mc-health", start_period=120) | tojson }}
-    {% set app_env = {
-      "GUI": "FALSE",
-      "EULA": values.minecraft.eula|string|upper,
-      "SERVER_PORT": values.network.server_port,
-      "VERSION": values.minecraft.version,
-      "TYPE": values.minecraft.type,
-      "MOTD": values.minecraft.motd,
-      "DIFFICULTY": values.minecraft.difficulty,
-      "MODE": values.minecraft.mode,
-      "SERVER_NAME": values.minecraft.server_name,
-      "MAX_PLAYERS": values.minecraft.max_players,
-      "MAX_WORLD_SIZE": values.minecraft.max_world_size,
-      "ALLOW_NETHER": values.minecraft.allow_nether|string|upper,
-      "ANNOUNCE_PLAYER_ACHIEVMENTS": values.minecraft.announce_player_achievements|string|upper,
-      "ENABLE_COMMAND_BLOCK": values.minecraft.enable_command_block|string|upper,
-      "FORCE_GAMEMODE": values.minecraft.force_game_mode|string|upper,
-      "GENERATE_STRUCTURES": values.minecraft.generate_structures|string|upper,
-      "HARDCORE": values.minecraft.hardcore|string|upper,
-      "MAX_BUILD_HEIGHT": values.minecraft.max_build_height,
-      "SPAWN_ANIMALS": values.minecraft.spawn_animals|string|upper,
-      "SPAWN_MONSTERS": values.minecraft.spawn_monsters|string|upper,
-      "SPAWN_NPCS": values.minecraft.spawn_npcs|string|upper,
-      "SPAWN_PROTECTION": values.minecraft.spawn_protection|string|upper,
-      "VIEW_DISTANCE": values.minecraft.view_distance,
-      "PVP": values.minecraft.pvp|string|upper,
-      "LEVEL_TYPE": values.minecraft.level_type,
-      "ALLOW_FLIGHT": values.minecraft.allow_flight|string|upper,
-      "ONLINE_MODE": values.minecraft.online_mode|string|upper,
-      "MAX_TICK_TIME": values.minecraft.max_tick_time,
-    } %}
-    {% if values.minecraft.seed and app_env.update({"SEED": values.minecraft.seed}) %}{% endif %}
-    {% if values.minecraft.ops and app_env.update({"OPS": values.minecraft.ops | join(",")}) %}{% endif %}
-    {% if values.minecraft.whitelist and app_env.update({"WHITELIST": values.minecraft.whitelist | join(",")}) %}{% endif %}
-    {% if values.minecraft.enable_rcon %}
-      {% do app_env.update({
-        "ENABLE_RCON": values.minecraft.enable_rcon|string|upper,
-        "RCON_PORT": values.network.rcon_port,
-        "RCON_PASSWORD": values.minecraft.rcon_password,
-      }) %}
-    {% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.minecraft.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.server_port, "published": values.network.server_port}) | tojson }}
-      {% if values.minecraft.enable_rcon %}
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.rcon_port, "published": values.network.rcon_port}) | tojson }}
-      {% endif %}
-      {% for port in values.network.additional_ports %}
-      - {{ ix_lib.base.ports.get_port(port={"target": port.target, "published": port.published, "protocol": port.protocol}) | tojson }}
-      {% endfor %}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+{% do c1.environment.add_env("GUI", "FALSE") %}
+{% do c1.environment.add_env("EULA", values.minecraft.eula|string|upper) %}
+{% do c1.environment.add_env("SERVER_PORT", values.network.server_port) %}
+{% do c1.environment.add_env("VERSION", values.minecraft.version) %}
+{% do c1.environment.add_env("TYPE", values.minecraft.type) %}
+{% do c1.environment.add_env("MOTD", values.minecraft.motd) %}
+{% do c1.environment.add_env("DIFFICULTY", values.minecraft.difficulty) %}
+{% do c1.environment.add_env("MODE", values.minecraft.mode) %}
+{% do c1.environment.add_env("SERVER_NAME", values.minecraft.server_name) %}
+{% do c1.environment.add_env("MAX_PLAYERS", values.minecraft.max_players) %}
+{% do c1.environment.add_env("MAX_WORLD_SIZE", values.minecraft.max_world_size) %}
+{% do c1.environment.add_env("ALLOW_NETHER", values.minecraft.allow_nether|string|upper) %}
+{% do c1.environment.add_env("ANNOUNCE_PLAYER_ACHIEVEMENTS", values.minecraft.announce_player_achievements|string|upper) %}
+{% do c1.environment.add_env("ENABLE_COMMAND_BLOCK", values.minecraft.enable_command_block|string|upper) %}
+{% do c1.environment.add_env("FORCE_GAMEMODE", values.minecraft.force_game_mode|string|upper) %}
+{% do c1.environment.add_env("GENERATE_STRUCTURES", values.minecraft.generate_structures|string|upper) %}
+{% do c1.environment.add_env("HARDCORE", values.minecraft.hardcore|string|upper) %}
+{% do c1.environment.add_env("MAX_BUILD_HEIGHT", values.minecraft.max_build_height) %}
+{% do c1.environment.add_env("SPAWN_ANIMALS", values.minecraft.spawn_animals|string|upper) %}
+{% do c1.environment.add_env("SPAWN_MONSTERS", values.minecraft.spawn_monsters|string|upper) %}
+{% do c1.environment.add_env("SPAWN_NPCS", values.minecraft.spawn_npcs|string|upper) %}
+{% do c1.environment.add_env("SPAWN_PROTECTION", values.minecraft.spawn_protection|string|upper) %}
+{% do c1.environment.add_env("VIEW_DISTANCE", values.minecraft.view_distance) %}
+{% do c1.environment.add_env("PVP", values.minecraft.pvp|string|upper) %}
+{% do c1.environment.add_env("LEVEL_TYPE", values.minecraft.level_type) %}
+{% do c1.environment.add_env("ALLOW_FLIGHT", values.minecraft.allow_flight|string|upper) %}
+{% do c1.environment.add_env("ONLINE_MODE", values.minecraft.online_mode|string|upper) %}
+{% do c1.environment.add_env("MAX_TICK_TIME", values.minecraft.max_tick_time) %}
+{% if values.minecraft.seed %}
+  {% do c1.environment.add_env("SEED", values.minecraft.seed) %}
+{% endif %}
+{% if values.minecraft.ops %}
+  {% do c1.environment.add_env("OPS", values.minecraft.ops | join(",")) %}
+{% endif %}
+{% if values.minecraft.whitelist %}
+  {% do c1.environment.add_env("WHITELIST", values.minecraft.whitelist | join(",")) %}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Minecraft") | tojson }}
+{% do c1.environment.add_user_envs(values.minecraft.additional_envs) %}
+
+{% do c1.ports.add_port(values.network.server_port, values.network.server_port) %}
+{% if values.minecraft.enable_rcon %}
+  {% do c1.ports.add_port(values.network.rcon_port, values.network.rcon_port) %}
+  {% do c1.environment.add_env("ENABLE_RCON", values.minecraft.enable_rcon|string|upper) %}
+  {% do c1.environment.add_env("RCON_PORT", values.network.rcon_port) %}
+  {% do c1.environment.add_env("RCON_PASSWORD", values.minecraft.rcon_password) %}
+{% endif %}
+
+{% for port in values.network.additional_ports %}
+  {% do c1.ports.add_port(port.published, port.target, {"protocol": port.protocol}) %}
+{% endfor %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
