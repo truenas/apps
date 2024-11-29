@@ -1,57 +1,31 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% set c1 = tpl.add_container(values.consts.npm_container_name, "image") %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.data_path}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.certs, **{"mount_path": "/etc/letsencrypt"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% do c1.add_caps(["SETUID", "SETGID", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+{% do c1.healthcheck.set_custom_test("/bin/check-health") %}
 
-{% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
-{% endfor %}
+{% do c1.environment.add_env("DISABLE_IPV6", "true") %}
+{% do c1.environment.add_env("DB_SQLITE_FILE", "%s/database.sqlite"|format(values.consts.data_path)) %}
+{% do c1.environment.add_user_envs(values.npm.additional_envs) %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
+{% if not values.network.host_network %}
+  {% do c1.ports.add_port(values.network.web_port, 81) %}
+  {% do c1.ports.add_port(values.network.https_port, 443) %}
+  {% do c1.ports.add_port(values.network.http_port, 80) %}
 
-{# Containers #}
-services:
-  {{ values.consts.npm_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% set caps=ix_lib.base.security.get_caps(add=["SETUID", "SETGID", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health("/bin/check-health") | tojson }}
-    environment: {{ ix_lib.base.environment.envs(app={
-      "DISABLE_IPV6": true,
-      "DB_SQLITE_FILE": "%s/database.sqlite"|format(values.consts.data_path),
-    }, user=values.npm.additional_envs, values=values) | tojson }}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": 80, "published": values.network.http_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": 81, "published": values.network.web_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": 443, "published": values.network.https_port}) | tojson }}
-      {% for port in values.network.additional_ports %}
-      - {{ ix_lib.base.ports.get_port(port={"target": port.target, "published": port.published, "protocol": port.protocol}) | tojson }}
-      {% endfor %}
-    volumes: {{ volume_mounts.items | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+  {% for port in values.network.additional_ports %}
+    {% do c1.ports.add_port(port.published, port.target, {"protocol": port.protocol}) %}
+  {% endfor %}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Nginx Proxy Manager", body=values.consts.notes_body) | tojson }}
+{% do c1.add_storage("/etc/letsencrypt", values.storage.certs) %}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
