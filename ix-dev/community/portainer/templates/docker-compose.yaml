@@ -1,92 +1,40 @@
-{# Stores storage items that contains info for volumes, vol mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": values.consts.data_path}), values=values)) %}
-
-{# Docker socket #}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(
-  data={"type": "host_path", "mount_path": values.consts.socket_path, "host_path_config": {"path": values.consts.socket_path, "create_host_path": false} },
-)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
-
-{% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
-{% endfor %}
-
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
-
+{% set c1 = tpl.add_container(values.consts.portainer_container_name, values.portainer.image_selector) %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "SETPCAP", "SETFCAP"]) %}
+{% do c1.environment.add_user_envs(values.portainer.additional_envs) %}
+{% do c1.healthcheck.disable() %}
+{% set cmd = namespace(x=[
+  "--data", values.consts.data_path,
+  "--tunnel-port", values.network.tunnel_port | default(0),
+  "--bind-https", ":%d" | format(values.network.web_port),
+  "--http-disabled",
+]) %}
 {% if values.network.certificate_id %}
-configs:
-  private:
-    content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
-  public:
-    content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
+  {% do cmd.x.extend([
+    "--sslkey", values.consts.ssl_key_path,
+    "--sslcert", values.consts.ssl_cert_path,
+  ]) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+{% do c1.set_command(cmd.x) %}
+
+{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% if values.network.tunnel_enabled %}
+  {% do c1.ports.add_port(values.network.tunnel_port, values.network.tunnel_port) %}
 {% endif %}
 
-{# Containers #}
-services:
-  {{ values.consts.portainer_container_name }}:
-    user: {{ "%d:%d" | format(values.consts.run_as_user, values.consts.run_as_group) }}
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name=values.portainer.image_selector) }}
-    restart: unless-stopped
-    command:
-      - --data
-      - {{ values.consts.data_path }}
-      - --tunnel-port
-      - {{ '"%s"' | format(values.network.tunnel_port | default(0)) }}
-      - --bind-https
-      - {{ ":%d" | format(values.network.web_port) }}
-      - --http-disabled
-    {% if values.network.certificate_id %}
-      - --sslkey
-      - {{ values.consts.ssl_key_path }}
-      - --sslcert
-      - {{ values.consts.ssl_cert_path }}
-    configs:
-      - source: private
-        target: {{ values.consts.ssl_key_path }}
-      - source: public
-        target: {{ values.consts.ssl_cert_path }}
-    {% endif %}
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "SETPCAP", "SETFCAP"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(network.dns_opts) | tojson }}
-    {% endif %}
-    environment: {{ ix_lib.base.environment.envs(app={},user=values.portainer.additional_envs, values=values) | tojson }}
-    {#
-      Currently only alpine image has wget in the container
-      https://github.com/orgs/portainer/discussions/9597
-     #}
-    {# healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }} #}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
-      {% if values.network.tunnel_enabled %}
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.tunnel_port, "published": values.network.tunnel_port}) | tojson }}
-      {% endif %}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
+{% do c1.add_docker_socket(read_only=False) %}
 
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
-{% endif %}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port, "scheme": "https"}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Portainer") | tojson }}
+{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": "https"}) %}
+
+{{ tpl.render() | tojson }}
