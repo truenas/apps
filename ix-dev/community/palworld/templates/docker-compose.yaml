@@ -1,170 +1,64 @@
+{% from "macros/setup.sh.jinja" import setup_script %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
 {% for i in values.consts.reserved_keys %}
   {% for item in values.palworld.ini_keys %}
     {% if item.key == i %}
-      {% do ix_lib.base.utils.throw_error("Ini Key [%s] is a reserved key"|format(i)) %}
+      {% do tpl.funcs.fail("Ini Key [%s] is a reserved key"|format(i)) %}
     {% endif %}
   {% endfor %}
 {% endfor %}
 
-{% for i in values.palworld.game_params %}
-  {% if i.startswith("port=") %}
-    {% do ix_lib.base.utils.throw_error("Parameter [port=] is automatically adjusted from the Server Port field") %}
-  {% endif %}
+{% for i in values.consts.reserved_game_params %}
+  {% for param in values.palworld.game_params %}
+    {% if param.startswith(i+"=") %}
+      {% do tpl.funcs.fail("Parameter [%s=] is automatically adjusted from the Server Port field"|format(i)) %}
+    {% endif %}
+  {% endfor %}
 {% endfor %}
-{% do values.palworld.game_params.insert(0, "port=%d"|format(values.network.server_port)) %}
 
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% set game_params = [
+  "port=%d"|format(values.network.server_port),
+] + values.palworld.game_params %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.steamcmd, **{"mount_path": values.consts.steamcmd_path}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.server, **{"mount_path": values.consts.server_path}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set caps = ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID", "SYS_RESOURCE", "KILL", "NET_BIND_SERVICE"] %}
 
+{% set c1 = tpl.add_container(values.consts.palworld_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "image") %}
+
+{% do init.healthcheck.disable() %}
+{% do init.remove_devices() %}
+{% do init.deploy.resources.set_profile("low") %}
+{% do init.restart.set_policy("on-failure", 1) %}
+{% do init.add_caps(caps) %}
+{% do init.configs.add("setup.sh", setup_script(values, tpl), "/setup.sh", "0755") %}
+{% do init.set_entrypoint(["/setup.sh"]) %}
+
+{% do c1.add_caps(caps) %}
+{% do c1.healthcheck.disable() %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+
+{% do c1.environment.add_env("STEAMCMD_DIR", values.consts.steamcmd_path) %}
+{% do c1.environment.add_env("SERVER_DIR", values.consts.server_path) %}
+{% do c1.environment.add_env("SRV_ADMIN_PWD", values.palworld.admin_password) %}
+{% do c1.environment.add_env("GAME_PARAMS", game_params | join(" ")) %}
+{% do c1.environment.add_env("GAME_PARAMS_EXTRA", values.palworld.game_params_extra | join(" ")) %}
+{% do c1.environment.add_env("UPDATE_PUBLIC_IP", values.palworld.update_public_ip) %}
+{% do c1.environment.add_env("VALIDATE", values.palworld.validate) %}
+{% do c1.environment.add_env("USERNAME", values.palworld.username) %}
+{% do c1.environment.add_env("PASSWORD", values.palworld.password) %}
+{% do c1.environment.add_env("BACKUP", values.palworld.backup.enabled | default(false)) %}
+{% do c1.environment.add_env("BACKUP_INTERVAL", values.palworld.backup.interval | default(120)) %}
+{% do c1.environment.add_env("BACKUPS_TO_KEEP", values.palworld.backup.keep | default(3)) %}
+{% do c1.environment.add_user_envs(values.palworld.additional_envs) %}
+
+{% do c1.ports.add_port(values.network.server_port, values.network.server_port, {"protocol": "udp"}) %}
+{% do c1.ports.add_port(values.network.rcon_port, values.network.rcon_port) %}
+
+{% do c1.add_storage(values.consts.steamcmd_path, values.storage.steamcmd) %}
+{% do c1.add_storage(values.consts.server_path, values.storage.server) %}
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+  {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
-
-{# Containers #}
-services:
-  {{ values.consts.palworld_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    depends_on:
-      {{ values.consts.init_container_name }}:
-        condition: service_completed_successfully
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID", "SYS_RESOURCE", "KILL", "NET_BIND_SERVICE"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    healthcheck:
-      disable: true
-    environment: {{ ix_lib.base.environment.envs(app={
-      "STEAMCMD_DIR": values.consts.steamcmd_path,
-      "SERVER_DIR": values.consts.server_path,
-      "SRV_ADMIN_PWD": values.palworld.admin_password,
-      "GAME_PARAMS": values.palworld.game_params | join(" "),
-      "GAME_PARAMS_EXTRA": values.palworld.game_params_extra | join(" "),
-      "UPDATE_PUBLIC_IP": values.palworld.update_public_ip,
-      "VALIDATE": values.palworld.validate,
-      "USERNAME": values.palworld.username,
-      "PASSWORD": values.palworld.password,
-      "BACKUP": values.palworld.backup.enabled |default(false),
-      "BACKUP_INTERVAL": values.palworld.backup.interval|default(120),
-      "BACKUPS_TO_KEEP": values.palworld.backup.keep|default(3),
-    }, user=values.palworld.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.server_port, "published": values.network.server_port, "protocol": "udp"}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.rcon_port, "published": values.network.rcon_port}) | tojson }}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
-
-  {{ values.consts.init_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512m
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    volumes: {{ volume_mounts.items | tojson }}
-    entrypoint:
-      - bash
-      - -c
-    {% set cfg = "%s/Pal/Saved/Config/LinuxServer" | format(values.consts.server_path) %}
-    {% set cfg_file = "%s/PalWorldSettings.ini" | format(cfg) %}
-    command:
-      - |
-        if [ ! -d {{ cfg }} ]; then
-          echo "Config directory not found, creating..."
-          mkdir -p {{ cfg }}
-        fi
-
-        if [ ! -f {{ cfg_file }} ]; then
-          echo "Config file not found, fetching..."
-          # -- Fetch the config file if it doesn't exist, just like the container does
-          wget -qO {{ cfg_file }} https://github.com/ich777/docker-steamcmd-server/raw/palworld/config/PalWorldSettings.ini || { echo "Failed to fetch config file"; exit 1; }
-        fi
-
-        set_ini_value() {
-          local key="$${1}"
-          local value="$${2}"
-          local quote="$${3:-false}"
-          local print="$${4:-true}"
-          # -- Escape special characters for sed
-          escaped_value=$$(printf '%s\n' "$$value" | sed 's/[&/\]/\\&/g')
-          if [ "$$quote" = true ]; then
-            escaped_value="\"$${escaped_value}\""
-          fi
-
-          echo -n "Setting $${key}..."
-
-          # Check if the key already exists
-          if grep -q "^OptionSettings=\(.*$${key}=.*\)$$" "{{ cfg_file }}"; then
-              # Key exists, update its value using the original logic
-              sed -i "s|\($${key}=\)[^,]*|\1$${escaped_value}|g" "{{ cfg_file }}" || { echo "Failed to update $${key}"; exit 1; }
-          else
-              # Key doesn't exist, append it right after "OptionSettings=("
-              sed -i "s|^\(OptionSettings=(\)|\1$${key}=$${escaped_value}, |" "{{ cfg_file }}" || { echo "Failed to append $${key}"; exit 1; }
-          fi
-
-          if [ "$$print" = true ]; then
-            echo " Set to $$(grep -Po "(?<=$${key}=)[^,]*" "{{ cfg_file }}")" || { echo "Failed to print $${key}"; exit 1; }
-          else
-            echo " Set, but value is marked as private"
-          fi
-        }
-
-        set_ini_value "RCONEnabled" True
-        set_ini_value "RCONPort" {{ values.network.rcon_port }}
-        set_ini_value "PublicPort" {{ values.network.server_port }}
-        set_ini_value "ServerName" "{{ values.palworld.server.name }}" true
-        set_ini_value "ServerDescription" "{{ values.palworld.server.description }}" true
-        set_ini_value "ServerPassword" '{{ values.palworld.server.password }}' true false
-        set_ini_value "AdminPassword" '{{ values.palworld.admin_password }}' true false
-        set_ini_value "AllowConnectPlatform" '{{ values.palworld.allow_platform }}' false
-
-        echo "Setting user defined ini keys..."
-        {% for item in values.palworld.ini_keys %}
-          {% set key = item.key %}
-          {% set value = item.value|string %}
-
-          {% if ix_lib.base.utils.is_number(value) %}
-            echo "Value of [{{ key }}] is a number, setting without quotes"
-            set_ini_value "{{ key }}" {{ value }}
-          {% elif ix_lib.base.utils.is_boolean(value) %}
-            echo "Value of [{{ key }}] is a boolean, setting without quotes"
-            set_ini_value "{{ key }}" {{ ix_lib.base.utils.camel_case(value) }}
-          {% else %}
-            echo "Value of [{{ key }}] is a string, setting with quotes"
-            set_ini_value "{{ key }}" "{{ value }}" true
-          {% endif %}
-        {% endfor %}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
-{% endif %}
-
-x-portals: {{ ix_lib.base.metadata.get_portals([]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Palworld") | tojson }}
+{{ tpl.render() | tojson }}
