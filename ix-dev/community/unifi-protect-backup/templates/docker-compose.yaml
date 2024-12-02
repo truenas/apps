@@ -1,73 +1,43 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/config"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.data, **{"mount_path": "/data"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"})) %}
+{% set c1 = tpl.add_container(values.consts.unifi_protect_backup_container_name, "image") %}
 
-{% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
-{% endfor %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.disable() %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
+{% do c1.environment.add_env("UFP_USERNAME", values.unifi_protect_backup.username) %}
+{% do c1.environment.add_env("UFP_PASSWORD", values.unifi_protect_backup.password) %}
+{% do c1.environment.add_env("UFP_ADDRESS", values.unifi_protect_backup.address) %}
+{% do c1.environment.add_env("UFP_PORT", values.unifi_protect_backup.port) %}
+{% do c1.environment.add_env("UFP_SSL_VERIFY", values.unifi_protect_backup.ssl_verify) %}
+{% do c1.environment.add_env("SQLITE_PATH", "/config/database/events.sqlite") %}
+{% do c1.environment.add_env("RCLONE_DESTINATION", values.unifi_protect_backup.rclone_destination) %}
+{% do c1.environment.add_env("SKIP_MISSING", values.unifi_protect_backup.skip_missing) %}
 
-{# Containers #}
-services:
-  {{ values.consts.unifi_protect_backup_container_name }}:
-    user: "0:0"
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "SETGID", "SETUID"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    healthcheck:
-      disable: true
-    {% set app_env = {
-      "UFP_USERNAME": values.unifi_protect_backup.username,
-      "UFP_PASSWORD": values.unifi_protect_backup.password,
-      "UFP_ADDRESS": values.unifi_protect_backup.address,
-      "UFP_PORT": values.unifi_protect_backup.port,
-      "UFP_SSL_VERIFY": values.unifi_protect_backup.ssl_verify,
-      "SQLITE_PATH": "/config/database/events.sqlite",
-      "RCLONE_DESTINATION": values.unifi_protect_backup.rclone_destination,
-      "SKIP_MISSING": values.unifi_protect_backup.skip_missing,
-    } %}
-    {% if values.unifi_protect_backup.ignore_cameras %}
-      {% do app_env.update({"UFP_IGNORE_CAMERAS": values.unifi_protect_backup.ignore_cameras|join(" ")}) %}
-    {% endif %}
-    {% if values.unifi_protect_backup.detection_types %}
-      {% do app_env.update({"UFP_DETECTION_TYPES": values.unifi_protect_backup.detection_types|join(",")}) %}
-    {% endif %}
-    {% if values.unifi_protect_backup.rclone_args %}
-      {% do app_env.update({"RCLONE_ARGS": values.unifi_protect_backup.rclone_args|join(" ")}) %}
-    {% endif %}
-    {% if values.unifi_protect_backup.rclone_purge_args %}
-      {% do app_env.update({"RCLONE_PURGE_ARGS": values.unifi_protect_backup.rclone_purge_args|join(" ")}) %}
-    {% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.unifi_protect_backup.additional_envs, values=values) | tojson }}
-    volumes: {{ volume_mounts.items | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+{% if values.unifi_protect_backup.ignore_cameras %}
+  {% do c1.environment.add_env("UFP_IGNORE_CAMERAS", values.unifi_protect_backup.ignore_cameras|join(" ")) %}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Unifi Protect Backup") | tojson }}
+{% if values.unifi_protect_backup.detection_types %}
+  {% do c1.environment.add_env("UFP_DETECTION_TYPES", values.unifi_protect_backup.detection_types|join(",")) %}
+{% endif %}
+
+{% if values.unifi_protect_backup.rclone_args %}
+  {% do c1.environment.add_env("RCLONE_ARGS", values.unifi_protect_backup.rclone_args|join(" ")) %}
+{% endif %}
+
+{% if values.unifi_protect_backup.rclone_purge_args %}
+  {% do c1.environment.add_env("RCLONE_PURGE_ARGS", values.unifi_protect_backup.rclone_purge_args|join(" ")) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.unifi_protect_backup.additional_envs) %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do c1.add_storage("/config", values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
