@@ -70,7 +70,7 @@ def test_funcs(mock_values):
         {
             "func": "temp_config",
             "values": ["test"],
-            "expected": {"type": "temporary", "volume_config": {"name": "test"}},
+            "expected": {"type": "temporary", "volume_config": {"volume_name": "test"}},
         },
     ]
 
