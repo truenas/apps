@@ -26,6 +26,7 @@ class Devices:
         resources = self._render_instance.values.get("resources", {})
 
         if resources.get("gpus", {}).get("use_all_gpus", False):
+            self.add_device("/dev/kfd", "/dev/kfd", allow_disallowed=True)  # AMD ROCm
             self.add_device("/dev/dri", "/dev/dri", allow_disallowed=True)
 
     def add_device(self, host_device: str, container_device: str, cgroup_perm: str = "", allow_disallowed=False):
