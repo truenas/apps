@@ -1,183 +1,98 @@
-{# Stores Syncthing storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the Syncthing container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
+{% from "macros/setup.sh.jinja" import setup_script %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.home, **{"mount_path": values.consts.home_path}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
-{% for store in values.storage.additional_storage %}
-  {% if store.type == "cifs" and store.cifs_config.migration_mode %}
-    {% do store.update({"read_only": true}) %}
-    {% do store.cifs_config.update({"options": ["noperm", "cifsacl", "vers=3.0"]}) %}
-  {% endif %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
-{% else %}
-  {% do ix_lib.base.utils.throw_error("Expected at least one storage item to be set for Syncthing") %}
-{% endfor %}
+{% set st = values.consts.settings %}
+{% set settings = [
+  {"cmd": "options announce-lanaddresses", "value": 1 if st.announce_lan_addresses else 0, "quote": true},
+  {"cmd": "options global-ann-enabled", "value": 1 if st.global_discovery else 0, "quote": true},
+  {"cmd": "options local-ann-enabled", "value": 1 if st.local_discovery else 0, "quote": true},
+  {"cmd": "options natenabled", "value": 1 if st.nat_traversal else 0, "quote": true},
+  {"cmd": "options relays-enabled", "value": 1 if st.relaying else 0, "quote": true},
+  {"cmd": "options uraccepted", "value": 1 if st.telemetry else -1, "quote": true},
+  {"cmd": "options auto-upgrade-intervalh", "value": st.auto_upgrade_intervalh, "quote": true},
+  {"cmd": "defaults folder xattr-filter max-total-size", "value": st.xattr_filter_max_total_size, "quote": false},
+  {"cmd": "defaults folder xattr-filter max-single-entry-size", "value": st.xattr_filter_max_single_entry_size, "quote": true},
+  {"cmd": "defaults folder send-ownership", "value": 1 if st.send_ownership else 0, "quote": false},
+  {"cmd": "defaults folder sync-ownership", "value": 1 if st.sync_ownership else 0, "quote": false},
+  {"cmd": "defaults folder send-xattrs", "value": 1 if st.send_xattrs else 0, "quote": false},
+  {"cmd": "defaults folder sync-xattrs", "value": 1 if st.sync_xattrs else 0, "quote": false},
+  {"cmd": "defaults folder ignore-perms", "value": 1 if st.ignore_perms else 0, "quote": false},
+  {"cmd": "defaults folder path", "value": st.path, "quote": true},
+] %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
+{% set c1 = tpl.add_container(values.consts.syncthing_container_name, "image") %}
+{% set config = tpl.add_container(values.consts.config_container_name, "image") %}
 
-{# Configs #}
-configs:
-  logo-horizontal-svg:
-    content: {{ values.consts.logo_horizontal_svg | tojson }}
-{% if values.network.certificate_id %}
-  private:
-    content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
-  public:
-    content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
-{% endif %}
+{% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
+{% do config.restart.set_policy("on-failure", 1) %}
+{% do config.remove_devices() %}
+{% do config.deploy.resources.set_profile("medium") %}
+{% do config.configs.add("setup.sh", setup_script(values, settings), "/setup.sh", "0755") %}
+{% do config.set_entrypoint(["/setup.sh"]) %}
 
-{% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID", "SETFCAP", "SETPCAP", "SYS_ADMIN"]) %}
-{% set app_env = {
+{% do c1.set_user(0, 0) %}
+{% do config.set_user(0, 0) %}
+
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do config.remove_security_opt("no-new-privileges") %}
+
+{% set caps = ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID", "SETFCAP", "SETPCAP", "SYS_ADMIN"] %}
+{% do c1.add_caps(caps) %}
+{% do config.add_caps(caps + ["KILL"]) %}
+
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port, "path": "/rest/noauth/health"}) %}
+{% do config.healthcheck.disable() %}
+
+{% set envs = {
   "PCAP": ["cap_sys_admin", "cap_chown", "cap_dac_override", "cap_fowner"]|join(",") + "+ep",
   "STNOUPGRADE": true,
   "STGUIADDRESS": "0.0.0.0:%d" | format(values.network.web_port),
   "STGUIASSETS": "/var/truenas/assets/gui",
 } %}
-{# Containers #}
-services:
-  {{ values.consts.config_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    user: "0:0"
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    configs:
-      - source: logo-horizontal-svg
-        target: {{ values.consts.logo_horizontal_svg_path }}
-    {% if values.network.certificate_id %}
-      - source: private
-        target: {{ "%s/config/https-key.pem" | format(values.consts.home_path) }}
-      - source: public
-        target: {{ "%s/config/https-cert.pem" | format(values.consts.home_path) }}
-    {% endif %}
-    {% set config_caps = ix_lib.base.security.get_caps(add=caps.add + ["KILL"]) %}
-    cap_add: {{ config_caps.add | tojson }}
-    cap_drop: {{ config_caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts(remove=["no-new-privileges"]) | tojson }}
-    healthcheck:
-      disable: true
-    entrypoint:
-      - /bin/sh
-    {% set config_dir = "%s/config"|format(values.consts.home_path) %}
-    {% set cli = "syncthing cli --home %s config"|format(config_dir) %}
-    {% set st = values.consts.settings %}
-    {% set settings = [
-      {"cmd": "options announce-lanaddresses", "value": 1 if st.announce_lan_addresses else 0, "quote": true},
-      {"cmd": "options global-ann-enabled", "value": 1 if st.global_discovery else 0, "quote": true},
-      {"cmd": "options local-ann-enabled", "value": 1 if st.local_discovery else 0, "quote": true},
-      {"cmd": "options natenabled", "value": 1 if st.nat_traversal else 0, "quote": true},
-      {"cmd": "options relays-enabled", "value": 1 if st.relaying else 0, "quote": true},
-      {"cmd": "options uraccepted", "value": 1 if st.telemetry else -1, "quote": true},
-      {"cmd": "options auto-upgrade-intervalh", "value": st.auto_upgrade_intervalh, "quote": true},
-      {"cmd": "defaults folder xattr-filter max-total-size", "value": st.xattr_filter_max_total_size, "quote": false},
-      {"cmd": "defaults folder xattr-filter max-single-entry-size", "value": st.xattr_filter_max_single_entry_size, "quote": true},
-      {"cmd": "defaults folder send-ownership", "value": 1 if st.send_ownership else 0, "quote": false},
-      {"cmd": "defaults folder sync-ownership", "value": 1 if st.sync_ownership else 0, "quote": false},
-      {"cmd": "defaults folder send-xattrs", "value": 1 if st.send_xattrs else 0, "quote": false},
-      {"cmd": "defaults folder sync-xattrs", "value": 1 if st.sync_xattrs else 0, "quote": false},
-      {"cmd": "defaults folder ignore-perms", "value": 1 if st.ignore_perms else 0, "quote": false},
-      {"cmd": "defaults folder path", "value": st.path, "quote": true},
-    ] %}
-    command:
-      - -c
-      - |
-        set -e
-        trap cleanup EXIT TERM
-        cleanup() {
-            echo "Gracefully stopping Syncthing..."
-            if kill -0 $$SYNCTHING_PID > /dev/null 2>&1; then
-                kill -SIGTERM $$SYNCTHING_PID
-                wait $$SYNCTHING_PID
-            fi
-            echo "Syncthing stopped."
-        }
-        try_for() {
-            local max_tries=$$1
-            local sleep_time=$$2
-            local cmd=$$3
-            tries=0
-            until eval "$$cmd"; do
-                [ $$tries -ge $$max_tries ] && return 1
-                tries=$$((tries+1))
-                sleep $$sleep_time
-            done
-        }
 
-        echo "Starting Syncthing in the background"
-        /bin/entrypoint.sh /bin/syncthing &
-        SYNCTHING_PID=$$!
-        echo "Syncthing started with PID [$$SYNCTHING_PID]"
-        echo "Waiting for Syncthing to be ready..."
+{% for k, v in envs.items() %}
+  {% do c1.environment.add_env(k, v) %}
+  {% do config.environment.add_env(k, v) %}
+{% endfor %}
 
-        try_for 15 2 "[ -f '{{ config_dir }}/config.xml' ]" || { echo "Syncthing did not become ready in time. Exiting..."; exit 1; }
-        try_for 15 2 "curl --silent --output /dev/null http://127.0.0.1:{{ values.network.web_port }}/rest/noauth/health" || { echo "Syncthing did not become ready in time. Exiting..."; exit 1; }
-        echo "Syncthing is ready."
+{% do c1.environment.add_user_envs(values.syncthing.additional_envs) %}
+{% do config.environment.add_user_envs(values.syncthing.additional_envs) %}
 
-      {% for cfg in settings %}
-        echo 'Using subcommand [{{ cfg.cmd }}] to set value [{{ '\"%s\"' | format(cfg.value) if cfg.quote else cfg.value }}]'
-        {{ cli }} {{ cfg.cmd }} set -- {{ '"%s"' | format(cfg.value) if cfg.quote else cfg.value }} || { echo "Failed to apply. Exiting..."; exit 1; }
-      {% endfor %}
+{% do c1.configs.add("logo-horizontal-svg", values.consts.logo_horizontal_svg, values.consts.logo_horizontal_svg_path) %}
+{% do config.configs.add("logo-horizontal-svg", values.consts.logo_horizontal_svg, values.consts.logo_horizontal_svg_path) %}
 
-        echo "Gracefully stopping Syncthing..."
-        kill -SIGTERM $$SYNCTHING_PID
-        wait $$SYNCTHING_PID
-        echo "Syncthing stopped."
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.certificate, "%s/config/https-key.pem" | format(values.consts.home_path)) %}
+  {% do c1.configs.add("public", cert.certificate, "%s/config/https-cert.pem" | format(values.consts.home_path)) %}
 
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.syncthing.additional_envs, values=values) | tojson }}
-    volumes: {{ volume_mounts.items | tojson }}
-  {{ values.consts.syncthing_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    user: "0:0"
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts(remove=["no-new-privileges"]) | tojson }}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    depends_on:
-      {{ values.consts.config_container_name }}:
-        condition: service_completed_successfully
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    configs:
-      - source: logo-horizontal-svg
-        target: {{ values.consts.logo_horizontal_svg_path }}
-    {% if values.network.certificate_id %}
-      - source: private
-        target: {{ "%s/config/https-key.pem" | format(values.consts.home_path) }}
-      - source: public
-        target: {{ "%s/config/https-cert.pem" | format(values.consts.home_path) }}
-    {% endif %}
-    {% set test = ix_lib.base.healthchecks.wget_test(port=values.network.web_port, path="/rest/noauth/health") %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    volumes: {{ volume_mounts.items | tojson }}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.syncthing.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": 22000, "published": values.network.tcp_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": 22000, "published": values.network.quic_port, "protocol": "udp"}) | tojson }}
-      {% if values.consts.settings.local_discovery %}
-      - {{ ix_lib.base.ports.get_port(port={"target": 27017 , "published": values.network.local_discover_port, "protocol": "udp"}) | tojson }}
-      {% endif %}
-    {% endif %}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+  {% do config.configs.add("private", cert.privatekey, "%s/config/https-key.pem" | format(values.consts.home_path)) %}
+  {% do config.configs.add("public", cert.certificate, "%s/config/https-cert.pem" | format(values.consts.home_path)) %}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Syncthing") | tojson }}
+{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% if not values.network.host_network %}
+  {% do c1.ports.add_port(values.network.tcp_port, 22000) %}
+  {% do c1.ports.add_port(values.network.quic_port, 22000, {"protocol": "udp"}) %}
+  {% if values.consts.settings.local_discovery %}
+    {% do c1.ports.add_port(values.network.local_discover_port, 27017, {"protocol": "udp"}) %}
+  {% endif %}
+{% endif %}
+
+{% for store in values.storage.additional_storage %}
+  {% set new_store = tpl.funcs.copy_dict(store) %}
+  {% if new_store.type == "cifs" and new_store.cifs_config.migration_mode %}
+    {% do new_store.update({"read_only": true}) %}
+    {% do new_store.cifs_config.update({"options": ["cifsacl", "vers=3.0"]}) %}
+  {% endif %}
+
+  {% do c1.add_storage(new_store.mount_path, new_store) %}
+  {% do config.add_storage(new_store.mount_path, new_store) %}
+{% else %}
+  {% do tpl.funcs.fail("Expected at least one storage item to be set for Syncthing") %}
+{% endfor %}
+
+{% set proto = "https" if values.network.certificate_id else "http" %}
+{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto})%}
+
+{{ tpl.render() | tojson }}
