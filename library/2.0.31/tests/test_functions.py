@@ -66,7 +66,7 @@ def test_funcs(mock_values):
         {"func": "or_default", "values": [1, None], "expected": 1},
         {"func": "or_default", "values": [False, 1], "expected": 1},
         {"func": "or_default", "values": [True, 1], "expected": True},
-        {"func": "temp_config", "values": [""], "expected_raise": True},
+        {"func": "temp_config", "values": [""], "expect_raise": True},
         {
             "func": "temp_config",
             "values": ["test"],
