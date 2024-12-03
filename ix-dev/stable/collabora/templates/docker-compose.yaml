@@ -1,200 +1,51 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set collabora_storage_items = namespace(items=[]) %}
-{% set nginx_storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set collabora_volume_mounts = namespace(items=[]) %}
-{% set nginx_volume_mounts = namespace(items=[]) %}
+{% from "macros/nginx.conf.jinja" import nginx_conf %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do collabora_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
-{% do nginx_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
-{% do nginx_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/var/cache/nginx"})) %}
-{% do nginx_storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/var/run"})) %}
+{% set c1 = tpl.add_container(values.consts.collabora_container_name, "image") %}
+{% set nginx = namespace(x=None) %}
+
+{% if values.network.certificate_id %}
+  {% set nginx.x = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
+  {% do nginx.x.depends.add_dependency(values.consts.collabora_container_name, "service_healthy") %}
+  {% do nginx.x.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+  {% do nginx.x.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/robots.txt", "scheme": "https"}) %}
+  {% do nginx.x.ports.add_port(values.network.web_port, values.network.web_port) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do nginx.x.configs.add("private", cert.privatekey, values.consts.nginx_ssl_key_path) %}
+  {% do nginx.x.configs.add("public", cert.certificate, values.consts.nginx_ssl_cert_path) %}
+
+  {% do nginx.x.configs.add("nginx.conf", nginx_conf(values), "/etc/nginx/nginx.conf") %}
+
+  {% do nginx.x.add_storage("/var/cache/nginx", {"type": "anonymous"}) %}
+  {% do nginx.x.add_storage("/var/run", {"type": "anonymous"}) %}
+{% else %}
+  {% do c1.ports.add_port(values.network.web_port, values.consts.internal_collabora_web_port) %}
+{% endif %}
+
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.add_caps(caps=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "SETFCAP", "SYS_CHROOT", "MKNOD"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_collabora_web_port})%}
+
+{% do c1.environment.add_env("timezone", values.TZ) %}
+{% do c1.environment.add_env("aliasgroup1", values.collabora.aliasgroup1|join(",")) %}
+{% do c1.environment.add_env("dictionaries", values.collabora.dictionaries|join(" ")) %}
+{% do c1.environment.add_env("extra_params", values.collabora.extra_params|join(" ")) %}
+{% do c1.environment.add_env("DONT_GEN_SSL_CERT", true) %}
+{% do c1.environment.add_env("server_name", values.collabora.server_name if ":" in values.collabora.server_name else "%s:%d"|format(values.collabora.server_name, values.network.web_port)) %}
+{% if values.collabora.enable_webui %}
+  {% do c1.environment.add_env("username", values.collabora.username) %}
+  {% do c1.environment.add_env("password", values.collabora.password) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.collabora.additional_envs) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do collabora_storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+  {% do c1.add_storage(store.mount_path, store)%}
 {% endfor %}
 
-{# Add each item to the above lists #}
-{% for item in collabora_storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and collabora_volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
+{% set proto = "https" if values.network.certificate_id else "http" %}
+{% set path = "/browser/dist/admin/admin.html" if values.collabora.enable_webui else "/" %}
+{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto, "path": path}) %}
 
-{% for item in nginx_storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and nginx_volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
-
-{% if values.network.certificate_id %}
-configs:
-  private:
-    content: {{ values.ix_certificates[values.network.certificate_id].privatekey | tojson }}
-  public:
-    content: {{ values.ix_certificates[values.network.certificate_id].certificate | tojson }}
-  {% set nginx_host = "%s:%d" | format(values.consts.nginx_container_name, values.network.web_port) %}
-  {% set nginx_url = "https://%s" | format(nginx_host) %}
-  nginx-conf:
-    content: |
-      events {
-        worker_connections  1024;
-      }
-      http {
-        include       mime.types;
-        default_type  application/octet-stream;
-        # Types to enable gzip compression on
-        gzip_types
-          text/plain text/css text/js text/xml
-          text/javascript application/javascript
-          application/x-javascript application/json
-          application/xml application/rss+xml
-          image/svg+xml;
-        sendfile        on;
-        client_max_body_size 1000m;
-        keepalive_timeout  65;
-        # Disable tokens for security (#23684)
-        server_tokens off;
-        gzip  on;
-        client_body_temp_path /var/tmp/firmware;
-        server {
-          server_name            "{{ nginx_host }}";
-          listen                 0.0.0.0:{{ values.network.web_port }} default_server ssl http2;
-          ssl_certificate        "{{ values.consts.nginx_ssl_cert_path }}";
-          ssl_certificate_key    "{{ values.consts.nginx_ssl_key_path }}";
-          ssl_session_timeout    120m;
-          ssl_session_cache      shared:ssl:16m;
-          ssl_protocols TLSv1.2 TLSv1.3;
-          ssl_prefer_server_ciphers on;
-          ssl_ciphers EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA:EDH+aRSA:EECDH:!RC4:!aNULL:!eNULL:!LOW:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS:!SHA1:!SHA256:!SHA384;
-          add_header Strict-Transport-Security max-age=31536000;
-          location = /robots.txt {
-            add_header Content-Type text/plain;
-            proxy_set_header Referer "{{ nginx_url }}";
-            return 200 "User-agent: *\nDisallow: /loleaflet/*\n";
-          }
-          # static files
-          location ^~ /browser {
-            proxy_pass http://{{ values.consts.collabora_container_name }}:9980;
-            proxy_set_header Host $$host;
-            # proxy_set_header Referer "{{ nginx_url }}";
-          }
-          # WOPI discovery URL
-          location ^~ /hosting/discovery {
-            set $$upstream_collabora {{ values.consts.collabora_container_name }};
-            proxy_pass http://$$upstream_collabora:9980;
-            proxy_set_header Host $$http_host;
-            # proxy_set_header Referer "{{ nginx_url }}";
-          }
-          # Capabilities
-          location ^~ /hosting/capabilities {
-            proxy_pass http://{{ values.consts.collabora_container_name }}:9980;
-            proxy_set_header Host $$host;
-            # proxy_set_header Referer "{{ nginx_url }}";
-          }
-          # main websocket
-          location ~ ^/cool/(.*)/ws$$ {
-            proxy_pass http://{{ values.consts.collabora_container_name }}:9980;
-            proxy_set_header Host $$host;
-            proxy_set_header Upgrade $$http_upgrade;
-            proxy_set_header Connection "Upgrade";
-            # proxy_set_header Referer "{{ nginx_url }}";
-            proxy_read_timeout 36000s;
-          }
-          # download, presentation and image upload
-          location ~ ^/(c|l)ool {
-            proxy_pass http://{{ values.consts.collabora_container_name }}:9980;
-            proxy_set_header Host $$host;
-            proxy_set_header Referer "{{ nginx_url }}";
-          }
-          # Admin Console websocket
-          location ^~ /cool/adminws {
-            proxy_pass http://{{ values.consts.collabora_container_name }}:9980;
-            proxy_set_header Host $$host;
-            proxy_set_header Upgrade $$http_upgrade;
-            proxy_set_header Connection "Upgrade";
-            # proxy_set_header Referer "{{ nginx_url }}";
-            proxy_read_timeout 36000s;
-          }
-        }
-      }
-{% endif %}
-
-{# Containers #}
-services:
-  {{ values.consts.collabora_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "SETFCAP", "SYS_CHROOT", "MKNOD"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts(remove=["no-new-privileges"]) | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test(port=9980, path="/") %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    {% set app_env = {
-      "timezone": values.TZ,
-      "aliasgroup1": values.collabora.aliasgroup1 | join(","),
-      "dictionaries": values.collabora.dictionaries | join(" "),
-      "extra_params": values.collabora.extra_params | join(" "),
-      "DONT_GEN_SSL_CERT": "true",
-      "server_name": values.collabora.server_name if ":" in values.collabora.server_name else "%s:%d" | format (values.collabora.server_name, values.network.web_port),
-    } %}
-    {% if values.collabora.enable_webui and app_env.update({
-      "username": values.collabora.username,
-      "password": values.collabora.password,
-    }) %}{% endif %}
-    environment: {{ ix_lib.base.environment.envs(app=app_env, user=values.collabora.additional_envs, values=values) | tojson }}
-    {% if not values.network.certificate_id %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": 9980, "published": values.network.web_port}) | tojson }}
-    {% endif %}
-    volumes: {{ collabora_volume_mounts.items | tojson }}
-{% if values.network.certificate_id %}
-  {{ values.consts.nginx_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="nginx_image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    links:
-      - {{ values.consts.collabora_container_name }}
-    configs:
-      - source: private
-        target: {{ values.consts.nginx_ssl_key_path }}
-      - source: public
-        target: {{ values.consts.nginx_ssl_cert_path }}
-      - source: nginx-conf
-        target: /etc/nginx/nginx.conf
-    depends_on:
-      {{ values.consts.collabora_container_name }}:
-        condition: service_healthy
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    {% set test = ix_lib.base.healthchecks.curl_test(port=values.network.web_port, path="/robots.txt", config={"scheme": "https"}) %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
-    volumes: {{ nginx_volume_mounts.items | tojson }}
-{% endif %}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
-{% endif %}
-
-x-portals: {{ ix_lib.base.metadata.get_portals([{
-  "port": values.network.web_port,
-  "scheme": "https" if values.network.certificate_id else "http",
-  "path": "/browser/dist/admin/admin.html" if values.collabora.enable_webui else "/"
-}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Collabora") | tojson }}
+{{ tpl.render() | tojson }}
