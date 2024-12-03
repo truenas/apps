@@ -1,90 +1,48 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
-{# Stores the perms container volume mounts #}
-{% set perms_mounts = namespace(items=[]) %}
-{# Stores the perms container dirs #}
-{% set perms_dirs = namespace(items=[]) %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/2fauth"}),
-  values=values, perm_opts={"mount_path": "/mnt/twofactor_auth/config", "mode": "check", "uid": values.consts.run_as_user, "gid": values.consts.run_as_group}
-)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "temporary", "mount_path": "/tmp"},
-  perm_opts={"mount_path": "/mnt/twofactor_auth/tmp", "mode": "check", "uid": values.consts.run_as_user, "gid": values.consts.run_as_group}
-)) %}
+{% set c1 = tpl.add_container(values.consts.twofactor_auth_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
-{% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values,
-    perm_opts={"mount_path": "/mnt/twofactor_auth/dir_%s"|format(loop.index0), "mode": "check", "uid": values.consts.run_as_user, "gid": values.consts.run_as_group}
-  )) %}
-{% endfor %}
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/up"}) %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-  {% if item.perms_item and (perms_dirs.items.append(item.perms_item.perm_dir), perms_mounts.items.append(item.perms_item.vol_mount)) %}{% endif %}
-{% endfor %}
+{% do c1.environment.add_env("APP_ENV", "local") %}
+{% do c1.environment.add_env("APP_KEY", values.twofactor_auth.app_key) %}
+{% do c1.environment.add_env("APP_TIMEZONE", values.TZ) %}
+{% do c1.environment.add_env("APP_NAME", values.twofactor_auth.app_name) %}
+{% do c1.environment.add_env("APP_URL", values.twofactor_auth.app_url) %}
+{% do c1.environment.add_env("SITE_OWNER", values.twofactor_auth.site_owner_email) %}
+{% do c1.environment.add_env("AUTHENTICATION_GUARD", values.twofactor_auth.authentication_guard) %}
+{# /srv/database/database.sqlite is symlinked to /2fauth/database.sqlite #}
+{% do c1.environment.add_env("DB_DATABASE", "/srv/database/database.sqlite") %}
+{% do c1.environment.add_env("WEBAUTHN_USER_VERIFICATION", values.twofactor_auth.webauthn_user_verification) %}
+{% if values.twofactor_auth.authentication_guard == "reverse-proxy-guard" %}
+  {% do c1.environment.add_env("AUTH_PROXY_HEADER_FOR_USER", values.twofactor_auth.authentication_header_user) %}
+  {% do c1.environment.add_env("AUTH_PROXY_HEADER_FOR_EMAIL", values.twofactor_auth.authentication_header_email) %}
+{% endif %}
+{% if values.twofactor_auth.trusted_proxies %}
+  {% do c1.environment.add_env("TRUSTED_PROXIES", values.twofactor_auth.trusted_proxies | join(",")) %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.twofactor_auth.additional_envs) %}
 
-{# Containers #}
-services:
-  {{ values.consts.twofactor_auth_container_name }}:
-    user: {{ "%d:%d" | format(values.consts.run_as_user, values.consts.run_as_group) }}
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if perms_dirs.items %}
-    depends_on:
-      {{ values.consts.perms_container_name }}:
-        condition: service_completed_successfully
-    {% endif %}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    cap_drop: {{ ix_lib.base.security.get_caps().drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    {% set test = ix_lib.base.healthchecks.wget_test(port=values.consts.internal_web_port, path="/up") %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    {# /srv/database/database.sqlite is symlinked to /2fauth/database.sqlite #}
-    environment: {{ ix_lib.base.environment.envs(app=ix_lib.base.utils.merge_dicts({
-      "APP_ENV": "local",
-      "APP_KEY": values.twofactor_auth.app_key,
-      "APP_TIMEZONE": values.TZ,
-      "APP_NAME": values.twofactor_auth.app_name,
-      "APP_URL": values.twofactor_auth.app_url,
-      "SITE_OWNER": values.twofactor_auth.site_owner_email,
-      "AUTHENTICATION_GUARD": values.twofactor_auth.authentication_guard,
-      "DB_DATABASE": "/srv/database/database.sqlite",
-      "WEBAUTHN_USER_VERIFICATION": values.twofactor_auth.webauthn_user_verification,
-    },
-    {
-      "AUTH_PROXY_HEADER_FOR_USER": values.twofactor_auth.authentication_header_user,
-      "AUTH_PROXY_HEADER_FOR_EMAIL": values.twofactor_auth.authentication_header_email,
-    } if values.twofactor_auth.authentication_guard == "reverse-proxy-guard" else {},
-    {
-      "TRUSTED_PROXIES": values.twofactor_auth.trusted_proxies | join(","),
-    } if values.twofactor_auth.trusted_proxies else {},
-    ), user=values.twofactor_auth.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.consts.internal_web_port, "published": values.network.web_port}) | tojson }}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
-  {% if perms_dirs.items %}
-  {{ values.consts.perms_container_name }}: {{ ix_lib.base.permissions.perms_container(items=perms_dirs.items, volumes=perms_mounts.items) | tojson }}
-  {% endif %}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
+{% if not values.network.host_network %}
+  {% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
 {% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.consts.internal_web_port if values.network.host_network else values.network.web_port}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("2Fauth") | tojson }}
+{% do c1.add_storage("/2fauth", values.storage.config) %}
+{% do perm_container.add_or_skip_action("2fauth", values.storage.config, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add_portal({"port": values.consts.internal_web_port if values.network.host_network else values.network.web_port}) %}
+
+{{ tpl.render() | tojson }}
