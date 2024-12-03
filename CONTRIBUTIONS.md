@@ -72,7 +72,7 @@ As long as it works on your local machine, it should work on TrueNAS.
 There are some exceptions for things like devices etc, that might be different.
 In such case, let the reviewer know.
 
-`questions.yaml` is run though some validation during CI, but it still needs some manual check from the reviewer.
+`questions.yaml` is run through some validation during CI, but it still needs some manual check from the reviewer.
 If you want to test how the rendered compose file will look based on different values entered in the questions.yaml,
 you can enter the values you want in one of the test files and render it.
 
