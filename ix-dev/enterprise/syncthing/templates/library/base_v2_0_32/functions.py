@@ -1,4 +1,5 @@
 import re
+import copy
 import bcrypt
 import secrets
 from base64 import b64encode
@@ -79,7 +80,7 @@ class Functions:
             return False
 
     def _copy_dict(self, dict):
-        return dict.copy()
+        return copy.deepcopy(dict)
 
     def _merge_dicts(self, *dicts):
         merged_dict = {}
@@ -97,6 +98,11 @@ class Functions:
         if not value:
             return default
         return value
+
+    def _temp_config(self, name):
+        if not name:
+            raise RenderError("Expected [name] to be set when calling [temp_config].")
+        return {"type": "temporary", "volume_config": {"volume_name": name}}
 
     def _get_host_path(self, storage):
         source_type = storage.get("type", "")
@@ -139,4 +145,5 @@ class Functions:
             "disallow_chars": self._disallow_chars,
             "get_host_path": self._get_host_path,
             "or_default": self._or_default,
+            "temp_config": self._temp_config,
         }
