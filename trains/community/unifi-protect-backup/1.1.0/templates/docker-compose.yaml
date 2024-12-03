@@ -1,0 +1,43 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.unifi_protect_backup_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.disable() %}
+
+{% do c1.environment.add_env("UFP_USERNAME", values.unifi_protect_backup.username) %}
+{% do c1.environment.add_env("UFP_PASSWORD", values.unifi_protect_backup.password) %}
+{% do c1.environment.add_env("UFP_ADDRESS", values.unifi_protect_backup.address) %}
+{% do c1.environment.add_env("UFP_PORT", values.unifi_protect_backup.port) %}
+{% do c1.environment.add_env("UFP_SSL_VERIFY", values.unifi_protect_backup.ssl_verify) %}
+{% do c1.environment.add_env("SQLITE_PATH", "/config/database/events.sqlite") %}
+{% do c1.environment.add_env("RCLONE_DESTINATION", values.unifi_protect_backup.rclone_destination) %}
+{% do c1.environment.add_env("SKIP_MISSING", values.unifi_protect_backup.skip_missing) %}
+
+{% if values.unifi_protect_backup.ignore_cameras %}
+  {% do c1.environment.add_env("UFP_IGNORE_CAMERAS", values.unifi_protect_backup.ignore_cameras|join(" ")) %}
+{% endif %}
+
+{% if values.unifi_protect_backup.detection_types %}
+  {% do c1.environment.add_env("UFP_DETECTION_TYPES", values.unifi_protect_backup.detection_types|join(",")) %}
+{% endif %}
+
+{% if values.unifi_protect_backup.rclone_args %}
+  {% do c1.environment.add_env("RCLONE_ARGS", values.unifi_protect_backup.rclone_args|join(" ")) %}
+{% endif %}
+
+{% if values.unifi_protect_backup.rclone_purge_args %}
+  {% do c1.environment.add_env("RCLONE_PURGE_ARGS", values.unifi_protect_backup.rclone_purge_args|join(" ")) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.unifi_protect_backup.additional_envs) %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do c1.add_storage("/config", values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
