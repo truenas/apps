@@ -139,7 +139,7 @@ def _valid_path_or_raise(path: str):
 
 
 def allowed_device_or_raise(path: str):
-    disallowed_devices = ["/dev/dri", "/dev/kdf", "/dev/bus/usb", "/dev/snd"]
+    disallowed_devices = ["/dev/dri", "/dev/kfd", "/dev/bus/usb", "/dev/snd"]
     if path in disallowed_devices:
         raise RenderError(f"Device [{path}] is not allowed to be manually added.")
     return path
