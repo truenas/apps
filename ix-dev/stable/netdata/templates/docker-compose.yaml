@@ -1,62 +1,33 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": "/etc/netdata"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.cache, **{"mount_path": "/var/cache/netdata"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.lib, **{"mount_path": "/var/lib/netdata"}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/etc/os-release", "read_only": true, "host_path_config": {"path": "/etc/os-release", "create_host_path": false} })) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/sys", "read_only": true, "host_path_config": {"path": "/sys", "create_host_path": false} })) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/proc", "read_only": true, "host_path_config": {"path": "/proc", "create_host_path": false} })) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/etc/passwd", "read_only": true, "host_path_config": {"path": "/etc/passwd", "create_host_path": false} })) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/host/etc/group", "read_only": true, "host_path_config": {"path": "/etc/group", "create_host_path": false} })) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type": "host_path", "mount_path": "/var/run/docker.sock", "read_only": true, "host_path_config": {"path": "/var/run/docker.sock", "create_host_path": false} })) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set c1 = tpl.add_container(values.consts.netdata_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "SYS_PTRACE"]) %}
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.add_security_opt("apparmor=unconfined") %}
+
+{% do c1.healthcheck.set_custom_test("/usr/sbin/health.sh") %}
+
+{% do c1.environment.add_env("NETDATA_LISTENER_PORT", values.network.web_port) %}
+{% do c1.environment.add_user_envs(values.netdata.additional_envs) %}
+
+{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+
+{% do c1.add_docker_socket() %}
+{% do c1.add_storage("/host/etc/os-release", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/os-release"}}) %}
+{% do c1.add_storage("/host/sys", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/sys"}}) %}
+{% do c1.add_storage("/host/proc", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/proc"}}) %}
+{% do c1.add_storage("/host/etc/passwd", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/passwd"}}) %}
+{% do c1.add_storage("/host/etc/group", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/group"}}) %}
+
+{% do c1.add_storage("/etc/netdata", values.storage.config) %}
+{% do c1.add_storage("/var/cache/netdata", values.storage.cache) %}
+{% do c1.add_storage("/var/lib/netdata", values.storage.lib) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+  {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
+{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
 
-{# Containers #}
-services:
-  {{ values.consts.netdata_container_name }}:
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "SYS_PTRACE"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts(remove=["no-new-privileges"], add=["apparmor=unconfined"]) | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health("/usr/sbin/health.sh") | tojson }}
-    environment: {{ ix_lib.base.environment.envs(app={
-      "NETDATA_LISTENER_PORT": values.network.web_port,
-    }, user=values.netdata.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
-{% endif %}
-
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("Netdata") | tojson }}
+{{ tpl.render() | tojson }}
