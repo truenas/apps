@@ -10,11 +10,11 @@ fi
 {% endfor %}
 
 {{ check_path("/data") }}
-[ ! "$$(ls -A /data)" ] && {{ create_dummy_file("/data") }}
+[ ! "$(ls -A /data)" ] && {{ create_dummy_file("/data") }}
 
 {%- for store in values.storage.additional_storage if store.index_data %}
 {{ check_path(store.mount_path) }}
-[ ! "$$(ls -A {{ store.mount_path }})" ] && {{ create_dummy_file(store.mount_path) }}
+[ ! "$(ls -A {{ store.mount_path }})" ] && {{ create_dummy_file(store.mount_path) }}
 {%- endfor %}
 
 echo "Merging {{ values.consts.cron_file_path }} with /etc/crontabs/abc"
