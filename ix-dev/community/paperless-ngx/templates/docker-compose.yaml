@@ -83,13 +83,16 @@
 
   {% set gotenberg_container = tpl.add_container(values.consts.gotenberg_container_name, "gotenberg_image") %}
   {% do gotenberg_container.set_user(values.consts.gotenberg_run_user, values.consts.gotenberg_run_user) %}
-  {% do gotenberg_container.set_command(["gotenberg", "--chromium-disable-javascript=true", "--chromium-allow-list=file:///tmp/.*"]) %}
+  {% do gotenberg_container.set_command([
+    "gotenberg", "--api-port=%d"|format(values.consts.gotenberg_port),
+    "--chromium-disable-javascript=true", "--chromium-allow-list=file:///tmp/.*"
+  ]) %}
   {% do gotenberg_container.healthcheck.set_test("curl", {"port": values.consts.gotenberg_port, "path":"/health"}) %}
 
   {% do paperless_container.environment.add_env("PAPERLESS_TIKA_ENABLED", 1) %}
   {% do paperless_container.environment.add_env("PAPERLESS_TIKA_ENDPOINT", "http://%s:%s" | format(values.consts.tika_container_name, values.consts.tika_port)) %}
   {% do paperless_container.environment.add_env("PAPERLESS_TIKA_GOTENBERG_ENDPOINT", "http://%s:%s" | format(values.consts.gotenberg_container_name, values.consts.gotenberg_port)) %}
-    
+
   {% do paperless_container.depends.add_dependency(values.consts.tika_container_name, "service_healthy") %}
   {% do paperless_container.depends.add_dependency(values.consts.gotenberg_container_name, "service_healthy") %}
 {% endif %}
