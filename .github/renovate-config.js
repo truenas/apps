@@ -141,6 +141,11 @@ module.exports = {
       "^v(?<major>\\d+)\\.(?<minor>\\d+)[02468]+\\.(?<patch>\\d+)$",
       ["tailscale/tailscale"]
     ),
+    customVersioning(
+      // 3.0.0.0-full
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-full$",
+      ["apache/tika"]
+    ),
   ],
 };
 
