@@ -1,4 +1,5 @@
 import re
+import copy
 import bcrypt
 import secrets
 from base64 import b64encode
@@ -79,7 +80,7 @@ class Functions:
             return False
 
     def _copy_dict(self, dict):
-        return dict.copy()
+        return copy.deepcopy(dict)
 
     def _merge_dicts(self, *dicts):
         merged_dict = {}
