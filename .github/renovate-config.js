@@ -197,6 +197,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)$",
       ["odoo/odoo"]
     ),
+    customVersioning(
+      // 3.0.0.0-full
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-full$",
+      ["apache/tika"]
+    ),
   ],
 };
 
