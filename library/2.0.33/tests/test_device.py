@@ -93,6 +93,16 @@ def test_automatically_add_gpu_devices(mock_values):
     assert output["services"]["test_container"]["group_add"] == [44, 107, 568]
 
 
+def test_automatically_add_gpu_devices_and_kfd(mock_values):
+    mock_values["resources"] = {"gpus": {"use_all_gpus": True, "kfd_device_exists": True}}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    output = render.render()
+    assert output["services"]["test_container"]["devices"] == ["/dev/dri:/dev/dri", "/dev/kfd:/dev/kfd"]
+    assert output["services"]["test_container"]["group_add"] == [44, 107, 568]
+
+
 def test_remove_gpu_devices(mock_values):
     mock_values["resources"] = {"gpus": {"use_all_gpus": True}}
     render = Render(mock_values)
