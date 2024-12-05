@@ -62,6 +62,16 @@ def test_funcs(mock_values):
             "values": [{"type": "ix_volume", "ix_volume_config": {"dataset_name": "test"}}],
             "expected": "/mnt/test123",
         },
+        {"func": "or_default", "values": [None, 1], "expected": 1},
+        {"func": "or_default", "values": [1, None], "expected": 1},
+        {"func": "or_default", "values": [False, 1], "expected": 1},
+        {"func": "or_default", "values": [True, 1], "expected": True},
+        {"func": "temp_config", "values": [""], "expect_raise": True},
+        {
+            "func": "temp_config",
+            "values": ["test"],
+            "expected": {"type": "temporary", "volume_config": {"volume_name": "test"}},
+        },
     ]
 
     for test in tests:
