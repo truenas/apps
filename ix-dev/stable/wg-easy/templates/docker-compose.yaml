@@ -1,75 +1,39 @@
-{# Stores storage items that contains info for volumes, vol mounts, perms dirs and perms mounts #}
-{% set storage_items = namespace(items=[]) %}
-{# Stores the top level volumes #}
-{% set volumes = namespace(items={}) %}
-{# Stores the container volume mounts #}
-{% set volume_mounts = namespace(items=[]) %}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data=dict(values.storage.config, **{"mount_path": values.consts.config_path}), values=values)) %}
-{% do storage_items.items.append(ix_lib.base.storage.storage_item(data={"type":"anonymous", "mount_path": "/tmp"})) %}
+{% set c1 = tpl.add_container(values.consts.wg_easy_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["NET_ADMIN", "NET_RAW", "SYS_MODULE"]) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port}) %}
 
+{#
+  https://github.com/wg-easy/wg-easy/pull/862
+  WG_POST_DOWN, keep it empty in order to let the container
+  handle the cleanup when the container is stopped.
+  Also it will not allow users to set it to a value.
+  Avoiding foot-shooting.
+#}
+{% do c1.environment.add_env("WG_POST_DOWN", none) %}
+{% do c1.environment.add_env("PORT", values.network.web_port) %}
+{% do c1.environment.add_env("PASSWORD_HASH", tpl.funcs.bcrypt_hash(values.wg_easy.password)) %}
+{% do c1.environment.add_env("WG_PATH", values.consts.config_path) %}
+{% do c1.environment.add_env("WG_PORT", values.wg_easy.external_port) %}
+{% do c1.environment.add_env("WG_HOST", values.wg_easy.external_host) %}
+{% do c1.environment.add_env("WG_MTU", values.wg_easy.client_mtu) %}
+{% do c1.environment.add_env("WG_DEFAULT_ADDRESS", values.wg_easy.client_default_address_range) %}
+{% do c1.environment.add_env("WG_DEFAULT_DNS", values.wg_easy.client_default_dns) %}
+{% do c1.environment.add_env("WG_DEVICE", tpl.funcs.or_default(values.wg_easy.device_name, "eth0")) %}
+{% do c1.environment.add_env("WG_ALLOWED_IPS", tpl.funcs.or_default(values.wg_easy.allowed_ips, ["0.0.0.0/0", "::/0"]) | join(",")) %}
+{% do c1.environment.add_env("WG_PERSISTENT_KEEPALIVE", values.wg_easy.persistent_keepalive) %}
+{% do c1.environment.add_user_envs(values.wg_easy.additional_envs) %}
+
+{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.ports.add_port(values.network.udp_port, values.network.udp_port, {"protocol": "udp"}) %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
 {% for store in values.storage.additional_storage %}
-  {% do storage_items.items.append(ix_lib.base.storage.storage_item(data=store, values=values)) %}
+  {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{# Add each item to the above lists #}
-{% for item in storage_items.items %}
-  {% if item.vol and volumes.items.update(item.vol) %}{% endif %}
-  {% if item.vol_mount and volume_mounts.items.append(item.vol_mount) %}{% endif %}
-{% endfor %}
+{% do tpl.portals.add_portal({"port": 8096 if values.network.host_network else values.network.web_port})%}
 
-{# Containers #}
-services:
-  {{ values.consts.wg_easy_container_name }}:
-    user: "0:0"
-    image: {{ ix_lib.base.utils.get_image(images=values.images, name="image") }}
-    restart: unless-stopped
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
-    {% if values.network.host_network %}
-    network_mode: host
-    {% endif %}
-    {% set caps = ix_lib.base.security.get_caps(add=["NET_ADMIN", "NET_RAW", "SYS_MODULE"]) %}
-    cap_add: {{ caps.add | tojson }}
-    cap_drop: {{ caps.drop | tojson }}
-    security_opt: {{ ix_lib.base.security.get_sec_opts() | tojson }}
-    {% if values.network.dns_opts %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.network.dns_opts) | tojson }}
-    {% endif %}
-    {% set test = ix_lib.base.healthchecks.wget_test(port=values.network.web_port, path="/") %}
-    healthcheck: {{ ix_lib.base.healthchecks.check_health(test) | tojson }}
-    {#
-      https://github.com/wg-easy/wg-easy/pull/862
-      WG_POST_DOWN, keep it empty in order to let the container
-      handle the cleanup when the container is stopped.
-      Also it will not allow users to set it to a value.
-      Avoiding footshooting.
-    #}
-    environment: {{ ix_lib.base.environment.envs(app={
-      "WG_POST_DOWN": none,
-      "PORT": values.network.web_port,
-      "PASSWORD_HASH": ix_lib.base.utils.bcrypt_hash(values.wg_easy.password),
-      "WG_PATH": values.consts.config_path,
-      "WG_PORT": values.wg_easy.external_port,
-      "WG_HOST": values.wg_easy.external_host,
-      "WG_MTU": values.wg_easy.client_mtu,
-      "WG_DEFAULT_ADDRESS": values.wg_easy.client_default_address_range,
-      "WG_DEFAULT_DNS": values.wg_easy.client_default_dns,
-      "WG_DEVICE": values.wg_easy.device_name | default("eth0", true),
-      "WG_ALLOWED_IPS": values.wg_easy.allowed_ips | default(["0.0.0.0/0", "::/0"], true) | join(","),
-      "WG_PERSISTENT_KEEPALIVE": values.wg_easy.persistent_keepalive,
-    }, user=values.wg_easy.additional_envs, values=values) | tojson }}
-    {% if not values.network.host_network %}
-    ports:
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.web_port, "published": values.network.web_port}) | tojson }}
-      - {{ ix_lib.base.ports.get_port(port={"target": values.network.udp_port, "published": values.network.udp_port, "protocol": "udp"}) | tojson }}
-    {% endif %}
-    volumes: {{ volume_mounts.items | tojson }}
-
-{% if volumes.items %}
-volumes: {{ volumes.items | tojson }}
-{% endif %}
-
-x-portals: {{ ix_lib.base.metadata.get_portals([{"port": values.network.web_port}]) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("WG Easy") | tojson }}
+{{ tpl.render() | tojson }}
