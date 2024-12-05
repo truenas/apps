@@ -435,7 +435,7 @@ def test_no_upgrade_container_with_non_postgres_image(mock_values):
 
 
 def test_postgres_with_upgrade_container(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16"}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": 16.6}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()

@@ -119,7 +119,7 @@ class PostgresContainer:
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         tag = images[image].get("tag", "")
-
+        tag = str(tag)  # Account for tags like 16.6
         target_major_version = tag.split(".")[0]
 
         try:
