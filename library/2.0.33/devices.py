@@ -27,6 +27,8 @@ class Devices:
 
         if resources.get("gpus", {}).get("use_all_gpus", False):
             self.add_device("/dev/dri", "/dev/dri", allow_disallowed=True)
+            if resources["gpus"].get("kfd_device_exists", False):
+                self.add_device("/dev/kfd", "/dev/kfd", allow_disallowed=True)  # AMD ROCm
 
     def add_device(self, host_device: str, container_device: str, cgroup_perm: str = "", allow_disallowed=False):
         # Host device can be mapped to multiple container devices,
