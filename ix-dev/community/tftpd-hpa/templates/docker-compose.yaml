@@ -19,7 +19,11 @@
   {% do c1.ports.add_port(values.network.tftp_port, values.consts.internal_tftp_port) %}
 {% endif %}
 
-{% set tftpboot_store = dict(values.storage.tftpboot, **{"host_path_config": {"auto_permission": True}}) %}
+{% set tftpboot_store = tpl.funcs.copy_dict(values.storage.tftpboot) %}
+{% if values.storage.tftpboot.type == "host_path" %}
+  {% do tftpboot_store.host_path_config.update({"auto_permission": True}) %}
+{% endif %}
+
 {% do c1.add_storage("/tftpboot", tftpboot_store) %}
 {% do perm_container.add_or_skip_action("tftpboot", tftpboot_store, dict(perm_config, **{"chmod": "0757" if values.tftpd.allow_create else "0555"})) %}
 
