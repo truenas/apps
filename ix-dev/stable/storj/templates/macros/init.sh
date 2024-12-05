@@ -29,7 +29,7 @@ if ! [ -f "{{ id_path }}/ca.cert" ] && ! [ -f "{{ id_path }}/identity.cert" ]; t
   ls -lhR {{ id_path }}
 
   echo "Authorizing identity certificate..."
-  {{ id_tool_dir }}/identity authorize storagenode {{ flags }} $${AUTH_TOKEN} || { echo "Failed to authorize identity certificate."; exit 1; }
+  {{ id_tool_dir }}/identity authorize storagenode {{ flags }} ${AUTH_TOKEN} || { echo "Failed to authorize identity certificate."; exit 1; }
 
   echo "Storagenode identity authorized successfully."
 
