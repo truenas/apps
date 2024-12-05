@@ -18,8 +18,6 @@ to copy an existing app that is similar to the one you want to add,
 then modify it to your needs. You can find usage examples in either,
 other apps that use the library, or in the `/library/2.x.x/tests` directory.
 
-⚠️ Make sure you are copying an app that uses library version 2.x.x.
-
 For icons and screenshots that we store in our CDN, you can leave the links
 in the PR descriptions, and the PR reviewer will upload them and give you the links.
 
@@ -107,7 +105,7 @@ Things to note:
 
 ⚠️ Some notes for the test files:
 
-Most apps that use v2 library will use the `/opt/tests/**` directory for storage. This is mostly
-because MacOS whitelists this directory by default. And linux does not have this restriction.
+Most apps will use a directory like `/opt/tests/**` for storage in test files.
+This is mostly because MacOS whitelists this directory by default. And linux does not have this restriction.
 
 Make sure before running the test, that is not going to mount any directories that you don't want to.
