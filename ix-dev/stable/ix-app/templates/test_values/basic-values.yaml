@@ -8,13 +8,18 @@ image:
   pull_policy: missing
 
 # Container Configuration
-restart_policy: "no"
+restart_policy: "on-failure"
+max_retry_count: 0
 entrypoint: []
 command: []
 TZ: "Europe/Athens"
 envs:
   - name: test
     value: 123
+  - name: UMASK
+    value: "002"
+  - name: PGID
+    value: "568"
 disable_builtin_healthcheck: false
 tty: false
 stdin: false
@@ -36,6 +41,11 @@ dns_config:
   searches: []
   options: []
 
+# General Configuration
+labels:
+  - key: com.truenas.ix.app.labels.test
+    value: 123
+
 # Portal Configuration
 portals:
   - name: Web UI
@@ -43,21 +53,33 @@ portals:
     use_node_ip: true
     host: ""
     port: 80
-    path: "/"
+    path: /
   - name: Admin UI
     protocol: http
     use_node_ip: false
-    host: "192.168.1.100"
+    host: 192.168.1.100
     port: 80
-    path: "/"
+    path: /
+
+ix_volumes:
+  some_volume: /opt/tests/mnt/test_volume
 
 # Storage Configuration
 storage:
+  - type: ix_volume
+    mount_path: /opt/tests/mnt/test_volume
+    ix_volume_config:
+      dataset_name: some_volume
+      create_host_path: true
+  - type: tmpfs
+    mount_path: /opt/tests/mnt/test_tmpfs
+    tmpfs_config:
+      size: 500
   - type: host_path
-    mount_path: /tmp
+    mount_path: /opt/tests/mnt/test
     host_path_config:
-      path: /tmp
-      read_only: false
+      path: /test
+      create_host_path: true
 
 # Resources Configuration
 resources:

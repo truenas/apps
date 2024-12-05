@@ -1,73 +1,90 @@
-services:
-  {{ values.ix_context.app_name }}:
-    {# Image Configuration #}
-    image: {{ "%s:%s" | format(values.image.repository, (values.image.tag or "latest")) }}
+{# Adjust values to library will pick some things automatically #}
+{% do values.update({
+  "skip_generic_variables": true,
+  "images": {
+    "image": {
+      "repository": values.image.repository,
+      "tag": values.image.tag or "latest",
+    }
+  },
+  "network": {
+    "dns_opts": values.dns_config.get("options", []),
+    "dns_searches": values.dns_config.get("searches", []),
+    "dns_nameservers": values.dns_config.get("nameservers", []),
+  }
+}) %}
 
-    {# Container Configuration #}
-    restart: {{ values.restart_policy }}
-    tty: {{ values.tty }}
-    stdin_open: {{ values.stdin }}
+{% for label in values.labels %}
+  {% do label.update({"containers": [values.ix_context.app_name]}) %}
+{% endfor %}
 
-    {% if values.entrypoint %}
-    entrypoint: {{ values.entrypoint | tojson }}
-    {% endif %}
+{# Any manipulation to values should be done before this point #}
 
-    {% if values.command %}
-    command: {{ values.command | tojson }}
-    {% endif %}
+{# Template starts here #}
+{% set tpl = ix_lib.base.render.Render(values) %}
 
-    {% if values.disable_builtin_healthcheck %}
-    healthcheck: {"disable": true}
-    {% endif %}
+{# Image Configuration #}
+{% set c1 = tpl.add_container(values.ix_context.app_name, "image") %}
+{% do c1.set_pull_policy(values.image.pull_policy) %}
 
-    environment: {{ ix_lib.base.environment.envs(app={}, user=values.envs, values={"TZ": values.TZ}) | tojson }}
-    {# Network Configuration #}
-    {% if values.dns_config.nameservers %}
-    dns: {{ values.dns_config.nameservers | tojson }}
-    {% endif %}
+{# Container Configuration #}
+{% if values.restart_policy == "on-failure" %}
+  {% do c1.restart.set_policy(values.restart_policy, values.max_retry_count) %}
+{% else %}
+  {% do c1.restart.set_policy(values.restart_policy) %}
+{% endif %}
 
-    {% if values.dns_config.searches %}
-    dns_search: {{ values.dns_config.searches | tojson }}
-    {% endif %}
+{% do c1.set_tty(values.tty) %}
+{% do c1.set_stdin(values.stdin) %}
 
-    {% if values.dns_config.options %}
-    dns_opt: {{ ix_lib.base.network.dns_opts(values.dns_config.options) | tojson }}
-    {% endif %}
+{% if values.entrypoint %}
+  {% do c1.set_entrypoint(values.entrypoint) %}
+{% endif %}
 
-    {% if values.host_network %}
-    network_mode: host
-    {% endif %}
+{% if values.command %}
+  {% do c1.set_command(values.command) %}
+{% endif %}
 
-    {% if not values.host_network and values.ports %}
-    ports:
-      {% for port in values.ports %}
-      - {{ ix_lib.base.ports.get_port(port=port) | tojson }}
-      {% endfor %}
-    {% endif %}
+{% if values.disable_builtin_healthcheck %}
+  {% do c1.healthcheck.disable() %}
+{% else %}
+  {% do c1.healthcheck.use_built_in() %}
+{% endif %}
 
-    {# Security Context Configuration #}
-    privileged: {{ values.privileged }}
-    {% set caps = ix_lib.base.security.get_caps(add=values.capabilities.add, drop=[]) %}
-    {% if caps.add %}
-    cap_add: {{ caps.add | tojson }}
-    {% endif %}
+{% do c1.environment.add_env("TZ", values.TZ) %}
+{% do c1.environment.add_user_envs(values.envs) %}
 
-    {% if values.run_as_custom_user %}
-    user: {{ "%d:%d" | format(values.run_as.user, values.run_as.group) }}
-    {% endif %}
+{# Network Configuration #}
+{% if values.host_network %}
+  {% do c1.set_network_mode("host") %}
+{% else %}
+  {% if values.ports %}
+    {% for port in values.ports %}
+      {% do c1.ports.add_port(port.published, port.target, {"protocol": port.protocol}) %}
+    {% endfor %}
+  {% endif %}
+{% endif %}
 
-    {# Storage Configuration #}
-    {% if values.storage %}
-    volumes:
-      {% for store in values.storage %}
-      - {{ ix_lib.base.storage.storage_item(data=store, values=values).vol_mount | tojson }}
-      {% endfor %}
-    {% endif %}
+{# Security Context Configuration #}
+{% do c1.set_privileged(values.privileged) %}
+{% do c1.clear_caps() %}
+{% do c1.remove_security_opt("no-new-privileges") %}
 
-    {# Resources Configuration #}
-    deploy:
-      resources: {{ ix_lib.base.resources.resources(values.resources, not values.resources.enable_resource_limits) | tojson }}
-    devices: {{ ix_lib.base.resources.get_devices(values.resources) | tojson }}
+{% do c1.add_caps(values.capabilities.add) %}
+{% if values.run_as_custom_user %}
+  {% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% endif %}
 
-x-portals: {{ ix_lib.base.metadata.get_portals(values.portals) | tojson }}
-x-notes: {{ ix_lib.base.metadata.get_notes("iX App") | tojson }}
+{% for store in values.storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if not values.resources.enable_resource_limits %}
+  {% do c1.deploy.resources.remove_cpus_and_memory() %}
+{% endif %}
+
+{% for portal in values.portals %}
+  {% do tpl.portals.add_portal(portal) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
