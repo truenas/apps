@@ -1,7 +1,7 @@
-import os
 import json
-import urllib.parse
-from typing import TYPE_CHECKING, TypedDict, NotRequired
+import pathlib
+from typing import TYPE_CHECKING
+
 
 if TYPE_CHECKING:
     from render import Render
@@ -9,44 +9,10 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
-    from .validations import (
-        valid_port_or_raise,
-        valid_fs_path_or_raise,
-        valid_octal_mode_or_raise,
-        valid_redis_password_or_raise,
-    )
+    from .validations import valid_octal_mode_or_raise, valid_fs_path_or_raise
 except ImportError:
     from error import RenderError
-    from validations import (
-        valid_port_or_raise,
-        valid_fs_path_or_raise,
-        valid_octal_mode_or_raise,
-        valid_redis_password_or_raise,
-    )
-
-
-class PostgresConfig(TypedDict):
-    user: str
-    password: str
-    database: str
-    port: NotRequired[int]
-    volume: "IxStorage"
-
-
-class MariadbConfig(TypedDict):
-    user: str
-    password: str
-    database: str
-    root_password: NotRequired[str]
-    port: NotRequired[int]
-    auto_upgrade: NotRequired[bool]
-    volume: "IxStorage"
-
-
-class RedisConfig(TypedDict):
-    password: str
-    port: NotRequired[int]
-    volume: "IxStorage"
+    from validations import valid_octal_mode_or_raise, valid_fs_path_or_raise
 
 
 class PermsContainer:
@@ -76,7 +42,7 @@ class PermsContainer:
         gid = action_config.get("gid", None)
         chmod = action_config.get("chmod", None)
         recursive = action_config.get("recursive", False)
-        mount_path = os.path.join("/mnt/permission", identifier)
+        mount_path = pathlib.Path("/mnt/permission", identifier).as_posix()
         is_temporary = False
 
         vol_type = volume_config.get("type", "")
@@ -284,171 +250,3 @@ if __name__ == "__main__":
         perform_action(action)
     print(f"Total time taken: {(time.time() - start_time) * 1000:.2f}ms")
 """
-
-
-class Deps:
-    def __init__(self, render_instance: "Render"):
-        self._render_instance = render_instance
-
-    def perms(self, name: str):
-        return PermsContainer(self._render_instance, name)
-
-    def postgres(self, name: str, image: str, config: PostgresConfig, perms_instance: PermsContainer):
-        return PostgresContainer(self._render_instance, name, image, config, perms_instance)
-
-    def redis(self, name: str, image: str, config: RedisConfig, perms_instance: PermsContainer):
-        return RedisContainer(self._render_instance, name, image, config, perms_instance)
-
-    def mariadb(self, name: str, image: str, config: MariadbConfig, perms_instance: PermsContainer):
-        return MariadbContainer(self._render_instance, name, image, config, perms_instance)
-
-
-class PostgresContainer:
-    def __init__(
-        self, render_instance: "Render", name: str, image: str, config: PostgresConfig, perms_instance: PermsContainer
-    ):
-        self._render_instance = render_instance
-        self._name = name
-        self._config = config
-
-        for key in ("user", "password", "database", "volume"):
-            if key not in config:
-                raise RenderError(f"Expected [{key}] to be set for postgres")
-
-        port = valid_port_or_raise(self._get_port())
-
-        c = self._render_instance.add_container(name, image)
-        c.set_user(999, 999)
-        c.healthcheck.set_test("postgres")
-        c.remove_devices()
-
-        c.add_storage("/var/lib/postgresql/data", config["volume"])
-        perms_instance.add_or_skip_action(
-            f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
-        )
-
-        c.environment.add_env("POSTGRES_USER", config["user"])
-        c.environment.add_env("POSTGRES_PASSWORD", config["password"])
-        c.environment.add_env("POSTGRES_DB", config["database"])
-        c.environment.add_env("POSTGRES_PORT", port)
-
-        # Store container for further configuration
-        # For example: c.depends.add_dependency("other_container", "service_started")
-        self._container = c
-
-    @property
-    def container(self):
-        return self._container
-
-    def _get_port(self):
-        return self._config.get("port") or 5432
-
-    def get_url(self, variant: str):
-        user = urllib.parse.quote_plus(self._config["user"])
-        password = urllib.parse.quote_plus(self._config["password"])
-        creds = f"{user}:{password}"
-        addr = f"{self._name}:{self._get_port()}"
-        db = self._config["database"]
-
-        match variant:
-            case "postgres":
-                return f"postgres://{creds}@{addr}/{db}?sslmode=disable"
-            case "postgresql":
-                return f"postgresql://{creds}@{addr}/{db}?sslmode=disable"
-            case "postgresql_no_creds":
-                return f"postgresql://{addr}/{db}?sslmode=disable"
-            case "host_port":
-                return addr
-            case _:
-                raise RenderError(f"Expected [variant] to be one of [postgres, postgresql], got [{variant}]")
-
-
-class RedisContainer:
-    def __init__(
-        self, render_instance: "Render", name: str, image: str, config: RedisConfig, perms_instance: PermsContainer
-    ):
-        self._render_instance = render_instance
-        self._name = name
-        self._config = config
-
-        for key in ("password", "volume"):
-            if key not in config:
-                raise RenderError(f"Expected [{key}] to be set for redis")
-
-        valid_redis_password_or_raise(config["password"])
-
-        port = valid_port_or_raise(self._get_port())
-
-        c = self._render_instance.add_container(name, image)
-        c.set_user(1001, 0)
-        c.healthcheck.set_test("redis")
-        c.remove_devices()
-
-        c.add_storage("/bitnami/redis/data", config["volume"])
-        perms_instance.add_or_skip_action(
-            f"{self._name}_redis_data", config["volume"], {"uid": 1001, "gid": 0, "mode": "check"}
-        )
-
-        c.environment.add_env("ALLOW_EMPTY_PASSWORD", "no")
-        c.environment.add_env("REDIS_PASSWORD", config["password"])
-        c.environment.add_env("REDIS_PORT_NUMBER", port)
-
-        # Store container for further configuration
-        # For example: c.depends.add_dependency("other_container", "service_started")
-        self._container = c
-
-    def _get_port(self):
-        return self._config.get("port") or 6379
-
-    def get_url(self, variant: str):
-        addr = f"{self._name}:{self._get_port()}"
-        password = urllib.parse.quote_plus(self._config["password"])
-
-        match variant:
-            case "redis":
-                return f"redis://default:{password}@{addr}"
-
-    @property
-    def container(self):
-        return self._container
-
-
-class MariadbContainer:
-    def __init__(
-        self, render_instance: "Render", name: str, image: str, config: MariadbConfig, perms_instance: PermsContainer
-    ):
-        self._render_instance = render_instance
-        self._name = name
-
-        for key in ("user", "password", "database", "volume"):
-            if key not in config:
-                raise RenderError(f"Expected [{key}] to be set for mariadb")
-
-        port = valid_port_or_raise(config.get("port") or 3306)
-        root_password = config.get("root_password") or config["password"]
-        auto_upgrade = config.get("auto_upgrade", True)
-
-        c = self._render_instance.add_container(name, image)
-        c.set_user(999, 999)
-        c.healthcheck.set_test("mariadb")
-        c.remove_devices()
-
-        c.add_storage("/var/lib/mysql", config["volume"])
-        perms_instance.add_or_skip_action(
-            f"{self._name}_mariadb_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
-        )
-
-        c.environment.add_env("MARIADB_USER", config["user"])
-        c.environment.add_env("MARIADB_PASSWORD", config["password"])
-        c.environment.add_env("MARIADB_ROOT_PASSWORD", root_password)
-        c.environment.add_env("MARIADB_DATABASE", config["database"])
-        c.environment.add_env("MARIADB_AUTO_UPGRADE", str(auto_upgrade).lower())
-        c.set_command(["--port", str(port)])
-
-        # Store container for further configuration
-        # For example: c.depends.add_dependency("other_container", "service_started")
-        self._container = c
-
-    @property
-    def container(self):
-        return self._container

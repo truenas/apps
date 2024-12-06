@@ -29,7 +29,7 @@ def test_add_postgres_missing_config(mock_values):
 
 
 def test_add_postgres(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "latest"}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -54,7 +54,7 @@ def test_add_postgres(mock_values):
     )
     assert "devices" not in output["services"]["pg_container"]
     assert "reservations" not in output["services"]["pg_container"]["deploy"]["resources"]
-    assert output["services"]["pg_container"]["image"] == "postgres:latest"
+    assert output["services"]["pg_container"]["image"] == "postgres:16"
     assert output["services"]["pg_container"]["user"] == "999:999"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
@@ -85,7 +85,8 @@ def test_add_postgres(mock_values):
         "POSTGRES_PORT": "5432",
     }
     assert output["services"]["pg_container"]["depends_on"] == {
-        "perms_container": {"condition": "service_completed_successfully"}
+        "perms_container": {"condition": "service_completed_successfully"},
+        "pg_container_upgrade": {"condition": "service_completed_successfully"},
     }
     assert output["services"]["perms_container"]["restart"] == "on-failure:1"
 
@@ -252,7 +253,7 @@ def test_add_perms_container(mock_values):
         "test_dataset2": "/mnt/test/2",
         "test_dataset3": "/mnt/test/3",
     }
-    mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "latest"}
+    mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "17"}
     mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
     mock_values["images"]["mariadb_image"] = {"repository": "mariadb", "tag": "latest"}
     render = Render(mock_values)
@@ -378,3 +379,99 @@ def test_add_perm_action_without_auto_perms_enabled(mock_values):
     assert "configs" not in output
     assert "ix-test_perms_container" not in output["services"]
     assert "depends_on" not in output["services"]["test_container"]
+
+
+def test_add_unsupported_postgres_version(mock_values):
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "99"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        render.deps.postgres(
+            "test_container",
+            "test_image",
+            {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+        )
+
+
+def test_add_postgres_with_invalid_tag(mock_values):
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "latest"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        render.deps.postgres(
+            "test_container",
+            "test_image",
+            {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+        )
+
+
+def test_no_upgrade_container_with_non_postgres_image(mock_values):
+    mock_values["images"]["postgres_image"] = {"repository": "tensorchord/pgvecto-rs", "tag": "pg15-v0.2.0"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("test_perms_container")
+    pg = render.deps.postgres(
+        "postgres_container",
+        "postgres_image",
+        {
+            "user": "test_user",
+            "password": "test_password",
+            "database": "test_database",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        pg.add_dependency("test_perms_container", "service_completed_successfully")
+    output = render.render()
+    assert len(output["services"]) == 3  # c1, pg, perms
+    assert output["services"]["postgres_container"]["depends_on"] == {
+        "test_perms_container": {"condition": "service_completed_successfully"}
+    }
+
+
+def test_postgres_with_upgrade_container(mock_values):
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": 16.6}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("test_perms_container")
+    pg = render.deps.postgres(
+        "postgres_container",
+        "pg_image",
+        {
+            "user": "test_user",
+            "password": "test_password",
+            "database": "test_database",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        pg.add_dependency("test_perms_container", "service_completed_successfully")
+    output = render.render()
+    pg = output["services"]["postgres_container"]
+    pgup = output["services"]["postgres_container_upgrade"]
+    assert pg["volumes"] == pgup["volumes"]
+    assert pg["user"] == pgup["user"]
+    assert pgup["environment"]["TARGET_VERSION"] == "16"
+    assert pgup["environment"]["DATA_DIR"] == "/var/lib/postgresql/data"
+    pgup_env = pgup["environment"]
+    pgup_env.pop("TARGET_VERSION")
+    pgup_env.pop("DATA_DIR")
+    assert pg["environment"] == pgup_env
+    assert pg["depends_on"] == {
+        "test_perms_container": {"condition": "service_completed_successfully"},
+        "postgres_container_upgrade": {"condition": "service_completed_successfully"},
+    }
+    assert pgup["depends_on"] == {"test_perms_container": {"condition": "service_completed_successfully"}}
+    assert pgup["restart"] == "on-failure:1"
+    assert pgup["healthcheck"] == {"disable": True}
+    assert pgup["build"]["dockerfile_inline"] != ""
+    assert pgup["configs"][0]["source"] == "pg_container_upgrade.sh"
+    assert pgup["entrypoint"] == ["/bin/bash", "-c", "/upgrade.sh"]
