@@ -15,14 +15,20 @@ def migrate(values):
     if not config:
         raise ValueError("No config found in values")
 
+    envs = []
+    admin_token = config["vaultwardenConfig"].get("adminToken")
+    for env in config["vaultwardenConfig"].get("additionalEnvs", []):
+        if env["name"] == "ADMIN_TOKEN":
+            admin_token = env["value"]
+        else:
+            envs.append(env)
+
     new_values = {
         "TZ": config["TZ"],
         "vaultwarden": {
-            "admin_token": config["vaultwardenConfig"]["adminToken"],
-            "db_password": get_value_from_secret(
-                k8s_secrets, "postgres-creds", "POSTGRES_PASSWORD"
-            ),
-            "additional_envs": config["vaultwardenConfig"].get("additionalEnvs", []),
+            "admin_token": admin_token,
+            "db_password": get_value_from_secret(k8s_secrets, "postgres-creds", "POSTGRES_PASSWORD"),
+            "additional_envs": envs,
         },
         "run_as": {
             "user": config["vaultwardenRunAs"].get("user", 568),
