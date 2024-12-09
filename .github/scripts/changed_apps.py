@@ -62,6 +62,10 @@ def find_test_files(changed_files):
         print("Skipped apps based on the EXCLUDE_TESTS list:", file=sys.stderr)
         print("\n".join(skipped), file=sys.stderr)
 
+    if len(matrix) > 256:
+        print(f"Github Actions has a limit of 256 matrix jobs. Cannot run [{len(matrix)}] tests.", file=sys.stderr)
+        sys.exit(1)
+
     return matrix
 
 
