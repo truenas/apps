@@ -151,8 +151,17 @@ class Container:
             raise RenderError(f"Group [{group}] already added")
         self._group_add.add(group)
 
+    def get_additional_groups(self) -> list[int | str]:
+        result = []
+        if self.deploy.resources.has_gpus() or self.devices.has_gpus():
+            result.append(44)  # video
+            result.append(107)  # render
+        return result
+
     def get_current_groups(self) -> list[str]:
-        return [str(g) for g in self._group_add]
+        result = [str(g) for g in self._group_add]
+        result.extend([str(g) for g in self.get_additional_groups()])
+        return result
 
     def set_tty(self, enabled: bool = False):
         self._tty = enabled
@@ -271,9 +280,8 @@ class Container:
         if self._user:
             result["user"] = self._user
 
-        if self.deploy.resources.has_gpus() or self.devices.has_gpus():
-            self.add_group(44)  # video
-            self.add_group(107)  # render
+        for g in self.get_additional_groups():
+            self.add_group(g)
 
         if self._group_add:
             result["group_add"] = sorted(self._group_add, key=lambda g: (isinstance(g, str), g))
