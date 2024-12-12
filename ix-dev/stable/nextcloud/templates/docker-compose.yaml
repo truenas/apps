@@ -108,7 +108,6 @@
     else "%s:%d"|format(values.nextcloud.host, values.network.web_port)
   ) %}
 {% endif %}
-{% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
 {% if values.network.certificate_id %}
   {% do nc_env.x.append(("APACHE_DISABLE_REWRITE_IP", 1)) %}
   {% do nc_env.x.append(("OVERWRITEPROTOCOL", "https")) %}
@@ -117,11 +116,13 @@
     {% set host = namespace(x="%s:%d"|format(values.nextcloud.host, values.network.web_port)) %}
     {% if ":" in values.nextcloud.host %}
       {% set host.x = values.nextcloud.host %}
-    {% elif values.network.nginx.use_different_access_port %}
+    {% elif values.network.nginx.use_different_port %}
       {% set host.x = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
     {% endif %}
     {% do nc_env.x.append(("OVERWRITEHOST", host.x)) %}
+    {% do trusted_domains.x.append(host.x) %}
   {% endif %}
+{% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
 {% endif %}
 
 {% do nc_container.build_image(nc_custom_image.x) %}
