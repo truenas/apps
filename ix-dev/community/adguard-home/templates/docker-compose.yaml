@@ -1,7 +1,11 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.adguard_container_name, "image") %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port, "path": "/", "scheme": "https" if values.adguard.use_https_probe else "http"}) %}
+{% do c1.healthcheck.set_test("wget", {
+  "port": values.adguard.https_port_to_probe if values.adguard.use_https_probe else values.network.web_port,
+  "scheme": "https" if values.adguard.use_https_probe else "http",
+  "path": "/",
+}) %}
 {% do c1.environment.add_user_envs(values.adguard.additional_envs) %}
 
 {% do c1.add_caps(["NET_BIND_SERVICE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
