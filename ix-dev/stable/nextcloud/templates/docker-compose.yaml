@@ -102,27 +102,26 @@
   ("POSTGRES_USER", values.nextcloud.db_user),
 ]) %}
 {% set trusted_domains = namespace(x=["127.0.0.1", "localhost", values.consts.nextcloud_container_name]) %}
+
+{% set host = namespace(x="") %}
 {% if values.nextcloud.host %}
-  {% do trusted_domains.x.append(
-    values.nextcloud.host if ":" in values.nextcloud.host
-    else "%s:%d"|format(values.nextcloud.host, values.network.web_port)
-  ) %}
+  {% set host.x = values.nextcloud.host if ":" in values.nextcloud.host else "%s:%d"|format(values.nextcloud.host, values.network.web_port) %}
 {% endif %}
-{% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
+
 {% if values.network.certificate_id %}
   {% do nc_env.x.append(("APACHE_DISABLE_REWRITE_IP", 1)) %}
   {% do nc_env.x.append(("OVERWRITEPROTOCOL", "https")) %}
   {% do nc_env.x.append(("TRUSTED_PROXIES", ["127.0.0.1", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"] | join(" "))) %}
-  {% if values.nextcloud.host %}
-    {% set host = namespace(x="%s:%d"|format(values.nextcloud.host, values.network.web_port)) %}
-    {% if ":" in values.nextcloud.host %}
-      {% set host.x = values.nextcloud.host %}
-    {% elif values.network.nginx.use_different_access_port %}
-      {% set host.x = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
-    {% endif %}
+  {% if values.nextcloud.host and values.network.nginx.use_different_port %}
+    {% set host.x = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
     {% do nc_env.x.append(("OVERWRITEHOST", host.x)) %}
   {% endif %}
 {% endif %}
+
+{% if host.x %}
+  {% do trusted_domains.x.append(host.x) %}
+{% endif %}
+{% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
 
 {% do nc_container.build_image(nc_custom_image.x) %}
 {% do nc_container.set_user(0,0) %}
