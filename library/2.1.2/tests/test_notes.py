@@ -10,6 +10,8 @@ def mock_values():
         "ix_context": {
             "app_metadata": {
                 "name": "test_app",
+                "title": "Test App",
+                "train": "enterprise",
             }
         },
         "images": {
@@ -28,23 +30,32 @@ def test_notes(mock_values):
     output = render.render()
     assert (
         output["x-notes"]
-        == """# Welcome to TrueNAS SCALE
+        == """# Test App
 
-Thank you for installing test_app!
+## Bug Reports and Feature Requests
 
-## Documentation
+If you find a bug in this app or have an idea for a new feature, please file an issue at
+https://ixsystems.atlassian.net
 
-Documentation for test_app can be found at https://www.truenas.com/docs.
+"""
+    )
 
-## Bug reports
 
-If you find a bug in this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
+def test_notes_on_non_enterprise_train(mock_values):
+    mock_values["ix_context"]["app_metadata"]["train"] = "community"
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    output = render.render()
+    assert (
+        output["x-notes"]
+        == """# Test App
 
-## Feature requests or improvements
+## Bug Reports and Feature Requests
 
-If you find a feature request for this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
+If you find a bug in this app or have an idea for a new feature, please file an issue at
+https://github.com/truenas/apps
+
 """
     )
 
@@ -58,28 +69,18 @@ def test_notes_with_warnings(mock_values):
     output = render.render()
     assert (
         output["x-notes"]
-        == """# Welcome to TrueNAS SCALE
-
-Thank you for installing test_app!
+        == """# Test App
 
 ## Warnings
 
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
 
-## Documentation
+## Bug Reports and Feature Requests
 
-Documentation for test_app can be found at https://www.truenas.com/docs.
+If you find a bug in this app or have an idea for a new feature, please file an issue at
+https://ixsystems.atlassian.net
 
-## Bug reports
-
-If you find a bug in this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
-
-## Feature requests or improvements
-
-If you find a feature request for this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
 """
     )
 
@@ -93,28 +94,18 @@ def test_notes_with_deprecations(mock_values):
     output = render.render()
     assert (
         output["x-notes"]
-        == """# Welcome to TrueNAS SCALE
-
-Thank you for installing test_app!
+        == """# Test App
 
 ## Deprecations
 
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
 
-## Documentation
+## Bug Reports and Feature Requests
 
-Documentation for test_app can be found at https://www.truenas.com/docs.
+If you find a bug in this app or have an idea for a new feature, please file an issue at
+https://ixsystems.atlassian.net
 
-## Bug reports
-
-If you find a bug in this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
-
-## Feature requests or improvements
-
-If you find a feature request for this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
 """
     )
 
@@ -133,28 +124,18 @@ some other info.
     output = render.render()
     assert (
         output["x-notes"]
-        == """# Welcome to TrueNAS SCALE
-
-Thank you for installing test_app!
+        == """# Test App
 
 ## Additional info
 
 Some info
 some other info.
 
-## Documentation
+## Bug Reports and Feature Requests
 
-Documentation for test_app can be found at https://www.truenas.com/docs.
+If you find a bug in this app or have an idea for a new feature, please file an issue at
+https://ixsystems.atlassian.net
 
-## Bug reports
-
-If you find a bug in this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
-
-## Feature requests or improvements
-
-If you find a feature request for this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
 """
     )
 
@@ -177,9 +158,7 @@ some other info.
     output = render.render()
     assert (
         output["x-notes"]
-        == """# Welcome to TrueNAS SCALE
-
-Thank you for installing test_app!
+        == """# Test App
 
 ## Warnings
 
@@ -196,18 +175,10 @@ Thank you for installing test_app!
 Some info
 some other info.
 
-## Documentation
+## Bug Reports and Feature Requests
 
-Documentation for test_app can be found at https://www.truenas.com/docs.
+If you find a bug in this app or have an idea for a new feature, please file an issue at
+https://ixsystems.atlassian.net
 
-## Bug reports
-
-If you find a bug in this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
-
-## Feature requests or improvements
-
-If you find a feature request for this app, please file an issue at
-https://ixsystems.atlassian.net or https://github.com/truenas/apps
 """
     )
