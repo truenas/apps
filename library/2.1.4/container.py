@@ -224,11 +224,8 @@ class Container:
         self.add_group(999)
         self._storage._add_docker_socket(read_only, mount_path)
 
-    def add_tun_device(self, read_only: bool = True, mount_path: str = "/dev/net/tun"):
-        if self._is_fangtooth_or_later():
-            self.devices._add_tun_device()
-        else:
-            self._storage._add_tun_device(read_only, mount_path)
+    def add_tun_device(self):
+        self.devices._add_tun_device()
 
     def add_snd_device(self):
         self.add_group(29)
