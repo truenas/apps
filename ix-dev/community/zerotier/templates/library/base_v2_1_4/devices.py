@@ -45,6 +45,9 @@ class Devices:
     def _add_snd_device(self):
         self.add_device("/dev/snd", "/dev/snd", allow_disallowed=True)
 
+    def _add_tun_device(self):
+        self.add_device("/dev/net/tun", "/dev/net/tun", allow_disallowed=True)
+
     def has_devices(self):
         return len(self._devices) > 0
 
