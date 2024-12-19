@@ -80,10 +80,6 @@ class Container:
         self._auto_add_labels()
         self._auto_add_groups()
 
-    def _is_fangtooth_or_later(self):
-        # FIXME: Implement this
-        return False
-
     def _auto_add_groups(self):
         self.add_group(568)
 
