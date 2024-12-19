@@ -129,3 +129,24 @@ def test_add_usb_bus_disallowed(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.devices.add_device("/dev/bus/usb", "/dev/bus/usb")
+
+
+def test_add_snd_device(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_snd_device()
+    output = render.render()
+    assert output["services"]["test_container"]["devices"] == ["/dev/snd:/dev/snd"]
+    assert output["services"]["test_container"]["group_add"] == [29, 568]
+
+
+# def test_add_tun_device(mock_values):
+#     # FIXME: Make this appear fangtooth or later
+#     mock_values["ix_context"]["scale_version"] = ""
+#     render = Render(mock_values)
+#     c1 = render.add_container("test_container", "test_image")
+#     c1.healthcheck.disable()
+#     c1.add_tun_device()
+#     output = render.render()
+#     assert output["services"]["test_container"]["devices"] == ["/dev/net/tun:/dev/net/tun"]
