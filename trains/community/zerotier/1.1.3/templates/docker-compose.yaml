@@ -1,0 +1,38 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.zerotier_container_name, "image") %}
+{% do c1.add_caps(["NET_ADMIN", "NET_RAW", "AUDIT_WRITE", "CHOWN", "DAC_OVERRIDE", "FOWNER", "NET_BIND_SERVICE", "SETGID", "SETUID", "SETPCAP", "SYS_ADMIN"]) %}
+{% do c1.healthcheck.set_custom_test("/healthcheck.sh") %}
+
+{% set cmd = namespace(x=[]) %}
+{% for net in values.zerotier.networks %}
+  {% do cmd.x.append(net|lower) %}
+{% else %}
+  {% do tpl.funcs.fail("Zerotier requires at least one network to be configured") %}
+{% endfor %}
+{% do c1.set_command(cmd.x) %}
+
+{% if not values.network.host_network %}
+  {% do c1.sysctls.add("net.ipv4.ip_forward", 1) %}
+  {% do c1.sysctls.add("net.ipv6.conf.all.forwarding", 1) %}
+{% endif %}
+
+{% if values.zerotier.auth_token %}
+  {% do c1.environment.add_env("ZEROTIER_API_TOKEN", values.zerotier.auth_token) %}
+{% endif %}
+{% if values.zerotier.identity_public %}
+  {% do c1.environment.add_env("ZEROTIER_IDENTITY_PUBLIC", values.zerotier.identity_public) %}
+{% endif %}
+{% if values.zerotier.identity_secret %}
+  {% do c1.environment.add_env("ZEROTIER_IDENTITY_SECRET", values.zerotier.identity_secret) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.zerotier.additional_envs) %}
+
+{% do c1.add_tun_device() %}
+{% do c1.add_storage("/var/lib/zerotier-one", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
