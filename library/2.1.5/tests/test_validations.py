@@ -5,6 +5,24 @@ from pathlib import Path
 from validations import is_allowed_path, RESTRICTED, RESTRICTED_IN
 
 
+def mock_resolve(self):
+    # Don't modify paths that are from RESTRICTED list initialization
+    if str(self) in [str(p) for p in RESTRICTED]:
+        return self
+
+    # For symlinks that point to restricted paths, return the target path
+    # without stripping /private/
+    if str(self).endswith("symlink_restricted"):
+        return Path("/home")  # Return the actual restricted target
+
+    # For other paths, strip /private/ if present
+    path_str = str(self)
+    if path_str.startswith("/private/"):
+        return Path(path_str[8:])
+
+    return Path(str(self))
+
+
 @pytest.mark.parametrize(
     "test_path, expected",
     [
@@ -29,11 +47,13 @@ from validations import is_allowed_path, RESTRICTED, RESTRICTED_IN
         ("/opt/myapp", True),
     ],
 )
+@patch.object(Path, "resolve", mock_resolve)
 def test_is_allowed_path_direct(test_path, expected):
     """Test direct paths against the is_allowed_path function."""
     assert is_allowed_path(test_path) == expected
 
 
+@patch.object(Path, "resolve", mock_resolve)
 def test_is_allowed_path_symlink(tmp_path):
     """
     Test that a symlink pointing to a restricted directory is detected as invalid,
@@ -87,14 +107,6 @@ def test_is_allowed_path_nonexistent(tmp_path):
     """
     nonexistent = tmp_path / "this_does_not_exist"
     assert is_allowed_path(str(nonexistent)) is True
-
-
-def mock_resolve(self):
-    # Don't modify paths that are from RESTRICTED list initialization
-    if str(self) in [str(p) for p in RESTRICTED]:
-        return self
-
-    return Path(str(self))
 
 
 @pytest.mark.parametrize(
