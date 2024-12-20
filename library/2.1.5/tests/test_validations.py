@@ -15,12 +15,9 @@ def mock_resolve(self):
     if str(self).endswith("symlink_restricted"):
         return Path("/home")  # Return the actual restricted target
 
-    # For other paths, strip /private/ if present
     path_str = str(self)
-    if path_str.startswith("/private/"):
-        return Path(path_str[8:])
-
-    return Path(str(self))
+    # For other paths, strip /private/ if present
+    return Path(str(path_str).removeprefix("/private/"))
 
 
 @pytest.mark.parametrize(
