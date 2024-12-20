@@ -100,15 +100,6 @@ class Storage:
         }
         self.add(mount_path, cfg)
 
-    def _add_tun_device(self, read_only: bool = True, mount_path: str = ""):
-        mount_path = valid_fs_path_or_raise(mount_path)
-        cfg: "IxStorage" = {
-            "type": "host_path",
-            "read_only": read_only,
-            "host_path_config": {"path": "/dev/net/tun", "create_host_path": False},
-        }
-        self.add(mount_path, cfg)
-
     def has_mounts(self) -> bool:
         return bool(self._volume_mounts)
 

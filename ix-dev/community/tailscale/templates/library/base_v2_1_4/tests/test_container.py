@@ -205,26 +205,6 @@ def test_add_docker_socket(mock_values):
     ]
 
 
-def test_tun_device(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    c1.add_tun_device()
-    output = render.render()
-    assert output["services"]["test_container"]["volumes"] == [
-        {
-            "type": "bind",
-            "source": "/dev/net/tun",
-            "target": "/dev/net/tun",
-            "read_only": True,
-            "bind": {
-                "propagation": "rprivate",
-                "create_host_path": False,
-            },
-        }
-    ]
-
-
 def test_snd_device(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
