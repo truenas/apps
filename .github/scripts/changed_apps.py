@@ -62,9 +62,10 @@ def find_test_files(changed_files):
         print("Skipped apps based on the EXCLUDE_TESTS list:", file=sys.stderr)
         print("\n".join(skipped), file=sys.stderr)
 
-    result = {"matrix1": {"include": matrix[:256]}}
-    if len(matrix) > 256:
-        result["matrix2"] = {"include": matrix[256:]}
+    result = {
+        "matrix1": {"include": matrix[:256]},
+        "matrix2": {"include": matrix[256:]},
+    }
 
     return json.dumps(result)
 
