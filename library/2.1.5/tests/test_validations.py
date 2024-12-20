@@ -1,15 +1,7 @@
 import pytest
-import tempfile
 
 from pathlib import Path
 from validations import is_allowed_path, RESTRICTED, RESTRICTED_IN
-
-
-@pytest.fixture
-def tmp_path():
-    """Creates a temporary directory and returns it as a pathlib.Path."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
 
 
 @pytest.mark.parametrize(
