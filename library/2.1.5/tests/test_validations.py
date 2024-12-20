@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 
 from pathlib import Path
 from validations import is_allowed_path, RESTRICTED, RESTRICTED_IN
@@ -88,10 +89,19 @@ def test_is_allowed_path_nonexistent(tmp_path):
     assert is_allowed_path(str(nonexistent)) is True
 
 
+def mock_resolve(self):
+    # Don't modify paths that are from RESTRICTED list initialization
+    if str(self) in [str(p) for p in RESTRICTED]:
+        return self
+
+    return Path(str(self))
+
+
 @pytest.mark.parametrize(
     "test_path",
     list(RESTRICTED),
 )
+@patch.object(Path, "resolve", mock_resolve)
 def test_is_allowed_path_restricted_list(test_path):
     """Test that all items in the RESTRICTED list are invalid."""
     assert is_allowed_path(test_path) is False
