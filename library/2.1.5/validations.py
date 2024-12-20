@@ -136,8 +136,8 @@ def valid_fs_path_or_raise(path: str):
 
 
 def allowed_fs_host_path_or_raise(path: str):
-    disallowed_paths = ["/mnt"]
-    if path in disallowed_paths:
+    disallowed_paths = ["/mnt", "/audit", "/var/db", "/data"]
+    if path.rstrip("/") in disallowed_paths:
         raise RenderError(f"Path [{path}] cannot be one of [{', '.join(disallowed_paths)}]")
     return path
 
