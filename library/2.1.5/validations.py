@@ -1,5 +1,7 @@
 import re
 import ipaddress
+from pathlib import Path
+
 
 try:
     from .error import RenderError
@@ -7,6 +9,19 @@ except ImportError:
     from error import RenderError
 
 OCTAL_MODE_REGEX = re.compile(r"^0[0-7]{3}$")
+RESTRICTED_IN: tuple[Path, ...] = (Path("/mnt"), Path("/"))
+RESTRICTED: tuple[Path, ...] = (
+    Path("/mnt/.ix-apps"),
+    Path("/data"),
+    Path("/var/db"),
+    Path("/root"),
+    Path("/conf"),
+    Path("/audit"),
+    Path("/var/run/middleware"),
+    Path("/home"),
+    Path("/boot"),
+    Path("/var/log"),
+)
 
 
 def valid_pull_policy_or_raise(pull_policy: str):
@@ -135,10 +150,25 @@ def valid_fs_path_or_raise(path: str):
     return path
 
 
+def is_allowed_path(input_path: str) -> bool:
+    """
+    Validates that the given path (after resolving symlinks) is not
+    one of the restricted paths or within those restricted directories.
+
+    Returns True if the path is allowed, False otherwise.
+    """
+    # Resolve the path to avoid symlink bypasses
+    real_path = Path(input_path).resolve()
+    for restricted in RESTRICTED:
+        if real_path.is_relative_to(restricted):
+            return False
+
+    return real_path not in RESTRICTED_IN
+
+
 def allowed_fs_host_path_or_raise(path: str):
-    disallowed_paths = ["/mnt", "/audit", "/var/db", "/data"]
-    if path.rstrip("/") in disallowed_paths:
-        raise RenderError(f"Path [{path}] cannot be one of [{', '.join(disallowed_paths)}]")
+    if not is_allowed_path(path):
+        raise RenderError(f"Path [{path}] is not allowed to be mounted.")
     return path
 
 
