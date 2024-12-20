@@ -664,3 +664,30 @@ def test_add_docker_socket_mount_path(mock_values):
             "bind": {"create_host_path": False, "propagation": "rprivate"},
         }
     ]
+
+
+def test_host_path_with_disallowed_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    host_path_config = {"type": "host_path", "host_path_config": {"path": "/mnt"}}
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", host_path_config)
+
+
+def test_host_path_without_disallowed_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    host_path_config = {"type": "host_path", "host_path_config": {"path": "/mnt/test"}}
+    c1.add_storage("/mnt", host_path_config)
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/mnt/test",
+            "target": "/mnt",
+            "read_only": False,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]

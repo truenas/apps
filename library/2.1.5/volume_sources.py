@@ -7,11 +7,11 @@ if TYPE_CHECKING:
 try:
     from .error import RenderError
     from .formatter import get_hashed_name_for_volume
-    from .validations import valid_fs_path_or_raise
+    from .validations import valid_fs_path_or_raise, allowed_fs_host_path_or_raise
 except ImportError:
     from error import RenderError
     from formatter import get_hashed_name_for_volume
-    from validations import valid_fs_path_or_raise
+    from validations import valid_fs_path_or_raise, allowed_fs_host_path_or_raise
 
 
 class HostPathSource:
@@ -31,7 +31,9 @@ class HostPathSource:
         else:
             path = valid_fs_path_or_raise(config.get("path", ""))
 
-        self.source = path.rstrip("/")
+        path = path.rstrip("/")
+        path = allowed_fs_host_path_or_raise(path)
+        self.source = path
 
     def get(self):
         return self.source
@@ -56,7 +58,9 @@ class IxVolumeSource:
                 f"Available keys: [{available}]."
             )
 
-        self.source = valid_fs_path_or_raise(ix_volumes[dataset_name].rstrip("/"))
+        path = valid_fs_path_or_raise(ix_volumes[dataset_name].rstrip("/"))
+        path = allowed_fs_host_path_or_raise(path)
+        self.source = path
 
     def get(self):
         return self.source

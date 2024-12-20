@@ -135,6 +135,13 @@ def valid_fs_path_or_raise(path: str):
     return path
 
 
+def allowed_fs_host_path_or_raise(path: str):
+    disallowed_paths = ["/mnt"]
+    if path in disallowed_paths:
+        raise RenderError(f"Path [{path}] cannot be one of [{', '.join(disallowed_paths)}]")
+    return path
+
+
 def _valid_path_or_raise(path: str):
     if path == "":
         raise RenderError(f"Path [{path}] cannot be empty")
