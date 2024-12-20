@@ -32,8 +32,7 @@ class HostPathSource:
             path = valid_fs_path_or_raise(config.get("path", ""))
 
         path = path.rstrip("/")
-        path = allowed_fs_host_path_or_raise(path)
-        self.source = path
+        self.source = allowed_fs_host_path_or_raise(path)
 
     def get(self):
         return self.source
@@ -59,8 +58,7 @@ class IxVolumeSource:
             )
 
         path = valid_fs_path_or_raise(ix_volumes[dataset_name].rstrip("/"))
-        path = allowed_fs_host_path_or_raise(path)
-        self.source = path
+        self.source = allowed_fs_host_path_or_raise(path)
 
     def get(self):
         return self.source
