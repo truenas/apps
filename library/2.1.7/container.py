@@ -349,8 +349,8 @@ class Container:
             if self.ports.has_ports():
                 result["ports"] = self.ports.render()
 
-        if self.expose.has_ports():
-            result["expose"] = self.expose.render()
+            if self.expose.has_ports():
+                result["expose"] = self.expose.render()
 
         if self._entrypoint:
             result["entrypoint"] = self._entrypoint
