@@ -344,12 +344,12 @@ def test_add_ports(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    c1.add_port({"host_port": 8081, "container_port": 8080, "bind_mode": "published"})
-    c1.add_port({"host_port": 8082, "container_port": 8080, "bind_mode": "published", "protocol": "udp"})
-    c1.add_port({"host_port": 8083, "container_port": 8080, "bind_mode": "exposed"})
-    c1.add_port({"host_port": 8084, "container_port": 8080, "bind_mode": ""})
+    c1.add_port({"port_number": 8081, "container_port": 8080, "bind_mode": "published"})
+    c1.add_port({"port_number": 8082, "container_port": 8080, "bind_mode": "published", "protocol": "udp"})
+    c1.add_port({"port_number": 8083, "container_port": 8080, "bind_mode": "exposed"})
+    c1.add_port({"port_number": 8084, "container_port": 8080, "bind_mode": ""})
     c1.add_port(
-        {"host_port": 9091, "container_port": 9091, "bind_mode": "published"},
+        {"port_number": 9091, "container_port": 9091, "bind_mode": "published"},
         {"container_port": 9092, "protocol": "udp"},
     )
     output = render.render()
@@ -358,4 +358,4 @@ def test_add_ports(mock_values):
         {"published": 8082, "target": 8080, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
         {"published": 9091, "target": 9092, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
     ]
-    assert output["services"]["test_container"]["expose"] == ["8083/tcp"]
+    assert output["services"]["test_container"]["expose"] == ["8080/tcp"]
