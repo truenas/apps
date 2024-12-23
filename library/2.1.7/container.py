@@ -233,7 +233,7 @@ class Container:
 
         # Collect port config
         host_port = config.get("host_port", 0)
-        container_port = config.get("container_port", 0)
+        container_port = config.get("container_port", 0) or host_port
         protocol = config.get("protocol", "tcp")
         host_ip = config.get("host_ip", "0.0.0.0")
 
