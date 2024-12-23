@@ -358,4 +358,4 @@ def test_add_ports(mock_values):
         {"published": 8082, "target": 8080, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
         {"published": 9091, "target": 9092, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
     ]
-    assert output["services"]["test_container"]["expose"] == ["8083/tcp"]
+    assert output["services"]["test_container"]["expose"] == ["8080/tcp"]

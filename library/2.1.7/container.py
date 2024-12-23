@@ -240,7 +240,7 @@ class Container:
         if bind_mode == "published":
             self.ports.add_port(host_port, container_port, {"protocol": protocol, "host_ip": host_ip})
         elif bind_mode == "exposed":
-            self.expose.add_port(host_port, protocol)
+            self.expose.add_port(container_port, protocol)
 
     def set_entrypoint(self, entrypoint: list[str]):
         self._entrypoint = [escape_dollar(str(e)) for e in entrypoint]
