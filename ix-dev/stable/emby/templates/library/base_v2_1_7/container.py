@@ -226,7 +226,7 @@ class Container:
         # Merge port_config and dev_config (dev_config has precedence)
         config = port_config | dev_config
 
-        bind_mode = valid_port_bind_mode_or_raise(config.get("bind_mode") or "")
+        bind_mode = valid_port_bind_mode_or_raise(config.get("bind_mode", ""))
         # Skip port if its neither published nor exposed
         if not bind_mode:
             return
