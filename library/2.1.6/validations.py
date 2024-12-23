@@ -150,7 +150,7 @@ def valid_fs_path_or_raise(path: str):
     return path
 
 
-def is_allowed_path(input_path: str) -> bool:
+def is_allowed_path(input_path: str, is_ix_volume: bool = False) -> bool:
     """
     Validates that the given path (after resolving symlinks) is not
     one of the restricted paths or within those restricted directories.
@@ -159,15 +159,15 @@ def is_allowed_path(input_path: str) -> bool:
     """
     # Resolve the path to avoid symlink bypasses
     real_path = Path(input_path).resolve()
-    for restricted in RESTRICTED:
+    for restricted in RESTRICTED if not is_ix_volume else [r for r in RESTRICTED if r != Path("/mnt/.ix-apps")]:
         if real_path.is_relative_to(restricted):
             return False
 
     return real_path not in RESTRICTED_IN
 
 
-def allowed_fs_host_path_or_raise(path: str):
-    if not is_allowed_path(path):
+def allowed_fs_host_path_or_raise(path: str, is_ix_volume: bool = False):
+    if not is_allowed_path(path, is_ix_volume):
         raise RenderError(f"Path [{path}] is not allowed to be mounted.")
     return path
 

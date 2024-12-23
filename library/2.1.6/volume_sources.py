@@ -58,7 +58,7 @@ class IxVolumeSource:
             )
 
         path = valid_fs_path_or_raise(ix_volumes[dataset_name].rstrip("/"))
-        self.source = allowed_fs_host_path_or_raise(path)
+        self.source = allowed_fs_host_path_or_raise(path, True)
 
     def get(self):
         return self.source

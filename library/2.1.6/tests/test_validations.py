@@ -50,6 +50,12 @@ def test_is_allowed_path_direct(test_path, expected):
 
 
 @patch.object(Path, "resolve", mock_resolve)
+def test_is_allowed_path_ix_volume():
+    """Test that IX volumes are not allowed"""
+    assert is_allowed_path("/mnt/.ix-apps/something", True)
+
+
+@patch.object(Path, "resolve", mock_resolve)
 def test_is_allowed_path_symlink(tmp_path):
     """
     Test that a symlink pointing to a restricted directory is detected as invalid,
