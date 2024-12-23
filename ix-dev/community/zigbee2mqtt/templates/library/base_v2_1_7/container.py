@@ -232,15 +232,15 @@ class Container:
             return
 
         # Collect port config
-        host_port = config.get("host_port", 0)
-        container_port = config.get("container_port", 0) or host_port
+        host_port = config.get("port_number", -1)
+        container_port = config.get("container_port", -1) or host_port
         protocol = config.get("protocol", "tcp")
         host_ip = config.get("host_ip", "0.0.0.0")
 
         if bind_mode == "published":
             self.ports.add_port(host_port, container_port, {"protocol": protocol, "host_ip": host_ip})
         elif bind_mode == "exposed":
-            self.expose.add_port(host_port, protocol)
+            self.expose.add_port(container_port, protocol)
 
     def set_entrypoint(self, entrypoint: list[str]):
         self._entrypoint = [escape_dollar(str(e)) for e in entrypoint]
