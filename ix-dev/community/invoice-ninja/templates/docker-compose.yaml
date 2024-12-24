@@ -27,7 +27,7 @@
 {% set c1 = tpl.add_container(values.consts.invoice_ninja_container_name, "image") %}
 {% set nginx = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
 
-{% do nginx.depends.add_dependency(values.consts.invoice_ninja_container_name, "service_started") %} {# FIXME: #}
+{% do nginx.depends.add_dependency(values.consts.invoice_ninja_container_name, "service_healthy") %}
 {% do nginx.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
 {% do nginx.configs.add("laravel.conf", nginx_conf(values), "/etc/nginx/conf.d/in-vhost.conf") %}
 {% do nginx.configs.add("invoiceninja.conf", nginx_opts(), "/etc/nginx/conf.d/invoiceninja.conf") %}
@@ -43,7 +43,7 @@
 
 {% do c1.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do c1.healthcheck.disable() %} {# FIXME: #}
+{% do c1.healthcheck.set_custom_test("php -v") %}
 
 {% do c1.environment.add_env("REQUIRE_HTTPS", false) %}
 {% do c1.environment.add_env("FILESYSTEM_DISK", "debian_docker") %}
@@ -73,6 +73,7 @@
 {% do c1.environment.add_env("DB_PASSWORD", values.invoice_ninja.db_password) %}
 {% do c1.environment.add_user_envs(values.invoice_ninja.additional_envs) %}
 
+{% do c1.add_storage("/var/www/html/bootstrap/cache", {"type": "anonymous"}) %}
 {% do c1.add_storage("/var/www/html/public", values.storage.public) %}
 {% do c1.add_storage("/var/www/html/storage", values.storage.storage) %}
 {% for store in values.storage.additional_storage %}
