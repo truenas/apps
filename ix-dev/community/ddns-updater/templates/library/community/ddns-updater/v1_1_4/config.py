@@ -246,6 +246,14 @@ providers_schema = {
             {"provider_key": "ttl", "ui_key": "namecom_ttl", "type": "int"},
         ],
     },
+    "namesilo": {
+        "required": [
+            {"provider_key": "key", "ui_key": "namesilo_key"},
+        ],
+        "optional": [
+            {"provider_key": "ttl", "ui_key": "namesilo_ttl", "type": "int"},
+        ],
+    },
     "netcup": {
         "required": [
             {"provider_key": "api_key", "ui_key": "netcup_api_key"},
