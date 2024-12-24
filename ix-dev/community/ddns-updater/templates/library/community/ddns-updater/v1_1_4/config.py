@@ -343,6 +343,12 @@ providers_schema = {
             {"provider_key": "email", "ui_key": "variomedia_email"},
         ],
     },
+    "vultr": {
+        "required": [
+            {"provider_key": "apikey", "ui_key": "vultr_api_key"},
+        ],
+        "optional": [{"provider_key": "ttl", "ui_key": "vultr_ttl", "type": "int"}],
+    },
     "zoneedit": {
         "required": [
             {"provider_key": "username", "ui_key": "zoneedit_username"},
