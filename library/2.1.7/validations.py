@@ -24,6 +24,13 @@ RESTRICTED: tuple[Path, ...] = (
 )
 
 
+def valid_port_bind_mode_or_raise(status: str):
+    valid_statuses = ("published", "exposed", "")
+    if status not in valid_statuses:
+        raise RenderError(f"Invalid port status [{status}]")
+    return status
+
+
 def valid_pull_policy_or_raise(pull_policy: str):
     valid_policies = ("missing", "always", "never", "build")
     if pull_policy not in valid_policies:
