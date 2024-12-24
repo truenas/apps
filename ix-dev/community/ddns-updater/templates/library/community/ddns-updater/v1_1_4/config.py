@@ -233,6 +233,9 @@ providers_schema = {
             {"provider_key": "email", "ui_key": "luadns_email"},
         ],
     },
+    "myaddr": {
+        "required": [{"provider_key": "key", "ui_key": "myaddr_key"}],
+    },
     "namecheap": {
         "required": [{"provider_key": "password", "ui_key": "namecheap_password"}],
     },
