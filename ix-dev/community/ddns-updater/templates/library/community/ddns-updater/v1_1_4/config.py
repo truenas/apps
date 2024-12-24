@@ -221,6 +221,12 @@ providers_schema = {
     "linode": {
         "required": [{"provider_key": "token", "ui_key": "linode_token"}],
     },
+    "loopia": {
+        "required": [
+            {"provider_key": "username", "ui_key": "loopia_username"},
+            {"provider_key": "password", "ui_key": "loopia_password"},
+        ],
+    },
     "luadns": {
         "required": [
             {"provider_key": "token", "ui_key": "luadns_token"},
