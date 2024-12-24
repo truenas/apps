@@ -69,17 +69,8 @@ providers_schema = {
         ],
         "optional": [{"provider_key": "proxied", "ui_key": "cloudflare_proxied"}],
         "combos": [
-            {
-                "required": [{"provider_key": "token", "ui_key": "cloudflare_token"}],
-            },
-            {
-                "required": [
-                    {
-                        "provider_key": "user_service_key",
-                        "ui_key": "cloudflare_user_service_key",
-                    }
-                ],
-            },
+            {"required": [{"provider_key": "token", "ui_key": "cloudflare_token"}]},
+            {"required": [{"provider_key": "user_service_key", "ui_key": "cloudflare_user_service_key"}]},
             {
                 "required": [
                     {"provider_key": "email", "ui_key": "cloudflare_email"},
@@ -97,11 +88,7 @@ providers_schema = {
             {"provider_key": "password", "ui_key": "ddnss_password"},
         ],
         "optional": [
-            {
-                "provider_key": "dual_stack",
-                "ui_key": "ddnss_dual_stack",
-                "default": False,
-            },
+            {"provider_key": "dual_stack", "ui_key": "ddnss_dual_stack", "default": False},
         ],
     },
     "desec": {
@@ -118,6 +105,12 @@ providers_schema = {
     },
     "dnspod": {
         "required": [{"provider_key": "token", "ui_key": "dnspod_token"}],
+    },
+    "domeneshop": {
+        "required": [
+            {"provider_key": "token", "ui_key": "domeneshop_token"},
+            {"provider_key": "secret", "ui_key": "domeneshop_secret"},
+        ],
     },
     "dondominio": {
         "required": [
@@ -142,9 +135,7 @@ providers_schema = {
             {"provider_key": "username", "ui_key": "dynu_username"},
             {"provider_key": "password", "ui_key": "dynu_password"},
         ],
-        "optional": [
-            {"provider_key": "group", "ui_key": "dynu_group"},
-        ],
+        "optional": [{"provider_key": "group", "ui_key": "dynu_group"}],
     },
     "dynv6": {
         "required": [{"provider_key": "token", "ui_key": "dynv6_token"}],
@@ -168,11 +159,7 @@ providers_schema = {
         "required": [
             {"provider_key": "project", "ui_key": "gcp_project"},
             {"provider_key": "zone", "ui_key": "gcp_zone"},
-            {
-                "provider_key": "credentials",
-                "ui_key": "gcp_credentials",
-                "func": lambda x: json.loads(x),
-            },
+            {"provider_key": "credentials", "ui_key": "gcp_credentials", "func": lambda x: json.loads(x)},
         ],
     },
     "godaddy": {
@@ -215,11 +202,20 @@ providers_schema = {
     "linode": {
         "required": [{"provider_key": "token", "ui_key": "linode_token"}],
     },
+    "loopia": {
+        "required": [
+            {"provider_key": "username", "ui_key": "loopia_username"},
+            {"provider_key": "password", "ui_key": "loopia_password"},
+        ],
+    },
     "luadns": {
         "required": [
             {"provider_key": "token", "ui_key": "luadns_token"},
             {"provider_key": "email", "ui_key": "luadns_email"},
         ],
+    },
+    "myaddr": {
+        "required": [{"provider_key": "key", "ui_key": "myaddr_key"}],
     },
     "namecheap": {
         "required": [{"provider_key": "password", "ui_key": "namecheap_password"}],
@@ -230,6 +226,10 @@ providers_schema = {
             {"provider_key": "username", "ui_key": "namecom_username"},
             {"provider_key": "ttl", "ui_key": "namecom_ttl", "type": "int"},
         ],
+    },
+    "namesilo": {
+        "required": [{"provider_key": "key", "ui_key": "namesilo_key"}],
+        "optional": [{"provider_key": "ttl", "ui_key": "namesilo_ttl", "type": "int"}],
     },
     "netcup": {
         "required": [
@@ -291,9 +291,7 @@ providers_schema = {
             {"provider_key": "secret_key", "ui_key": "route53_secret_key"},
             {"provider_key": "zone_id", "ui_key": "route53_zone_id"},
         ],
-        "optional": [
-            {"provider_key": "ttl", "ui_key": "route53_ttl", "type": "int"},
-        ],
+        "optional": [{"provider_key": "ttl", "ui_key": "route53_ttl", "type": "int"}],
     },
     "selfhost.de": {
         "required": [
@@ -311,9 +309,7 @@ providers_schema = {
     "spdyn": {
         "required": [],
         "combos": [
-            {
-                "required": [{"provider_key": "token", "ui_key": "spdyn_token"}],
-            },
+            {"required": [{"provider_key": "token", "ui_key": "spdyn_token"}]},
             {
                 "required": [
                     {"provider_key": "user", "ui_key": "spdyn_username"},
@@ -330,6 +326,12 @@ providers_schema = {
             {"provider_key": "password", "ui_key": "variomedia_password"},
             {"provider_key": "email", "ui_key": "variomedia_email"},
         ],
+    },
+    "vultr": {
+        "required": [
+            {"provider_key": "apikey", "ui_key": "vultr_api_key"},
+        ],
+        "optional": [{"provider_key": "ttl", "ui_key": "vultr_ttl", "type": "int"}],
     },
     "zoneedit": {
         "required": [
