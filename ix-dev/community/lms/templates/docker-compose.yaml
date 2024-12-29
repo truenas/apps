@@ -4,11 +4,14 @@
 
 {% do c1.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 
-{% do c1.ports.add_port(9000, 9000) %}
-{% do c1.ports.add_port(9090, 9090) %}
+{% do c1.ports.add_port(9000, values.network.web_port) %}
+{% do c1.ports.add_port(9090, values.network.cli_port) %}
 {% do c1.ports.add_port(3483, 3483) %}
 {% do c1.ports.add_port(3483, 3483, {"protocol": "udp"}) %}
 
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage("/music", values.storage.music) %}
+{% do c1.add_storage("/playlist", values.storage.playlist) %}
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
@@ -16,8 +19,8 @@
 {% do c1.environment.add_env("PUID", values.consts.run_as_user) %}
 {% do c1.environment.add_env("PGID", values.consts.run_as_group) %}
 
-{% do c1.healthcheck.set_test("curl", {"port": 9000, "path": "/"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/"}) %}
 
-{% do tpl.portals.add_portal({"port": 9000}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
 
 {{ tpl.render() | tojson }}
