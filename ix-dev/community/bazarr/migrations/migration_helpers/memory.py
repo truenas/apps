@@ -1,8 +1,16 @@
 import re
 import math
-import psutil
 
-TOTAL_MEM = psutil.virtual_memory().total
+
+def get_total_memory():
+    with open("/proc/meminfo") as f:
+        for line in filter(lambda x: "MemTotal" in x, f):
+            return int(line.split()[1]) * 1024
+
+    return 0
+
+
+TOTAL_MEM = get_total_memory()
 
 SINGLE_SUFFIX_REGEX = re.compile(r"^[1-9][0-9]*([EPTGMK])$")
 DOUBLE_SUFFIX_REGEX = re.compile(r"^[1-9][0-9]*([EPTGMK])i$")
