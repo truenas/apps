@@ -62,22 +62,34 @@ def find_test_files(changed_files):
         print("Skipped apps based on the EXCLUDE_TESTS list:", file=sys.stderr)
         print("\n".join(skipped), file=sys.stderr)
 
-    return matrix
+    result = {
+        "matrix1": {"include": matrix[:256]},
+        "matrix2": {"include": matrix[256:]},
+    }
+
+    return json.dumps(result)
 
 
 def main():
     changed_files = get_changed_files()
-    matrix = find_test_files(changed_files)
+    print(find_test_files(changed_files))
     # This should look like:
     # {
-    #   "include": [
-    #     { "train": "enterprise", "app": "minio", "test_file": "basic-values.yaml" },
-    #     { "train": "enterprise", "app": "minio", "test_file": "https-values.yaml" },
-    #     ...
-    #   ]
+    #   "matrix1": {
+    #     "include": [
+    #       { "train": "enterprise", "app": "minio", "test_file": "basic-values.yaml" },
+    #       { "train": "enterprise", "app": "minio", "test_file": "https-values.yaml" },
+    #       ...
+    #     ]
+    #   },
+    #   "matrix2": {
+    #     "include": [
+    #       { "train": "enterprise", "app": "minio", "test_file": "basic-values.yaml" },
+    #       { "train": "enterprise", "app": "minio", "test_file": "https-values.yaml" },
+    #       ...
+    #     ]
+    #   }
     # }
-
-    print(json.dumps({"include": matrix}))
 
 
 if __name__ == "__main__":
