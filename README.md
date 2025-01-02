@@ -9,6 +9,7 @@ This repository contains the Docker-Compose based App catalog used by TrueNAS sy
 
 The Apps catalog is open for contributions! We provide instructions on how to locally develop and test new applications in our [contributors guide](CONTRIBUTIONS.md). 
 
+Questions on the development of applications? Please head over to our [discussions](https://github.com/truenas/apps/discussions) page to ask questions and collaborate with other App Developers. 
 
 ## Parity Status with Legacy K3's truenas/charts (100% 🚀)
 <details>
