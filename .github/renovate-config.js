@@ -146,6 +146,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-full$",
       ["apache/tika"]
     ),
+    customVersioning(
+      // 2.0.0-beta.1
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
+      ["ghcr.io/louislam/uptime-kuma"]
+    ),
   ],
 };
 
