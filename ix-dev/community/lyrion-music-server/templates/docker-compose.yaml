@@ -4,8 +4,10 @@
 
 {% do c1.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 
-{% do c1.ports.add_port(9000, values.network.web_port) %}
-{% do c1.ports.add_port(9090, values.network.cli_port) %}
+{% do c1.add_port(values.network.web_port) %}
+{# TODO: We might have to expose the container port as well on ui #}
+{% do c1.add_port(values.network.cli_port) %}
+{# FIXME: those should be exposed on UI too, and use the c1.add_port() #}
 {% do c1.ports.add_port(3483, 3483) %}
 {% do c1.ports.add_port(3483, 3483, {"protocol": "udp"}) %}
 
@@ -16,11 +18,11 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do c1.environment.add_env("PUID", values.consts.run_as_user) %}
-{% do c1.environment.add_env("PGID", values.consts.run_as_group) %}
+{% do c1.environment.add_env("HTTP_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_user_envs(values.lms.additional_envs) %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
