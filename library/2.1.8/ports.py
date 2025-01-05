@@ -28,6 +28,17 @@ class Ports:
 
     def add_port(self, host_port: int, container_port: int, config: dict | None = None):
         config = config or {}
+
+        if config.get("host_ip", None) is None:
+            ipv4_config = config.copy()
+            ipv4_config["host_ip"] = "0.0.0.0"
+
+            ipv6_config = config.copy()
+            ipv4_config["host_ip"] = "[::]"
+
+            self.add_port(host_port, container_port, ipv4_config)
+            self.add_port(host_port, container_port, ipv6_config)
+
         host_port = valid_port_or_raise(host_port)
         container_port = valid_port_or_raise(container_port)
         proto = valid_port_protocol_or_raise(config.get("protocol", "tcp"))
