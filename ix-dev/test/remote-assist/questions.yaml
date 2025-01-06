@@ -1,0 +1,250 @@
+groups:
+  - name: Configuration
+    description: Remote Assist is used by iX Support for Enterprise troubleshooting
+  - name: Network Configuration
+    description: Configure Network for Tailscale
+  - name: Storage Configuration
+    description: Configure Storage for Tailscale
+  - name: Labels Configuration
+    description: Configure Labels for Tailscale
+  - name: Resources Configuration
+    description: Configure Resources for Tailscale
+
+questions:
+  - variable: TZ
+    hidden: true
+    label: Timezone
+    description: Timezone
+    group: Configuration
+    schema:
+      type: string
+      default: Etc/UTC
+      $ref:
+        - "definitions/timezone"
+
+  - variable: remoteassist 
+    label: ""
+    group: Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: hostname
+          hidden: true
+          label: Hostname
+          description: |
+            The hostname for Tailscale Node.</br>
+            Only lowercase letters, numbers, and hyphens are allowed.</br>
+            Same as `--hostname` flag.
+          schema:
+            type: string
+            default: "truenas-scale"
+            valid_chars: "^[a-z0-9-]+$"
+            valid_chars_error: |
+              Only lowercase letters, numbers, and hyphens are allowed.
+            required: true
+        - variable: auth_key
+          label: Auth Key
+          description: |
+            The auth key for Remote Assistance.</br>
+            Please enter the key as provided by iX support.</br>
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: auth_once
+          label: Auth Once
+          hidden: true
+          description: Attempt to log in only if not already logged in.
+          schema:
+            type: boolean
+            default: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          hidden: true
+          description: Configure additional environment variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+                        required: true
+
+  - variable: network
+    hidden: true
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network.</br>
+            Needed in most cases in order to communicate with the host.
+          schema:
+            type: boolean
+            default: true
+
+  - variable: storage
+    hidden: true
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: state
+          label: Tailscale State Storage
+          description: The path to store Tailscale State.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  immutable: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        immutable: true
+                        hidden: true
+                        default: "state"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+
+  - variable: labels
+    hidden: true
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: remoteassist 
+                            description: remoteassist 
+  - variable: resources
+    hidden: true
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
