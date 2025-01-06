@@ -1,10 +1,19 @@
-# Apps Catalog
+# TrueNAS Apps Catalog
 
-## **Contributions**
+This repository contains the Docker-Compose based App catalog used by TrueNAS systems to render and update the Apps catalog. 
 
-See [CONTRIBUTIONS.md](CONTRIBUTIONS.md)
+![image](https://github.com/user-attachments/assets/2f00c325-9d6a-46ff-8162-a080fd8a156a)
 
-## Parity Status with truenas/charts (100% 🚀)
+
+## Contributing Applications
+
+The Apps catalog is open for contributions! We provide instructions on how to locally develop and test new applications in our [contributors guide](CONTRIBUTIONS.md). 
+
+Questions on the development of applications? Please head over to our [discussions](https://github.com/truenas/apps/discussions) page to ask questions and collaborate with other App Developers. 
+
+## Parity Status with Legacy K3's truenas/charts (100% 🚀)
+<details>
+<summary>Show Apps List</summary>
 
 | App                  | Train      | Added | Migrated                                                             |
 | -------------------- | ---------- | ----- | -------------------------------------------------------------------- |
@@ -119,9 +128,4 @@ See [CONTRIBUTIONS.md](CONTRIBUTIONS.md)
 | minio                | enterprise | ✅    | ✅                                                                   |
 | syncthing            | enterprise | ✅    | ✅                                                                   |
 
-## New Apps
-
-|     | App       | Train     |
-| --- | --------- | --------- |
-| ⭐  | portainer | community |
-| ⭐  | dockge    | community |
+</details>
