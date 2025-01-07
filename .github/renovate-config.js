@@ -138,8 +138,8 @@ module.exports = {
     ),
     customVersioning(
       // tailscale considers beta releases when minor part ends with an odd number
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)[02468]+\\.(?<patch>\\d+)$",
-      ["tailscale/tailscale"]
+      "^v(?<major>\\d+)\\.(?<minor>\\d+[02468]+)\\.(?<patch>\\d+)$",
+      ["ghcr.io/tailscale/tailscale"]
     ),
     customVersioning(
       // 3.0.0.0-full
