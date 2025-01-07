@@ -38,6 +38,36 @@ consts:
     # https://wiki.php.net/rfc/jit_config_defaults
     opcache.jit=tracing
     opcache.jit_buffer_size=64M
+
   # https://github.com/invoiceninja/dockerfiles/blob/debian/debian/php/php-fpm.conf
   php_fpm_conf: |
     pm.max_children = 10
+
+  # https://github.com/invoiceninja/dockerfiles/blob/debian/debian/nginx/invoiceninja.conf
+  invoice_ninja_nginx_conf: |
+    # https://nginx.org/en/docs/http/ngx_http_core_module.html
+    client_max_body_size 10M;
+    client_body_buffer_size 10M;
+    server_tokens off;
+
+    # https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html
+    fastcgi_buffers 32 16K;
+
+    # https://nginx.org/en/docs/http/ngx_http_gzip_module.html
+    gzip on;
+    gzip_comp_level 2;
+    gzip_min_length 1M;
+    gzip_proxied any;
+    gzip_types *;
+
+  entrypoint: |
+    #!/bin/sh
+
+    # Create directories
+    mkdir -p /var/www/html/storage/framework/cache/data
+    mkdir -p /var/www/html/storage/framework/sessions
+    mkdir -p /var/www/html/storage/framework/views
+    mkdir -p /var/www/html/storage/framework/testing
+    mkdir -p /var/www/html/storage/app/public
+
+    /usr/local/bin/init.sh supervisord -c /etc/supervisor/conf.d/supervisord.conf
