@@ -25,7 +25,6 @@
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
-{% set tmp_public = {"type": "volume", "volume_config": {"volume_name": "public"}} %}
 
 {% do nginx.depends.add_dependency(values.consts.invoice_ninja_container_name, "service_healthy") %}
 {% do nginx.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
@@ -75,16 +74,18 @@
 {% do c1.environment.add_env("DB_PASSWORD", values.invoice_ninja.db_password) %}
 {% do c1.environment.add_user_envs(values.invoice_ninja.additional_envs) %}
 
-{% do c1.add_storage("/var/www/html/bootstrap/cache", {"type": "anonymous"}) %}
-{# {% do c1.add_storage("/var/www/html/storage", values.storage.storage) %}
-{% do nginx.add_storage("/var/www/html/storage", values.storage.storage) %} #}
-
 {#
-  Only need a temp dir to share with nginx, its cleared on startup
+  Only need a shared dir to share with nginx, its cleared on startup
   https://github.com/invoiceninja/dockerfiles/blob/3394694ffcd4e90fb17c446cc9f99312d8beb24c/debian/scripts/init.sh#L36
 #}
+{% set tmp_public = {"type": "volume", "volume_config": {"volume_name": "public"}} %}
 {% do c1.add_storage("/var/www/html/public", tmp_public) %}
 {% do nginx.add_storage("/var/www/html/public", tmp_public) %}
+
+{% do c1.add_storage("/var/www/html/bootstrap/cache", {"type": "anonymous"}) %}
+
+{% do c1.add_storage("/var/www/html/storage", values.storage.storage) %}
+{% do nginx.add_storage("/var/www/html/storage", values.storage.storage) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
