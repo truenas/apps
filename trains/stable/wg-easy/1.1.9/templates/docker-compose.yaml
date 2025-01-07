@@ -1,0 +1,43 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.wg_easy_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["NET_ADMIN", "NET_RAW", "SYS_MODULE"]) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port}) %}
+
+{#
+  https://github.com/wg-easy/wg-easy/pull/862
+  Keep all WG_{PRE,POST}_{UP,DOWN} env vars empty.
+  This will allow the container to handle setup and teardown of the wireguard interface.
+  The above will not allow users to set a value to those. Avoiding foot-shooting.
+#}
+{% do c1.environment.add_env("WG_PRE_UP", "") %}
+{% do c1.environment.add_env("WG_POST_UP", "") %}
+{% do c1.environment.add_env("WG_PRE_DOWN", "") %}
+{% do c1.environment.add_env("WG_POST_DOWN", "") %}
+{% do c1.environment.add_env("PORT", values.network.web_port) %}
+{% do c1.environment.add_env("PASSWORD_HASH", tpl.funcs.bcrypt_hash(values.wg_easy.password)) %}
+{% do c1.environment.add_env("WG_PATH", values.consts.config_path) %}
+{% do c1.environment.add_env("WG_PORT", values.wg_easy.external_port) %}
+{% do c1.environment.add_env("WG_HOST", values.wg_easy.external_host) %}
+{% do c1.environment.add_env("WG_MTU", values.wg_easy.client_mtu) %}
+{% do c1.environment.add_env("WG_DEFAULT_ADDRESS", values.wg_easy.client_default_address_range) %}
+{% do c1.environment.add_env("WG_DEFAULT_DNS", values.wg_easy.client_default_dns) %}
+{% do c1.environment.add_env("WG_DEVICE", tpl.funcs.or_default(values.wg_easy.device_name, "eth0")) %}
+{% do c1.environment.add_env("WG_ALLOWED_IPS", tpl.funcs.or_default(values.wg_easy.allowed_ips, ["0.0.0.0/0", "::/0"]) | join(",")) %}
+{% do c1.environment.add_env("WG_PERSISTENT_KEEPALIVE", values.wg_easy.persistent_keepalive) %}
+{% do c1.environment.add_user_envs(values.wg_easy.additional_envs) %}
+
+{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% if not values.network.host_network %}
+  {% do c1.ports.add_port(values.network.udp_port, values.network.udp_port, {"protocol": "udp"}) %}
+{% endif %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add_portal({"port": values.network.web_port})%}
+
+{{ tpl.render() | tojson }}
