@@ -164,7 +164,7 @@ def test_add_group(mock_values):
     c1.add_group(1000)
     c1.add_group("video")
     output = render.render()
-    assert output["services"]["test_container"]["group_add"] == [568, 1000, "video"]
+    assert output["services"]["test_container"]["group_add"] == ["568", "1000", "video"]
 
 
 def test_add_duplicate_group(mock_values):
@@ -190,7 +190,7 @@ def test_add_docker_socket(mock_values):
     c1.healthcheck.disable()
     c1.add_docker_socket()
     output = render.render()
-    assert output["services"]["test_container"]["group_add"] == [568, 999]
+    assert output["services"]["test_container"]["group_add"] == ["568", "999"]
     assert output["services"]["test_container"]["volumes"] == [
         {
             "type": "bind",
@@ -212,7 +212,7 @@ def test_snd_device(mock_values):
     c1.add_snd_device()
     output = render.render()
     assert output["services"]["test_container"]["devices"] == ["/dev/snd:/dev/snd"]
-    assert output["services"]["test_container"]["group_add"] == [29, 568]
+    assert output["services"]["test_container"]["group_add"] == ["29", "568"]
 
 
 def test_shm_size(mock_values):

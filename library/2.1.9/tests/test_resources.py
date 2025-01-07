@@ -68,7 +68,7 @@ def test_automatically_add_gpus(mock_values):
         "driver": "nvidia",
         "device_ids": ["uuid_0", "uuid_1"],
     }
-    assert output["services"]["test_container"]["group_add"] == [44, 107, 568]
+    assert output["services"]["test_container"]["group_add"] == ["44", "107", "568"]
 
 
 def test_gpu_without_uuid(mock_values):
@@ -119,7 +119,7 @@ def test_remove_devices(mock_values):
     c1.deploy.resources.remove_devices()
     output = render.render()
     assert "reservations" not in output["services"]["test_container"]["deploy"]["resources"]
-    assert output["services"]["test_container"]["group_add"] == [568]
+    assert output["services"]["test_container"]["group_add"] == ["568"]
 
 
 def test_set_profile(mock_values):

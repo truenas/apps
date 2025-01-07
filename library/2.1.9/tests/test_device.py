@@ -90,7 +90,7 @@ def test_automatically_add_gpu_devices(mock_values):
     c1.healthcheck.disable()
     output = render.render()
     assert output["services"]["test_container"]["devices"] == ["/dev/dri:/dev/dri"]
-    assert output["services"]["test_container"]["group_add"] == [44, 107, 568]
+    assert output["services"]["test_container"]["group_add"] == ["44", "107", "568"]
 
 
 def test_automatically_add_gpu_devices_and_kfd(mock_values):
@@ -100,7 +100,7 @@ def test_automatically_add_gpu_devices_and_kfd(mock_values):
     c1.healthcheck.disable()
     output = render.render()
     assert output["services"]["test_container"]["devices"] == ["/dev/dri:/dev/dri", "/dev/kfd:/dev/kfd"]
-    assert output["services"]["test_container"]["group_add"] == [44, 107, 568]
+    assert output["services"]["test_container"]["group_add"] == ["44", "107", "568"]
 
 
 def test_remove_gpu_devices(mock_values):
@@ -111,7 +111,7 @@ def test_remove_gpu_devices(mock_values):
     c1.devices.remove_devices()
     output = render.render()
     assert "devices" not in output["services"]["test_container"]
-    assert output["services"]["test_container"]["group_add"] == [568]
+    assert output["services"]["test_container"]["group_add"] == ["568"]
 
 
 def test_add_usb_bus(mock_values):
@@ -138,7 +138,7 @@ def test_add_snd_device(mock_values):
     c1.add_snd_device()
     output = render.render()
     assert output["services"]["test_container"]["devices"] == ["/dev/snd:/dev/snd"]
-    assert output["services"]["test_container"]["group_add"] == [29, 568]
+    assert output["services"]["test_container"]["group_add"] == ["29", "568"]
 
 
 def test_add_tun_device(mock_values):
