@@ -615,6 +615,40 @@ def test_anonymous_volume(mock_values):
     assert "volumes" not in output
 
 
+def test_add_udev(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_udev()
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/run/udev",
+            "target": "/run/udev",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+def test_add_udev_not_read_only(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_udev(read_only=False)
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/run/udev",
+            "target": "/run/udev",
+            "read_only": False,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
 def test_add_docker_socket(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
@@ -661,6 +695,33 @@ def test_add_docker_socket_mount_path(mock_values):
             "source": "/var/run/docker.sock",
             "target": "/some/path",
             "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+def test_host_path_with_disallowed_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    host_path_config = {"type": "host_path", "host_path_config": {"path": "/mnt"}}
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", host_path_config)
+
+
+def test_host_path_without_disallowed_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    host_path_config = {"type": "host_path", "host_path_config": {"path": "/mnt/test"}}
+    c1.add_storage("/mnt", host_path_config)
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/mnt/test",
+            "target": "/mnt",
+            "read_only": False,
             "bind": {"create_host_path": False, "propagation": "rprivate"},
         }
     ]

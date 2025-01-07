@@ -12,12 +12,18 @@ try:
     from .dns import Dns
     from .environment import Environment
     from .error import RenderError
+    from .expose import Expose
     from .formatter import escape_dollar, get_image_with_hashed_data
     from .healthcheck import Healthcheck
     from .labels import Labels
     from .ports import Ports
     from .restart import RestartPolicy
-    from .validations import valid_network_mode_or_raise, valid_cap_or_raise, valid_pull_policy_or_raise
+    from .validations import (
+        valid_network_mode_or_raise,
+        valid_cap_or_raise,
+        valid_pull_policy_or_raise,
+        valid_port_bind_mode_or_raise,
+    )
     from .storage import Storage
     from .sysctls import Sysctls
 except ImportError:
@@ -28,12 +34,18 @@ except ImportError:
     from dns import Dns
     from environment import Environment
     from error import RenderError
+    from expose import Expose
     from formatter import escape_dollar, get_image_with_hashed_data
     from healthcheck import Healthcheck
     from labels import Labels
     from ports import Ports
     from restart import RestartPolicy
-    from validations import valid_network_mode_or_raise, valid_cap_or_raise, valid_pull_policy_or_raise
+    from validations import (
+        valid_network_mode_or_raise,
+        valid_cap_or_raise,
+        valid_pull_policy_or_raise,
+        valid_port_bind_mode_or_raise,
+    )
     from storage import Storage
     from sysctls import Sysctls
 
@@ -75,6 +87,7 @@ class Container:
         self.labels: Labels = Labels(self._render_instance)
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
         self.ports: Ports = Ports(self._render_instance)
+        self.expose: Expose = Expose(self._render_instance)
 
         self._auto_set_network_mode()
         self._auto_add_labels()
@@ -151,8 +164,17 @@ class Container:
             raise RenderError(f"Group [{group}] already added")
         self._group_add.add(group)
 
+    def get_additional_groups(self) -> list[int | str]:
+        result = []
+        if self.deploy.resources.has_gpus() or self.devices.has_gpus():
+            result.append(44)  # video
+            result.append(107)  # render
+        return result
+
     def get_current_groups(self) -> list[str]:
-        return [str(g) for g in self._group_add]
+        result = [str(g) for g in self._group_add]
+        result.extend([str(g) for g in self.get_additional_groups()])
+        return result
 
     def set_tty(self, enabled: bool = False):
         self._tty = enabled
@@ -198,6 +220,28 @@ class Container:
     def set_network_mode(self, mode: str):
         self._network_mode = valid_network_mode_or_raise(mode, self._render_instance.container_names())
 
+    def add_port(self, port_config: dict | None = None, dev_config: dict | None = None):
+        port_config = port_config or {}
+        dev_config = dev_config or {}
+        # Merge port_config and dev_config (dev_config has precedence)
+        config = port_config | dev_config
+
+        bind_mode = valid_port_bind_mode_or_raise(config.get("bind_mode", ""))
+        # Skip port if its neither published nor exposed
+        if not bind_mode:
+            return
+
+        # Collect port config
+        host_port = config.get("port_number", 0)
+        container_port = config.get("container_port", 0) or host_port
+        protocol = config.get("protocol", "tcp")
+        host_ip = config.get("host_ip", "0.0.0.0")
+
+        if bind_mode == "published":
+            self.ports.add_port(host_port, container_port, {"protocol": protocol, "host_ip": host_ip})
+        elif bind_mode == "exposed":
+            self.expose.add_port(container_port, protocol)
+
     def set_entrypoint(self, entrypoint: list[str]):
         self._entrypoint = [escape_dollar(str(e)) for e in entrypoint]
 
@@ -211,8 +255,11 @@ class Container:
         self.add_group(999)
         self._storage._add_docker_socket(read_only, mount_path)
 
-    def add_tun_device(self, read_only: bool = True, mount_path: str = "/dev/net/tun"):
-        self._storage._add_tun_device(read_only, mount_path)
+    def add_udev(self, read_only: bool = True, mount_path: str = "/run/udev"):
+        self._storage._add_udev(read_only, mount_path)
+
+    def add_tun_device(self):
+        self.devices._add_tun_device()
 
     def add_snd_device(self):
         self.add_group(29)
@@ -271,9 +318,8 @@ class Container:
         if self._user:
             result["user"] = self._user
 
-        if self.deploy.resources.has_gpus() or self.devices.has_gpus():
-            self.add_group(44)  # video
-            self.add_group(107)  # render
+        for g in self.get_additional_groups():
+            self.add_group(g)
 
         if self._group_add:
             result["group_add"] = sorted(self._group_add, key=lambda g: (isinstance(g, str), g))
@@ -302,6 +348,9 @@ class Container:
         if self._network_mode != "host":
             if self.ports.has_ports():
                 result["ports"] = self.ports.render()
+
+            if self.expose.has_ports():
+                result["expose"] = self.expose.render()
 
         if self._entrypoint:
             result["entrypoint"] = self._entrypoint

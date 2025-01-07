@@ -205,26 +205,6 @@ def test_add_docker_socket(mock_values):
     ]
 
 
-def test_tun_device(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    c1.add_tun_device()
-    output = render.render()
-    assert output["services"]["test_container"]["volumes"] == [
-        {
-            "type": "bind",
-            "source": "/dev/net/tun",
-            "target": "/dev/net/tun",
-            "read_only": True,
-            "bind": {
-                "propagation": "rprivate",
-                "create_host_path": False,
-            },
-        }
-    ]
-
-
 def test_snd_device(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
@@ -358,3 +338,24 @@ def test_command(mock_values):
     c1.healthcheck.disable()
     output = render.render()
     assert output["services"]["test_container"]["command"] == ["echo", "hello $$MY_ENV"]
+
+
+def test_add_ports(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_port({"port_number": 8081, "container_port": 8080, "bind_mode": "published"})
+    c1.add_port({"port_number": 8082, "container_port": 8080, "bind_mode": "published", "protocol": "udp"})
+    c1.add_port({"port_number": 8083, "container_port": 8080, "bind_mode": "exposed"})
+    c1.add_port({"port_number": 8084, "container_port": 8080, "bind_mode": ""})
+    c1.add_port(
+        {"port_number": 9091, "container_port": 9091, "bind_mode": "published"},
+        {"container_port": 9092, "protocol": "udp"},
+    )
+    output = render.render()
+    assert output["services"]["test_container"]["ports"] == [
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "0.0.0.0"},
+        {"published": 8082, "target": 8080, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
+        {"published": 9091, "target": 9092, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
+    ]
+    assert output["services"]["test_container"]["expose"] == ["8080/tcp"]

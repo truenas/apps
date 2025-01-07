@@ -1,5 +1,7 @@
 import re
 import ipaddress
+from pathlib import Path
+
 
 try:
     from .error import RenderError
@@ -7,6 +9,26 @@ except ImportError:
     from error import RenderError
 
 OCTAL_MODE_REGEX = re.compile(r"^0[0-7]{3}$")
+RESTRICTED_IN: tuple[Path, ...] = (Path("/mnt"), Path("/"))
+RESTRICTED: tuple[Path, ...] = (
+    Path("/mnt/.ix-apps"),
+    Path("/data"),
+    Path("/var/db"),
+    Path("/root"),
+    Path("/conf"),
+    Path("/audit"),
+    Path("/var/run/middleware"),
+    Path("/home"),
+    Path("/boot"),
+    Path("/var/log"),
+)
+
+
+def valid_port_bind_mode_or_raise(status: str):
+    valid_statuses = ("published", "exposed", "")
+    if status not in valid_statuses:
+        raise RenderError(f"Invalid port status [{status}]")
+    return status
 
 
 def valid_pull_policy_or_raise(pull_policy: str):
@@ -41,7 +63,7 @@ def valid_sysctl_or_raise(sysctl: str, host_network: bool):
 
 
 def valid_redis_password_or_raise(password: str):
-    forbidden_chars = [" ", "'"]
+    forbidden_chars = [" ", "'", "#"]
     for char in forbidden_chars:
         if char in password:
             raise RenderError(f"Redis password cannot contain [{char}]")
@@ -135,6 +157,28 @@ def valid_fs_path_or_raise(path: str):
     return path
 
 
+def is_allowed_path(input_path: str, is_ix_volume: bool = False) -> bool:
+    """
+    Validates that the given path (after resolving symlinks) is not
+    one of the restricted paths or within those restricted directories.
+
+    Returns True if the path is allowed, False otherwise.
+    """
+    # Resolve the path to avoid symlink bypasses
+    real_path = Path(input_path).resolve()
+    for restricted in RESTRICTED if not is_ix_volume else [r for r in RESTRICTED if r != Path("/mnt/.ix-apps")]:
+        if real_path.is_relative_to(restricted):
+            return False
+
+    return real_path not in RESTRICTED_IN
+
+
+def allowed_fs_host_path_or_raise(path: str, is_ix_volume: bool = False):
+    if not is_allowed_path(path, is_ix_volume):
+        raise RenderError(f"Path [{path}] is not allowed to be mounted.")
+    return path
+
+
 def _valid_path_or_raise(path: str):
     if path == "":
         raise RenderError(f"Path [{path}] cannot be empty")
@@ -146,7 +190,7 @@ def _valid_path_or_raise(path: str):
 
 
 def allowed_device_or_raise(path: str):
-    disallowed_devices = ["/dev/dri", "/dev/kfd", "/dev/bus/usb", "/dev/snd"]
+    disallowed_devices = ["/dev/dri", "/dev/kfd", "/dev/bus/usb", "/dev/snd", "/dev/net/tun"]
     if path in disallowed_devices:
         raise RenderError(f"Device [{path}] is not allowed to be manually added.")
     return path
