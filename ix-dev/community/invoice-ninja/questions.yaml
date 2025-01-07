@@ -1,43 +1,33 @@
 groups:
-  - name: Firefly III Configuration
-    description: Configure Firefly III
+  - name: Invoice Ninja Configuration
+    description: Configure Invoice Ninja
   - name: Network Configuration
-    description: Configure Network for Firefly III
+    description: Configure Network for Invoice Ninja
   - name: Storage Configuration
-    description: Configure Storage for Firefly III
+    description: Configure Storage for Invoice Ninja
   - name: Labels Configuration
-    description: Configure Labels for Firefly III
+    description: Configure Labels for Invoice Ninja
   - name: Resources Configuration
-    description: Configure Resources for Firefly III
+    description: Configure Resources for Invoice Ninja
 
 questions:
-  - variable: firefly_iii
+  - variable: invoice_ninja
     label: ""
-    group: Firefly III Configuration
+    group: Invoice Ninja Configuration
     schema:
       type: dict
       attrs:
-        - variable: postgres_image_selector
-          label: Postgres Image (CAUTION)
-          description: |
-            If you are changing this after the postgres directory has been initialized,</br>
-            STOP! and make sure you have a backup of your data.</br>
-            Changing this will trigger an one way database upgrade.</br>
-            You can only select newer versions of postgres.</br>
-            Selecting an older version will refuse to start.</br>
-            If something goes wrong, you will have to restore from backup.
-          schema:
-            type: string
-            default: postgres_15_image
-            required: true
-            enum:
-              - value: postgres_15_image
-                description: Postgres 15
-              - value: postgres_17_image
-                description: Postgres 17
         - variable: db_password
           label: Database Password
-          description: The password for Firefly III.
+          description: The password for Invoice Ninja.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: db_root_password
+          label: Database Root Password
+          description: The root password for Invoice Ninja.
           schema:
             type: string
             default: ""
@@ -45,7 +35,7 @@ questions:
             private: true
         - variable: redis_password
           label: Redis Password
-          description: The password for Firefly III.
+          description: The password for Invoice Ninja.
           schema:
             type: string
             default: ""
@@ -54,7 +44,7 @@ questions:
         - variable: app_key
           label: App Key
           description: |
-            The app key for Firefly III.</br>
+            The app key for Invoice Ninja.</br>
             Must be exactly 32 characters long.</br>
           schema:
             type: string
@@ -66,7 +56,7 @@ questions:
         - variable: app_url
           label: App URL
           description: |
-            The base URL for Firefly III.</br>
+            The base URL for Invoice Ninja.</br>
             Examples:</br>
             https://firefly.example.com </br>
             http://192.168.1.100:30064
@@ -75,38 +65,9 @@ questions:
             default: ""
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Firefly III.
+          description: Configure additional environment variables for Invoice Ninja.
           schema:
             type: list
-            default: []
-            items:
-              - variable: env
-                label: Environment Variable
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: name
-                      label: Name
-                      schema:
-                        type: string
-                        required: true
-                    - variable: value
-                      label: Value
-                      schema:
-                        type: string
-                        required: true
-        - variable: enable_importer
-          label: Enable Importer
-          description: Enable the importer for Firefly III
-          schema:
-            type: boolean
-            default: false
-        - variable: additional_importer_envs
-          label: Additional Environment Variables
-          description: Configure additional environment variables for Firefly III Importer.
-          schema:
-            type: list
-            show_if: [["enable_importer", "=", true]]
             default: []
             items:
               - variable: env
@@ -133,24 +94,37 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for Firefly III WebUI
           schema:
-            type: int
-            default: 30027
-            required: true
-            $ref:
-              - definitions/port
-        - variable: importer_port
-          label: Importer Port
-          description: |
-            The port for Firefly III Importer</br>
-            Ignored if importer is disabled.
-          schema:
-            type: int
-            default: 30028
-            required: true
-            $ref:
-              - definitions/port
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "!=", ""]]
+                  default: 31105
+                  required: true
+                  $ref:
+                    - definitions/port
 
   - variable: storage
     label: ""
@@ -158,9 +132,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: uploads
-          label: Firefly III Uploads Storage
-          description: The path to store Firefly III Uploads.
+        - variable: storage
+          label: Invoice Ninja Storage
+          description: The path to store Invoice Ninja Storage.
           schema:
             type: dict
             attrs:
@@ -202,7 +176,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "uploads"
+                        default: "storage"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -236,9 +210,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: postgres_data
-          label: Firefly III Postgres Data Storage
-          description: The path to store Firefly III Postgres Data.
+        - variable: mariadb_data
+          label: Invoice Ninja MariaDB Data Storage
+          description: The path to store Invoice Ninja MariaDB Data.
           schema:
             type: dict
             attrs:
@@ -280,7 +254,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "postgres_data"
+                        default: "mariadb_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -314,21 +288,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this, will check the top level directory,</br>
-                        If it finds incorrect permissions, it will `chown` the
-                        host path to the user and group required for the
-                        postgres container.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Firefly III.
+          description: Additional storage for Invoice Ninja.
           schema:
             type: list
             default: []
@@ -521,14 +483,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Firefly III.
+                description: CPUs limit for Invoice Ninja.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Firefly III.
+                description: Memory limit for Invoice Ninja.
                 schema:
                   type: int
                   default: 4096
