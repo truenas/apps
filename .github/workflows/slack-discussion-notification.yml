@@ -13,7 +13,7 @@
 #     secrets:
 #       slack-webhook-url: ${{ secrets.SLACK_XXX_WEBHOOK_URL }} # Set this secret
 
-name: Post New GitHub Discussion to Slack
+name: Send GitHub Action data to a Slack workflow
 
 on:
   discussion:
@@ -21,59 +21,13 @@ on:
     secrets:
       SLACK_WEBHOOK_URL:
         required: true
-
+       
 jobs:
-  gh-discussion-comment-to-slack:
+  run:
+    name: Share recent changes with a channel
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      # Note:
-      # - 一度変数に入れることで、$や`をエスケープしている
-      # - printfしないといい感じに"\n"が変換されない
-      # - ref: https://times.hrbrain.co.jp/entry/2021/11/16/github-discussions-noti
-      - name: Post to Slack
-        env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          DISCUSSION_TITLE: ${{ github.event.discussion.title }}
-        run: |
-          set -o pipefail
-          body=$(
-          cat <<"EOF"
-          ${{ env.COMMENT_BODY }}
-          EOF
-          )
-          printf -v markdown_message_escaped %b "$body"
-          jq -n \
-          --arg pretext "New discussion comment by <${{ github.event.comment.user.html_url }}|${{ github.event.comment.user.login }}>" \
-          --arg title "*<${{ github.event.comment.html_url }}|Comment on #${{ toJSON(github.event.discussion.number) }} ${{ env.DISCUSSION_TITLE }}>*" \
-          --arg text "$markdown_message_escaped" '
-            {
-            	"attachments": [
-            		{
-            			"blocks": [
-            				{
-            					"type": "section",
-            					"text": {
-            						"type": "mrkdwn",
-            						"text": $pretext
-            					}
-            				},
-            				{
-            					"type": "section",
-            					"text": {
-            						"type": "mrkdwn",
-            						"text": $title
-            					}
-            				},
-            				{
-            					"type": "section",
-            					"text": {
-            						"type": "mrkdwn",
-            						"text": $text
-            					}
-            				}
-            			]
-            		}
-            	]
-            }
-          ' | curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} -d @-
+      - name: Send discussion created announcement
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
