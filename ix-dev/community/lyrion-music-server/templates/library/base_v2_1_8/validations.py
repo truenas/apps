@@ -63,7 +63,7 @@ def valid_sysctl_or_raise(sysctl: str, host_network: bool):
 
 
 def valid_redis_password_or_raise(password: str):
-    forbidden_chars = [" ", "'"]
+    forbidden_chars = [" ", "'", "#"]
     for char in forbidden_chars:
         if char in password:
             raise RenderError(f"Redis password cannot contain [{char}]")
