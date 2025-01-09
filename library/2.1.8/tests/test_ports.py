@@ -24,8 +24,8 @@ def test_add_ports(mock_values):
     c1.ports.add_port(8082, 8080, {"protocol": "udp"})
     output = render.render()
     assert output["services"]["test_container"]["ports"] == [
-        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "0.0.0.0"},
-        {"published": 8082, "target": 8080, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress"},
+        {"published": 8082, "target": 8080, "protocol": "udp", "mode": "ingress"},
     ]
 
 
@@ -37,6 +37,70 @@ def test_add_duplicate_ports(mock_values):
     c1.ports.add_port(8081, 8080, {"protocol": "udp"})  # This should not raise
     with pytest.raises(Exception):
         c1.ports.add_port(8081, 8080)
+
+
+def test_add_duplicate_ports_with_different_family(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.ports.add_port(8081, 8080, {"host_ip": "192.168.1.10"})
+    c1.ports.add_port(8081, 8080, {"host_ip": "::"})
+    output = render.render()
+    assert output["services"]["test_container"]["ports"] == [
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "192.168.1.10"},
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "::"},
+    ]
+
+
+def test_add_duplicate_ports_to_specific_v6_host_ip_binds_to_0_0_0_0(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.ports.add_port(8081, 8080, {"host_ip": "0.0.0.0"})
+    c1.ports.add_port(8081, 8080, {"host_ip": "::1"})
+    output = render.render()
+    assert output["services"]["test_container"]["ports"] == [
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "0.0.0.0"},
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "::1"},
+    ]
+
+
+def test_add_duplicate_ports_to_both_wildcard_host_ip(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.ports.add_port(8081, 8080, {"host_ip": "::"})
+    c1.ports.add_port(8081, 8080, {"host_ip": "0.0.0.0"})
+    output = render.render()
+    assert output["services"]["test_container"]["ports"] == [
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress"},
+    ]
+
+
+def test_add_duplicate_ports_to_multiple_v4_and_v6_host_ip(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.ports.add_port(8081, 8080, {"host_ip": "192.168.1.10"})
+    c1.ports.add_port(8081, 8080, {"host_ip": "192.168.1.11"})
+    c1.ports.add_port(8081, 8080, {"host_ip": "::1"})
+    c1.ports.add_port(8081, 8080, {"host_ip": "::2"})
+    output = render.render()
+    assert output["services"]["test_container"]["ports"] == [
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "192.168.1.10"},
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "192.168.1.11"},
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "::1"},
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "::2"},
+    ]
+
+
+def test_add_duplicate_port_to_specific_host_ip_binds_to_v6_wildcard(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.ports.add_port(8081, 8080, {"host_ip": "::"})
+    with pytest.raises(Exception):
+        c1.ports.add_port(8081, 8080, {"host_ip": "::1"})
 
 
 def test_add_duplicate_ports_with_different_host_ip(mock_values):
