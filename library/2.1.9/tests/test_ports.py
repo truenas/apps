@@ -167,8 +167,8 @@ tests = [
         "expected": [
             {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "192.168.1.10"},
             {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "192.168.1.11"},
-            {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "fd00:1234:5678:abcd::10"},
-            {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "fd00:1234:5678:abcd::11"},
+            {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "fd00:1234:5678:abcd::10"}, # noqa
+            {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "fd00:1234:5678:abcd::11"}, # noqa
             {"published": 8081, "target": 8080, "protocol": "udp", "mode": "ingress", "host_ip": "192.168.1.10"},
             {"published": 8081, "target": 8080, "protocol": "udp", "mode": "ingress", "host_ip": "192.168.1.11"},
         ],
