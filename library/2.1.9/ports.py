@@ -39,10 +39,21 @@ class Ports:
     def _get_sort_key(self, p: dict) -> str:
         return f"{p['published']}_{p['target']}_{p['protocol']}_{p.get('host_ip', '_')}"
 
+    def _is_ports_same(self, port1: dict, port2: dict) -> bool:
+        return (
+            port1["published"] == port2["published"]
+            and port1["target"] == port2["target"]
+            and port1["protocol"] == port2["protocol"]
+            and port1.get("host_ip", "_") == port2.get("host_ip", "_")
+        )
+
     def _has_opposite_family_port(self, port_config: dict, wildcard_ports: dict) -> bool:
         comparison_port = port_config.copy()
         comparison_port["host_ip"] = self._get_opposite_wildcard(port_config["host_ip"])
-        return comparison_port in wildcard_ports.values()
+        for p in wildcard_ports.values():
+            if self._is_ports_same(comparison_port, p):
+                return True
+        return False
 
     def _check_port_conflicts(self, port_config: dict, ip_family: int) -> None:
         host_port = port_config["published"]
@@ -77,7 +88,7 @@ class Ports:
                 search_port["host_ip"] = wildcard_ip
                 # If the ports match, means that a port for specific IP is already added
                 # and we are trying to add it again with wildcard IP. Raise an error
-                if search_port == port_config:
+                if self._is_ports_same(search_port, port_config):
                     raise RenderError(
                         f"Cannot bind port [{host_port}/{proto}/ipv{ip_family}] to [{host_ip}], "
                         f"already bound to [{p['host_ip']}]"
