@@ -138,13 +138,23 @@ module.exports = {
     ),
     customVersioning(
       // tailscale considers beta releases when minor part ends with an odd number
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)[02468]+\\.(?<patch>\\d+)$",
-      ["tailscale/tailscale"]
+      "^v(?<major>\\d+)\\.(?<minor>\\d+[02468]+)\\.(?<patch>\\d+)$",
+      ["ghcr.io/tailscale/tailscale"]
     ),
     customVersioning(
       // 3.0.0.0-full
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-full$",
       ["apache/tika"]
+    ),
+    customVersioning(
+      // 2.0.0-beta.1
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
+      ["ghcr.io/louislam/uptime-kuma"]
+    ),
+    customVersioning(
+      // postgresql-v2.15.1
+      "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["ghcr.io/umami-software/umami"]
     ),
   ],
 };

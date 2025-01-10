@@ -106,6 +106,8 @@
 {% set host = namespace(x="") %}
 {% if values.nextcloud.host %}
   {% set host.x = values.nextcloud.host if ":" in values.nextcloud.host else "%s:%d"|format(values.nextcloud.host, values.network.web_port) %}
+  {% set host.x = host.x.replace("https://", "") %}
+  {% set host.x = host.x.replace("http://", "") %}
 {% endif %}
 
 {% if values.network.certificate_id %}
@@ -120,7 +122,8 @@
 {% endif %}
 
 {% if host.x %}
-  {% do trusted_domains.x.append(host.x) %}
+  {% set clean_host = host.x.split(":")[0] if ":" in host.x else host.x %}
+  {% do trusted_domains.x.append(clean_host) %}
 {% endif %}
 {% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
 
