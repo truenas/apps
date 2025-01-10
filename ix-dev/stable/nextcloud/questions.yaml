@@ -296,48 +296,94 @@ questions:
                   max: 65535
                   show_if: [["use_different_port", "=", true]]
                   required: true
-              - variable: get_real_ip_from_proxy
-                label: Real IP from Proxy
-                description: Get the real client IP from a proxy.
+              - variable: mount_custom_conf
+                label: Mount custom Nginx configuration
+                description: |
+                  Include custom Nginx configuration files.</br>
+                  Only files with the `.conf` extension in the root directory (not recursive) will be included.</br>
+                  You can use this to add trusted proxies, custom headers, change the real IP header, etc.
                 schema:
                   type: boolean
                   default: false
-              - variable: real_ip_from_cloudflare
-                label: Trust Cloudflare IPs
-                description: |
-                  Trust IPs forwarded by Cloudflare.</br>
-                  Fetches valid IPs from <https://www.cloudflare.com/ips/>.</br>
-                  For more information, see <https://developers.cloudflare.com/support/troubleshooting/restoring-visitor-ips/restoring-original-visitor-ips/#nginx-1>.
+              - variable: custom_conf
+                label: Custom Nginx Configuration Storage
+                description: The path to store custom Nginx Configuration.
                 schema:
-                  type: boolean
-                  default: false
-                  show_if: [["get_real_ip_from_proxy", "=", true]]
-              - variable: real_ip_from_proxies
-                label: Proxies
-                description: |
-                  Proxies to trust.</br>
-                  Can be left blank if you selected the Cloudflare option above.</br>
-                  The format can be an address, a CIDR block or a unix socket.</br>
-                  For more information, see <https://nginx.org/en/docs/http/ngx_http_realip_module.html>.
-                schema:
-                  type: list
-                  default: []
-                  show_if: [["get_real_ip_from_proxy", "=", true]]
-                  items:
-                    - variable: proxy
-                      label: Proxy
+                  type: dict
+                  show_if: [["mount_custom_conf", "=", true]]
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.
                       schema:
                         type: string
                         required: true
-              - variable: real_ip_header
-                label: Real IP Header
-                description: |
-                  The header to use for the real IP.</br>
-                  For more information, see <https://nginx.org/en/docs/http/ngx_http_realip_module.html>.
-                schema:
-                  type: string
-                  default: "X-Forwarded-For"
-                  show_if: [["get_real_ip_from_proxy", "=", true]]
+                        immutable: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              immutable: true
+                              hidden: true
+                              default: "custom_nginx_conf"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
 
   - variable: storage
     label: ""
