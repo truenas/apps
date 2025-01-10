@@ -151,6 +151,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
       ["ghcr.io/louislam/uptime-kuma"]
     ),
+    customVersioning(
+      // postgresql-v2.15.1
+      "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["ghcr.io/umami-software/umami"]
+    ),
   ],
 };
 
