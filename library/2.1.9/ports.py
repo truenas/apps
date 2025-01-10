@@ -27,6 +27,62 @@ class Ports:
         self._render_instance = render_instance
         self._ports: dict[str, dict] = {}
 
+    def _gen_port_key(self, host_port: int, host_ip: str, proto: str, ip_family: int) -> str:
+        return f"{host_port}_{host_ip}_{proto}_{ip_family}"
+
+    def _is_wildcard_ip(self, ip: str) -> bool:
+        return ip in ["0.0.0.0", "::"]
+
+    def _get_opposite_wildcard(self, ip: str) -> str:
+        return "0.0.0.0" if ip == "::" else "::"
+
+    def _get_sort_key(self, p: dict) -> str:
+        return f"{p['published']}_{p['target']}_{p['protocol']}_{p.get('host_ip', '_')}"
+
+    def _has_opposite_family_port(self, port_config: dict, wildcard_ports: dict) -> bool:
+        comparison_port = port_config.copy()
+        comparison_port["host_ip"] = self._get_opposite_wildcard(port_config["host_ip"])
+        return comparison_port in wildcard_ports.values()
+
+    def _check_port_conflicts(self, port_config: dict, ip_family: int) -> None:
+        host_port = port_config["published"]
+        host_ip = port_config["host_ip"]
+        proto = port_config["protocol"]
+
+        key = self._gen_port_key(host_port, host_ip, proto, ip_family)
+
+        if key in self._ports.keys():
+            raise RenderError(f"Port [{host_port}/{proto}/ipv{ip_family}] already added for [{host_ip}]")
+
+        wildcard_ip = "0.0.0.0" if ip_family == 4 else "::"
+        if host_ip != wildcard_ip:
+            # Check if there is a port with same details but with wildcard IP of the same family
+            wildcard_key = self._gen_port_key(host_port, wildcard_ip, proto, ip_family)
+            if wildcard_key in self._ports.keys():
+                raise RenderError(
+                    f"Cannot bind port [{host_port}/{proto}/ipv{ip_family}] to [{host_ip}], "
+                    f"already bound to [{wildcard_ip}]"
+                )
+        else:
+            # We are adding a port with wildcard IP
+            # Check if there is a port with same details but with specific IP of the same family
+            for p in self._ports.values():
+                # Skip if the port is not for the same family
+                if ip_family != ipaddress.ip_address(p["host_ip"]).version:
+                    continue
+
+                # Make a copy of the port config
+                search_port = p.copy()
+                # Replace the host IP with wildcard IP
+                search_port["host_ip"] = wildcard_ip
+                # If the ports match, means that a port for specific IP is already added
+                # and we are trying to add it again with wildcard IP. Raise an error
+                if search_port == port_config:
+                    raise RenderError(
+                        f"Cannot bind port [{host_port}/{proto}/ipv{ip_family}] to [{host_ip}], "
+                        f"already bound to [{p['host_ip']}]"
+                    )
+
     def add_port(self, host_port: int, container_port: int, config: dict | None = None):
         config = config or {}
         host_port = valid_port_or_raise(host_port)
@@ -43,72 +99,44 @@ class Ports:
             return
 
         host_ip = valid_ip_or_raise(config.get("host_ip", None))
-
         ip = ipaddress.ip_address(host_ip)
-        ip_family = ip.version
-        wildcard_ip = "0.0.0.0" if ip.version == 4 else "::"
 
-        key = f"{host_port}_{host_ip}_{proto}_{ip_family}"
-        if key in self._ports.keys():
-            raise RenderError(f"Port [{host_port}/{proto}/ipv{ip_family}] already added for [{host_ip}]")
-
-        if host_ip != wildcard_ip:
-            # If the port we are adding is not going to use wildcard ip
-            # Make sure that we don't have already added that port/proto to wildcard ip of the same family
-            search_key = f"{host_port}_{wildcard_ip}_{proto}_{ip_family}"
-            if search_key in self._ports.keys():
-                raise RenderError(
-                    f"Cannot bind port [{host_port}/{proto}/ipv{ip_family}] to [{host_ip}], "
-                    f"already bound to [{wildcard_ip}]"
-                )
-        elif host_ip == wildcard_ip:
-            # If the port we are adding is going to use wildcard ip
-            # Make sure that we don't have already added that port/proto to a specific ip of the same family
-            for p in self._ports.values():
-                port_family = ipaddress.ip_address(p["host_ip"]).version
-                if p["published"] == host_port and p["protocol"] == proto and port_family == ip_family:
-                    raise RenderError(
-                        f"Cannot bind port [{host_port}/{proto}/ipv{ip_family}] to [{host_ip}], "
-                        f"already bound to [{p['host_ip']}]"
-                    )
-
-        self._ports[key] = {
+        port_config = {
             "published": host_port,
             "target": container_port,
             "protocol": proto,
             "mode": mode,
             "host_ip": host_ip,
         }
+        self._check_port_conflicts(port_config, ip.version)
+
+        key = self._gen_port_key(host_port, host_ip, proto, ip.version)
+        self._ports[key] = port_config
 
     def has_ports(self):
         return len(self._ports) > 0
 
     def render(self):
-        ports = []
+        specific_ports = []
         wildcard_ports = {}
 
-        # Ports that are not wildcards add them as is
-        for key, p in self._ports.items():
-            if p["host_ip"] not in ["0.0.0.0", "::"]:
-                ports.append(p)
-                continue
+        for port_config in self._ports.values():
+            if self._is_wildcard_ip(port_config["host_ip"]):
+                wildcard_ports[id(port_config)] = port_config.copy()
+            else:
+                specific_ports.append(port_config.copy())
 
-            wildcard_ports[key] = p
-
-        # For wildcard ports, check if there is another wildcard port
-        # in this case remove the host_ip field
+        processed_ports = specific_ports.copy()
         for wild_port in wildcard_ports.values():
-            # Get the wildcard ip for the opposite family
-            other_wildcard_ip = "0.0.0.0" if wild_port["host_ip"] == "::" else "::"
-            # Make a copy of the port
-            new_wild_port = wild_port.copy()
+            processed_port = wild_port.copy()
 
-            # Check if there is another wildcard port with the opposite wildcard family
-            if wild_port.copy() | {"host_ip": other_wildcard_ip} in wildcard_ports.values():
-                new_wild_port.pop("host_ip")
+            # Check if there's a matching wildcard port for the opposite IP family
+            has_opposite_family = self._has_opposite_family_port(wild_port, wildcard_ports)
 
-            # Check that we haven't already added this port
-            if new_wild_port not in ports:
-                ports.append(new_wild_port)
+            if has_opposite_family:
+                processed_port.pop("host_ip")
 
-        return sorted(ports, key=lambda p: f"{p['published']}_{p['published']}_{p['protocol']}_{p.get('host_ip', '_')}")
+            if processed_port not in processed_ports:
+                processed_ports.append(processed_port)
+
+        return sorted(processed_ports, key=self._get_sort_key)
