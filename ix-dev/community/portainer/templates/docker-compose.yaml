@@ -9,9 +9,17 @@
   "--data", values.consts.data_path,
   "--tunnel-port", tpl.funcs.or_default(values.network.tunnel_port, 0),
   "--bind-https", ":%d" | format(values.network.web_port),
-  "--bind", ":%d" | format(values.network.http_port),
-  "--http-disabled" if not values.network.http_port.bind_mode == "published" else "--http-enabled",
 ]) %}
+
+{% if if not values.network.http_port.bind_mode == "published" %}
+  {% do cmd.x.extend(["--http-disabled"]) %}
+{% else %}
+  {% do cmd.x.extend([
+    "--bind", values.network.http_port.port_number,
+    "--http-enabled",
+  ]) %}
+{% endif %}
+
 {% if values.network.certificate_id %}
   {% do cmd.x.extend([
     "--sslkey", values.consts.ssl_key_path,
