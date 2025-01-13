@@ -235,10 +235,13 @@ class Container:
         host_port = config.get("port_number", 0)
         container_port = config.get("container_port", 0) or host_port
         protocol = config.get("protocol", "tcp")
-        host_ip = config.get("host_ip", "0.0.0.0")
+        host_ips = config.get("host_ips", ["0.0.0.0", "::"])
+        if not isinstance(host_ips, list):
+            raise RenderError(f"Expected [host_ips] to be a list, got [{host_ips}]")
 
         if bind_mode == "published":
-            self.ports.add_port(host_port, container_port, {"protocol": protocol, "host_ip": host_ip})
+            for host_ip in host_ips:
+                self.ports.add_port(host_port, container_port, {"protocol": protocol, "host_ip": host_ip})
         elif bind_mode == "exposed":
             self.expose.add_port(container_port, protocol)
 

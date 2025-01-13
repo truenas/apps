@@ -354,8 +354,16 @@ def test_add_ports(mock_values):
     )
     output = render.render()
     assert output["services"]["test_container"]["ports"] == [
-        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress", "host_ip": "0.0.0.0"},
-        {"published": 8082, "target": 8080, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
-        {"published": 9091, "target": 9092, "protocol": "udp", "mode": "ingress", "host_ip": "0.0.0.0"},
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress"},
+        {"published": 8082, "target": 8080, "protocol": "udp", "mode": "ingress"},
+        {"published": 9091, "target": 9092, "protocol": "udp", "mode": "ingress"},
     ]
     assert output["services"]["test_container"]["expose"] == ["8080/tcp"]
+
+
+def test_add_ports_with_invalid_host_ips(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.add_port({"port_number": 8081, "container_port": 8080, "bind_mode": "published", "host_ips": "invalid"})
