@@ -16,9 +16,16 @@
   pg_config, perm_container
 ) %}
 
+{% set redis_config = {
+  "password": values.romm.redis_password,
+  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/heartbeat"}) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("DB_PORT", 5432) %}
@@ -26,6 +33,9 @@
 {% do c1.environment.add_env("DB_USER", values.consts.db_user) %}
 {% do c1.environment.add_env("DB_PASSWD", values.romm.db_password) %}
 {% do c1.environment.add_env("ROMM_DB_DRIVER", "postgresql") %}
+{% do c1.environment.add_env("REDIS_HOST", values.consts.redis_container_name) %}
+{% do c1.environment.add_env("REDIS_PORT", 6379) %}
+{% do c1.environment.add_env("REDIS_PASSWORD", values.romm.redis_password) %}
 {% do c1.environment.add_env("ROMM_AUTH_SECRET_KEY", values.romm.auth_secret_key) %}
 {% do c1.environment.add_env("ROMM_BASE_PATH", values.consts.base_path) %}
 {% do c1.environment.add_env("IGDB_CLIENT_ID", values.romm.igdb_client_id) %}
@@ -49,9 +59,6 @@
 {% do c1.add_storage("%s/assets"|format(values.consts.base_path), values.storage.assets) %}
 {% do perm_container.add_or_skip_action("assets", values.storage.assets, perms_config) %}
 
-{% do c1.add_storage("/vakley_data", values.storage.valkey_data) %}
-{% do perm_container.add_or_skip_action("assets", values.storage.valkey_data, perms_config) %}
-
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
@@ -61,6 +68,7 @@
   {% do perm_container.activate() %}
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
 {% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
