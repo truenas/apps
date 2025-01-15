@@ -147,6 +147,33 @@ def valid_cgroup_perm_or_raise(cgroup_perm: str):
     return cgroup_perm
 
 
+def valid_device_group_rule_or_raise(dev_grp_rule: str):
+    parts = dev_grp_rule.split(" ")
+    if len(parts) != 3:
+        raise RenderError(
+            f"Device Group Rule [{dev_grp_rule}] is not valid. Expected format is [<type> <major>:<minor> <permission>]"
+        )
+
+    valid_types = ("a", "b", "c")
+    if parts[0] not in valid_types:
+        raise RenderError(
+            f"Device Group Rule [{dev_grp_rule}] is not valid. Expected type to be one of [{', '.join(valid_types)}]"
+            f" but got [{parts[0]}]"
+        )
+
+    major, minor = parts[1].split(":")
+    for part in (major, minor):
+        if part != "*" and not part.isdigit():
+            raise RenderError(
+                f"Device Group Rule [{dev_grp_rule}] is not valid. Expected major and minor to be digits"
+                f" or [*] but got [{major}] and [{minor}]"
+            )
+
+    valid_cgroup_perm_or_raise(parts[2])
+
+    return dev_grp_rule
+
+
 def allowed_dns_opt_or_raise(dns_opt: str):
     disallowed_dns_opts = []
     if dns_opt in disallowed_dns_opts:
