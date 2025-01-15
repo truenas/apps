@@ -8,7 +8,7 @@ try:
     from .configs import ContainerConfigs
     from .depends import Depends
     from .deploy import Deploy
-    from .device_group_rules import DeviceGroupRules
+    from .device_cgroup_rules import DeviceCGroupRules
     from .devices import Devices
     from .dns import Dns
     from .environment import Environment
@@ -32,7 +32,7 @@ except ImportError:
     from configs import ContainerConfigs
     from depends import Depends
     from deploy import Deploy
-    from device_group_rules import DeviceGroupRules
+    from device_cgroup_rules import DeviceCGroupRules
     from devices import Devices
     from dns import Dns
     from environment import Environment
@@ -80,7 +80,7 @@ class Container:
         self._shm_size: int | None = None
         self._storage: Storage = Storage(self._render_instance)
         self._ipc_mode: str | None = None
-        self._device_group_rules: DeviceGroupRules = DeviceGroupRules(self._render_instance)
+        self._device_cgroup_rules: DeviceCGroupRules = DeviceCGroupRules(self._render_instance)
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)
         self.configs: ContainerConfigs = ContainerConfigs(self._render_instance, self._render_instance.configs)
         self.deploy: Deploy = Deploy(self._render_instance)
@@ -191,8 +191,8 @@ class Container:
     def set_ipc_mode(self, ipc_mode: str):
         self._ipc_mode = valid_ipc_mode_or_raise(ipc_mode, self._render_instance.container_names())
 
-    def add_device_group_rule(self, dev_grp_rule: str):
-        self._device_group_rules.add_rule(dev_grp_rule)
+    def add_device_cgroup_rule(self, dev_grp_rule: str):
+        self._device_cgroup_rules.add_rule(dev_grp_rule)
 
     def set_init(self, enabled: bool = False):
         self._init = enabled
@@ -324,8 +324,8 @@ class Container:
         if self._ipc_mode is not None:
             result["ipc_mode"] = self._ipc_mode
 
-        if self._device_group_rules.has_rules():
-            result["device_group_rules"] = self._device_group_rules.render()
+        if self._device_cgroup_rules.has_rules():
+            result["device_cgroup_rules"] = self._device_cgroup_rules.render()
 
         if self._init is not None:
             result["init"] = self._init

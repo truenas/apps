@@ -5,15 +5,15 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
-    from .validations import valid_device_group_rule_or_raise
+    from .validations import valid_device_cgroup_rule_or_raise
 except ImportError:
     from error import RenderError
-    from validations import valid_device_group_rule_or_raise
+    from validations import valid_device_cgroup_rule_or_raise
 
 
-class DeviceGroupRule:
+class DeviceCGroupRule:
     def __init__(self, rule: str):
-        rule = valid_device_group_rule_or_raise(rule)
+        rule = valid_device_cgroup_rule_or_raise(rule)
         parts = rule.split(" ")
         major, minor = parts[1].split(":")
 
@@ -29,14 +29,14 @@ class DeviceGroupRule:
         return f"{self._type} {self._major}:{self._minor} {self._permissions}"
 
 
-class DeviceGroupRules:
+class DeviceCGroupRules:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
-        self._rules: set[DeviceGroupRule] = set()
+        self._rules: set[DeviceCGroupRule] = set()
         self._track_rule_combos: set[str] = set()
 
     def add_rule(self, rule: str):
-        dev_group_rule = DeviceGroupRule(rule)
+        dev_group_rule = DeviceCGroupRule(rule)
         if dev_group_rule in self._rules:
             raise RenderError(f"Device Group Rule [{rule}] already added")
 

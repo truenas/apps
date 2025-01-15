@@ -147,7 +147,7 @@ def valid_cgroup_perm_or_raise(cgroup_perm: str):
     return cgroup_perm
 
 
-def valid_device_group_rule_or_raise(dev_grp_rule: str):
+def valid_device_cgroup_rule_or_raise(dev_grp_rule: str):
     parts = dev_grp_rule.split(" ")
     if len(parts) != 3:
         raise RenderError(
