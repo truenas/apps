@@ -367,3 +367,48 @@ def test_add_ports_with_invalid_host_ips(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.add_port({"port_number": 8081, "container_port": 8080, "bind_mode": "published", "host_ips": "invalid"})
+
+
+def test_set_ipc_mode(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.set_ipc_mode("host")
+    output = render.render()
+    assert output["services"]["test_container"]["ipc_mode"] == "host"
+
+
+def test_set_ipc_empty_mode(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.set_ipc_mode("")
+    output = render.render()
+    assert output["services"]["test_container"]["ipc_mode"] == ""
+
+
+def test_set_ipc_mode_with_invalid_ipc_mode(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.set_ipc_mode("invalid")
+
+
+def test_set_ipc_mode_with_container_ipc_mode(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+    c1.set_ipc_mode("container:test_container2")
+    output = render.render()
+    assert output["services"]["test_container"]["ipc_mode"] == "container:test_container2"
+
+
+def test_set_ipc_mode_with_container_ipc_mode_and_invalid_container(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.set_ipc_mode("container:invalid")
