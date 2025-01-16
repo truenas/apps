@@ -8,6 +8,7 @@ try:
     from .configs import ContainerConfigs
     from .depends import Depends
     from .deploy import Deploy
+    from .device_cgroup_rules import DeviceCGroupRules
     from .devices import Devices
     from .dns import Dns
     from .environment import Environment
@@ -19,10 +20,11 @@ try:
     from .ports import Ports
     from .restart import RestartPolicy
     from .validations import (
-        valid_network_mode_or_raise,
         valid_cap_or_raise,
-        valid_pull_policy_or_raise,
+        valid_ipc_mode_or_raise,
+        valid_network_mode_or_raise,
         valid_port_bind_mode_or_raise,
+        valid_pull_policy_or_raise,
     )
     from .storage import Storage
     from .sysctls import Sysctls
@@ -30,6 +32,7 @@ except ImportError:
     from configs import ContainerConfigs
     from depends import Depends
     from deploy import Deploy
+    from device_cgroup_rules import DeviceCGroupRules
     from devices import Devices
     from dns import Dns
     from environment import Environment
@@ -41,10 +44,11 @@ except ImportError:
     from ports import Ports
     from restart import RestartPolicy
     from validations import (
-        valid_network_mode_or_raise,
         valid_cap_or_raise,
-        valid_pull_policy_or_raise,
+        valid_ipc_mode_or_raise,
+        valid_network_mode_or_raise,
         valid_port_bind_mode_or_raise,
+        valid_pull_policy_or_raise,
     )
     from storage import Storage
     from sysctls import Sysctls
@@ -75,6 +79,8 @@ class Container:
         self._grace_period: int | None = None
         self._shm_size: int | None = None
         self._storage: Storage = Storage(self._render_instance)
+        self._ipc_mode: str | None = None
+        self._device_cgroup_rules: DeviceCGroupRules = DeviceCGroupRules(self._render_instance)
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)
         self.configs: ContainerConfigs = ContainerConfigs(self._render_instance, self._render_instance.configs)
         self.deploy: Deploy = Deploy(self._render_instance)
@@ -181,6 +187,12 @@ class Container:
 
     def set_stdin(self, enabled: bool = False):
         self._stdin_open = enabled
+
+    def set_ipc_mode(self, ipc_mode: str):
+        self._ipc_mode = valid_ipc_mode_or_raise(ipc_mode, self._render_instance.container_names())
+
+    def add_device_cgroup_rule(self, dev_grp_rule: str):
+        self._device_cgroup_rules.add_rule(dev_grp_rule)
 
     def set_init(self, enabled: bool = False):
         self._init = enabled
@@ -308,6 +320,12 @@ class Container:
 
         if self.configs.has_configs():
             result["configs"] = self.configs.render()
+
+        if self._ipc_mode is not None:
+            result["ipc_mode"] = self._ipc_mode
+
+        if self._device_cgroup_rules.has_rules():
+            result["device_cgroup_rules"] = self._device_cgroup_rules.render()
 
         if self._init is not None:
             result["init"] = self._init
