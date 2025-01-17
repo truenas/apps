@@ -22,8 +22,13 @@ def test_add_extra_host(mock_values):
     c1.healthcheck.disable()
     c1.add_extra_host("test_host", "127.0.0.1")
     c1.add_extra_host("test_host2", "127.0.0.2")
+    c1.add_extra_host("host.docker.internal", "host-gateway")
     output = render.render()
-    assert output["services"]["test_container"]["extra_hosts"] == {"test_host": "127.0.0.1", "test_host2": "127.0.0.2"}
+    assert output["services"]["test_container"]["extra_hosts"] == {
+        "host.docker.internal": "host-gateway",
+        "test_host": "127.0.0.1",
+        "test_host2": "127.0.0.2",
+    }
 
 
 def test_add_duplicate_extra_host(mock_values):

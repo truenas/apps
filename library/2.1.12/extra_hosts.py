@@ -16,10 +16,11 @@ class ExtraHosts:
         self._extra_hosts: dict[str, str] = {}
 
     def add_host(self, host: str, ip: str):
-        try:
-            ipaddress.ip_address(ip)
-        except ValueError:
-            raise RenderError(f"Invalid IP address [{ip}] for host [{host}]")
+        if not ip == "host-gateway":
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                raise RenderError(f"Invalid IP address [{ip}] for host [{host}]")
 
         if host in self._extra_hosts:
             raise RenderError(f"Host [{host}] already added with [{self._extra_hosts[host]}]")
