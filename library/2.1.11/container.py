@@ -14,6 +14,7 @@ try:
     from .environment import Environment
     from .error import RenderError
     from .expose import Expose
+    from .extra_hosts import ExtraHosts
     from .formatter import escape_dollar, get_image_with_hashed_data
     from .healthcheck import Healthcheck
     from .labels import Labels
@@ -38,6 +39,7 @@ except ImportError:
     from environment import Environment
     from error import RenderError
     from expose import Expose
+    from extra_hosts import ExtraHosts
     from formatter import escape_dollar, get_image_with_hashed_data
     from healthcheck import Healthcheck
     from labels import Labels
@@ -67,6 +69,7 @@ class Container:
         self._stdin_open: bool = False
         self._init: bool | None = None
         self._read_only: bool | None = None
+        self._extra_hosts: ExtraHosts = ExtraHosts(self._render_instance)
         self._hostname: str = ""
         self._cap_drop: set[str] = set(["ALL"])  # Drop all capabilities by default and add caps granularly
         self._cap_add: set[str] = set()
@@ -159,6 +162,9 @@ class Container:
             if not isinstance(i, int) or i < 0:
                 raise RenderError(f"User/Group [{i}] is not valid")
         self._user = f"{user}:{group}"
+
+    def add_extra_host(self, host: str, ip: str):
+        self._extra_hosts.add_host(host, ip)
 
     def add_group(self, group: int | str):
         if isinstance(group, str):
@@ -322,10 +328,13 @@ class Container:
             result["configs"] = self.configs.render()
 
         if self._ipc_mode is not None:
-            result["ipc_mode"] = self._ipc_mode
+            result["ipc"] = self._ipc_mode
 
         if self._device_cgroup_rules.has_rules():
             result["device_cgroup_rules"] = self._device_cgroup_rules.render()
+
+        if self._extra_hosts.has_hosts():
+            result["extra_hosts"] = self._extra_hosts.render()
 
         if self._init is not None:
             result["init"] = self._init
