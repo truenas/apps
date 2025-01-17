@@ -375,7 +375,7 @@ def test_set_ipc_mode(mock_values):
     c1.healthcheck.disable()
     c1.set_ipc_mode("host")
     output = render.render()
-    assert output["services"]["test_container"]["ipc_mode"] == "host"
+    assert output["services"]["test_container"]["ipc"] == "host"
 
 
 def test_set_ipc_empty_mode(mock_values):
@@ -384,7 +384,7 @@ def test_set_ipc_empty_mode(mock_values):
     c1.healthcheck.disable()
     c1.set_ipc_mode("")
     output = render.render()
-    assert output["services"]["test_container"]["ipc_mode"] == ""
+    assert output["services"]["test_container"]["ipc"] == ""
 
 
 def test_set_ipc_mode_with_invalid_ipc_mode(mock_values):
@@ -403,7 +403,7 @@ def test_set_ipc_mode_with_container_ipc_mode(mock_values):
     c2.healthcheck.disable()
     c1.set_ipc_mode("container:test_container2")
     output = render.render()
-    assert output["services"]["test_container"]["ipc_mode"] == "container:test_container2"
+    assert output["services"]["test_container"]["ipc"] == "container:test_container2"
 
 
 def test_set_ipc_mode_with_container_ipc_mode_and_invalid_container(mock_values):
