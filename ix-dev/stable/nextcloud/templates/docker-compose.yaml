@@ -183,9 +183,9 @@
   {% do nginx_container.configs.add("private", values.ix_certificates[values.network.certificate_id].privatekey, values.consts.ssl_key_path) %}
   {% do nginx_container.configs.add("public", values.ix_certificates[values.network.certificate_id].certificate, values.consts.ssl_cert_path) %}
   {% do nginx_container.configs.add("nginx.conf", nginx_conf(values), "/etc/nginx/nginx.conf", "0600") %}
-  {% if values.network.nginx.mount_custom_conf %}
-    {% do nginx_container.add_storage("/etc/nginx/includes", values.network.nginx.custom_conf) %}
-  {% endif %}
+  {% for conf_path in values.network.nginx.custom_confs %}
+    {% do nginx_container.add_storage("/etc/nginx/includes/%d.conf"|format(loop.index0), {"type": "host_path", "host_path_config": {"path": conf_path}}) %}
+  {% endfor %}
   {% do nginx_container.add_storage("/tmp", {"type": "anonymous", "volume_config": {}}) %}
   {% do nginx_container.healthcheck.set_test("curl", {
     "port": values.network.web_port, "path": "/status.php",
