@@ -1,3 +1,3 @@
 # esphome
 
-[esphome](https://github.com/esphome/esphome) is a PVR for Usenet and BitTorrent users. It can monitor multiple RSS feeds for new episodes of your favorite shows and will grab, sort and rename them.
+[esphome](https://github.com/esphome/esphome) is a system to control your microcontrollers by simple yet powerful configuration files and control them remotely through Home Automation systems.
