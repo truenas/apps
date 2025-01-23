@@ -4,30 +4,22 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.add_caps(["CHOWN", "SETUID", "SETGID"]) %}
-{% do c1.healthcheck.set_test("http", {"port": values.network.web_port}) %}
-
-
-{% if values.urbackup.zfs_enabled %}
-  {% do c1.devices.add_device("/dev/zfs", "/dev/zfs") %}
-{% endif %}
-
-{% if values.urbackup.btrfs_enabled %}
-  {% do c1.add_caps(["SYS_ADMIN"]) %}
-{% endif %}
+{% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number}) %}
 
 {% do c1.environment.add_user_envs(values.urbackup.additional_envs) %}
 
 {% do c1.add_storage("/backups", values.storage.backups) %}
 {% do c1.add_storage("/var/urbackup", values.storage.database) %}
+{% do c1.add_storage("/usr/share/urbackup", values.storage.wwwfolder) %}
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-  {% do c1.ports.add_port(values.network.backup_port_1, values.network.backup_port_1) %}
-  {% do c1.ports.add_port(values.network.backup_port_2, values.network.backup_port_2) %}
-{% endif %}
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_webui_port}) %}
+{% do c1.add_port(values.network.backup_port_1, {"container_port": values.consts.internal_backup_port_1}) %}
+{% do c1.add_port(values.network.backup_port_2, {"container_port": values.consts.internal_backup_port_2}) %}
+{% do c1.add_port(values.network.backup_port_3, {"container_port": values.consts.internal_backup_port_3, "protocol": "udp"}) %}
+
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
