@@ -8,21 +8,24 @@ try:
     from .configs import ContainerConfigs
     from .depends import Depends
     from .deploy import Deploy
+    from .device_cgroup_rules import DeviceCGroupRules
     from .devices import Devices
     from .dns import Dns
     from .environment import Environment
     from .error import RenderError
     from .expose import Expose
+    from .extra_hosts import ExtraHosts
     from .formatter import escape_dollar, get_image_with_hashed_data
     from .healthcheck import Healthcheck
     from .labels import Labels
     from .ports import Ports
     from .restart import RestartPolicy
     from .validations import (
-        valid_network_mode_or_raise,
         valid_cap_or_raise,
-        valid_pull_policy_or_raise,
+        valid_ipc_mode_or_raise,
+        valid_network_mode_or_raise,
         valid_port_bind_mode_or_raise,
+        valid_pull_policy_or_raise,
     )
     from .storage import Storage
     from .sysctls import Sysctls
@@ -30,21 +33,24 @@ except ImportError:
     from configs import ContainerConfigs
     from depends import Depends
     from deploy import Deploy
+    from device_cgroup_rules import DeviceCGroupRules
     from devices import Devices
     from dns import Dns
     from environment import Environment
     from error import RenderError
     from expose import Expose
+    from extra_hosts import ExtraHosts
     from formatter import escape_dollar, get_image_with_hashed_data
     from healthcheck import Healthcheck
     from labels import Labels
     from ports import Ports
     from restart import RestartPolicy
     from validations import (
-        valid_network_mode_or_raise,
         valid_cap_or_raise,
-        valid_pull_policy_or_raise,
+        valid_ipc_mode_or_raise,
+        valid_network_mode_or_raise,
         valid_port_bind_mode_or_raise,
+        valid_pull_policy_or_raise,
     )
     from storage import Storage
     from sysctls import Sysctls
@@ -63,6 +69,7 @@ class Container:
         self._stdin_open: bool = False
         self._init: bool | None = None
         self._read_only: bool | None = None
+        self._extra_hosts: ExtraHosts = ExtraHosts(self._render_instance)
         self._hostname: str = ""
         self._cap_drop: set[str] = set(["ALL"])  # Drop all capabilities by default and add caps granularly
         self._cap_add: set[str] = set()
@@ -75,6 +82,8 @@ class Container:
         self._grace_period: int | None = None
         self._shm_size: int | None = None
         self._storage: Storage = Storage(self._render_instance)
+        self._ipc_mode: str | None = None
+        self._device_cgroup_rules: DeviceCGroupRules = DeviceCGroupRules(self._render_instance)
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)
         self.configs: ContainerConfigs = ContainerConfigs(self._render_instance, self._render_instance.configs)
         self.deploy: Deploy = Deploy(self._render_instance)
@@ -154,6 +163,9 @@ class Container:
                 raise RenderError(f"User/Group [{i}] is not valid")
         self._user = f"{user}:{group}"
 
+    def add_extra_host(self, host: str, ip: str):
+        self._extra_hosts.add_host(host, ip)
+
     def add_group(self, group: int | str):
         if isinstance(group, str):
             group = str(group).strip()
@@ -181,6 +193,12 @@ class Container:
 
     def set_stdin(self, enabled: bool = False):
         self._stdin_open = enabled
+
+    def set_ipc_mode(self, ipc_mode: str):
+        self._ipc_mode = valid_ipc_mode_or_raise(ipc_mode, self._render_instance.container_names())
+
+    def add_device_cgroup_rule(self, dev_grp_rule: str):
+        self._device_cgroup_rules.add_rule(dev_grp_rule)
 
     def set_init(self, enabled: bool = False):
         self._init = enabled
@@ -308,6 +326,15 @@ class Container:
 
         if self.configs.has_configs():
             result["configs"] = self.configs.render()
+
+        if self._ipc_mode is not None:
+            result["ipc"] = self._ipc_mode
+
+        if self._device_cgroup_rules.has_rules():
+            result["device_cgroup_rules"] = self._device_cgroup_rules.render()
+
+        if self._extra_hosts.has_hosts():
+            result["extra_hosts"] = self._extra_hosts.render()
 
         if self._init is not None:
             result["init"] = self._init
