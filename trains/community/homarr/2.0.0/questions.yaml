@@ -1,18 +1,20 @@
 groups:
-  - name: Gitea Act Runner Configuration
-    description: Configure Gitea Act Runner
+  - name: Homarr Configuration
+    description: Configure Homarr
   - name: User and Group Configuration
-    description: Configure User and Group for Gitea Act Runner
+    description: Configure User and Group for Homarr
+  - name: Network Configuration
+    description: Configure Network for Homarr
   - name: Storage Configuration
-    description: Configure Storage for Gitea Act Runner
+    description: Configure Storage for Homarr
   - name: Labels Configuration
-    description: Configure Labels for Gitea Act Runner
+    description: Configure Labels for Homarr
   - name: Resources Configuration
-    description: Configure Resources for Gitea Act Runner
+    description: Configure Resources for Homarr
 
 questions:
   - variable: TZ
-    group: Gitea Act Runner Configuration
+    group: Homarr Configuration
     label: Timezone
     schema:
       type: string
@@ -20,37 +22,32 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: Gitea Act Runner
+
+  - variable: homarr
     label: ""
-    group: Gitea Act Runner Configuration
+    group: Homarr Configuration
     schema:
       type: dict
       attrs:
-        - variable: instance_url
-          label: Instance URL
-          description: The URL of the Gitea instance to use.
+        - variable: secret_encryption_key
+          label: Secret Encryption Key
           schema:
             type: string
             default: ""
-            required: true
-        - variable: runner_name
-          label: Runner Name
-          description: The name of the runner to use.
-          schema:
-            type: string
-            default: ""
-            required: true
-        - variable: runner_registration_token
-          label: Runner Registration Token
-          description: The registration token for the runner.
-          schema:
-            type: string
-            default: ""
+            min_length: 64
+            max_length: 64
             required: true
             private: true
+        - variable: mount_docker_socket
+          label: Mount Docker Socket
+          description: |
+            Mount the Docker socket (read only) to the container.
+          schema:
+            type: boolean
+            default: false
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Gitea Act Runner.
+          description: Configure additional environment variables for Homarr.
           schema:
             type: list
             default: []
@@ -78,7 +75,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Gitea Act Runner files will be owned by.
+          description: The user id that Homarr files will be owned by.
           schema:
             type: int
             min: 568
@@ -86,13 +83,59 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Gitea Act Runner files will be owned by.
+          description: The group id that Homarr files will be owned by.
           schema:
             type: int
             min: 568
             default: 568
             required: true
 
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30052
+                  required: true
+                  $ref:
+                    - definitions/port
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -100,8 +143,8 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Gitea Act Runner Data Storage
-          description: The path to store Gitea Act Runner Data.
+          label: Homarr Data Storage
+          description: The path to store Homarr Data.
           schema:
             type: dict
             attrs:
@@ -179,7 +222,7 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Gitea Act Runner.
+          description: Additional storage for Homarr.
           schema:
             type: list
             default: []
@@ -275,8 +318,6 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
-                              $ref:
-                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -348,9 +389,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: gitea-act-runner
-                            description: gitea-act-runner
-
+                          - value: homarr
+                            description: homarr
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -364,14 +404,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Gitea Act Runner.
+                description: CPUs limit for Homarr.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Gitea Act Runner.
+                description: Memory limit for Homarr.
                 schema:
                   type: int
                   default: 4096
