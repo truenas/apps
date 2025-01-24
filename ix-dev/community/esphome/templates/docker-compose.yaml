@@ -4,12 +4,21 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
-{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/version"}) %}
+{% do c1.set_command(["dashboard", "/config", "--port", values.network.web_port.port_number]) %}
 
 {% do c1.environment.add_env("ESPHOME_DASHBOARD_USE_PING", true) %}
 {% do c1.environment.add_user_envs(values.esphome.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_webui_port}) %}
+{% do c1.add_port(values.network.web_port) %}
+
+{% for port in values.network.additional_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{% for device in values.esphome.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
 
 {% do c1.add_storage("/config", values.storage.config) %}
 
