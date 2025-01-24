@@ -47,7 +47,7 @@
 {% do paperless_container.environment.add_env("PAPERLESS_DBNAME", values.consts.db_name) %}
 {% do paperless_container.environment.add_env("PAPERLESS_DBUSER", values.consts.db_user) %}
 {% do paperless_container.environment.add_env("PAPERLESS_DBPASS", values.paperless.db_password) %}
-{% do paperless_container.environment.add_env("PAPERLESS_REDIS", "redis://default:%s@%s:6379" | format(values.paperless.redis_password, values.consts.redis_container_name)) %}
+{% do paperless_container.environment.add_env("PAPERLESS_REDIS", redis.get_url("redis")) %}
 
 {% do paperless_container.environment.add_user_envs(values.paperless.additional_envs) %}
 
@@ -91,7 +91,7 @@
     "gotenberg",
     "--api-port=%d"|format(values.consts.gotenberg_port),
     "--chromium-disable-javascript=%s"|format(values.paperless.gotenberg_chromium_disable_javascript|string|lower),
-    "--chromium-allow-list=file:///tmp/.*",
+    "--chromium-allow-list=%s"|format(values.paperless.gotenberg_chromium_allow_list_regex or '""'),
   ]) %}
   {% do gotenberg_container.healthcheck.set_test("curl", {"port": values.consts.gotenberg_port, "path":"/health"}) %}
 
