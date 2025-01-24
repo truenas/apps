@@ -84,7 +84,12 @@ module.exports = {
       // We still limit major to 1 digit, as we don't want to match "24.08.0" as a major version
       // This is something that we need to investigate if one of the images start having 2 digit major versions
       "^(?<major>\\d{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["linuxserver/deluge", "linuxserver/diskover", "linuxserver/transmission"]
+      [
+        "linuxserver/deluge",
+        "linuxserver/diskover",
+        "linuxserver/transmission",
+        "linuxserver/calibre-web",
+      ]
     ),
     customVersioning(
       // v0.8.1-omnibus
@@ -156,6 +161,10 @@ module.exports = {
       "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/umami-software/umami"]
     ),
+    customVersioning(),
+    // 2024.10.22-7ca5933
+    "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
+    ["ghcr.io/corentinth/it-tools"],
   ],
 };
 
