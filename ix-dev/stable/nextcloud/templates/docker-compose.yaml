@@ -70,15 +70,17 @@
 ]) %}
 {% if values.storage.is_data_in_the_same_volume %}
   {% do tpl.notes.add_warning(values.consts.deprecation_warning) %}
-  {% set data_host_path = values.storage.data.get("host_path_config", {}).get("acl", {}).get("path", "") or values.storage.data.get("host_path_config", {}).get("path", "") %}
-  {% set html_host_path = values.storage.html.get("host_path_config", {}).get("acl", {}).get("path", "") or values.storage.html.get("host_path_config", {}).get("path", "") %}
-  {% set html_create_host_path = values.storage.html.get("host_path_config", {}).get("create_host_path", False) %}
+  {% set data_host_path = tpl.funcs.get_host_path(values.storage.data) %}
   {% set data_create_host_path = values.storage.data.get("host_path_config", {}).get("create_host_path", False) %}
-  {% do nc_storage.x.append((values.nextcloud.data_dir_path, dict(values.storage.data, **{"host_path_config": {"path": "%s/data"|format(data_host_path), "create_host_path": data_create_host_path}} ))) %}
-  {% do nc_storage.x.append(("/var/www/html", dict(values.storage.html, **{"host_path_config": {"path": "%s/html"|format(html_host_path), "create_host_path": html_create_host_path}} ))) %}
-  {% do nc_storage.x.append(("/var/www/html/config", dict(values.storage.html, **{"host_path_config": {"path": "%s/config"|format(html_host_path), "create_host_path": html_create_host_path}} ))) %}
-  {% do nc_storage.x.append(("/var/www/html/custom_apps", dict(values.storage.html, **{"host_path_config": {"path": "%s/custom_apps"|format(html_host_path), "create_host_path": html_create_host_path}} ))) %}
-  {% do nc_storage.x.append(("/var/www/html/themes", dict(values.storage.html, **{"host_path_config": {"path": "%s/themes"|format(html_host_path), "create_host_path": html_create_host_path}} ))) %}
+
+  {% set html_host_path = tpl.funcs.get_host_path(values.storage.html) %}
+  {% set html_create_host_path = values.storage.html.get("host_path_config", {}).get("create_host_path", False) %}
+
+  {% do nc_storage.x.append((values.nextcloud.data_dir_path, dict(values.storage.data, **{"type": "host_path", "host_path_config": {"path": "%s/data"|format(data_host_path), "create_host_path": data_create_host_path, "allow_unsafe_ix_volume": true}} ))) %}
+  {% do nc_storage.x.append(("/var/www/html", dict(values.storage.html, **{"type": "host_path", "host_path_config": {"path": "%s/html"|format(html_host_path), "create_host_path": html_create_host_path, "allow_unsafe_ix_volume": true}} ))) %}
+  {% do nc_storage.x.append(("/var/www/html/config", dict(values.storage.html, **{"type": "host_path", "host_path_config": {"path": "%s/config"|format(html_host_path), "create_host_path": html_create_host_path, "allow_unsafe_ix_volume": true}} ))) %}
+  {% do nc_storage.x.append(("/var/www/html/custom_apps", dict(values.storage.html, **{"type": "host_path", "host_path_config": {"path": "%s/custom_apps"|format(html_host_path), "create_host_path": html_create_host_path, "allow_unsafe_ix_volume": true}} ))) %}
+  {% do nc_storage.x.append(("/var/www/html/themes", dict(values.storage.html, **{"type": "host_path", "host_path_config": {"path": "%s/themes"|format(html_host_path), "create_host_path": html_create_host_path, "allow_unsafe_ix_volume": true}} ))) %}
 {% else %}
   {% do nc_storage.x.append(("/var/www/html", values.storage.html)) %}
   {% do nc_storage.x.append((values.nextcloud.data_dir_path, values.storage.data)) %}
