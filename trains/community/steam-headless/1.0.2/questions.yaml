@@ -1,20 +1,20 @@
 groups:
-  - name: Calibre Web Configuration
-    description: Configure Calibre Web
+  - name: Steam Headless Configuration
+    description: Configure Steam Headless
   - name: User and Group Configuration
-    description: Configure User and Group for Calibre Web
+    description: Configure User and Group for Steam Headless
   - name: Network Configuration
-    description: Configure Network for Calibre Web
+    description: Configure Network for Steam Headless
   - name: Storage Configuration
-    description: Configure Storage for Calibre Web
+    description: Configure Storage for Steam Headless
   - name: Labels Configuration
-    description: Configure Labels for Calibre Web
+    description: Configure Labels for Steam Headless
   - name: Resources Configuration
-    description: Configure Resources for Calibre Web
+    description: Configure Resources for Steam Headless
 
 questions:
   - variable: TZ
-    group: Calibre Web Configuration
+    group: Steam Headless Configuration
     label: Timezone
     schema:
       type: string
@@ -22,16 +22,120 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-
-  - variable: calibre_web
+  - variable: steam_headless
     label: ""
-    group: Calibre Web Configuration
+    group: Steam Headless Configuration
     schema:
       type: dict
       attrs:
+        - variable: name
+          label: Name
+          description: The name of the Steam Headless instance.
+          schema:
+            type: string
+            required: true
+            default: "steam-headless"
+        - variable: user_password
+          label: User Password
+          description: The password for the Steam Headless user.
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: enable_ev_dev_inputs
+          label: Enable EV Dev Inputs
+          description: Enable EV Dev Inputs.
+          schema:
+            type: boolean
+            default: false
+        - variable: shm_size_mb
+          label: SHM Size (MB)
+          description: The size of the SHM.
+          schema:
+            type: int
+            default: 2048
+            required: true
+        - variable: mode
+          label: Mode
+          description: The mode to use.
+          schema:
+            type: string
+            default: "primary"
+            required: true
+            enum:
+              - value: "primary"
+                description: Primary
+              - value: "secondary"
+                description: Secondary
+        - variable: force_x11_dummy_config
+          label: Force X11 Dummy Config
+          description: Force X11 Dummy Config.
+          schema:
+            type: boolean
+            show_if: [["mode", "=", "primary"]]
+            default: false
+        - variable: display
+          label: Display
+          description: The display to use.
+          schema:
+            type: string
+            show_if: [["force_x11_dummy_config", "=", false]]
+            default: ":55"
+            required: true
+        - variable: steam
+          label: Steam
+          description: Configure Steam.
+          schema:
+            type: dict
+            attrs:
+              - variable: enable
+                label: Enable
+                schema:
+                  type: boolean
+                  default: true
+              - variable: args
+                label: Steam Args
+                description: Configure Steam Args.
+                schema:
+                  type: list
+                  show_if: [["enable", "=", true]]
+                  default:
+                    - -silent
+                  items:
+                    - variable: arg
+                      label: Argument
+                      schema:
+                        type: string
+                        required: true
+        - variable: sunshine
+          label: Sunshine
+          description: Configure Sunshine.
+          schema:
+            type: dict
+            attrs:
+              - variable: enable
+                label: Enable
+                schema:
+                  type: boolean
+                  default: true
+              - variable: username
+                label: Username
+                schema:
+                  type: string
+                  show_if: [["enable", "=", true]]
+                  default: ""
+                  required: true
+              - variable: password
+                label: Password
+                schema:
+                  type: string
+                  show_if: [["enable", "=", true]]
+                  default: ""
+                  private: true
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Calibre Web.
+          description: Configure additional environment variables for Steam Headless.
           schema:
             type: list
             default: []
@@ -59,7 +163,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Calibre Web files will be owned by.
+          description: The user id that Steam Headless files will be owned by.
           schema:
             type: int
             min: 568
@@ -67,7 +171,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Calibre Web files will be owned by.
+          description: The group id that Steam Headless files will be owned by.
           schema:
             type: int
             min: 568
@@ -80,11 +184,10 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
+        - variable: vnc_port
+          label: VNC Port
           schema:
             type: dict
-            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -109,27 +212,26 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "exposed"]]
-                  default: 31067
+                  show_if: [["bind_mode", "!=", ""]]
+                  default: 31100
                   required: true
                   $ref:
                     - definitions/port
         - variable: host_network
           label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
+          description: Bind to the host network.
           schema:
             type: boolean
-            default: false
+            default: true
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: config
-          label: Calibre Web Config Storage
-          description: The path to store Calibre Web Config.
+        - variable: home
+          label: Steam Headless Home Storage
+          description: The path to store Steam Headless Home.
           schema:
             type: dict
             attrs:
@@ -171,7 +273,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
+                        default: "home"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -205,9 +307,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: books
-          label: Calibre Web Books Storage
-          description: The path to store Calibre Web Books.
+        - variable: games
+          label: Steam Headless Games Storage
+          description: The path to store Steam Headless Games.
           schema:
             type: dict
             attrs:
@@ -249,7 +351,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "books"
+                        default: "games"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -283,9 +385,166 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: x11_socket
+          label: Steam Headless X11 Socket Storage
+          description: The path to store Steam Headless X11 Socket.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  immutable: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        immutable: true
+                        hidden: true
+                        default: "x11_socket"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: pulse_socket
+          label: Steam Headless Pulse Socket Storage
+          description: The path to store Steam Headless Pulse Socket.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  immutable: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        immutable: true
+                        hidden: true
+                        default: "pulse_socket"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Calibre Web.
+          description: Additional storage for Steam Headless.
           schema:
             type: list
             default: []
@@ -454,8 +713,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: calibre-web
-                            description: calibre-web
+                          - value: steam-headless
+                            description: steam-headless
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -469,14 +728,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Calibre Web.
+                description: CPUs limit for Steam Headless.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Calibre Web.
+                description: Memory limit for Steam Headless.
                 schema:
                   type: int
                   default: 4096
