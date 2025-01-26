@@ -161,6 +161,11 @@ module.exports = {
       "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/umami-software/umami"]
     ),
+    customVersioning(
+      // 20250122_091948  {year}{month}{day}_{build}
+      "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
+      ["nextcloud/aio-imaginary"]
+    ),
     customVersioning(),
     // 2024.10.22-7ca5933
     "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
