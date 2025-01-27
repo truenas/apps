@@ -1,4 +1,4 @@
-{% from "macros/nc.jinja.sh" import occ, hosts_update, trusted_domains_update, set_imaginary_url, remove_imaginary_url %}
+{% from "macros/nc.jinja.sh" import occ, hosts_update, trusted_domains_update, imaginary_url %}
 {% from "macros/nc.jinja.conf" import opcache, php, limit_request_body, nginx_conf %}
 
 {% set tpl = ix_lib.base.render.Render(values) %}
@@ -129,7 +129,7 @@
 {% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
 
 {% if values.nextcloud.imaginary.enabled %}
-  {% do nc_env.x.append(("IMAGINARY_URL", "http://imaginary:9000")) %}
+  {% do nc_env.x.append(("IMAGINARY_URL", "http://%s:%d"|format(values.consts.imaginary_container_name, values.consts.imaginary_port))) %}
 {% endif %}
 
 {% do nc_container.build_image(nc_custom_image.x) %}
@@ -153,9 +153,7 @@
   {% do nc_container.ports.add_port(values.network.web_port, 80) %}
 {% endif %}
 {% if values.nextcloud.imaginary.enabled %}
-  {% do nc_container.configs.add("ix-set-imaginary-url.sh", set_imaginary_url(), "/docker-entrypoint-hooks.d/before-starting/ix-set-imaginary-url.sh", "0755") %}
-{% else %}
-  {% do nc_container.configs.add("ix-remove-imaginary-url.sh", remove_imaginary_url(), "/docker-entrypoint-hooks.d/before-starting/ix-remove-imaginary-url.sh", "0755") %}
+  {% do nc_container.configs.add("ix-imaginary-url.sh", imaginary_url(), "/docker-entrypoint-hooks.d/before-starting/ix-imaginary-url.sh", "0755") %}
 {% endif %}
 
 {% do nc_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
@@ -190,7 +188,7 @@
   {% do imaginary_container.add_caps(["SYS_NICE"]) %}
   {% do imaginary_container.set_user(568, 568) %}
   {% do imaginary_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
-  {% do imaginary_container.healthcheck.set_test("wget", {"port": 9000}) %}
+  {% do imaginary_container.healthcheck.set_test("wget", {"port": 9000, "path": "/health"}) %}
 {% endif %}
 
 {% if values.network.certificate_id %}

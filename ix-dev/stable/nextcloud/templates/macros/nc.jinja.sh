@@ -70,16 +70,8 @@ set_list "trusted_domains" "${NEXTCLOUD_TRUSTED_DOMAINS}" || { echo "Failed to u
 
 {%- endmacro -%}
 
-{% macro set_imaginary_url() -%}
+{% macro imaginary_url() -%}
 #!/bin/bash
 echo '## Configuring Imaginary...'
 occ config:system:set preview_imaginary_url --value="${IMAGINARY_URL:?"IMAGINARY_URL is unset"}"
-
-{%- endmacro -%}
-
-{% macro remove_imaginary_url() -%}
-#!/bin/bash
-echo '## Removing Imaginary Configuration...'
-occ config:system:delete preview_imaginary_url
-
 {%- endmacro -%}
