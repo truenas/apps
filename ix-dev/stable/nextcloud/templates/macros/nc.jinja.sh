@@ -73,5 +73,5 @@ set_list "trusted_domains" "${NEXTCLOUD_TRUSTED_DOMAINS}" || { echo "Failed to u
 {% macro imaginary_url(host, port) -%}
 #!/bin/bash
 echo '## Configuring Imaginary...'
-occ config:system:set preview_imaginary_url --value="http://%s:%d"|format(host, port)
+occ config:system:set preview_imaginary_url --value={{ "http://%s:%d"|format(host, port) }}
 {%- endmacro -%}
