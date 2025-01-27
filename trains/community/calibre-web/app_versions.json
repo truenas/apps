@@ -1,16 +1,37 @@
 {
-    "1.0.9": {
+    "2.0.2": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/calibre-web/1.0.9",
-        "last_update": "2025-01-19 07:20:04",
+        "location": "/__w/apps/apps/trains/community/calibre-web/2.0.2",
+        "last_update": "2025-01-27 15:24:15",
         "required_features": [],
-        "human_version": "0.6.22_1.0.9",
-        "version": "1.0.9",
+        "human_version": "0.6.24_2.0.2",
+        "version": "2.0.2",
         "app_metadata": {
-            "app_version": "0.6.22",
-            "capabilities": [],
+            "app_version": "0.6.24",
+            "capabilities": [
+                {
+                    "description": "Calibre Web is able to chown files.",
+                    "name": "CHOWN"
+                },
+                {
+                    "description": "Calibre Web is able to bypass permission checks.",
+                    "name": "DAC_OVERRIDE"
+                },
+                {
+                    "description": "Calibre Web is able bypass permission checks for it's sub-processes.",
+                    "name": "FOWNER"
+                },
+                {
+                    "description": "Calibre Web is able to set group ID for it's sub-processes.",
+                    "name": "SETGID"
+                },
+                {
+                    "description": "Calibre Web is able to set user ID for it's sub-processes.",
+                    "name": "SETUID"
+                }
+            ],
             "categories": [
                 "media"
             ],
@@ -34,23 +55,23 @@
             "name": "calibre-web",
             "run_as_context": [
                 {
-                    "description": "Calibre Web runs as any non-root user.",
-                    "gid": 568,
-                    "group_name": "calibre-web",
-                    "uid": 568,
-                    "user_name": "calibre-web"
+                    "description": "Calibre Web runs as root user.",
+                    "gid": 0,
+                    "group_name": "root",
+                    "uid": 0,
+                    "user_name": "root"
                 }
             ],
             "screenshots": [
                 "https://media.sys.truenas.net/apps/calibre-web/screenshots/screenshot1.png"
             ],
             "sources": [
-                "https://github.com/elfhosted/containers/tree/main/apps/calibre-web",
+                "https://hub.docker.com/r/linuxserver/calibre-web",
                 "https://github.com/janeczku/calibre-web"
             ],
             "title": "Calibre Web",
             "train": "community",
-            "version": "1.0.9"
+            "version": "2.0.2"
         },
         "schema": {
             "groups": [
@@ -181,10 +202,8 @@
                             {
                                 "variable": "web_port",
                                 "label": "WebUI Port",
-                                "description": "The port for Calibre Web WebUI",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 31067,
+                                    "type": "dict",
                                     "show_if": [
                                         [
                                             "host_network",
@@ -192,9 +211,49 @@
                                             false
                                         ]
                                     ],
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": 31067,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
@@ -281,6 +340,152 @@
                                                             "immutable": true,
                                                             "hidden": true,
                                                             "default": "config"
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl_entries",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": []
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_path_config",
+                                            "label": "Host Path Configuration",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "host_path"
+                                                    ]
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": [],
+                                                            "$ref": [
+                                                                "normalize/acl"
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "path",
+                                                        "label": "Host Path",
+                                                        "description": "The host path to use for storage.",
+                                                        "schema": {
+                                                            "type": "hostpath",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    false
+                                                                ]
+                                                            ],
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "books",
+                                "label": "Calibre Web Books Storage",
+                                "description": "The path to store Calibre Web Books.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "type",
+                                            "label": "Type",
+                                            "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "required": true,
+                                                "immutable": true,
+                                                "default": "ix_volume",
+                                                "enum": [
+                                                    {
+                                                        "value": "host_path",
+                                                        "description": "Host Path (Path that already exists on the system)"
+                                                    },
+                                                    {
+                                                        "value": "ix_volume",
+                                                        "description": "ixVolume (Dataset created automatically by the system)"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "ix_volume_config",
+                                            "label": "ixVolume Configuration",
+                                            "description": "The configuration for the ixVolume dataset.",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "ix_volume"
+                                                    ]
+                                                ],
+                                                "$ref": [
+                                                    "normalize/ix_volume"
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "dataset_name",
+                                                        "label": "Dataset Name",
+                                                        "description": "The name of the dataset to use for storage.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "immutable": true,
+                                                            "hidden": true,
+                                                            "default": "books"
                                                         }
                                                     },
                                                     {
