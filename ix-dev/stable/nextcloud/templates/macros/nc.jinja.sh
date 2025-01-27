@@ -69,3 +69,9 @@ echo "If you see a domain that is not longer valid, you need to manually remove 
 set_list "trusted_domains" "${NEXTCLOUD_TRUSTED_DOMAINS}" || { echo "Failed to update trusted domains. Continuing..."; exit 0; }
 
 {%- endmacro -%}
+
+{% macro imaginary_url(host, port) -%}
+#!/bin/bash
+echo '## Configuring Imaginary...'
+occ config:system:set preview_imaginary_url --value={{ "http://%s:%d"|format(host, port) }}
+{%- endmacro -%}
