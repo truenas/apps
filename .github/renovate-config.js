@@ -161,10 +161,11 @@ module.exports = {
       "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/umami-software/umami"]
     ),
-    customVersioning(),
-    // 2024.10.22-7ca5933
-    "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
-    ["ghcr.io/corentinth/it-tools"],
+    customVersioning(
+      // 2024.10.22-7ca5933
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
+      ["ghcr.io/corentinth/it-tools"],
+    ),
   ],
 };
 
