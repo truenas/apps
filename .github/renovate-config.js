@@ -166,10 +166,11 @@ module.exports = {
       "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
       ["nextcloud/aio-imaginary"]
     ),
-    customVersioning(),
-    // 2024.10.22-7ca5933
-    "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
-    ["ghcr.io/corentinth/it-tools"],
+    customVersioning(
+      // 2024.10.22-7ca5933
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
+      ["ghcr.io/corentinth/it-tools"],
+    ),
   ],
 };
 
