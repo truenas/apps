@@ -128,10 +128,6 @@
 {% endif %}
 {% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
 
-{% if values.nextcloud.imaginary.enabled %}
-  {% do nc_env.x.append(("IMAGINARY_URL", "http://%s:%d"|format(values.consts.imaginary_container_name, values.consts.imaginary_port))) %}
-{% endif %}
-
 {% do nc_container.build_image(nc_custom_image.x) %}
 {% do nc_container.set_user(0,0) %}
 {% do nc_container.add_caps(nc_caps) %}
@@ -153,7 +149,11 @@
   {% do nc_container.ports.add_port(values.network.web_port, 80) %}
 {% endif %}
 {% if values.nextcloud.imaginary.enabled %}
-  {% do nc_container.configs.add("ix-imaginary-url.sh", imaginary_url(), "/docker-entrypoint-hooks.d/before-starting/ix-imaginary-url.sh", "0755") %}
+  {% do nc_container.configs.add(
+    "ix-imaginary-url.sh",
+    imaginary_url(values.consts.imaginary_container_name, values.consts.imaginary_port),
+    "/docker-entrypoint-hooks.d/before-starting/ix-imaginary-url.sh", "0755",
+  ) %}
 {% endif %}
 
 {% do nc_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
