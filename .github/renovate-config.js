@@ -156,6 +156,11 @@ module.exports = {
       "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/umami-software/umami"]
     ),
+    customVersioning(
+      // 2.5.x -- Yes x is exact value and not a placeholder
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.x$",
+      ["uroni/urbackup-server"]
+    ),
   ],
 };
 
