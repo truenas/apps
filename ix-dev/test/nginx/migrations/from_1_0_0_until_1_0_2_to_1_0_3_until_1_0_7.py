@@ -7,7 +7,7 @@ import yaml
 
 def migrate(values):
     values.update({"some_migrated_field": 1})
-    with open("/tmp/migrations/from_1_0_0_until_1_0_2_to_1_0_3_until_1_0_6.txt", "w") as f:
+    with open("/tmp/migrations/from_1_0_0_until_1_0_2_to_1_0_3_until_1_0_7.txt", "w") as f:
         f.write(yaml.dump(values))
     return values
 
