@@ -151,8 +151,11 @@ providers_schema = {
     },
     "gandi": {
         "required": [
-            {"provider_key": "key", "ui_key": "gandi_key"},
             {"provider_key": "ttl", "ui_key": "gandi_ttl", "type": "int"},
+        ],
+        "combos": [
+            {"required": [{"provider_key": "key", "ui_key": "gandi_key"}]},
+            {"required": [{"provider_key": "personal_access_token", "ui_key": "gandi_personal_access_token"}]},
         ],
     },
     "gcp": {
