@@ -253,9 +253,7 @@ class Container:
         host_port = config.get("port_number", 0)
         container_port = config.get("container_port", 0) or host_port
         protocol = config.get("protocol", "tcp")
-        host_ips = config.get("host_ips")
-        if not host_ips:  # Empty or undefined
-            host_ips = ["0.0.0.0", "::"]
+        host_ips = config.get("host_ips") or ["0.0.0.0", "::"]
         if not isinstance(host_ips, list):
             raise RenderError(f"Expected [host_ips] to be a list, got [{host_ips}]")
 
