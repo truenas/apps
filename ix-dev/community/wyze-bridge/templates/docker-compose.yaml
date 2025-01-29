@@ -6,7 +6,6 @@
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID"])%}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-# need to test customizing the backend port. didnt work on my first attempt
 {% do c1.set_command(["flask", "run", "--host", "0.0.0.0", "--port", values.network.web_port.port_number]) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
@@ -17,9 +16,15 @@
 {% endif %}
 
 {% if values.wyzebridge.wb_auth %}
-{% do c1.environment.add_env("WB_AUTH", values.wyzebridge.wb_auth) %}
-{% do c1.environment.add_env("WB_USERNAME", values.wyzebridge.wb_username) %}
-{% do c1.environment.add_env("WB_PASSWORD", values.wyzebridge.wb_password) %}
+  {% do c1.environment.add_env("WB_AUTH", values.wyzebridge.wb_auth) %}
+  {% do c1.environment.add_env("WB_USERNAME", values.wyzebridge.wb_username) %}
+  {% do c1.environment.add_env("WB_PASSWORD", values.wyzebridge.wb_password) %}
+{% endif %}
+
+{% if values.wyzebridge.enable_webrtc %}
+  {% do c1.environment.add_env("WB_IP", values.wyzebridge.webrtc_ip) %}
+  {% do c1.add_port(values.network.webrtc_port, {"container_port": values.consts.internal_webrtc_port}) %}
+  {% do c1.add_port(values.network.webrtcice_port, {"container_port": values.consts.internal_webrtcice_port, "protocol": "udp"}) %}
 {% endif %}
 
 {% do c1.environment.add_user_envs(values.wyzebridge.additional_envs) %}
@@ -28,8 +33,6 @@
 {% do c1.add_port(values.network.rtmp_port, {"container_port": values.consts.internal_rtmp_port}) %}
 {% do c1.add_port(values.network.rtsp_port, {"container_port": values.consts.internal_rtsp_port}) %}
 {% do c1.add_port(values.network.hls_port, {"container_port": values.consts.internal_hls_port}) %}
-{% do c1.add_port(values.network.webrtc_port, {"container_port": values.consts.internal_webrtc_port}) %}
-{% do c1.add_port(values.network.webrtcice_port, {"container_port": values.consts.internal_webrtcice_port, "protocol": "udp"}) %}
 
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
