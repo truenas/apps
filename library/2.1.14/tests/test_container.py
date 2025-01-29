@@ -369,6 +369,17 @@ def test_add_ports_with_invalid_host_ips(mock_values):
         c1.add_port({"port_number": 8081, "container_port": 8080, "bind_mode": "published", "host_ips": "invalid"})
 
 
+def test_add_ports_with_empty_host_ips(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_port({"port_number": 8081, "container_port": 8080, "bind_mode": "published", "host_ips": []})
+    output = render.render()
+    assert output["services"]["test_container"]["ports"] == [
+        {"published": 8081, "target": 8080, "protocol": "tcp", "mode": "ingress"}
+    ]
+
+
 def test_set_ipc_mode(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
