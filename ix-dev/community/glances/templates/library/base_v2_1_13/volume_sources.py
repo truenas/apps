@@ -32,7 +32,9 @@ class HostPathSource:
             path = valid_fs_path_or_raise(config.get("path", ""))
 
         path = path.rstrip("/")
-        self.source = allowed_fs_host_path_or_raise(path)
+        # TODO: Hack for Nextcloud deprecated config. Remove once we remove support for it
+        allow_unsafe_ix_volume = config.get("allow_unsafe_ix_volume", False)
+        self.source = allowed_fs_host_path_or_raise(path, allow_unsafe_ix_volume)
 
     def get(self):
         return self.source
