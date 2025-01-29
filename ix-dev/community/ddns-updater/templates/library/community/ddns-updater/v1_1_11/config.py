@@ -497,7 +497,7 @@ class Config:
     def get_combo_data(self, item={}, combo={}):
         result = {}
         for required in combo["required"]:
-            if required["ui_key"] not in item:
+            if required["ui_key"] not in item or item[required["ui_key"]] == "":
                 return {}
             if required.get("func"):
                 result[required["provider_key"]] = required["func"](self.required_key(item, required["ui_key"]))
