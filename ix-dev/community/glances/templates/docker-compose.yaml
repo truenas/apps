@@ -11,10 +11,10 @@
 
 {% do glances_container.healthcheck.set_custom_test("pgrep python3") %}
 
-{% if values.glances.server_enable %}
-  {% do glances_container.environment.add_env("GLANCES_OPT", "-w -p " ~ values.consts.internal_server_port) %}
-  {% do glances_container.ports.add_port(values.glances.web_port, values.consts.internal_server_port) %}
-  {% do tpl.portals.add_portal({"port": values.glances.web_port},) %}
+{% if values.glances.web_server_enable %}
+  {% do glances_container.environment.add_env("GLANCES_OPT", "-w -p %d"|format(values.glances.web_port.port_number)) %}
+  {% do glances_container.add_port(values.glances.web_port) %}
+  {% do tpl.portals.add_portal({"port": values.glances.web_port.port_number}) %}
 {% endif %}
 
 {% if values.glances.docker_enable %}
@@ -24,5 +24,9 @@
 {% do glances_container.add_storage("/host/etc/os-release", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/os-release"}}) %}
 {% do glances_container.add_storage("/host/sys", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/sys"}}) %}
 {% do glances_container.add_storage("/host/proc", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/proc"}}) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do glances_container.add_storage(store.mount_path, store) %}
+{% endfor %}
 
 {{ tpl.render() | tojson }}
