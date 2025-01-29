@@ -6,7 +6,7 @@ import yaml
 
 
 def migrate(values):
-    with open("/tmp/migrations/run.txt", "w") as f:
+    with open("/tmp/migrations/from_upto_1_0_4.txt", "w") as f:
         f.write(yaml.dump(values))
     return values
 
