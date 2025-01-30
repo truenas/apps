@@ -3,7 +3,16 @@
 {% set c1 = tpl.add_container(values.consts.dozzle_container_name, "image") %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_custom_test("/dozzle healthcheck") %}
+
+{#
+  Healthcheck checks if a docker socket is available and fails if not
+  So this will fail on CI, this is why we disable it in that case
+#}
+{% if values.ci %}
+  {% do c1.healthcheck.disable() %}
+{% else %}
+  {% do c1.healthcheck.set_custom_test("/dozzle healthcheck") %}
+{% endif %}
 
 {% do c1.environment.add_env("DOZZLE_ADDR", ":%d"|format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_env("DOZZLE_MODE", "server") %}
