@@ -38,6 +38,17 @@ def valid_pull_policy_or_raise(pull_policy: str):
     return pull_policy
 
 
+def valid_ipc_mode_or_raise(ipc_mode: str, containers: list[str]):
+    valid_modes = ("", "host", "private", "shareable", "none")
+    if ipc_mode in valid_modes:
+        return ipc_mode
+    if ipc_mode.startswith("container:"):
+        if ipc_mode[10:] not in containers:
+            raise RenderError(f"IPC mode [{ipc_mode}] is not valid. Container [{ipc_mode[10:]}] does not exist")
+        return ipc_mode
+    raise RenderError(f"IPC mode [{ipc_mode}] is not valid. Valid options are: [{', '.join(valid_modes)}]")
+
+
 def valid_sysctl_or_raise(sysctl: str, host_network: bool):
     if not sysctl:
         raise RenderError("Sysctl cannot be empty")
@@ -134,6 +145,33 @@ def valid_cgroup_perm_or_raise(cgroup_perm: str):
             f"Cgroup Permission [{cgroup_perm}] is not valid. Valid options are: [{', '.join(valid_cgroup_perms)}]"
         )
     return cgroup_perm
+
+
+def valid_device_cgroup_rule_or_raise(dev_grp_rule: str):
+    parts = dev_grp_rule.split(" ")
+    if len(parts) != 3:
+        raise RenderError(
+            f"Device Group Rule [{dev_grp_rule}] is not valid. Expected format is [<type> <major>:<minor> <permission>]"
+        )
+
+    valid_types = ("a", "b", "c")
+    if parts[0] not in valid_types:
+        raise RenderError(
+            f"Device Group Rule [{dev_grp_rule}] is not valid. Expected type to be one of [{', '.join(valid_types)}]"
+            f" but got [{parts[0]}]"
+        )
+
+    major, minor = parts[1].split(":")
+    for part in (major, minor):
+        if part != "*" and not part.isdigit():
+            raise RenderError(
+                f"Device Group Rule [{dev_grp_rule}] is not valid. Expected major and minor to be digits"
+                f" or [*] but got [{major}] and [{minor}]"
+            )
+
+    valid_cgroup_perm_or_raise(parts[2])
+
+    return dev_grp_rule
 
 
 def allowed_dns_opt_or_raise(dns_opt: str):
