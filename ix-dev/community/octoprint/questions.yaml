@@ -30,37 +30,54 @@ questions:
       type: dict
       attrs:
         - variable: devices
-          label: Mapped Devices
-          description: Add tty or video devices to be mapped
+          label: Devices
+          description: |
+            Devices to use for Octoprint.
+            Eg: Host Device: /dev/ttyUSB0, Container Device: /dev/ttyACM0
           schema:
             type: list
             default: []
             items:
               - variable: device
-                label: Mapped Device
+                label: Device
                 schema:
-                  type: string
-                  required: true
+                  type: dict
+                  attrs:
+                    - variable: host_device
+                      label: Host Device
+                      schema:
+                        type: string
+                        required: true
+                    - variable: container_device
+                      label: Container Device
+                      schema:
+                        type: string
+                        required: true
         - variable: video_enable
           label: Enable Video Streamer
           description: Enable Octoprint built in mjep Video Streamer
           schema:
             type: boolean
+            show_if: [["devices", "!=", []]]
             default: false
-        - variable: video_device
-          label: Camera device
-          description: Specify which camera device to use (If automatically mounted /dev/video0 to dev/video9).
-          schema:
-            type: string
-            show_if: [["video_enable", "=", true]]
-            default: "video0"      
-        - variable: video_resolution
-          label: Video Resolution
-          description: Specify the video resolution of the mjep streamer
-          schema:
-            type: string
-            show_if: [["video_enable", "=", true]]
-            default: "-y -n -r 640x480"    
+            show_subquestions_if: true
+            subquestions:
+              - variable: video_device
+                label: Camera device
+                description: |
+                  Specify which camera device to use (eg /dev/video0).</br>
+                  Note: You still need to specify the device in the devices section.
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+              - variable: mjpg_streamer_input
+                label: MJPG Streamer Input
+                description: Specify the MJPG streamer input arguments.
+                schema:
+                  type: string
+                  required: true
+                  default: "-y -n -r 640x480"
         - variable: additional_envs
           label: Additional Environment Variables
           description: Configure additional environment variables for Octoprint.
@@ -141,7 +158,7 @@ questions:
                 schema:
                   type: int
                   show_if: [["bind_mode", "=", "published"]]
-                  default: 31100
+                  default: 30114
                   required: true
                   $ref:
                     - definitions/port
@@ -166,7 +183,7 @@ questions:
           schema:
             type: boolean
             default: false
-        
+
   - variable: storage
     label: ""
     group: Storage Configuration
