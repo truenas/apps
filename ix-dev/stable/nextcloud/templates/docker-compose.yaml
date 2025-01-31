@@ -1,5 +1,5 @@
 {% from "macros/nc.jinja.sh" import occ, hosts_update, trusted_domains_update, imaginary_url %}
-{% from "macros/nc.jinja.conf" import opcache, php, limit_request_body, nginx_conf %}
+{% from "macros/nc.jinja.conf" import opcache, php, limit_request_body, use_x_real_ip_in_logs, nginx_conf %}
 
 {% set tpl = ix_lib.base.render.Render(values) %}
 
@@ -116,6 +116,7 @@
   {% do nc_env.x.append(("APACHE_DISABLE_REWRITE_IP", 1)) %}
   {% do nc_env.x.append(("OVERWRITEPROTOCOL", "https")) %}
   {% do nc_env.x.append(("TRUSTED_PROXIES", ["127.0.0.1", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"] | join(" "))) %}
+  {% do nc_confs.append(("logformat.conf", use_x_real_ip_in_logs(), "/etc/apache2/conf-enabled/logformat.conf", "")) %}
   {% if values.nextcloud.host and values.network.nginx.use_different_port %}
     {% set host.x = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
     {% do nc_env.x.append(("OVERWRITEHOST", host.x)) %}
@@ -199,6 +200,9 @@
   {% do nginx_container.configs.add("private", values.ix_certificates[values.network.certificate_id].privatekey, values.consts.ssl_key_path) %}
   {% do nginx_container.configs.add("public", values.ix_certificates[values.network.certificate_id].certificate, values.consts.ssl_cert_path) %}
   {% do nginx_container.configs.add("nginx.conf", nginx_conf(values), "/etc/nginx/nginx.conf", "0600") %}
+  {% for conf_path in values.network.nginx.custom_confs %}
+    {% do nginx_container.add_storage("/etc/nginx/includes/%d.conf"|format(loop.index0), {"type": "host_path", "host_path_config": {"path": conf_path}}) %}
+  {% endfor %}
   {% do nginx_container.add_storage("/tmp", {"type": "anonymous", "volume_config": {}}) %}
   {% do nginx_container.healthcheck.set_test("curl", {
     "port": values.network.web_port, "path": "/status.php",
