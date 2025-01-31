@@ -41,12 +41,12 @@ def main():
         with open(path, "r") as f:
             train = path.split("/")[-3]
             app = path.split("/")[-2]
-            ports = extract_ports(yaml.load(f, Loader=yaml.FullLoader)["questions"])
-            for port in ports:
-                port_num = port["port"]
+            ports_data = extract_ports(yaml.load(f, Loader=yaml.FullLoader)["questions"])
+            for item in ports_data:
+                port_num = item["port"]
                 if port_num not in port_map:
                     port_map[port_num] = []
-                port_map[port_num].append(f"{train}/{app}")
+                port_map[port_num].append(f"{train}/{app} ({item['name']})")
 
     ignore_ports = [53, 22000]
     dupe_found = False
