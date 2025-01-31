@@ -2,6 +2,8 @@
 
 import sys
 import yaml
+
+from collections import defaultdict
 from os import scandir
 
 
@@ -33,40 +35,29 @@ def scan_directory(path: str, current_depth: int = 0, to_depth: int = 2):
                 yield from scan_directory(entry.path, current_depth + 1)
 
 
-def main():
-    port_map = {}
-    for path in scan_directory("ix-dev"):
-        if not path.endswith("questions.yaml"):
-            continue
-        with open(path, "r") as f:
-            train = path.split("/")[-3]
-            app = path.split("/")[-2]
-            ports_data = extract_ports(yaml.load(f, Loader=yaml.FullLoader)["questions"])
-            for item in ports_data:
-                port_num = item["port"]
-                if port_num not in port_map:
-                    port_map[port_num] = []
-                port_map[port_num].append(f"{train}/{app} ({item['name']})")
-
-    ignore_ports = [53, 22000]
+def get_current_port_map():
+    port_map = defaultdict(list)
+    ignore_ports = (53, 22000)
     dupe_found = False
-    for port, apps in port_map.items():
-        if len(apps) > 1 and (port not in ignore_ports):
-            dupe_found = True
-            print(f"Duplicate port [{port}] in apps: {', '.join(apps)}")
+    for path in filter(lambda x: x.endswith("questions.yaml"), scan_directory("ix-dev")):
+        with open(path) as f:
+            parts = path.split("/")
+            app_info = f"{parts[-3]}/{parts[-2]}"
+            for item in extract_ports(yaml.load(f, Loader=yaml.FullLoader)["questions"]):
+                app_port, app_name = item["port"], item["name"]
+                port_map[app_port].append(f"{app_info} ({app_name})")
+                if len(port_map[app_port]) > 1 and app_port not in ignore_ports:
+                    dupe_found = True
+                    dup_apps = ", ".join(port_map[app_port])
+                    print(f"Duplicate port [{app_port}] in apps: {dup_apps}")
+    return port_map, dupe_found
 
-    ports_in_range = sorted(p for p in port_map if 30000 <= p <= 40000)
-    next_five_available = []
-    for port in ports_in_range:
-        if len(next_five_available) == 5:
-            break
-        next_port = port + 1
-        if next_port in port_map:
-            continue
-        next_five_available.append(str(next_port))
 
-    print(f"Next 5 available ports: [{', '.join(next_five_available)}]")
-
+def main():
+    start_range, max_range = 30000, 40000
+    port_map, dupe_found = get_current_port_map()
+    next_5_avail_ports = sorted(list(set(range(start_range, max_range + 1)) - set(port_map)))[:5]
+    print(f"Next 5 available ports: [{', '.join([str(x) for x in next_5_avail_ports])}]")
     if dupe_found:
         print("Duplicate ports found, please use one of the available ports.")
         sys.exit(1)
