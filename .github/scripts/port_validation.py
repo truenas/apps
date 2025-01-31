@@ -21,19 +21,19 @@ def extract_ports(quests):
 
 def main():
     port_map = {}
-    for train in os.listdir("ix-dev"):
-        for app in os.listdir(f"ix-dev/{train}"):
-            quest_path = f"ix-dev/{train}/{app}/questions.yaml"
+    for train in os.scandir("ix-dev"):
+        for app in os.scandir(f"ix-dev/{train.name}"):
+            quest_path = f"ix-dev/{train.name}/{app.name}/questions.yaml"
             if not os.path.exists(quest_path):
                 continue
 
-            with open(f"ix-dev/{train}/{app}/questions.yaml", "r") as f:
+            with open(f"ix-dev/{train.name}/{app.name}/questions.yaml", "r") as f:
                 ports = extract_ports(yaml.load(f, Loader=yaml.FullLoader)["questions"])
                 for port in ports:
                     port_num = port["port"]
                     if port_num not in port_map:
                         port_map[port_num] = []
-                    port_map[port_num].append(app)
+                    port_map[port_num].append(app.name)
 
     ignore_ports = [53, 22000]
     dupe_found = False
