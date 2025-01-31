@@ -1,18 +1,18 @@
 groups:
-  - name: Wyze-Bridge Configuration
-    description: Configure Wyze-Bridge
+  - name: Wyze Bridge Configuration
+    description: Configure Wyze Bridge
   - name: Network Configuration
-    description: Configure Network for Wyze-Bridge
+    description: Configure Network for Wyze Bridge
   - name: Storage Configuration
-    description: Configure Storage for Wyze-Bridge
+    description: Configure Storage for Wyze Bridge
   - name: Labels Configuration
-    description: Configure Labels for Wyze-Bridge
+    description: Configure Labels for Wyze Bridge
   - name: Resources Configuration
-    description: Configure Resources for Wyze-Bridge
+    description: Configure Resources for Wyze Bridge
 
 questions:
   - variable: TZ
-    group: Wyze-Bridge Configuration
+    group: Wyze Bridge Configuration
     label: Timezone
     schema:
       type: string
@@ -20,49 +20,35 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: wyzebridge
+  - variable: wyze
     label: ""
-    group: Wyze-Bridge Configuration
+    group: Wyze Bridge Configuration
     schema:
       type: dict
       attrs:
         - variable: wb_auth
-          label: Wyze-Bridge Authentication Enabled
+          label: Wyze Bridge Authentication Enabled
           description: Wyze Bridge Authentication Enabled
           schema:
             type: boolean
             default: true
             required: true
         - variable: wb_username
-          label: Wyze-Bridge Username
-          description: The Wyze-Bridge UI username.
+          label: Wyze Bridge Username
+          description: The Wyze Bridge UI username.
           schema:
             type: string
             required: false
             default: wbadmin
             show_if: [["wb_auth", "=", true]]
         - variable: wb_password
-          label: Wyze-Bridge Password
-          description: The Wyze-Bridge UI password.
+          label: Wyze Bridge Password
+          description: The Wyze Bridge UI password.
           schema:
             type: string
             required: false
             default: wbadmin
             show_if: [["wb_auth", "=", true]]
-        - variable: enable_webrtc
-          label: Enable WebRTC
-          description: Optional - Enable WebRTC for Wyze-Bridge
-          schema:
-            type: boolean
-            default: false
-        - variable: webrtc_ip
-          label: WebRTC IP
-          description: Set this to the host IP to enable a WebRTC stream on port 8889
-          schema:
-            type: ipaddr
-            required: false
-            default: ""
-            show_if: [["enable_webrtc", "=", true]]
         - variable: enable_audio
           label: Enable Camera Audio
           description: Optional - Enable Audio from Cameras
@@ -71,7 +57,7 @@ questions:
             default: false
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for wyze-bridge.
+          description: Configure additional environment variables for wyze bridge.
           schema:
             type: list
             default: []
@@ -158,7 +144,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "!=", ""]]
+                  show_if: [["bind_mode", "=", "published"]]
                   default: 30100
                   required: true
                   $ref:
@@ -191,7 +177,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "!=", ""]]
+                  show_if: [["bind_mode", "=", "published"]]
                   default: 30101
                   required: true
                   $ref:
@@ -224,15 +210,30 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "!=", ""]]
+                  show_if: [["bind_mode", "=", "published"]]
                   default: 30102
                   required: true
                   $ref:
                     - definitions/port
+        - variable: enable_webrtc
+          label: Enable WebRTC
+          description: Optional - Enable WebRTC for Wyze Bridge
+          schema:
+            type: boolean
+            default: false
+        - variable: webrtc_ip
+          label: WebRTC IP
+          description: Set this to the host IP to enable a WebRTC stream on port 8889
+          schema:
+            type: ipaddr
+            required: false
+            default: ""
+            show_if: [["enable_webrtc", "=", true]]
         - variable: webrtc_port
           label: WebRTC Port
           schema:
             type: dict
+            show_if: [["enable_webrtc", "=", true]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -257,15 +258,16 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "!=", ""]]
+                  show_if: [["bind_mode", "=", "published"]]
                   default: 30103
                   required: true
                   $ref:
                     - definitions/port
-        - variable: webrtcice_port
+        - variable: webrtc_ice_port
           label: WebRTC/ICE Port
           schema:
             type: dict
+            show_if: [["enable_webrtc", "=", true]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -290,7 +292,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "!=", ""]]
+                  show_if: [["bind_mode", "=", "published"]]
                   default: 30104
                   required: true
                   $ref:
@@ -302,70 +304,6 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: additional_ports
-          label: Additional Ports
-          schema:
-            type: list
-            show_if: [["host_network", "=", false]]
-            items:
-              - variable: port
-                label: Port
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: bind_mode
-                      label: Port Bind Mode
-                      description: |
-                        The port bind mode.</br>
-                        - Publish: The port will be published on the host for external access.</br>
-                        - Expose: The port will be exposed for inter-container communication.</br>
-                      schema:
-                        type: string
-                        default: "published"
-                        enum:
-                          - value: "published"
-                            description: Publish port on the host for external access
-                          - value: "exposed"
-                            description: Expose port for inter-container communication
-                    - variable: port_number
-                      label: Port Number
-                      schema:
-                        type: int
-                        required: true
-                        $ref:
-                          - definitions/port
-                    - variable: container_port
-                      label: Container Port
-                      schema:
-                        type: int
-                        required: true
-                        $ref:
-                          - definitions/port
-                    - variable: protocol
-                      label: Protocol
-                      schema:
-                        type: string
-                        required: true
-                        default: "tcp"
-                        enum:
-                          - value: "tcp"
-                            description: TCP
-                          - value: "udp"
-                            description: UDP
-                    - variable: host_ips
-                      label: Host IPs
-                      description: IPs on the host to bind this port
-                      schema:
-                        type: list
-                        default: []
-                        items:
-                          - variable: host_ip
-                            label: Host IP
-                            schema:
-                              type: string
-                              required: true
-                              $ref:
-                                - definitions/node_bind_ip
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -373,8 +311,8 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: wyze-bridge Data Storage
-          description: The path to store wyze-bridge Data.
+          label: wyze bridge Data Storage
+          description: The path to store wyze bridge Data.
           schema:
             type: dict
             attrs:
@@ -452,7 +390,7 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for wyze-bridge.
+          description: Additional storage for wyze bridge.
           schema:
             type: list
             default: []
@@ -636,14 +574,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for wyze-bridge.
+                description: CPUs limit for wyze bridge.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for wyze-bridge.
+                description: Memory limit for wyze bridge.
                 schema:
                   type: int
                   default: 4096
