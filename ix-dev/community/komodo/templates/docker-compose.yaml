@@ -2,21 +2,21 @@
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
+# Source: https://komo.do/docs/setup/postgres
+
+# Postgre container
 {% set pg_config = {
   "user": values.consts.db_user,
-  "password": values.immich.db_password,
+  "password": values.komodo.db_password,
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(values.consts.pgvecto_container_name, "pgvecto_image", pg_config, perm_container) %}
+{% set postgres = tpl.deps.postgres(values.consts.komodo_postgre_name:, "postgre_image", pg_config, perm_container) %}
 
-{% set redis_config = {
-  "password": values.immich.redis_password,
-  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
-} %}
-{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+# FerretDB container
+{% set ferretdb_container = tpl.add_container(values.consts.komodo_ferretdb_name, "ferretdb_image") %}
+{% do ferretdb_container.environment.add_env("FERRETDB_POSTGRESQL_URL", "postgres://%s:%s@%s:5432/%s"|format(values.consts.db_user,values.komodo.db_password,values.consts.komodo_postgre_name,values.consts.db_name) %} 
 
-{% set ml_container = namespace(x=None) %}
 
 {% set server_container = tpl.add_container(values.consts.server_container_name, "image") %}
 {% do server_container.healthcheck.set_custom_test("/usr/src/app/bin/immich-healthcheck") %}
