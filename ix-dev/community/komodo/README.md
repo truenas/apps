@@ -1,3 +1,3 @@
-# Immich
+# Komodo
 
-[Immich](https://immich.app) - Self-hosted backup solution for photos and videos on mobile device
+[Komodo](https://komo.do/) - A tool to build and deploy software on many servers
