@@ -15,21 +15,17 @@
 
 # FerretDB container
 {% set ferretdb_container = tpl.add_container(values.consts.komodo_ferretdb_name, "ferretdb_image") %}
+{% do ferretdb_container.depends.add_dependency(values.consts.komodo_postgre_name) %}
 {% do ferretdb_container.environment.add_env("FERRETDB_POSTGRESQL_URL", "postgres://%s:%s@%s:5432/%s"|format(values.consts.db_user,values.komodo.db_password,values.consts.komodo_postgre_name,values.consts.db_name) %} 
 
-
-{% set server_container = tpl.add_container(values.consts.server_container_name, "image") %}
-{% do server_container.healthcheck.set_custom_test("/usr/src/app/bin/immich-healthcheck") %}
-{% do server_container.depends.add_dependency(values.consts.pgvecto_container_name, "service_healthy") %}
-{% do server_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-
-{% set base_path = "/usr/src/app/upload" %}
-{% do server_container.add_storage("%s/upload"|format(base_path), values.storage.uploads) %}
-{% do server_container.add_storage("%s/thumbs"|format(base_path), values.storage.thumbs) %}
-{% do server_container.add_storage("%s/library"|format(base_path), values.storage.library) %}
-{% do server_container.add_storage("%s/profile"|format(base_path), values.storage.profile) %}
-{% do server_container.add_storage("%s/backups"|format(base_path), values.storage.backups) %}
-{% do server_container.add_storage("%s/encoded-video"|format(base_path), values.storage.video) %}
+# Core container
+{% set core_container = tpl.add_container(values.consts.komodo_core_name, "image") %}
+{% do core_container.depends.add_dependency(values.consts.komodo_ferretdb_name) %}
+{% do core_container.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do core_container.environment.add_env("KOMODO_DATABASE_URI", "mongodb://%s:%s@%s:5432/%s?authMechanism=PLAIN"|format(values.consts.db_user,values.komodo.db_password,values.consts.komodo_postgre_name,values.consts.db_name) %} 
+{% do core_container.environment.add_env("KOMODO_PASSKEY", values.komodo.sync_passkey %}
+{% do core_container.environment.add_env("KOMODO_FIRST_SERVER", "https://%s:8120"|format(values.consts.komodo_periphery_name) %}
+{% do server_container.add_storage("%s/upload"|format(base_path), values.storage.core_repo_cache) %}
 {% for store in values.storage.additional_storage %}
   {% do server_container.add_storage(store.mount_path, store) %}
 {% endfor %}
