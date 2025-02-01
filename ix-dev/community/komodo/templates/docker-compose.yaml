@@ -3,22 +3,10 @@
 
 # Source: https://komo.do/docs/setup/postgres
 
-# Postgre container
-#{% set pg_config = {
-#  "user": values.consts.db_user,
-#  "password": values.komodo.db_password,
-#  "database": values.consts.db_name,
-#  "volume": values.storage.postgres_data,
-#} %}
-#{% set postgre_container = tpl.deps.postgres(values.consts.postgre_container_name, "postgre_image", pg_config, perm_container) %}
-# Add postgre label
-
 # FerretDB container
 {% set ferretdb_container = tpl.add_container(values.consts.ferretdb_container_name, "ferretdb_image") %}
-{% do ferretdb_container.depends.add_dependency(values.consts.postgre_container_name, "service_started") %}
 {% do ferretdb_container.labels.add_label("komodo.skip","") %}
 {% do ferretdb_container.healthcheck.disable() %}
-#{% do ferretdb_container.environment.add_env("FERRETDB_POSTGRESQL_URL", "postgres://%s:%s@%s:5432/%s"|format(values.consts.db_user,values.komodo.db_password,values.consts.postgre_container_name,values.consts.db_name)) %} 
 {% do ferretdb_container.environment.add_env("FERRETDB_HANDLER","sqlite") %}
 {% do ferretdb_container.add_storage("/state", values.storage.postgres_data) %}
 
@@ -28,9 +16,14 @@
 {% do core_container.labels.add_label("komodo.skip","") %}
 {% do core_container.depends.add_dependency(values.consts.ferretdb_container_name, "service_started") %}
 {% do core_container.ports.add_port(values.network.web_port, values.network.web_port) %}
-{% do core_container.environment.add_env("KOMODO_DATABASE_URI", "mongodb://%s:%s@%s:5432/%s?authMechanism=PLAIN"|format(values.consts.db_user,values.komodo.db_password,values.consts.postgre_container_name,values.consts.db_name)) %} 
+{% do core_container.environment.add_env("KOMODO_DATABASE_ADDRESS", values.consts.ferretdb_container_name) %} 
 {% do core_container.environment.add_env("KOMODO_PASSKEY", values.komodo.sync_passkey) %}
-{% do core_container.environment.add_env("KOMODO_FIRST_SERVER", "https://%s:8120"|format(values.consts.komodo_periphery_name)) %}
+{% do core_container.environment.add_env("KOMODO_FIRST_SERVER", "http://%s:8120"|format(values.consts.periphery_container_name)) %}
+{% do core_container.environment.add_env("KOMODO_LOCAL_AUTH", "true") %}
+{% do core_container.environment.add_env("KOMODO_DISABLE_USER_REGISTRATION", "false") %}
+{% do core_container.environment.add_env("KOMODO_ENABLE_NEW_USERS", "false") %}
+{% do core_container.environment.add_env("KOMODO_DISABLE_NON_ADMIN_CREATE", "false") %}
+{% do core_container.environment.add_env("KOMODO_TRANSPARENT_MODE", "false") %}
 {% do core_container.add_storage(values.consts.core_repo_cache_path, values.storage.core_repo_path) %}
 {% for store in values.storage.additional_storage_core %}
   {% do core_container.add_storage(store.mount_path, store) %}
@@ -54,13 +47,5 @@
 {% do periphery_container.healthcheck.disable() %}
 
 {% do tpl.portals.add_portal({"port": values.network.web_port}) %}
-
-#{% if perm_container.has_actions() %}
-#  {% do perm_container.activate() %}
-#  {% do postgre_container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-#  {% do ferretdb_container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-#  {% do core_container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-#  {% do periphery_container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-#{% endif %}
 
 {{ tpl.render() | tojson }}
