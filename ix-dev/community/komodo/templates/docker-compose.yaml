@@ -9,15 +9,18 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(values.consts.postgre_container_name, "postgre_image", pg_config, perm_container) %}
+{% set postgre_container = tpl.deps.postgres(values.consts.postgre_container_name, "postgre_image", pg_config, perm_container) %}
+{% do postgre_container.add_label("komodo.skip","") %}
 
 # FerretDB container
 {% set ferretdb_container = tpl.add_container(values.consts.ferretdb_container_name, "ferretdb_image") %}
 {% do ferretdb_container.depends.add_dependency(values.consts.postgre_container_name) %}
+{% do ferretdb_container.add_label("komodo.skip","") %}
 {% do ferretdb_container.environment.add_env("FERRETDB_POSTGRESQL_URL", "postgres://%s:%s@%s:5432/%s"|format(values.consts.db_user,values.komodo.db_password,values.consts.komodo_postgre_name,values.consts.db_name) %} 
 
 # Core container
 {% set core_container = tpl.add_container(values.consts.core_container_name, "core_image") %}
+{% do core_container.add_label("komodo.skip","") %}
 {% do core_container.depends.add_dependency(values.consts.ferretdb_container_name) %}
 {% do core_container.ports.add_port(values.network.web_port, values.network.web_port) %}
 {% do core_container.environment.add_env("KOMODO_DATABASE_URI", "mongodb://%s:%s@%s:5432/%s?authMechanism=PLAIN"|format(values.consts.db_user,values.komodo.db_password,values.consts.komodo_postgre_name,values.consts.db_name) %} 
@@ -31,12 +34,13 @@
 
 # Periphery container
 {% set periphery_container = tpl.add_container(values.consts.periphery_container_name, "periphery_image") %}
+{% do periphery_container.add_label("komodo.skip","") %}
 {% do periphery_container.environment.add_env("PERIPHERY_PASSKEYS", values.komodo.sync_passkey %}
 {% do periphery_container.add_docker_socket(read_only=False) %}
 {% do periphery_container.add_storage("/host/proc", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/proc"}}) %}
-{% do core_container.add_storage(values.const.periphery_ssl_path), values.storage.periphery_ssl_path) %}
-{% do core_container.add_storage(values.const.periphery_repos_path), values.storage.periphery_repos_path) %}
-{% do core_container.add_storage(values.const.periphery_stacks_path), values.storage.periphery_stacks_path) %}
+{% do periphery_container.add_storage(values.const.periphery_ssl_path), values.storage.periphery_ssl_path) %}
+{% do periphery_container.add_storage(values.const.periphery_repos_path), values.storage.periphery_repos_path) %}
+{% do periphery_container.add_storage(values.const.periphery_stacks_path), values.storage.periphery_stacks_path) %}
 {% for store in values.storage.additional_storage_periphery %}
   {% do periphery_container.add_storage(store.mount_path, store) %}
 {% endfor %}
