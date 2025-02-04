@@ -89,6 +89,7 @@ module.exports = {
         "linuxserver/diskover",
         "linuxserver/transmission",
         "linuxserver/calibre-web",
+        "linuxserver/heimdall",
       ]
     ),
     customVersioning(
