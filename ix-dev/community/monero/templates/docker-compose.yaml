@@ -1,0 +1,91 @@
+{# {% from "macros/setup.py.jinja" import setup_py %} #}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% if values.node.enabled %}
+  {% set monerod = tpl.add_container(values.consts.monerod_container_name, "monerod") %}
+  {% do monerod.clear_caps() %}
+  {% do monerod.restart.set_policy("on-failure", 1) %}
+  {% do monerod.healthcheck.disable() %}
+  {% do monerod.remove_security_opt("no-new-privileges") %}
+  {% do monerod.set_user(1000, 1000) %}
+  {% do monerod.ports.add_port(values.consts.network.monerod_rpc_port, values.consts.network.monerod_rpc_port) %}
+  {% do monerod.add_storage("/home/monero/.bitmonero", values.consts.volumes.bitmonero) %}
+
+  {% set commands = [] %}
+
+  {% if values.node.pruned %}
+    {% do commands.append("--prune-blockchain") %}
+  {% endif %}
+
+  {% if values.node.publicly_available %}
+    {% do commands.append("--public-node") %}
+  {% endif %}
+
+  {% if values.node.dns_blocklist %}
+    {% do commands.append("--enable-dns-blocklist") %}
+  {% endif %}
+
+  {% if values.node.logging and values.node.log_file_path %}
+    {% set host_logfile_volume = {"type": "host_path", "host_path_config": {"path": values.node.log_file_path}} %}
+    {% do monerod.add_storage("/home/monero/.bitmonero/bitmonero.log", host_logfile_volume) %}
+  {% endif %}
+
+  {% if values.node.additional_flags %}
+    {% do commands.append(values.node.additional_flags) %}
+  {% endif %}
+
+  {% do monerod.set_command(commands) %}
+
+  {% if values.node.blockchain_path %}
+    {% set host_blockchain_volume = {"type": "host_path", "host_path_config": {"path": values.node.blockchain_path}} %}
+    {% do monerod.add_storage("/home/monero/.bitmonero/lmdb", host_blockchain_volume) %}
+  {% endif %}
+{% endif %}
+
+{% if values.wallet.enabled %}
+  {% set wallet = tpl.add_container(values.consts.monero_wallet_rpc_container_name, "monero_wallet_rpc") %}
+  {% do wallet.clear_caps() %}
+  {% do wallet.restart.set_policy("on-failure", 1) %}
+  {% do wallet.healthcheck.disable() %}
+  {% do wallet.remove_security_opt("no-new-privileges") %}
+  {% do wallet.set_user(1000, 1000) %}
+  {% do wallet.ports.add_port(values.wallet.port, values.consts.network.monero_wallet_rpc_port) %}
+
+  {% set host_wallet_volume = {"type": "host_path", "host_path_config": {"path": values.wallet.wallet_path}} %}
+  {% do wallet.add_storage("/home/monero/wallet", host_wallet_volume) %}
+
+  {% set commands = ["--rpc-bind-port={}".format(values.consts.network.monero_wallet_rpc_port), "--wallet-dir=/home/monero/wallet/wallet"] %}
+
+  {% if not values.node.enabled and values.node.remote_node_url %}
+    {% do commands.append("--daemon-address={}".format(values.node.remote_node_url)) %}
+  {% else %}
+    {% do commands.append("--daemon-address={}:{}".format(values.consts.monerod_container_name, values.consts.network.monerod_rpc_port)) %}
+    {% do commands.append("--trusted-daemon") %}
+  {% endif %}
+
+  {% if not values.node.enabled and values.node.ssl_enabled %}
+    {% do commands.append("--daemon-ssl=enabled") %}
+  {% endif %}
+
+  {% if not values.node.enabled and values.node.trust_daemon %}
+    {% do commands.append("--trusted-daemon") %}
+  {% endif %}
+
+  {% do wallet.set_command(commands) %}
+{% endif %}
+
+{# TODO #}
+{# {% if values.explorer.enabled %}
+  {% set monerod = tpl.add_container(values.consts.monero_wallet_rpc_container_name, "monero_wallet_rpc") %}
+  {% do monerod.clear_caps() %}
+  {% do monerod.restart.set_policy("on-failure", 1) %}
+  {% do monerod.healthcheck.disable() %}
+  {% do monerod.remove_security_opt("no-new-privileges") %}
+  {% do monerod.set_user(1000, 1000) %}
+  {% do monerod.ports.add_port(values.wallet.port, values.consts.network.monero_wallet_rpc_port) %}
+
+  {% set host_wallet_volume = {"type": "host_path", "host_path_config": {"path": values.wallet.wallet_path}} %}
+  {% do monerod.add_storage("/home/monero/wallet", host_wallet_volume) %}
+{% endif %} #}
+
+{{ tpl.render() | tojson }}
