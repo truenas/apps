@@ -1,3 +1,3 @@
-# Deluge
+# Monero
 
-[Deluge](https://deluge-torrent.org/) is a lightweight, Free Software, cross-platform BitTorrent client.
+[Monero](https://www.getmonero.org/) is a private, decentralized cryptocurrency that keeps your finances confidential and secure.
