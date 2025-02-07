@@ -19,9 +19,9 @@
   "SYS_TIME",
 ]) %}
 {% do c1.remove_security_opt("no-new-privileges") %}
-{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port}) %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
 
-{% set web_ports = namespace(x=[values.network.web_port]) %}
+{% set web_ports = namespace(x=[values.network.web_port.port_number]) %}
 {% if values.network.https_port.bind_mode %}
   {% do web_ports.x.append("%ds"|format(values.network.https_port.port_number)) %}
 {% endif %}
@@ -45,9 +45,9 @@
 
 {% if not values.network.host_network %}
   {% do c1.add_port(values.network.https_port) %}
-  {% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-  {% do c1.ports.add_port(values.network.dns_port, 53) %}
-  {% do c1.ports.add_port(values.network.dns_port, 53, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.web_port) %}
+  {% do c1.add_port(values.network.dns_port, {"container_port": 53}) %}
+  {% do c1.add_port(values.network.dns_port, {"container_port": 53, "protocol": "udp"}) %}
 {% endif %}
 
 {% do c1.add_storage("/etc/pihole", values.storage.config) %}
@@ -56,6 +56,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "path": "/admin/"}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "path": "/admin/"}) %}
 
 {{ tpl.render() | tojson }}
