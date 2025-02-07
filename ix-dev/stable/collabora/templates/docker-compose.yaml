@@ -8,8 +8,8 @@
   {% set nginx.x = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
   {% do nginx.x.depends.add_dependency(values.consts.collabora_container_name, "service_healthy") %}
   {% do nginx.x.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
-  {% do nginx.x.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/robots.txt", "scheme": "https"}) %}
-  {% do nginx.x.ports.add_port(values.network.web_port, values.network.web_port) %}
+  {% do nginx.x.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/robots.txt", "scheme": "https"}) %}
+  {% do nginx.x.add_port(values.network.web_port) %}
 
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do nginx.x.configs.add("private", cert.privatekey, values.consts.nginx_ssl_key_path) %}
@@ -20,7 +20,7 @@
   {% do nginx.x.add_storage("/var/cache/nginx", {"type": "anonymous"}) %}
   {% do nginx.x.add_storage("/var/run", {"type": "anonymous"}) %}
 {% else %}
-  {% do c1.ports.add_port(values.network.web_port, values.consts.internal_collabora_web_port) %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_collabora_web_port}) %}
 {% endif %}
 
 {% do c1.remove_security_opt("no-new-privileges") %}
@@ -32,7 +32,7 @@
 {% do c1.environment.add_env("dictionaries", values.collabora.dictionaries|join(" ")) %}
 {% do c1.environment.add_env("extra_params", values.collabora.extra_params|join(" ")) %}
 {% do c1.environment.add_env("DONT_GEN_SSL_CERT", true) %}
-{% do c1.environment.add_env("server_name", values.collabora.server_name if ":" in values.collabora.server_name else "%s:%d"|format(values.collabora.server_name, values.network.web_port)) %}
+{% do c1.environment.add_env("server_name", values.collabora.server_name if ":" in values.collabora.server_name else "%s:%d"|format(values.collabora.server_name, values.network.web_port.port_number)) %}
 {% if values.collabora.enable_webui %}
   {% do c1.environment.add_env("username", values.collabora.username) %}
   {% do c1.environment.add_env("password", values.collabora.password) %}
@@ -46,6 +46,6 @@
 
 {% set proto = "https" if values.network.certificate_id else "http" %}
 {% set path = "/browser/dist/admin/admin.html" if values.collabora.enable_webui else "/" %}
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto, "path": path}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto, "path": path}) %}
 
 {{ tpl.render() | tojson }}
