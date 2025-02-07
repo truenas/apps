@@ -3,7 +3,7 @@
 {% set c1 = tpl.add_container(values.consts.wg_easy_container_name, "image") %}
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["NET_ADMIN", "NET_RAW", "SYS_MODULE"]) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
 
 {#
   https://github.com/wg-easy/wg-easy/pull/862
@@ -15,7 +15,7 @@
 {% do c1.environment.add_env("WG_POST_UP", "") %}
 {% do c1.environment.add_env("WG_PRE_DOWN", "") %}
 {% do c1.environment.add_env("WG_POST_DOWN", "") %}
-{% do c1.environment.add_env("PORT", values.network.web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("PASSWORD_HASH", tpl.funcs.bcrypt_hash(values.wg_easy.password)) %}
 {% do c1.environment.add_env("WG_PATH", values.consts.config_path) %}
 {% do c1.environment.add_env("WG_PORT", values.wg_easy.external_port) %}
@@ -28,9 +28,9 @@
 {% do c1.environment.add_env("WG_PERSISTENT_KEEPALIVE", values.wg_easy.persistent_keepalive) %}
 {% do c1.environment.add_user_envs(values.wg_easy.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 {% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.udp_port, values.network.udp_port, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.udp_port, {"container_port": 51820, "protocol": "udp"}) %}
 {% endif %}
 
 {% do c1.add_storage(values.consts.config_path, values.storage.config) %}
@@ -38,6 +38,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port})%}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number})%}
 
 {{ tpl.render() | tojson }}
