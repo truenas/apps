@@ -78,3 +78,14 @@ def test_add_security_opt_with_invalid_opt(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.add_security_opt("invalid")
+
+
+def test_add_security_opt_with_opt_containing_value(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.remove_security_opt("no-new-privileges")
+    with pytest.raises(Exception):
+        c1.add_security_opt("no-new-privileges=true")
+    with pytest.raises(Exception):
+        c1.add_security_opt("apparmor:unconfined")

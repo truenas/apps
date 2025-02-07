@@ -25,6 +25,8 @@ RESTRICTED: tuple[Path, ...] = (
 
 
 def valid_security_opt_or_raise(opt: str):
+    if ":" in opt or "=" in opt:
+        raise RenderError(f"Security Option [{opt}] cannot contain [:] or [=]. Pass value as an argument")
     valid_opts = ["apparmor", "no-new-privileges", "seccomp", "systempaths", "label"]
     if opt not in valid_opts:
         raise RenderError(f"Security Option [{opt}] is not valid. Valid options are: [{', '.join(valid_opts)}]")
