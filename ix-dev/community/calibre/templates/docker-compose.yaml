@@ -4,17 +4,17 @@
 
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "SETGID", "SETUID", "DAC_OVERRIDE", "FOWNER"]) %}
-{% do c1.healthcheck.set_test("tcp", {"port": values.network.http_port}) %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.http_port.port_number}) %}
 
-{% do c1.environment.add_env("CUSTOM_PORT", values.network.http_port) %}
-{% do c1.environment.add_env("CUSTOM_HTTPS_PORT", values.network.https_port) %}
+{% do c1.environment.add_env("CUSTOM_PORT", values.network.http_port.port_number) %}
+{% do c1.environment.add_env("CUSTOM_HTTPS_PORT", values.network.https_port.port_number) %}
 
 {% do c1.environment.add_user_envs(values.calibre.additional_envs) %}
 
 {% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
-  {% do c1.ports.add_port(values.network.http_port, values.network.http_port) %}
-  {% do c1.ports.add_port(values.network.https_port, values.network.https_port) %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+  {% do c1.add_port(values.network.http_port) %}
+  {% do c1.add_port(values.network.https_port) %}
 {% endif %}
 
 {% do c1.add_storage(values.consts.config_path, values.storage.config) %}
@@ -23,7 +23,7 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({"name": "GUI HTTP", "port": values.network.http_port}) %}
-{% do tpl.portals.add_portal({"name": "GUI HTTPS", "port": values.network.https_port, "scheme": "https"}) %}
+{% do tpl.portals.add_portal({"name": "GUI HTTP", "port": values.network.http_port.port_number}) %}
+{% do tpl.portals.add_portal({"name": "GUI HTTPS", "port": values.network.https_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
