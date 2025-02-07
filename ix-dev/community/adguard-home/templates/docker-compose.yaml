@@ -2,7 +2,7 @@
 
 {% set c1 = tpl.add_container(values.consts.adguard_container_name, "image") %}
 {% do c1.healthcheck.set_test("wget", {
-  "port": values.adguard.https_port_to_probe if values.adguard.use_https_probe else values.network.web_port,
+  "port": values.adguard.https_port_to_probe if values.adguard.use_https_probe else values.network.web_port.port_number,
   "scheme": "https" if values.adguard.use_https_probe else "http",
   "path": "/",
 }) %}
@@ -17,16 +17,16 @@
 {% do c1.set_command([
   "--no-check-update",
   "--web-addr",
-  "0.0.0.0:%d"|format(values.network.web_port),
+  "0.0.0.0:%d"|format(values.network.web_port.port_number),
   "--config",
   "%s/AdGuardHome.yaml"|format(values.consts.config_path),
   "--work-dir",
   values.consts.work_path,
 ]) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-{% do c1.ports.add_port(values.network.dns_port, 53) %}
-{% do c1.ports.add_port(values.network.dns_port, 53, {"protocol": "udp"}) %}
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.dns_port, {"container_port": 53}) %}
+{% do c1.add_port(values.network.dns_port, {"container_port": 53, "protocol": "udp"}) %}
 
 {% for port in values.network.additional_ports %}
   {% do c1.add_port(port) %}
@@ -39,6 +39,6 @@
 {% endfor %}
 
 {% do tpl.notes.set_body(values.consts.notes_body) %}
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
