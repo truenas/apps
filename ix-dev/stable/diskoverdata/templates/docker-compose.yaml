@@ -40,7 +40,9 @@
 {% do c1.environment.add_env("ES_HTTPS", false) %}
 {% do c1.environment.add_user_envs(values.diskover_data.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% endif %}
 
 {% do c1.add_storage("/config", values.storage.config) %}
 {% do c1.add_storage("/data", values.storage.data) %}
@@ -54,7 +56,8 @@
   {% do es.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "path": "/login.php"}) %}
+{% set port = values.consts.internal_web_port if values.network.host_network else values.network.web_port.port_number %}
+{% do tpl.portals.add_portal({"port": port, "path": "/login.php"}) %}
 {% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
