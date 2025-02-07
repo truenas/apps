@@ -6,9 +6,9 @@
 {% do c1.add_caps(["NET_ADMIN", "NET_RAW", "NET_BIND_SERVICE", "CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID", "SETFCAP", "SETPCAP", "KILL", "SYS_NICE"]) %}
 {% do c1.remove_security_opt("no-new-privileges") %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/admin/login"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/admin/login"}) %}
 
-{% do c1.environment.add_env("FTLCONF_webserver_port", values.network.web_port) %}
+{% do c1.environment.add_env("FTLCONF_webserver_port", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("FTLCONF_webserver_api_password", values.pihole.web_password) %}
 {% if values.network.get('dhcp_config', {}).get('dhcp_enabled', false) %}
   {% do c1.environment.add_env("FTLCONF_dhcp_active", "true") %}
@@ -26,9 +26,9 @@
 {% do c1.environment.add_user_envs(values.pihole.additional_envs) %}
 
 {% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-  {% do c1.ports.add_port(values.network.dns_port, 53) %}
-  {% do c1.ports.add_port(values.network.dns_port, 53, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.web_port) %}
+  {% do c1.add_port(values.network.dns_port, {"container_port": 53}) %}
+  {% do c1.add_port(values.network.dns_port, {"container_port": 53, "protocol": "udp"}) %}
 {% endif %}
 
 {% do c1.add_storage("/etc/pihole", values.storage.config) %}
@@ -37,6 +37,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "path": "/admin/"}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "path": "/admin/"}) %}
 
 {{ tpl.render() | tojson }}
