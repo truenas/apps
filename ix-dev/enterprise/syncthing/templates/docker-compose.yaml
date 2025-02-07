@@ -40,13 +40,13 @@
 {% do c1.add_caps(caps) %}
 {% do config.add_caps(caps + ["KILL"]) %}
 
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port, "path": "/rest/noauth/health"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/rest/noauth/health"}) %}
 {% do config.healthcheck.disable() %}
 
 {% set envs = {
   "PCAP": ["cap_sys_admin", "cap_chown", "cap_dac_override", "cap_fowner"]|join(",") + "+ep",
   "STNOUPGRADE": true,
-  "STGUIADDRESS": "0.0.0.0:%d" | format(values.network.web_port),
+  "STGUIADDRESS": "0.0.0.0:%d" | format(values.network.web_port.port_number),
   "STGUIASSETS": "/var/truenas/assets/gui",
 } %}
 
@@ -70,12 +70,12 @@
   {% do config.configs.add("public", cert.certificate, "%s/config/https-cert.pem" | format(values.consts.home_path)) %}
 {% endif %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 {% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.tcp_port, 22000) %}
-  {% do c1.ports.add_port(values.network.quic_port, 22000, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.tcp_port, {"container_port": 22000}) %}
+  {% do c1.add_port(values.network.quic_port, {"container_port": 22000, "protocol": "udp"}) %}
   {% if values.consts.settings.local_discovery %}
-    {% do c1.ports.add_port(values.network.local_discover_port, 27017, {"protocol": "udp"}) %}
+    {% do c1.add_port(values.network.local_discover_port, {"container_port": 27017, "protocol": "udp"}) %}
   {% endif %}
 {% endif %}
 
@@ -95,6 +95,6 @@
 {% endfor %}
 
 {% set proto = "https" if values.network.certificate_id else "http" %}
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto})%}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto})%}
 
 {{ tpl.render() | tojson }}
