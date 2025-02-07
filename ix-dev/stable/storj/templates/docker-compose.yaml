@@ -30,7 +30,7 @@
 {% set envs = {
   "EMAIL": values.storj.email,
   "STORAGE": "%dGB" | format(values.storj.storage_size_gb),
-  "ADDRESS": "%s:%s"|format(values.storj.domain_address, values.network.p2p_port),
+  "ADDRESS": "%s:%s"|format(values.storj.domain_address, values.network.p2p_port.port_number),
   "WALLET": values.storj.wallet_address|string,
 } %}
 
@@ -44,9 +44,9 @@
 {% do setup.environment.add_user_envs(values.storj.additional_envs) %}
 
 {% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.web_port, values.consts.container_web_port) %}
-  {% do c1.ports.add_port(values.network.p2p_port, values.consts.container_p2p_port) %}
-  {% do c1.ports.add_port(values.network.p2p_port, values.consts.container_p2p_port, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.container_web_port}) %}
+  {% do c1.add_port(values.network.p2p_port, {"container_port": values.consts.container_p2p_port}) %}
+  {% do c1.add_port(values.network.p2p_port, {"container_port": values.consts.container_p2p_port, "protocol": "udp"}) %}
 {% endif %}
 
 {% do c1.add_storage("/tmp", {"type": "anonymous"}) %}
@@ -77,6 +77,6 @@
 {% endif %}
 
 
-{% do tpl.portals.add_portal({"port": 8096 if values.network.host_network else values.network.web_port})%}
+{% do tpl.portals.add_portal({"port": 8096 if values.network.host_network else values.network.web_port.port_number})%}
 
 {{ tpl.render() | tojson }}
