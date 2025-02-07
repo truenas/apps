@@ -44,7 +44,7 @@
 {% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/manifest.json"}) %}
 {% do c1.environment.add_user_envs(values.home_assistant.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% for port in values.network.additional_ports %}
   {% do c1.add_port(port) %}
 {% endfor %}
@@ -63,6 +63,7 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% set port = values.consts.internal_web_port if values.network.host_network else values.network.web_port.port_number %}
+{% do tpl.portals.add_portal({"port": port}) %}
 
 {{ tpl.render() | tojson }}
