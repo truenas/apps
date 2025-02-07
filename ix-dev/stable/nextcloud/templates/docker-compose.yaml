@@ -107,7 +107,7 @@
 
 {% set host = namespace(x="") %}
 {% if values.nextcloud.host %}
-  {% set host.x = values.nextcloud.host if ":" in values.nextcloud.host else "%s:%d"|format(values.nextcloud.host, values.network.web_port) %}
+  {% set host.x = values.nextcloud.host if ":" in values.nextcloud.host else "%s:%d"|format(values.nextcloud.host, values.network.web_port.port_number) %}
   {% set host.x = host.x.replace("https://", "") %}
   {% set host.x = host.x.replace("http://", "") %}
 {% endif %}
@@ -147,7 +147,7 @@
   {% do nc_container.add_storage(s[0], s[1]) %}
 {% endfor %}
 {% if not values.network.certificate_id %}
-  {% do nc_container.ports.add_port(values.network.web_port, 80) %}
+  {% do nc_container.add_port(values.network.web_port, {"container_port": 80}) %}
 {% endif %}
 {% if values.nextcloud.imaginary.enabled %}
   {% do nc_container.configs.add(
@@ -205,10 +205,10 @@
   {% endfor %}
   {% do nginx_container.add_storage("/tmp", {"type": "anonymous", "volume_config": {}}) %}
   {% do nginx_container.healthcheck.set_test("curl", {
-    "port": values.network.web_port, "path": "/status.php",
+    "port": values.network.web_port.port_number, "path": "/status.php",
     "headers": [("Host", "localhost")], "scheme": "https"
   }) %}
-  {% do nginx_container.ports.add_port(values.network.web_port, values.network.web_port) %}
+  {% do nginx_container.add_port(values.network.web_port) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
@@ -218,6 +218,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": "https" if values.network.certificate_id else "http"}) %}
 
 {{ tpl.render() | tojson }}
