@@ -24,6 +24,14 @@ RESTRICTED: tuple[Path, ...] = (
 )
 
 
+def valid_security_opt_or_raise(opt: str):
+    valid_opts = ["apparmor", "no-new-privileges", "seccomp", "systempaths", "label"]
+    if opt not in valid_opts:
+        raise RenderError(f"Security Option [{opt}] is not valid. Valid options are: [{', '.join(valid_opts)}]")
+
+    return opt
+
+
 def valid_port_bind_mode_or_raise(status: str):
     valid_statuses = ("published", "exposed", "")
     if status not in valid_statuses:
