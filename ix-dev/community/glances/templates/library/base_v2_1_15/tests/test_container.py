@@ -250,35 +250,6 @@ def test_invalid_caps(mock_values):
         c1.add_caps(["invalid_cap"])
 
 
-def test_remove_security_opt(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    c1.remove_security_opt("no-new-privileges")
-    output = render.render()
-    assert "security_opt" not in output["services"]["test_container"]
-
-
-def test_add_security_opt(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    c1.add_security_opt("seccomp=unconfined")
-    output = render.render()
-    assert output["services"]["test_container"]["security_opt"] == [
-        "no-new-privileges",
-        "seccomp=unconfined",
-    ]
-
-
-def test_add_duplicate_security_opt(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
-        c1.add_security_opt("no-new-privileges")
-
-
 def test_network_mode(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

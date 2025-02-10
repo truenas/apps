@@ -27,6 +27,7 @@ try:
         valid_port_bind_mode_or_raise,
         valid_pull_policy_or_raise,
     )
+    from .security_opts import SecurityOpts
     from .storage import Storage
     from .sysctls import Sysctls
 except ImportError:
@@ -52,6 +53,7 @@ except ImportError:
         valid_port_bind_mode_or_raise,
         valid_pull_policy_or_raise,
     )
+    from security_opts import SecurityOpts
     from storage import Storage
     from sysctls import Sysctls
 
@@ -73,7 +75,7 @@ class Container:
         self._hostname: str = ""
         self._cap_drop: set[str] = set(["ALL"])  # Drop all capabilities by default and add caps granularly
         self._cap_add: set[str] = set()
-        self._security_opt: set[str] = set(["no-new-privileges"])
+        self._security_opt: SecurityOpts = SecurityOpts(self._render_instance)
         self._privileged: bool = False
         self._group_add: set[int | str] = set()
         self._network_mode: str = ""
@@ -227,13 +229,11 @@ class Container:
                 raise RenderError(f"Capability [{c}] already added")
             self._cap_add.add(valid_cap_or_raise(c))
 
-    def add_security_opt(self, opt: str):
-        if opt in self._security_opt:
-            raise RenderError(f"Security Option [{opt}] already added")
-        self._security_opt.add(opt)
+    def add_security_opt(self, key: str, value: str | bool | None = None, arg: str | None = None):
+        self._security_opt.add_opt(key, value, arg)
 
-    def remove_security_opt(self, opt: str):
-        self._security_opt.remove(opt)
+    def remove_security_opt(self, key: str):
+        self._security_opt.remove_opt(key)
 
     def set_network_mode(self, mode: str):
         self._network_mode = valid_network_mode_or_raise(mode, self._render_instance.container_names())
@@ -366,8 +366,8 @@ class Container:
         if self._cap_add:
             result["cap_add"] = sorted(self._cap_add)
 
-        if self._security_opt:
-            result["security_opt"] = sorted(self._security_opt)
+        if self._security_opt.has_opts():
+            result["security_opt"] = self._security_opt.render()
 
         if self._network_mode:
             result["network_mode"] = self._network_mode
