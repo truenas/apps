@@ -6,11 +6,11 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/api/health", "scheme": proto}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/health", "scheme": proto}) %}
 
 {% do c1.environment.add_env("GF_PATHS_DATA", values.consts.data_path) %}
 {% do c1.environment.add_env("GF_PATHS_PLUGINS", values.consts.plugins_path) %}
-{% do c1.environment.add_env("GF_SERVER_HTTP_PORT", values.network.web_port) %}
+{% do c1.environment.add_env("GF_SERVER_HTTP_PORT", values.network.web_port.port_number) %}
 {% if values.grafana.plugins %}
   {% do c1.environment.add_env("GF_INSTALL_PLUGINS", values.grafana.plugins|join(",")) %}
 {% endif %}
@@ -30,7 +30,7 @@
 
 {% do c1.environment.add_user_envs(values.grafana.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
@@ -48,6 +48,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto}) %}
 
 {{ tpl.render() | tojson }}
