@@ -1,6 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -19,26 +20,38 @@
 {% set ml_container = namespace(x=None) %}
 
 {% set server_container = tpl.add_container(values.consts.server_container_name, "image") %}
+{% do server_container.set_user(values.run_as.user, values.run_as.group) %}
 {% do server_container.healthcheck.set_custom_test("/usr/src/app/bin/immich-healthcheck") %}
 {% do server_container.depends.add_dependency(values.consts.pgvecto_container_name, "service_healthy") %}
 {% do server_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
 {% set base_path = "/usr/src/app/upload" %}
 {% do server_container.add_storage("%s/upload"|format(base_path), values.storage.uploads) %}
+{% do perm_container.add_or_skip_action("uploads", values.storage.uploads, perms_config) %}
+
 {% do server_container.add_storage("%s/thumbs"|format(base_path), values.storage.thumbs) %}
+{% do perm_container.add_or_skip_action("thumbs", values.storage.thumbs, perms_config) %}
 {% do server_container.add_storage("%s/library"|format(base_path), values.storage.library) %}
+{% do perm_container.add_or_skip_action("library", values.storage.library, perms_config) %}
+
 {% do server_container.add_storage("%s/profile"|format(base_path), values.storage.profile) %}
+{% do perm_container.add_or_skip_action("profile", values.storage.profile, perms_config) %}
+
 {% do server_container.add_storage("%s/backups"|format(base_path), values.storage.backups) %}
+{% do perm_container.add_or_skip_action("backups", values.storage.backups, perms_config) %}
+
 {% do server_container.add_storage("%s/encoded-video"|format(base_path), values.storage.video) %}
+{% do perm_container.add_or_skip_action("video", values.storage.video, perms_config) %}
 {% for store in values.storage.additional_storage %}
   {% do server_container.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{% do server_container.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do server_container.add_port(values.network.web_port) %}
 
 {% do server_container.environment.add_env("NODE_ENV", "production") %}
 {% do server_container.environment.add_env("IMMICH_LOG_LEVEL", values.immich.log_level) %}
-{% do server_container.environment.add_env("IMMICH_PORT", values.network.web_port) %}
+{% do server_container.environment.add_env("IMMICH_PORT", values.network.web_port.port_number) %}
 {% do server_container.environment.add_env("DB_USERNAME", values.consts.db_user) %}
 {% do server_container.environment.add_env("DB_PASSWORD", values.immich.db_password) %}
 {% do server_container.environment.add_env("DB_HOSTNAME", values.consts.pgvecto_container_name) %}
@@ -52,6 +65,7 @@
 
 {% if values.immich.enable_ml %}
   {% set ml_container.x = tpl.add_container(values.consts.ml_container_name, values.immich.ml_image_selector) %}
+  {% do ml_container.x.set_user(values.run_as.user, values.run_as.group) %}
   {% do ml_container.x.healthcheck.set_custom_test("python3 /usr/src/app/healthcheck.py") %}
   {% do ml_container.x.environment.add_env("NODE_ENV", "production") %}
   {% do ml_container.x.environment.add_env("IMMICH_LOG_LEVEL", values.immich.log_level) %}
@@ -79,6 +93,6 @@
   {% endif %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
