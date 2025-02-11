@@ -18,10 +18,10 @@
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_test("http", {"port": values.network.web_port, "path": "/i/"}) %}
+{% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/i/"}) %}
 
 {% do c1.environment.add_env("FRESHRSS_ENV", "production") %}
-{% do c1.environment.add_env("LISTEN", values.network.web_port) %}
+{% do c1.environment.add_env("LISTEN", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("DATA_PATH", values.consts.data_path) %}
 {% do c1.environment.add_env("CRON_MIN", values.fresh_rss.cron_min) %}
 {% do c1.environment.add_env("FRESHRSS_USER", [
@@ -46,7 +46,7 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
@@ -54,6 +54,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
