@@ -182,6 +182,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
       ["rustdesk/rustdesk-server"]
     ),
+    customVersioning(
+      // 9.0.2-stable
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
+      ["lmscommunity/lyrionmusicserver"]
+    ),
   ],
 };
 
