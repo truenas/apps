@@ -7,11 +7,11 @@
 
 {% set config = namespace({
   "opts": [
-    "--httpPort=%d"|format(-1 if values.network.certificate_id else values.network.web_port),
+    "--httpPort=%d"|format(-1 if values.network.certificate_id else values.network.web_port.port_number),
   ],
   "java_opts": [
     "-Djenkins.model.Jenkins.slaveAgentPortEnforce=true",
-    "-Djenkins.model.Jenkins.slaveAgentPort=%d"|format(values.network.agent_port if values.network.enable_agent else -1),
+    "-Djenkins.model.Jenkins.slaveAgentPort=%d"|format(values.network.agent_port.port_number if values.network.agent_port.bind_mode != '' else -1),
   ]
 }) %}
 
@@ -55,7 +55,7 @@
 
 {% if values.network.certificate_id %}
   {% do config.opts.extend([
-    "--httpsPort=%d"|format(values.network.web_port),
+    "--httpsPort=%d"|format(values.network.web_port.port_number),
     "--httpsKeyStore=%s/%s"|format(values.consts.keystore_path, values.consts.keystore_name),
     "--httpsKeyStorePassword=%s"|format(random_cert_pass),
   ])%}
@@ -81,13 +81,14 @@
 {% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/login", "scheme": proto}) %}
-{% do c1.environment.add_env("JENKINS_SLAVE_AGENT_PORT", values.network.agent_port if values.network.enable_agent else -1) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/login", "scheme": proto}) %}
+{% do c1.environment.add_env("JENKINS_SLAVE_AGENT_PORT", values.network.agent_port.port_number if values.network.agent_port.bind_mode != '' else -1) %}
 {% do c1.environment.add_env("JENKINS_JAVA_OPTS", config.java_opts|join(" ")) %}
 {% do c1.environment.add_env("JENKINS_OPTS", config.opts|join(" ")) %}
 {% do c1.environment.add_user_envs(values.jenkins.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.agent_port) %}
 
 {% do c1.add_storage("/var/jenkins_home", values.storage.home) %}
 {% do perm_container.add_or_skip_action("home", values.storage.home, perm_config) %}
@@ -113,7 +114,7 @@
   {% endif %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto}) %}
 {% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
