@@ -182,6 +182,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
       ["rustdesk/rustdesk-server"]
     ),
+    customVersioning(
+      // 2.1.0.3-beta
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta$",
+      ["duplicati/duplicati"]
+    ),
   ],
 };
 
