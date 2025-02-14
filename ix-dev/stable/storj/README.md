@@ -1,6 +1,3 @@
-# Prometheus
+# Storj
 
-[Prometheus](https://prometheus.io/) - Monitoring system and time series database.
-
-The configuration file is located at `/config/prometheus.yml` inside the container.
-Data is stored at `/data` inside the container.
+[Storj](https://storj.io/) - a Storj Storage Node, which is a part of the decentralized cloud storage network Storj.
