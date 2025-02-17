@@ -1,17 +1,23 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% if values.node.enabled %}
-  {% set monerod = tpl.add_container(values.consts.monerod_container_name, "monerod") %}
+  {% set monerod = tpl.add_container(values.consts.monerod_container_name, values.consts.monerod_container_name) %}
   {% do monerod.clear_caps() %}
   {% do monerod.restart.set_policy("on-failure", 1) %}
   {% do monerod.healthcheck.disable() %}
   {% do monerod.remove_security_opt("no-new-privileges") %}
   {% do monerod.set_user(1000, 1000) %}
   {% do monerod.ports.add_port(values.consts.network.monerod_p2p_port, values.consts.network.monerod_p2p_port) %}
-  {% do monerod.ports.add_port(values.consts.network.monerod_rpc_port, values.consts.network.monerod_rpc_port) %}
+  {% do monerod.ports.add_port(values.consts.network.monerod_restricted_rpc_port, values.consts.network.monerod_restricted_rpc_port) %}
   {% do monerod.add_storage("/home/monero/.bitmonero", values.consts.volumes.bitmonero) %}
 
-  {% set commands = ["--rpc-restricted-bind-ip=0.0.0.0", "--rpc-restricted-bind-port={}".format(values.consts.network.monerod_rpc_port)] %}
+  {% set commands = [
+    "--rpc-bind-port={}".format(values.consts.network.monerod_rpc_port),
+    "--rpc-restricted-bind-ip=0.0.0.0",
+    "--rpc-restricted-bind-port={}".format(values.consts.network.monerod_restricted_rpc_port),
+    "--no-igd",
+    "--no-zmq",
+  ] %}
 
   {% if values.node.pruned %}
     {% do commands.append("--prune-blockchain") %}
@@ -34,6 +40,23 @@
     {% do commands.append(values.node.additional_flags) %}
   {% endif %}
 
+  {% if values.networking.ipv6_enabled %}
+    {% do commands.append("--p2p-use-ipv6") %}
+    {% do commands.append("--rpc-use-ipv6") %}
+  {% endif %}
+
+  {% if values.networking.tor_connections_enabled and values.networking.tor_ip and values.networking.tor_port %}
+    {% do commands.append("--tx-proxy=tor,{}:{},16".format(values.networking.tor_ip, values.networking.tor_port)) %}
+  {% endif %}
+
+  {% if values.networking.i2p_connections_enabled and values.networking.i2p_ip and values.networking.i2p_port %}
+    {% do commands.append("--tx-proxy=i2p,{}:{},16".format(values.networking.i2p_ip, values.networking.i2p_port)) %}
+  {% endif %}
+
+  {% if values.networking.tor_connections_enabled and values.networking.routing == "tor" %}
+    {% do commands.append("--proxy={}:{}".format(values.networking.tor_ip, values.networking.tor_port)) %}
+  {% endif %}
+
   {% do monerod.set_command(commands) %}
 
   {% if values.node.blockchain_path %}
@@ -43,7 +66,7 @@
 {% endif %}
 
 {% if values.wallet.enabled %}
-  {% set wallet = tpl.add_container(values.consts.monero_wallet_rpc_container_name, "monero_wallet_rpc") %}
+  {% set wallet = tpl.add_container(values.consts.monero_wallet_rpc_container_name, values.consts.monero_wallet_rpc_container_name) %}
   {% do wallet.clear_caps() %}
   {% do wallet.restart.set_policy("on-failure", 1) %}
   {% do wallet.healthcheck.disable() %}
@@ -59,7 +82,7 @@
   {% if not values.node.enabled and values.node.remote_node_url %}
     {% do commands.append("--daemon-address={}".format(values.node.remote_node_url)) %}
   {% else %}
-    {% do commands.append("--daemon-address={}:{}".format(values.consts.monerod_container_name, values.consts.network.monerod_rpc_port)) %}
+    {% do commands.append("--daemon-address={}:{}".format(values.consts.monerod_container_name, values.consts.network.monerod_restricted_rpc_port)) %}
     {% do commands.append("--trusted-daemon") %}
   {% endif %}
 
@@ -71,21 +94,45 @@
     {% do commands.append("--trusted-daemon") %}
   {% endif %}
 
+  {% if values.networking.ipv6_enabled %}
+    {% do commands.append("--rpc-use-ipv6") %}
+  {% endif %}
+
   {% do wallet.set_command(commands) %}
 {% endif %}
 
 {# TODO #}
-{# {% if values.explorer.enabled %}
-  {% set monerod = tpl.add_container(values.consts.monero_wallet_rpc_container_name, "monero_wallet_rpc") %}
-  {% do monerod.clear_caps() %}
-  {% do monerod.restart.set_policy("on-failure", 1) %}
-  {% do monerod.healthcheck.disable() %}
-  {% do monerod.remove_security_opt("no-new-privileges") %}
-  {% do monerod.set_user(1000, 1000) %}
-  {% do monerod.ports.add_port(values.wallet.port, values.consts.network.monero_wallet_rpc_port) %}
+{# 
+{ % if values.explorer.enabled %}
+  {% set explorer = tpl.add_container(values.consts.onion_monero_explorer_container_name, values.consts.onion_monero_explorer_container_name) %}
+  {% do explorer.clear_caps() %}
+  {% do explorer.restart.set_policy("on-failure", 1) %}
+  {% do explorer.healthcheck.disable() %}
+  {% do explorer.remove_security_opt("no-new-privileges") %}
+  {% do explorer.set_user(1000, 1000) %}
+  {% do explorer.ports.add_port(values.consts.network.explorer_port, 8081) %}
+  {% do explorer.depends.add_dependency("monerod", "service_started") %}
 
-  {% set host_wallet_volume = {"type": "host_path", "host_path_config": {"path": values.wallet.wallet_path}} %}
-  {% do monerod.add_storage("/home/monero/wallet", host_wallet_volume) %}
-{% endif %} #}
+  {% set commands = ["cat /etc/passwd"] %}
+
+  {% if not values.explorer.enabled and values.explorer.api_enabled %}
+    {% do commands.append("--enable-json-api") %}
+  {% endif %}
+
+  {% if not values.node.enabled and values.node.remote_node_url %}
+    {% do commands.append("--daemon-url={}".format(values.node.remote_node_url)) %}
+  {% else %}
+    {% do commands.append("--daemon-url={}:{}".format(values.consts.monerod_container_name, values.consts.network.monerod_restricted_rpc_port)) %}
+  {% endif %}
+
+  {% if values.explorer.additional_flags %}
+    {% do commands.append(values.explorer.additional_flags) %}
+  {% endif %}
+
+  {% do explorer.set_command(commands) %}
+
+  {% do explorer.add_storage("/home/monero/.bitmonero", values.consts.volumes.bitmonero) %}
+{% endif %}
+#}
 
 {{ tpl.render() | tojson }}
