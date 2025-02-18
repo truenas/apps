@@ -1,3 +1,3 @@
-# Wordpress
+# WordPress
 
-[Wordpress](https://wordpress.org/) is a web content management system.
+[WordPress](https://wordpress.org/) is a web content management system.
