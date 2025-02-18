@@ -1,0 +1,77 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    values["network"]["web_port"] = {
+        "port_number": values["network"]["web_port"],
+        "bind_mode": "published",
+        "host_ips": [],
+    }
+    values["network"]["sftpd_services"] = [
+        {
+            "enabled": s["enabled"],
+            "port": {
+                "port_number": s["port"],
+                "bind_mode": "published",
+                "host_ips": [],
+            },
+        }
+        for s in values["network"]["sftpd_services"]
+    ]
+
+    values["network"]["webdavd_services"] = [
+        {
+            "enabled": s["enabled"],
+            "port": {
+                "port_number": s["port"],
+                "bind_mode": "published",
+                "host_ips": [],
+            },
+        }
+        for s in values["network"]["webdavd_services"]
+    ]
+
+    values["network"]["ftpd_services"] = [
+        {
+            "enabled": s["enabled"],
+            "port": {
+                "port_number": s["port"],
+                "bind_mode": "published",
+                "host_ips": [],
+            },
+        }
+        for s in values["network"]["ftpd_services"]
+    ]
+
+    return values
+
+
+if __name__ == "__main__":
+    data = {
+        "network": {
+            "web_port": 30112,
+            "sftpd_services": [
+                {"enabled": True, "port": 2021},
+                {"enabled": False, "port": 2022},
+            ],
+            "webdavd_services": [
+                {"enabled": True, "port": 2023},
+                {"enabled": False, "port": 2024},
+            ],
+            "ftpd_services": [
+                {"enabled": True, "port": 2025},
+                {"enabled": False, "port": 2026},
+            ],
+        }
+    }
+    print(yaml.dump(migrate(data)))
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
