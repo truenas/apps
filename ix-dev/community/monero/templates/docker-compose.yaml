@@ -1,138 +1,151 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% if values.node.enabled %}
-  {% set monerod = tpl.add_container(values.consts.monerod_container_name, values.consts.monerod_container_name) %}
-  {% do monerod.clear_caps() %}
-  {% do monerod.restart.set_policy("on-failure", 1) %}
-  {% do monerod.healthcheck.disable() %}
-  {% do monerod.remove_security_opt("no-new-privileges") %}
-  {% do monerod.set_user(1000, 1000) %}
-  {% do monerod.ports.add_port(values.consts.network.monerod_p2p_port, values.consts.network.monerod_p2p_port) %}
-  {% do monerod.ports.add_port(values.consts.network.monerod_restricted_rpc_port, values.consts.network.monerod_restricted_rpc_port) %}
-  {% do monerod.add_storage("/home/monero/.bitmonero", values.consts.volumes.bitmonero) %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
-  {% set commands = [
-    "--rpc-bind-port={}".format(values.consts.network.monerod_rpc_port),
+{% set enabled_containers = {
+  "node": values.monero.node.enabled,
+  "wallet": values.monero.wallet.enabled,
+  "explorer": values.monero.explorer.enabled,
+} %}
+
+{% if enabled_containers.values()|select|list|length == 0 %}
+  {% do tpl.funcs.fail("At least one of [%s] must be enabled." | format(enabled_containers.keys() | join(", "))) %}
+{% endif %}
+
+{% if values.monero.node.enabled %}
+  {% set monerod = tpl.add_container(values.consts.monerod_container_name, "image") %}
+  {% do monerod.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+  {% do monerod.healthcheck.set_test("curl", {"port": values.network.monerod_rpc_port.port_number, "path": "/get_height"}) %}
+
+  {% for flag in values.monero.node.additional_flags %}
+    {% for reserved_flag in values.consts.reserved_node_flags %}
+      {% if flag.startswith(reserved_flag) %}
+        {% do tpl.funcs.fail("Flag [%s] is reserved and cannot be set." | format(flag)) %}
+      {% endif %}
+    {% endfor %}
+  {% endfor %}
+
+  {# This way we get rid of fixuid #}
+  {% set entrypoint = namespace(x=[
+    "monerod",
+    "--non-interactive"
+  ]) %}
+
+  {% do monerod.set_entrypoint(entrypoint.x) %}
+
+  {% set commands = namespace(x=[
+    "--rpc-bind-port=%d" | format(values.network.monerod_rpc_port.port_number),
     "--rpc-restricted-bind-ip=0.0.0.0",
-    "--rpc-restricted-bind-port={}".format(values.consts.network.monerod_restricted_rpc_port),
+    "--rpc-restricted-bind-port=%d" | format(values.network.monerod_restricted_rpc_port.port_number),
     "--no-igd",
     "--no-zmq",
-  ] %}
+  ]) %}
 
-  {% if values.node.pruned %}
-    {% do commands.append("--prune-blockchain") %}
+  {% if values.monero.node.pruned %}
+    {% do commands.x.append("--prune-blockchain") %}
   {% endif %}
 
-  {% if values.node.publicly_available %}
-    {% do commands.append("--public-node") %}
+  {% if values.monero.node.publicly_available %}
+    {% do commands.x.append("--public-node") %}
   {% endif %}
 
-  {% if values.node.dns_blocklist %}
-    {% do commands.append("--enable-dns-blocklist") %}
+  {% if values.monero.node.dns_blocklist %}
+    {% do commands.x.append("--enable-dns-blocklist") %}
   {% endif %}
 
-  {% if values.node.logging and values.node.log_file_path %}
-    {% set host_logfile_volume = {"type": "host_path", "host_path_config": {"path": values.node.log_file_path}} %}
-    {% do monerod.add_storage("/home/monero/.bitmonero/bitmonero.log", host_logfile_volume) %}
+  {% for flag in values.monero.node.additional_flags %}
+    {% do commands.x.append(flag) %}
+  {% endfor %}
+
+  {% if values.monero.ipv6_enabled %}
+    {% do commands.x.append("--p2p-use-ipv6") %}
+    {% do commands.x.append("--rpc-use-ipv6") %}
   {% endif %}
 
-  {% if values.node.additional_flags %}
-    {% do commands.append(values.node.additional_flags) %}
+  {% if values.monero.networking.tor_connections_enabled %}
+    {% do commands.x.append("--tx-proxy=tor,%s:%d,16" | format(values.monero.networking.tor_ip, values.monero.networking.tor_port)) %}
+    {% if values.monero.networking.routing == "tor" %}
+      {% do commands.x.append("--proxy=%s:%d" | format(values.monero.networking.tor_ip, values.monero.networking.tor_port)) %}
+    {% endif %}
   {% endif %}
 
-  {% if values.networking.ipv6_enabled %}
-    {% do commands.append("--p2p-use-ipv6") %}
-    {% do commands.append("--rpc-use-ipv6") %}
+  {% if values.monero.networking.i2p_connections_enabled %}
+    {% do commands.x.append("--tx-proxy=i2p,%s:%d,16" | format(values.monero.networking.i2p_ip, values.monero.networking.i2p_port)) %}
   {% endif %}
 
-  {% if values.networking.tor_connections_enabled and values.networking.tor_ip and values.networking.tor_port %}
-    {% do commands.append("--tx-proxy=tor,{}:{},16".format(values.networking.tor_ip, values.networking.tor_port)) %}
-  {% endif %}
+  {% do monerod.set_command(commands.x) %}
 
-  {% if values.networking.i2p_connections_enabled and values.networking.i2p_ip and values.networking.i2p_port %}
-    {% do commands.append("--tx-proxy=i2p,{}:{},16".format(values.networking.i2p_ip, values.networking.i2p_port)) %}
-  {% endif %}
+  {% for store in values.storage.additional_storage if values.consts.monerod_container_name in store.containers %}
+    {% do monerod.add_storage(store.mount_path, store) %}
+    {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+  {% endfor %}
 
-  {% if values.networking.tor_connections_enabled and values.networking.routing == "tor" %}
-    {% do commands.append("--proxy={}:{}".format(values.networking.tor_ip, values.networking.tor_port)) %}
-  {% endif %}
+  {% do monerod.add_storage("/home/monero/.bitmonero", values.storage.bitmonero) %}
+  {% do perm_container.add_or_skip_action("bitmonero", values.storage.bitmonero, perm_config) %}
 
-  {% do monerod.set_command(commands) %}
-
-  {% if values.node.blockchain_path %}
-    {% set host_blockchain_volume = {"type": "host_path", "host_path_config": {"path": values.node.blockchain_path}} %}
-    {% do monerod.add_storage("/home/monero/.bitmonero/lmdb", host_blockchain_volume) %}
-  {% endif %}
+  {% do monerod.add_port(values.network.monerod_p2p_port, {"container_port": values.network.monerod_p2p_port.port_number}) %}
+  {% do monerod.add_port(values.network.monerod_rpc_port, {"container_port": values.network.monerod_rpc_port.port_number}) %}
+  {% do monerod.add_port(values.network.monerod_restricted_rpc_port, {"container_port": values.network.monerod_restricted_rpc_port.port_number}) %}
 {% endif %}
 
-{% if values.wallet.enabled %}
-  {% set wallet = tpl.add_container(values.consts.monero_wallet_rpc_container_name, values.consts.monero_wallet_rpc_container_name) %}
-  {% do wallet.clear_caps() %}
-  {% do wallet.restart.set_policy("on-failure", 1) %}
-  {% do wallet.healthcheck.disable() %}
-  {% do wallet.remove_security_opt("no-new-privileges") %}
-  {% do wallet.set_user(1000, 1000) %}
-  {% do wallet.ports.add_port(values.wallet.port, values.consts.network.monero_wallet_rpc_port) %}
+{% if values.monero.wallet.enabled %}
+  {% set wallet = tpl.add_container(values.consts.monero_wallet_rpc_container_name, "monero_wallet_rpc") %}
+  {% do wallet.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+  {% do wallet.healthcheck.set_custom_test("curl --digest -u $(cat /home/monero/wallet/monero-wallet-rpc.{}.login) http://localhost:{}/json_rpc".format(values.network.wallet_rpc_port.port_number, values.network.wallet_rpc_port.port_number)) %}
 
-  {% set host_wallet_volume = {"type": "host_path", "host_path_config": {"path": values.wallet.wallet_path}} %}
-  {% do wallet.add_storage("/home/monero/wallet", host_wallet_volume) %}
+  {% set entrypoint = namespace(x=[
+    "monero-wallet-rpc",
+    "--non-interactive",
+    "--rpc-bind-ip=0.0.0.0",
+    "--confirm-external-bind"
+  ]) %}
+  
+  {% do wallet.set_entrypoint(entrypoint.x) %}
 
-  {% set commands = ["--rpc-bind-port={}".format(values.consts.network.monero_wallet_rpc_port), "--wallet-dir=/home/monero/wallet/wallet"] %}
+  {% set commands = namespace(x=[
+    "--rpc-bind-port=%d" | format(values.network.wallet_rpc_port.port_number),
+    "--wallet-dir=/home/monero/wallet/wallet"
+  ]) %}
 
-  {% if not values.node.enabled and values.node.remote_node_url %}
-    {% do commands.append("--daemon-address={}".format(values.node.remote_node_url)) %}
-  {% else %}
-    {% do commands.append("--daemon-address={}:{}".format(values.consts.monerod_container_name, values.consts.network.monerod_restricted_rpc_port)) %}
-    {% do commands.append("--trusted-daemon") %}
+  {% if values.monero.node.enabled %}
+    {% do commands.x.append("--daemon-address=%s:%d" | format(values.consts.monerod_container_name, values.network.monerod_restricted_rpc_port.port_number)) %}
+    {% do commands.x.append("--trusted-daemon") %}
   {% endif %}
 
-  {% if not values.node.enabled and values.node.ssl_enabled %}
-    {% do commands.append("--daemon-ssl=enabled") %}
+  {% if not values.monero.node.enabled and values.monero.node.remote_node_url %}
+    {% do commands.x.append("--daemon-address=%s" | format(values.monero.node.remote_node_url)) %}
+ 
+    {% if values.monero.node.trust_daemon %}
+      {% do commands.x.append("--trusted-daemon") %}
+    {% endif %}
   {% endif %}
 
-  {% if not values.node.enabled and values.node.trust_daemon %}
-    {% do commands.append("--trusted-daemon") %}
+  {% if not values.monero.node.enabled and values.monero.node.ssl_enabled %}
+    {% do commands.x.append("--daemon-ssl=enabled") %}
   {% endif %}
 
-  {% if values.networking.ipv6_enabled %}
-    {% do commands.append("--rpc-use-ipv6") %}
+  {% if values.monero.networking.ipv6_enabled %}
+    {% do commands.x.append("--rpc-use-ipv6") %}
   {% endif %}
 
-  {% do wallet.set_command(commands) %}
+  {% do wallet.set_command(commands.x) %}
+
+  {% do wallet.add_storage("/home/monero/wallet", values.storage.wallet) %}
+  {% do perm_container.add_or_skip_action("wallet", values.storage.wallet, perm_config) %}
+
+  {% for store in values.storage.additional_storage if values.consts.monero_wallet_rpc_container_name in store.containers %}
+    {% do wallet.add_storage(store.mount_path, store) %}
+    {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+  {% endfor %}
+
+  {% do wallet.add_port(values.network.wallet_rpc_port, {"container_port": values.network.wallet_rpc_port.port_number}) %}
 {% endif %}
 
-{# TODO #}
-{# 
-{ % if values.explorer.enabled %}
-  {% set explorer = tpl.add_container(values.consts.onion_monero_explorer_container_name, values.consts.onion_monero_explorer_container_name) %}
-  {% do explorer.clear_caps() %}
-  {% do explorer.restart.set_policy("on-failure", 1) %}
-  {% do explorer.healthcheck.disable() %}
-  {% do explorer.remove_security_opt("no-new-privileges") %}
-  {% do explorer.set_user(1000, 1000) %}
-  {% do explorer.ports.add_port(values.consts.network.explorer_port, 8081) %}
-  {% do explorer.depends.add_dependency("monerod", "service_started") %}
-
-  {% set commands = ["cat /etc/passwd"] %}
-
-  {% if not values.explorer.enabled and values.explorer.api_enabled %}
-    {% do commands.append("--enable-json-api") %}
-  {% endif %}
-
-  {% if not values.node.enabled and values.node.remote_node_url %}
-    {% do commands.append("--daemon-url={}".format(values.node.remote_node_url)) %}
-  {% else %}
-    {% do commands.append("--daemon-url={}:{}".format(values.consts.monerod_container_name, values.consts.network.monerod_restricted_rpc_port)) %}
-  {% endif %}
-
-  {% if values.explorer.additional_flags %}
-    {% do commands.append(values.explorer.additional_flags) %}
-  {% endif %}
-
-  {% do explorer.set_command(commands) %}
-
-  {% do explorer.add_storage("/home/monero/.bitmonero", values.consts.volumes.bitmonero) %}
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do monerod.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do wallet.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
-#}
 
 {{ tpl.render() | tojson }}
