@@ -18,17 +18,6 @@
   {% do monerod.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
   {% do monerod.healthcheck.set_test("curl", {"port": values.network.monerod_rpc_port.port_number, "path": "/get_height"}) %}
 
-  {# FIXME: Use .add_caps([]) and add any needed caps (Also document each one under app.yaml) #}
-  {% do monerod.clear_caps() %}
-  {# FIXME: Why does it need to escalate privileges after container is started? #}
-  {#
-    Quick look shows that its only needed due to fixuid binary,
-    It will be much safer to run the container with the built-in user/group than allow privilege escalation
-  #}
-  {% do monerod.remove_security_opt("no-new-privileges") %}
-  {# FIXME: This won't work well on truenas systems on reboots. Default is unless-stopped #}
-  {% do monerod.restart.set_policy("on-failure", 1) %}
-
   {% for flag in values.monero.node.additional_flags %}
     {% for reserved_flag in values.consts.reserved_node_flags %}
       {% if flag.startswith(reserved_flag) %}
@@ -36,6 +25,14 @@
       {% endif %}
     {% endfor %}
   {% endfor %}
+
+  {# This way we get rid of fixuid #}
+  {% set entrypoint = namespace(x=[
+    "monerod",
+    "--non-interactive"
+  ]) %}
+
+  {% do monerod.set_entrypoint(entrypoint.x) %}
 
   {% set commands = namespace(x=[
     "--rpc-bind-port=%d" | format(values.network.monerod_rpc_port.port_number),
@@ -87,50 +84,45 @@
   {% do monerod.add_storage("/home/monero/.bitmonero", values.storage.bitmonero) %}
   {% do perm_container.add_or_skip_action("bitmonero", values.storage.bitmonero, perm_config) %}
 
-  {% do monerod.add_storage("/home/monero/.bitmonero/lmdb", values.storage.blockchain) %}
-  {% do perm_container.add_or_skip_action("blockchain", values.storage.blockchain, perm_config) %}
-
-  {% if values.monero.node.logging %}
-    {% do monerod.add_storage("/home/monero/.bitmonero/bitmonero.log", values.storage.logs) %}
-    {% do perm_container.add_or_skip_action("logs", values.storage.logs, perm_config) %}
-  {% endif %}
-
-  {% do monerod.add_port(values.network.monerod_p2p_port, {"container_port": values.consts.monerod_p2p_port}) %}
-  {% do monerod.add_port(values.network.monerod_rpc_port) %}
-  {% do monerod.add_port(values.network.monerod_restricted_rpc_port) %}
-
+  {% do monerod.add_port(values.network.monerod_p2p_port, {"container_port": values.network.monerod_p2p_port.port_number}) %}
+  {% do monerod.add_port(values.network.monerod_rpc_port, {"container_port": values.network.monerod_rpc_port.port_number}) %}
+  {% do monerod.add_port(values.network.monerod_restricted_rpc_port, {"container_port": values.network.monerod_restricted_rpc_port.port_number}) %}
 {% endif %}
 
 {% if values.monero.wallet.enabled %}
   {% set wallet = tpl.add_container(values.consts.monero_wallet_rpc_container_name, "monero_wallet_rpc") %}
   {% do wallet.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-  {# FIXME: Use .add_caps([]) and add any needed caps (Also document each one under app.yaml) #}
-  {% do wallet.clear_caps() %}
-  {# FIXME: This won't work well on truenas systems on reboots. Default is unless-stopped #}
-  {% do wallet.restart.set_policy("on-failure", 1) %}
-  {# FIXME: Without healthcheck there is no way to test it on CI and UI will also be flaky about it's status #}
-  {% do wallet.healthcheck.disable() %}
-  {# FIXME: Why does it need to escalate privileges after container is started? #}
-  {% do wallet.remove_security_opt("no-new-privileges") %}
+  {% do wallet.healthcheck.set_custom_test("curl --digest -u $(cat /home/monero/wallet/monero-wallet-rpc.{}.login) http://localhost:{}/json_rpc".format(values.network.wallet_rpc_port.port_number, values.network.wallet_rpc_port.port_number)) %}
+
+  {% set entrypoint = namespace(x=[
+    "monero-wallet-rpc",
+    "--non-interactive",
+    "--rpc-bind-ip=0.0.0.0",
+    "--confirm-external-bind"
+  ]) %}
+  
+  {% do wallet.set_entrypoint(entrypoint.x) %}
 
   {% set commands = namespace(x=[
     "--rpc-bind-port=%d" | format(values.network.wallet_rpc_port.port_number),
     "--wallet-dir=/home/monero/wallet/wallet"
   ]) %}
 
-  {% if not values.monero.node.enabled and values.monero.node.remote_node_url %}
-    {% do commands.x.append("--daemon-address=%s" | format(values.monero.node.remote_node_url)) %}
-  {% else %}
+  {% if values.monero.node.enabled %}
     {% do commands.x.append("--daemon-address=%s:%d" | format(values.consts.monerod_container_name, values.network.monerod_restricted_rpc_port.port_number)) %}
     {% do commands.x.append("--trusted-daemon") %}
   {% endif %}
 
-  {% if not values.monero.node.enabled and values.monero.node.ssl_enabled %}
-    {% do commands.x.append("--daemon-ssl=enabled") %}
+  {% if not values.monero.node.enabled and values.monero.node.remote_node_url %}
+    {% do commands.x.append("--daemon-address=%s" | format(values.monero.node.remote_node_url)) %}
+ 
+    {% if values.monero.node.trust_daemon %}
+      {% do commands.x.append("--trusted-daemon") %}
+    {% endif %}
   {% endif %}
 
-  {% if not values.monero.node.enabled and values.monero.node.trust_daemon %}
-    {% do commands.x.append("--trusted-daemon") %}
+  {% if not values.monero.node.enabled and values.monero.node.ssl_enabled %}
+    {% do commands.x.append("--daemon-ssl=enabled") %}
   {% endif %}
 
   {% if values.monero.networking.ipv6_enabled %}
@@ -147,41 +139,14 @@
     {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
   {% endfor %}
 
-  {% do wallet.add_port(values.network.wallet_rpc_port) %}
+  {% do wallet.add_port(values.network.wallet_rpc_port, {"container_port": values.network.wallet_rpc_port.port_number}) %}
 {% endif %}
 
-{# TODO #}
-{#
-{ % if values.explorer.enabled %}
-  {% set explorer = tpl.add_container(values.consts.onion_monero_explorer_container_name, values.consts.onion_monero_explorer_container_name) %}
-  {% do explorer.clear_caps() %}
-  {% do explorer.restart.set_policy("on-failure", 1) %}
-  {% do explorer.healthcheck.disable() %}
-  {% do explorer.remove_security_opt("no-new-privileges") %}
-  {% do explorer.set_user(1000, 1000) %}
-  {% do explorer.ports.add_port(values.consts.network.explorer_port, 8081) %}
-  {% do explorer.depends.add_dependency("monerod", "service_started") %}
-
-  {% set commands = ["cat /etc/passwd"] %}
-
-  {% if not values.explorer.enabled and values.explorer.api_enabled %}
-    {% do commands.append("--enable-json-api") %}
-  {% endif %}
-
-  {% if not values.monero.node.enabled and values.monero.node.remote_node_url %}
-    {% do commands.append("--daemon-url=%s" | format(values.monero.node.remote_node_url)) %}
-  {% else %}
-    {% do commands.append("--daemon-url=%s:%d" | format(values.consts.monerod_container_name, values.consts.network.monerod_restricted_rpc_port)) %}
-  {% endif %}
-
-  {% if values.explorer.additional_flags %}
-    {% do commands.append(values.explorer.additional_flags) %}
-  {% endif %}
-
-  {% do explorer.set_command(commands) %}
-
-  {% do explorer.add_storage("/home/monero/.bitmonero", values.consts.volumes.bitmonero) %}
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do monerod.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do wallet.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
-#}
+
 
 {{ tpl.render() | tojson }}
