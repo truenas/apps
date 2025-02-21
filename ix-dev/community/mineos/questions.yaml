@@ -98,30 +98,115 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for MineOS WebUI
           schema:
-            type: int
-            default: 30052
-            required: true
-            $ref:
-              - definitions/port
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "!=", ""]]
+                  default: 30052
+                  required: true
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
         - variable: additional_ports
           label: Additional Ports
-          description: |
-            Additional ports for MineOS.</br>
-            Each port will be mapped to the same port on the host. </br>
-            Both TCP and UDP will be mapped.
           schema:
             type: list
-            default: []
             items:
               - variable: port
                 label: Port
                 schema:
-                  type: int
-                  required: true
-                  $ref:
-                    - definitions/port
+                  type: dict
+                  attrs:
+                    - variable: bind_mode
+                      label: Port Bind Mode
+                      description: |
+                        The port bind mode.</br>
+                        - Publish: The port will be published on the host for external access.</br>
+                        - Expose: The port will be exposed for inter-container communication.</br>
+                      schema:
+                        type: string
+                        default: "published"
+                        enum:
+                          - value: "published"
+                            description: Publish port on the host for external access
+                          - value: "exposed"
+                            description: Expose port for inter-container communication
+                    - variable: port_number
+                      label: Port Number
+                      schema:
+                        type: int
+                        required: true
+                        $ref:
+                          - definitions/port
+                    - variable: container_port
+                      label: Container Port
+                      schema:
+                        type: int
+                        required: true
+                        $ref:
+                          - definitions/port
+                    - variable: protocol
+                      label: Protocol
+                      schema:
+                        type: string
+                        required: true
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
+                    - variable: host_ips
+                      label: Host IPs
+                      description: IPs on the host to bind this port
+                      schema:
+                        type: list
+                        default: []
+                        items:
+                          - variable: host_ip
+                            label: Host IP
+                            schema:
+                              type: string
+                              required: true
+                              $ref:
+                                - definitions/node_bind_ip
         - variable: use_https
           label: Use HTTPS
           description: |
