@@ -7,15 +7,17 @@
 {% do c1.set_user(values.consts.run_user, values.consts.run_group) %}
 {% do c1.healthcheck.set_custom_test("NODE_OPTIONS=--dns-result-order=ipv4first node /healthcheck.js") %}
 
-{% do c1.environment.add_env("PORT", values.network.web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("NODE_RED_ENABLE_SAFE_MODE", values.node_red.enable_safe_mode) %}
 {% do c1.environment.add_env("NODE_RED_ENABLE_PROJECTS", values.node_red.enable_projects) %}
 {% do c1.environment.add_user_envs(values.node_red.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-{% for port in values.network.additional_ports %}
-  {% do c1.ports.add_port(port.target, port.published, {"protocol": port.protocol}) %}
-{% endfor %}
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port) %}
+  {% for port in values.network.additional_ports %}
+    {% do c1.add_port(port) %}
+  {% endfor %}
+{% endif %}
 
 {% do c1.add_storage("/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
@@ -30,6 +32,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
