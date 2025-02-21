@@ -4,11 +4,11 @@
 
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% if not values.network.enable_http and not values.network.enable_https %}
+{% if not values.network.http_port.bind_mode != "" and not values.network.https_port.bind_mode != "" %}
   {% do tpl.funcs.fail("Must enable at least one of http or https ports") %}
 {% endif %}
 
-{% if values.network.enable_https and not values.network.certificate_id %}
+{% if values.network.https_port.bind_mode != "" and not values.network.certificate_id %}
   {% do tpl.funcs.fail("Must provide a certificate id if enabling https") %}
 {% endif %}
 
@@ -17,7 +17,7 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("tcp", {"port": values.network.http_port if values.network.enable_http else values.network.https_port}) %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.http_port.port_number if values.network.http_port.bind_mode != "" else values.network.https_port.port_number}) %}
 {% do c1.environment.add_user_envs(values.webdav.additional_envs) %}
 
 {% do c1.configs.add("httpd-conf", httpd_conf(values), values.consts.httpd_conf_path) %}
@@ -31,13 +31,13 @@
   {% do c1.configs.add("htauth", tpl.funcs.htpasswd(values.webdav.username, values.webdav.password), "%s%s"|format(values.consts.auth_file_base, values.webdav.auth_type)) %}
 {% endif %}
 
-{% if values.network.enable_http %}
-  {% do c1.ports.add_port(values.network.http_port, values.network.http_port) %}
+{% if values.network.http_port.bind_mode != "" %}
+  {% do c1.add_port(values.network.http_port) %}
   {% do c1.configs.add("webdav-http-config", webdav_http(values), values.consts.webdav_http_config_path) %}
 {% endif %}
 
-{% if values.network.enable_https %}
-  {% do c1.ports.add_port(values.network.https_port, values.network.https_port) %}
+{% if values.network.https_port.bind_mode != "" %}
+  {% do c1.add_port(values.network.https_port) %}
   {% do c1.configs.add("webdav-https-config", webdav_https(values), values.consts.webdav_https_config_path) %}
 {% endif %}
 
