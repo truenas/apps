@@ -20,7 +20,7 @@
 {% do c1.environment.add_env("SFTPGO_DATA_PROVIDER__USERS_BASE_DIR", values.consts.data_dir_path) %}
 {% do c1.environment.add_env("SFTPGO_DATA_PROVIDER__BACKUPS_PATH", values.consts.backups_dir_path) %}
 {% do c1.environment.add_env("SFTPGO_GRACE_TIME", values.sftpgo.stop_grace_period) %}
-{% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__PORT", values.network.web_port) %}
+{% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__ADDRESS", "") %}
 {% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__ENABLE_WEB_ADMIN", true) %}
 
@@ -36,25 +36,25 @@
 
 {% do c1.environment.add_user_envs(values.sftpgo.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% for svc in values.network.sftpd_services if svc.enabled %}
-  {% do c1.ports.add_port(svc.port, svc.port) %}
-  {% do c1.environment.add_env("SFTPGO_SFTPD__BINDINGS__%d__PORT"|format(loop.index0), svc.port) %}
+  {% do c1.add_port(svc.port) %}
+  {% do c1.environment.add_env("SFTPGO_SFTPD__BINDINGS__%d__PORT"|format(loop.index0), svc.port.port_number) %}
   {% do c1.environment.add_env("SFTPGO_SFTPD__BINDINGS__%d__ADDRESS"|format(loop.index0), "") %}
 {% else %}
   {% do c1.environment.add_env("SFTPGO_SFTPD__BINDINGS__0__PORT", 0) %}
 {% endfor %}
 
 {% for svc in values.network.ftpd_services if svc.enabled %}
-  {% do c1.ports.add_port(svc.port, svc.port) %}
-  {% do c1.environment.add_env("SFTPGO_FTPD__BINDINGS__%d__PORT"|format(loop.index0), svc.port) %}
+  {% do c1.add_port(svc.port) %}
+  {% do c1.environment.add_env("SFTPGO_FTPD__BINDINGS__%d__PORT"|format(loop.index0), svc.port.port_number) %}
   {% do c1.environment.add_env("SFTPGO_FTPD__BINDINGS__%d__ADDRESS"|format(loop.index0), "") %}
 {% endfor %}
 
 {% for svc in values.network.webdavd_services if svc.enabled %}
-  {% do c1.ports.add_port(svc.port, svc.port) %}
-  {% do c1.environment.add_env("SFTPGO_WEBDAVD__BINDINGS__%d__PORT"|format(loop.index0), svc.port) %}
+  {% do c1.add_port(svc.port) %}
+  {% do c1.environment.add_env("SFTPGO_WEBDAVD__BINDINGS__%d__PORT"|format(loop.index0), svc.port.port_number) %}
   {% do c1.environment.add_env("SFTPGO_WEBDAVD__BINDINGS__%d__ADDRESS"|format(loop.index0), "") %}
 {% endfor %}
 
@@ -62,7 +62,7 @@
   {% do c1.environment.add_env("SFTPGO_FTPD__PASSIVE_PORT_RANGE__START", values.network.ftpd_passive_port_range.start) %}
   {% do c1.environment.add_env("SFTPGO_FTPD__PASSIVE_PORT_RANGE__END", values.network.ftpd_passive_port_range.end) %}
   {% for port in range(values.network.ftpd_passive_port_range.start, values.network.ftpd_passive_port_range.end+1) %}
-    {% do c1.ports.add_port(port, port) %}
+    {% do c1.add_port({"port_number": port, "bind_mode": "published"}) %}
   {% endfor %}
 {% endif %}
 
@@ -96,6 +96,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "path": "/web/admin", "scheme": proto}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "path": "/web/admin", "scheme": proto}) %}
 
 {{ tpl.render() | tojson }}
