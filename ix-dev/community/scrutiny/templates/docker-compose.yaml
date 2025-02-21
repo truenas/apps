@@ -15,9 +15,9 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
 {% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.influxdb_port, values.consts.internal_influxdb_port) %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+  {% do c1.add_port(values.network.influxdb_port, {"container_port": values.consts.internal_influxdb_port}) %}
 {% endif %}
 
 {% do c1.environment.add_user_envs(values.scrutiny.additional_envs) %}
@@ -31,7 +31,7 @@
 
 {% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/health"}) %}
 
-{% do tpl.portals.add_portal({"port": values.consts.internal_web_port if values.network.host_network else values.network.web_port}) %}
-{% do tpl.portals.add_portal({"name": "InfluxDB", "port": values.consts.internal_influxdb_port if values.network.host_network else values.network.influxdb_port}) %}
+{% do tpl.portals.add_portal({"port": values.consts.internal_web_port if values.network.host_network else values.network.web_port.port_number}) %}
+{% do tpl.portals.add_portal({"name": "InfluxDB", "port": values.consts.internal_influxdb_port if values.network.host_network else values.network.influxdb_port.port_number}) %}
 
 {{ tpl.render() | tojson }}

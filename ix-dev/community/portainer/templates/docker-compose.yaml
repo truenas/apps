@@ -7,8 +7,8 @@
 {% do c1.healthcheck.disable() %}
 {% set cmd = namespace(x=[
   "--data", values.consts.data_path,
-  "--tunnel-port", tpl.funcs.or_default(values.network.tunnel_port, 0),
-  "--bind-https", ":%d" | format(values.network.web_port),
+  "--tunnel-port", tpl.funcs.or_default(values.network.tunnel_port.port_number, 0),
+  "--bind-https", ":%d" | format(values.network.web_port.port_number),
   "--http-enabled" if values.network.http_port.bind_mode == "published" else "--http-disabled",
 ]) %}
 
@@ -28,9 +28,9 @@
 {% endif %}
 {% do c1.set_command(cmd.x) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-{% if values.network.tunnel_enabled %}
-  {% do c1.ports.add_port(values.network.tunnel_port, values.network.tunnel_port) %}
+{% do c1.add_port(values.network.web_port) %}
+{% if values.network.tunnel_port.bind_mode != '' %}
+  {% do c1.add_port(values.network.tunnel_port) %}
 {% endif %}
 
 {% do c1.add_docker_socket(read_only=False) %}
@@ -40,6 +40,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": "https"}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": "https"}) %}
 
 {{ tpl.render() | tojson }}
