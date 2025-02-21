@@ -8,7 +8,7 @@
 {% do monerod.healthcheck.set_test("curl", {"port": values.network.monerod_rpc_port.port_number, "path": "/get_height"}) %}
 
 {% for flag in values.monero.additional_flags %}
-  {% for reserved_flag in values.consts.reserved_node_flags %}
+  {% for reserved_flag in values.consts.reserved_flags %}
     {% if flag.startswith(reserved_flag) %}
       {% do tpl.funcs.fail("Flag [%s] is reserved and cannot be set." | format(flag)) %}
     {% endif %}
@@ -16,12 +16,7 @@
 {% endfor %}
 
 {# This way we get rid of fixuid #}
-{% set entrypoint = namespace(x=[
-  "monerod",
-  "--non-interactive"
-]) %}
-
-{% do monerod.set_entrypoint(entrypoint.x) %}
+{% do monerod.set_entrypoint(["monerod", "--non-interactive"]) %}
 
 {% set commands = namespace(x=[
   "--rpc-bind-port=%d" | format(values.network.monerod_rpc_port.port_number),
@@ -52,15 +47,15 @@
   {% do commands.x.append("--rpc-use-ipv6") %}
 {% endif %}
 
-{% if values.monero.networking.tor_connections_enabled %}
-  {% do commands.x.append("--tx-proxy=tor,%s:%d,16" | format(values.monero.networking.tor_ip, values.monero.networking.tor_port)) %}
-  {% if values.monero.networking.routing == "tor" %}
-    {% do commands.x.append("--proxy=%s:%d" | format(values.monero.networking.tor_ip, values.monero.networking.tor_port)) %}
+{% if values.monero.tor_connections_enabled %}
+  {% do commands.x.append("--tx-proxy=tor,%s:%d,16" | format(values.monero.tor_ip, values.monero.tor_port)) %}
+  {% if values.monero.routing == "tor" %}
+    {% do commands.x.append("--proxy=%s:%d" | format(values.monero.tor_ip, values.monero.tor_port)) %}
   {% endif %}
 {% endif %}
 
-{% if values.monero.networking.i2p_connections_enabled %}
-  {% do commands.x.append("--tx-proxy=i2p,%s:%d,16" | format(values.monero.networking.i2p_ip, values.monero.networking.i2p_port)) %}
+{% if values.monero.i2p_connections_enabled %}
+  {% do commands.x.append("--tx-proxy=i2p,%s:%d,16" | format(values.monero.i2p_ip, values.monero.i2p_port)) %}
 {% endif %}
 
 {% do monerod.set_command(commands.x) %}
