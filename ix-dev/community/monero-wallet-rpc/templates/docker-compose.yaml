@@ -5,16 +5,18 @@
 
 {% set wallet = tpl.add_container(values.consts.monero_wallet_rpc_container_name, "image") %}
 {% do wallet.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do wallet.healthcheck.set_custom_test("curl --digest -u $(cat /home/monero/wallet/monero-wallet-rpc.{}.login) http://localhost:{}/json_rpc".format(values.network.wallet_rpc_port.port_number, values.network.wallet_rpc_port.port_number)) %}
+{% do wallet.healthcheck.set_custom_test(
+  "curl --digest -u $(cat /home/monero/wallet/monero-wallet-rpc.%d.login) http://localhost:%d/json_rpc" | format(
+    values.network.wallet_rpc_port.port_number, values.network.wallet_rpc_port.port_number
+  )
+) %}
 
-{% set entrypoint = namespace(x=[
+{% do wallet.set_entrypoint([
   "monero-wallet-rpc",
   "--non-interactive",
   "--rpc-bind-ip=0.0.0.0",
   "--confirm-external-bind"
 ]) %}
-
-{% do wallet.set_entrypoint(entrypoint.x) %}
 
 {% set commands = namespace(x=[
   "--rpc-bind-port=%d" | format(values.network.wallet_rpc_port.port_number),
@@ -24,18 +26,16 @@
 {% if not values.wallet.use_remote_node %}
   {% do commands.x.append("--daemon-address=%s:%d" | format("host.docker.internal", values.wallet.local_node_rpc_port)) %}
   {% do commands.x.append("--trusted-daemon") %}
-{% endif %}
-
-{% if values.wallet.use_remote_node %}
+{% else %}
   {% do commands.x.append("--daemon-address=%s" | format(values.wallet.remote_node_address)) %}
 
   {% if values.wallet.trust_daemon %}
     {% do commands.x.append("--trusted-daemon") %}
   {% endif %}
-{% endif %}
 
-{% if values.wallet.ssl_enabled %}
-  {% do commands.x.append("--daemon-ssl=enabled") %}
+  {% if values.wallet.ssl_enabled %}
+    {% do commands.x.append("--daemon-ssl=enabled") %}
+  {% endif %}
 {% endif %}
 
 {% if values.wallet.ipv6_enabled %}
@@ -44,12 +44,12 @@
 
 {% do wallet.set_command(commands.x) %}
 
-{% do wallet.add_extra_host("host.docker.internal", "host-gateway") %} 
+{% do wallet.add_extra_host("host.docker.internal", "host-gateway") %}
 
 {% do wallet.add_storage("/home/monero/wallet", values.storage.wallet) %}
 {% do perm_container.add_or_skip_action("wallet", values.storage.wallet, perm_config) %}
 
-{% for store in values.storage.additional_storage if values.consts.monero_wallet_rpc_container_name in store.containers %}
+{% for store in values.storage.additional_storage %}
   {% do wallet.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
 {% endfor %}
