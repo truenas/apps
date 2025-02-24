@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from container import Container
     from render import Render
     from storage import IxStorage
 
@@ -13,14 +14,19 @@ except ImportError:
 
 
 class Tmpfs:
-    def __init__(self, render_instance: "Render"):
+
+    def __init__(self, render_instance: "Render", container_instance: "Container"):
         self._render_instance = render_instance
+        self._container_instance = container_instance
         self._tmpfs: dict = {}
 
     def add(self, mount_path: str, config: "IxStorage"):
         mount_path = valid_fs_path_or_raise(mount_path)
-        if mount_path in self._tmpfs:
+        if self.is_defined(mount_path):
             raise RenderError(f"Tmpfs mount path [{mount_path}] already added")
+
+        if self._container_instance.storage.is_defined(mount_path):
+            raise RenderError(f"Tmpfs mount path [{mount_path}] already used for another volume mount")
 
         mount_config = config.get("tmpfs_config", {})
         size = mount_config.get("size", None)
@@ -54,6 +60,9 @@ class Tmpfs:
             self._tmpfs[mount_path]["uid"] = str(uid)
         if gid is not None:
             self._tmpfs[mount_path]["gid"] = str(gid)
+
+    def is_defined(self, mount_path: str):
+        return mount_path in self._tmpfs
 
     def has_tmpfs(self):
         return bool(self._tmpfs)

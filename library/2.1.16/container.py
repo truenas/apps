@@ -85,8 +85,8 @@ class Container:
         self._command: list[str] = []
         self._grace_period: int | None = None
         self._shm_size: int | None = None
-        self._storage: Storage = Storage(self._render_instance)
-        self._tmpfs: Tmpfs = Tmpfs(self._render_instance)
+        self._storage: Storage = Storage(self._render_instance, self)
+        self._tmpfs: Tmpfs = Tmpfs(self._render_instance, self)
         self._ipc_mode: str | None = None
         self._device_cgroup_rules: DeviceCGroupRules = DeviceCGroupRules(self._render_instance)
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)

@@ -548,6 +548,24 @@ def test_tmpfs_volume(mock_values):
     ]
 
 
+def test_add_tmpfs_with_existing_volume(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage("/some/path", {"type": "volume", "volume_config": {"volume_name": "test_volume"}})
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", {"type": "tmpfs", "tmpfs_config": {"size": 100}})
+
+
+def test_add_volume_with_existing_tmpfs(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage("/some/path", {"type": "tmpfs", "tmpfs_config": {"size": 100}})
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", {"type": "volume", "volume_config": {"volume_name": "test_volume"}})
+
+
 def test_temporary_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
