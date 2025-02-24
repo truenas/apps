@@ -16,6 +16,8 @@ except ImportError:
 class IxStorageTmpfsConfig(TypedDict):
     size: NotRequired[int]
     mode: NotRequired[str]
+    uid: NotRequired[int]
+    gid: NotRequired[int]
 
 
 class AclConfig(TypedDict, total=False):

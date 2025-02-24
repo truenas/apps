@@ -20,6 +20,7 @@ try:
     from .labels import Labels
     from .ports import Ports
     from .restart import RestartPolicy
+    from .tmpfs import Tmpfs
     from .validations import (
         valid_cap_or_raise,
         valid_ipc_mode_or_raise,
@@ -46,6 +47,7 @@ except ImportError:
     from labels import Labels
     from ports import Ports
     from restart import RestartPolicy
+    from tmpfs import Tmpfs
     from validations import (
         valid_cap_or_raise,
         valid_ipc_mode_or_raise,
@@ -84,6 +86,7 @@ class Container:
         self._grace_period: int | None = None
         self._shm_size: int | None = None
         self._storage: Storage = Storage(self._render_instance)
+        self._tmpfs: Tmpfs = Tmpfs(self._render_instance)
         self._ipc_mode: str | None = None
         self._device_cgroup_rules: DeviceCGroupRules = DeviceCGroupRules(self._render_instance)
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)
@@ -270,7 +273,10 @@ class Container:
         self._command = [escape_dollar(str(e)) for e in command]
 
     def add_storage(self, mount_path: str, config: "IxStorage"):
-        self._storage.add(mount_path, config)
+        if config.get("type", "") == "tmpfs":
+            self._tmpfs.add(mount_path, config)
+        else:
+            self._storage.add(mount_path, config)
 
     def add_docker_socket(self, read_only: bool = True, mount_path: str = "/var/run/docker.sock"):
         self.add_group(999)
@@ -414,5 +420,8 @@ class Container:
 
         if self._storage.has_mounts():
             result["volumes"] = self._storage.render()
+
+        if self._tmpfs.has_tmpfs():
+            result["tmpfs"] = self._tmpfs.render()
 
         return result
