@@ -472,5 +472,5 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pgup["depends_on"] == {"test_perms_container": {"condition": "service_completed_successfully"}}
     assert pgup["restart"] == "on-failure:1"
     assert pgup["healthcheck"] == {"disable": True}
-    assert pgup["image"] == "ixsystems/postgres-upgrade:1.0.0"
+    assert pgup["image"] == "ixsystems/postgres-upgrade:1.0.1"
     assert pgup["entrypoint"] == ["/bin/bash", "-c", "/upgrade.sh"]

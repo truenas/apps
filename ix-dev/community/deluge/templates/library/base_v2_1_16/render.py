@@ -46,7 +46,7 @@ class Render(object):
         if "postgres_upgrade_image" not in self.values["images"]:
             self.values["images"]["postgres_upgrade_image"] = {
                 "repository": "ixsystems/postgres-upgrade",
-                "tag": "1.0.0",
+                "tag": "1.0.1",
             }
 
     def container_names(self):
