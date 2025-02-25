@@ -535,16 +535,35 @@ def test_tmpfs_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    vol_config = {"type": "tmpfs"}
-    c1.add_storage("/some/path", vol_config)
+    c1.add_storage("/some/path", {"type": "tmpfs"})
+    c1.add_storage("/some/other/path", {"type": "tmpfs", "tmpfs_config": {"size": 100}})
+    c1.add_storage(
+        "/some/other/path2", {"type": "tmpfs", "tmpfs_config": {"size": 100, "mode": "0777", "uid": 1000, "gid": 1000}}
+    )
     output = render.render()
-    assert output["services"]["test_container"]["volumes"] == [
-        {
-            "type": "tmpfs",
-            "target": "/some/path",
-            "read_only": False,
-        }
+    assert output["services"]["test_container"]["tmpfs"] == [
+        "/some/other/path2:gid=1000,mode=0777,size=104857600,uid=1000",
+        "/some/other/path:size=104857600",
+        "/some/path",
     ]
+
+
+def test_add_tmpfs_with_existing_volume(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage("/some/path", {"type": "volume", "volume_config": {"volume_name": "test_volume"}})
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", {"type": "tmpfs", "tmpfs_config": {"size": 100}})
+
+
+def test_add_volume_with_existing_tmpfs(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage("/some/path", {"type": "tmpfs", "tmpfs_config": {"size": 100}})
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", {"type": "volume", "volume_config": {"volume_name": "test_volume"}})
 
 
 def test_temporary_volume(mock_values):

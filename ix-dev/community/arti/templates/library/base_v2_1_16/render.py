@@ -43,6 +43,12 @@ class Render(object):
         if "python_permissions_image" not in self.values["images"]:
             self.values["images"]["python_permissions_image"] = {"repository": "python", "tag": "3.13.0-slim-bookworm"}
 
+        if "postgres_upgrade_image" not in self.values["images"]:
+            self.values["images"]["postgres_upgrade_image"] = {
+                "repository": "ixsystems/postgres-upgrade",
+                "tag": "1.0.0",
+            }
+
     def container_names(self):
         return list(self._containers.keys())
 
