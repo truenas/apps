@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, TypedDict, Literal, NotRequired, Union
 
 if TYPE_CHECKING:
+    from container import Container
     from render import Render
 
 try:
@@ -16,6 +17,8 @@ except ImportError:
 class IxStorageTmpfsConfig(TypedDict):
     size: NotRequired[int]
     mode: NotRequired[str]
+    uid: NotRequired[int]
+    gid: NotRequired[int]
 
 
 class AclConfig(TypedDict, total=False):
@@ -79,17 +82,23 @@ class IxStorage(TypedDict):
 
 
 class Storage:
-    def __init__(self, render_instance: "Render"):
+    def __init__(self, render_instance: "Render", container_instance: "Container"):
+        self._container_instance = container_instance
         self._render_instance = render_instance
         self._volume_mounts: set[VolumeMount] = set()
 
     def add(self, mount_path: str, config: "IxStorage"):
         mount_path = valid_fs_path_or_raise(mount_path)
-        if mount_path in [m.mount_path for m in self._volume_mounts]:
+        if self.is_defined(mount_path):
+            raise RenderError(f"Mount path [{mount_path}] already used for another volume mount")
+        if self._container_instance._tmpfs.is_defined(mount_path):
             raise RenderError(f"Mount path [{mount_path}] already used for another volume mount")
 
         volume_mount = VolumeMount(self._render_instance, mount_path, config)
         self._volume_mounts.add(volume_mount)
+
+    def is_defined(self, mount_path: str):
+        return mount_path in [m.mount_path for m in self._volume_mounts]
 
     def _add_docker_socket(self, read_only: bool = True, mount_path: str = ""):
         mount_path = valid_fs_path_or_raise(mount_path)

@@ -19,12 +19,7 @@ class Volumes:
         self._render_instance = render_instance
         self._volumes: dict[str, Volume] = {}
 
-    def add_volume(
-        self,
-        source: str,
-        storage_type: str,
-        config: "IxStorageVolumeLikeConfigs",
-    ):
+    def add_volume(self, source: str, storage_type: str, config: "IxStorageVolumeLikeConfigs"):
         # This method can be called many times from the volume mounts
         # Only add the volume if it is not already added, but dont raise an error
         if source == "":

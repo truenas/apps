@@ -7,12 +7,12 @@ if TYPE_CHECKING:
 try:
     from .error import RenderError
     from .formatter import merge_dicts_no_overwrite
-    from .volume_mount_types import BindMountType, VolumeMountType, TmpfsMountType
+    from .volume_mount_types import BindMountType, VolumeMountType
     from .volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
 except ImportError:
     from error import RenderError
     from formatter import merge_dicts_no_overwrite
-    from volume_mount_types import BindMountType, VolumeMountType, TmpfsMountType
+    from volume_mount_types import BindMountType, VolumeMountType
     from volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
 
 
@@ -40,11 +40,6 @@ class VolumeMount:
                     raise RenderError("Expected [ix_volume_config] to be set for [ix_volume] type.")
                 mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
                 source = IxVolumeSource(self._render_instance, mount_config).get()
-            case "tmpfs":
-                spec_type = "tmpfs"
-                mount_config = config.get("tmpfs_config", {})
-                mount_type_specific_definition = TmpfsMountType(self._render_instance, mount_config).render()
-                source = None
             case "nfs":
                 spec_type = "volume"
                 mount_config = config.get("nfs_config")
