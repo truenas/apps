@@ -13,13 +13,12 @@
   )
 ) %}
 
-{% set command = namespace(x=["proxy"]) %}
-
+{% set opts = namespace(x=["proxy.socks_port=%d" | format(values.network.socks_port.port_number)]) %}
 {% if values.arti.allow_onion_addrs %}
-  {% do command.x.append("-o address_filter.allow_onion_addrs=true") %}
+  {% do opts.x.append("address_filter.allow_onion_addrs=true") %}
 {% endif %}
 
-{% do arti.set_command(command.x) %}
+{% do arti.set_command(["proxy", "-o %s" | format(opts.x | join(" "))]) %}
 
 {% do arti.add_storage("/home/arti/.config/arti", values.storage.arti_config) %}
 {% do perm_container.add_or_skip_action("arti_config", values.storage.arti_config, perm_config) %}
@@ -30,6 +29,11 @@
 
 {% for port in values.network.additional_ports %}
   {% do arti.add_port(port) %}
+{% endfor %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
