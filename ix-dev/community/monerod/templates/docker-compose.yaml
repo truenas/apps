@@ -38,6 +38,9 @@
 
 {% if values.monero.publicly_available %}
   {% do commands.x.append("--public-node") %}
+  {% do commands.x.append("--confirm-external-bind") %}
+{% else %}
+  {% do commands.x.append("--hide-my-port") %}
 {% endif %}
 
 {% if values.monero.dns_blocklist %}
@@ -51,17 +54,21 @@
 {% if values.monero.ipv6_enabled %}
   {% do commands.x.append("--p2p-use-ipv6") %}
   {% do commands.x.append("--rpc-use-ipv6") %}
+  {% do commands.x.append("--rpc-restricted-bind-ipv6-address=::") %}
 {% endif %}
 
 {% if values.monero.tor_connections_enabled %}
   {% do commands.x.append("--tx-proxy=tor,%s:%d,16" | format(values.monero.tor_ip, values.monero.tor_port)) %}
+  {% do commands.x.append("--pad-transactions") %}
   {% if values.monero.routing == "tor" %}
     {% do commands.x.append("--proxy=%s:%d" | format(values.monero.tor_ip, values.monero.tor_port)) %}
+    {% do commands.x.append("--p2p-bind-ip=%s" | format(values.monero.tor_ip)) %}
   {% endif %}
 {% endif %}
 
 {% if values.monero.i2p_connections_enabled %}
   {% do commands.x.append("--tx-proxy=i2p,%s:%d,16" | format(values.monero.i2p_ip, values.monero.i2p_port)) %}
+  {% do commands.x.append("--pad-transactions") %}
 {% endif %}
 
 {% do monerod.set_command(commands.x) %}
