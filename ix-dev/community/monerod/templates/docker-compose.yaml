@@ -19,6 +19,7 @@
 {% do monerod.set_entrypoint(["monerod", "--non-interactive"]) %}
 
 {% set commands = namespace(x=[
+  "--rpc-bind-ip=%s" | format("0.0.0.0" if values.network.monerod_rpc_port.bind_mode != "" else "127.0.0.1"),
   "--rpc-bind-port=%d" | format(values.network.monerod_rpc_port.port_number),
   "--rpc-restricted-bind-ip=0.0.0.0",
   "--rpc-restricted-bind-port=%d" | format(values.network.monerod_restricted_rpc_port.port_number),
@@ -33,9 +34,12 @@
 
 {% if values.monero.publicly_available %}
   {% do commands.x.append("--public-node") %}
-  {% do commands.x.append("--confirm-external-bind") %}
 {% else %}
   {% do commands.x.append("--hide-my-port") %}
+{% endif %}
+
+{% if values.monero.publicly_available or values.network.monerod_rpc_port.bind_mode != "" %}
+  {% do commands.x.append("--confirm-external-bind") %}
 {% endif %}
 
 {% if values.monero.dns_blocklist %}
