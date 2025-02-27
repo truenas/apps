@@ -5,6 +5,7 @@
 
 {% set monerod = tpl.add_container(values.consts.monerod_container_name, "image") %}
 {% do monerod.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do monerod.healthcheck.set_test("curl", {"port": values.network.monerod_restricted_rpc_port.port_number, "path": "/get_height"}) %}
 
 {% for flag in values.monero.additional_flags %}
   {% for reserved_flag in values.consts.reserved_flags %}
@@ -14,18 +15,13 @@
   {% endfor %}
 {% endfor %}
 
-{% set p2p_port_number = values.network.monerod_p2p_port.port_number or values.consts.default_monerod_p2p_port_number %}
-{% set restricted_rpc_port_number = values.network.monerod_restricted_rpc_port.port_number or values.consts.default_monerod_restricted_rpc_port_number %}
-
-{% do monerod.healthcheck.set_test("curl", {"port": restricted_rpc_port_number, "path": "/get_height"}) %}
-
 {# This way we get rid of fixuid #}
 {% do monerod.set_entrypoint(["monerod", "--non-interactive"]) %}
 
 {% set commands = namespace(x=[
   "--rpc-restricted-bind-ip=0.0.0.0",
-  "--rpc-restricted-bind-port=%d" | format(restricted_rpc_port_number),
-  "--p2p-bind-port=%d" | format(p2p_port_number),
+  "--rpc-restricted-bind-port=%d" | format(values.network.monerod_restricted_rpc_port.port_number),
+  "--p2p-bind-port=%d" | format(values.network.monerod_p2p_port.port_number),
   "--no-igd",
   "--no-zmq",
 ]) %}
@@ -80,7 +76,7 @@
 {% do perm_container.add_or_skip_action("bitmonero", values.storage.bitmonero, perm_config) %}
 
 {% if not values.network.host_network %}
-  {% do monerod.add_port(values.network.monerod_p2p_port)  %}
+  {% do monerod.add_port(values.network.monerod_p2p_port) %}
   {% do monerod.add_port(values.network.monerod_restricted_rpc_port) %}
 {% endif %}
 
