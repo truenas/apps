@@ -15,16 +15,14 @@
 {% endfor %}
 
 {% set p2p_port_number = values.network.monerod_p2p_port.port_number or values.consts.default_monerod_p2p_port_number %}
-{% set rpc_port_number = values.network.monerod_rpc_port.port_number or values.consts.default_monerod_rpc_port_number %}
 {% set restricted_rpc_port_number = values.network.monerod_restricted_rpc_port.port_number or values.consts.default_monerod_restricted_rpc_port_number %}
 
-{% do monerod.healthcheck.set_test("curl", {"port": rpc_port_number, "path": "/get_height"}) %}
+{% do monerod.healthcheck.set_test("curl", {"port": restricted_rpc_port_number, "path": "/get_height"}) %}
 
 {# This way we get rid of fixuid #}
 {% do monerod.set_entrypoint(["monerod", "--non-interactive"]) %}
 
 {% set commands = namespace(x=[
-  "--rpc-bind-port=%d" | format(rpc_port_number),
   "--rpc-restricted-bind-ip=0.0.0.0",
   "--rpc-restricted-bind-port=%d" | format(restricted_rpc_port_number),
   "--p2p-bind-port=%d" | format(p2p_port_number),
@@ -84,10 +82,6 @@
 {% if not values.network.host_network %}
   {% if values.network.monerod_p2p_port.port_number %}
     {% do monerod.add_port(values.network.monerod_p2p_port)  %}
-  {% endif %}
-
-  {% if values.network.monerod_rpc_port.port_number %}
-    {% do monerod.add_port(values.network.monerod_rpc_port) %}
   {% endif %}
 
   {% if values.network.monerod_restricted_rpc_port.port_number %}
