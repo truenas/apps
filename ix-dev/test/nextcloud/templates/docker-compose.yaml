@@ -56,6 +56,7 @@
 {% do nc_container.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
 {% do nc_container.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
 {% do nc_container.environment.add_env("POSTGRES_PASSWORD", values.nextcloud.db_password) %}
+{% do nc_container.environment.add_env("NEXTCLOUD_DATA_DIR", values.consts.data_path) %}
 
 {# On every startup #}
 {% do nc_container.environment.add_env("PHP_MEMORY_LIMIT", "%dM" | format(values.nextcloud.performance.php_memory_limit_mb)) %}
@@ -82,17 +83,17 @@
 {% do nc_container.environment.add_env("IX_REDIS_PORT", 6379) %}
 {% do nc_container.environment.add_env("IX_REDIS_PASS", values.nextcloud.redis_password) %}
 
+{% do nc_container.environment.add_env("IX_PREVIEWS", values.nextcloud.previews.enabled) %}
 {% if values.nextcloud.previews.enabled %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS", true) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_MAX_X", values.nextcloud.previews.max_x) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_MAX_Y", values.nextcloud.previews.max_y) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_MAX_MEMORY", values.nextcloud.previews.max_memory_mb) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_MAX_FILESIZE_IMAGE", values.nextcloud.previews.max_filesize_image_mb) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_JPEG_QUALITY", values.nextcloud.previews.jpeg_quality) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_SQUARE_SIZES", values.nextcloud.previews.square_sizes | join(" ")) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_WIDTH_SIZES", values.nextcloud.previews.width_sizes | join(" ")) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_HEIGHT_SIZES", values.nextcloud.previews.height_sizes | join(" ")) %}
-  {% do nc_container.environment.add_env("IX_PREVIEWS_PROVIDERS", values.nextcloud.previews.providers | join(" ")) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_MAX_X", values.nextcloud.previews.max_x) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_MAX_Y", values.nextcloud.previews.max_y) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_MAX_MEMORY", values.nextcloud.previews.max_memory_mb) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_MAX_FILESIZE_IMAGE", values.nextcloud.previews.max_filesize_image_mb) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_JPEG_QUALITY", values.nextcloud.previews.jpeg_quality) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_SQUARE_SIZES", values.nextcloud.previews.square_sizes | join(" ")) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_WIDTH_SIZES", values.nextcloud.previews.width_sizes | join(" ")) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_HEIGHT_SIZES", values.nextcloud.previews.height_sizes | join(" ")) %}
+  {% do nc_container.environment.add_env("IX_PREVIEW_PROVIDERS", values.nextcloud.previews.providers | join(" ")) %}
 {% endif %}
 
 {% do nc_container.environment.add_env("IX_ACTIVITY_EXPIRE_DAYS", values.nextcloud.expirations.activity_expire_days) %}
@@ -109,6 +110,7 @@
 {% do nc_container.environment.add_env("IX_TRUSTED_DOMAINS", ([
   "localhost",
   "docker.internal.healthcheck",
+  ext_host,
 ] + values.nextcloud.urls.trusted_domains) | join(" ")) %}
 
 {% do nc_container.environment.add_env("IX_TRUSTED_PROXIES", values.nextcloud.urls.trusted_proxies | join(" ")) %}
@@ -155,7 +157,7 @@
 }) %}
 {% do nginx_container.configs.add("nginx.conf", nginx_conf(values), "/etc/nginx/nginx.conf") %}
 {% do nginx_container.configs.add("nginx_headers.conf", nginx_headers(values), "/etc/nginx/nginx-headers.conf") %}
-{% do nginx_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
+{% do nginx_container.depends.add_dependency(values.consts.nginx_container_name, "service_healthy") %}
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do nginx_container.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
@@ -163,15 +165,12 @@
 {% endif %}
 {% do nginx_container.add_port(values.network.web_port) %}
 {% do nginx_container.add_storage(values.consts.html_path, dict(values.storage.html, **{"read_only": true})) %}
-{% do nginx_container.add_storage(values.consts.data_path, dict(values.storage.data, **{"read_only": true})) %}
-{% for store in values.storage.additional_storage %}
-  {% do nginx_container.add_storage(store.mount_path, dict(store, **{"read_only": true})) %}
-{% endfor %}
 
 {# -- Cron -- #}
 {% set cron_container = tpl.add_container(values.consts.cron_container_name, "image") %}
 {% do cron_container.set_user(values.run_as.user, values.run_as.group) %}
 {% do cron_container.healthcheck.disable() %}
+{% do cron_container.set_entrypoint(["/cron.sh"]) %}
 {% do cron_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
 {% do cron_container.configs.add("crontasks", crontasks(values.nextcloud.cron.tasks), "/crontasks") %}
 {% do cron_container.add_storage(values.consts.html_path, values.storage.html) %}
@@ -210,7 +209,7 @@
   {% do notify_push_container.environment.add_env("CONFIG_FILE", "%s/config/config.php" | format(values.consts.html_path)) %}
   {% do notify_push_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
   {% do notify_push_container.add_storage(values.consts.html_path, dict(values.storage.html, **{"read_only": true})) %}
-  {% do nc_container.environment.add_env("IX_NOTIFY_PUSH_ENDPOINT", "%s/push" | format(values.nextcloud.urls.host)) %}
+  {% do nc_container.environment.add_env("IX_NOTIFY_PUSH_ENDPOINT", "%s/push" | format(ext_host)) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
