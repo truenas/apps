@@ -197,6 +197,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)$",
       ["odoo/odoo"]
     ),
+    customVersioning(
+      // 1.0.0-hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
+      ["ixsystems/nextcloud-fpm", "ixsystems/nextcloud-notify-push"]
+    ),
   ],
 };
 
