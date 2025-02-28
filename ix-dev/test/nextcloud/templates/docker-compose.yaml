@@ -206,7 +206,10 @@
     "port": values.consts.internal_notify_push_port, "path": "/push/test/cookie",
     "headers": [("Host", "docker.internal.healthcheck")]
   }) %}
-  {% do notify_push_container.environment.add_env("NEXTCLOUD_URL", "http://%s:%s" | format(values.consts.nginx_container_name, values.network.web_port.port_number)) %}
+  {% do notify_push_container.environment.add_env("NEXTCLOUD_URL", "%s://%s:%s" | format(
+    "https" if values.network.certificate_id else "http",
+    values.consts.nginx_container_name, values.network.web_port.port_number
+  )) %}
   {% do notify_push_container.environment.add_env("CONFIG_FILE", "%s/config/config.php" | format(values.consts.html_path)) %}
   {% do notify_push_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
   {% do notify_push_container.add_storage(values.consts.html_path, dict(values.storage.html, **{"read_only": true})) %}
