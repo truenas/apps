@@ -104,7 +104,10 @@
 
 {% set ext_protocol = "https" if values.network.certificate_id else values.nextcloud.urls.protocol %}
 {% set ext_port = values.nextcloud.urls.external_port or values.network.web_port.port_number %}
-{% set port_host = "%s:%d"| format(values.nextcloud.urls.host | trim("/"), ext_port) %}
+{% if ":" in values.nextcloud.urls.host or values.nextcloud.urls.host.endswith("/") %}
+  {% do tpl.funcs.fail("Host must not contain a port number or a trailing slash.") %}
+{% endif %}
+{% set port_host = "%s:%d"| format(values.nextcloud.urls.host, ext_port) %}
 {% set ext_host_port = namespace(x=port_host) %}
 {% if port_host.endswith(":443") or port_host.endswith(":80") %}
   {% set ext_host_port.x = port_host | split(":") | first %}
