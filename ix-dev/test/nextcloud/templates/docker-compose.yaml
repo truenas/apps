@@ -1,17 +1,11 @@
 {% from "macros/nginx.conf" import nginx_conf, nginx_headers %}
 {% from "macros/crontasks" import crontasks %}
 {% from "macros/tune.ini" import php_tune_ini, redis_session, opcache_recommended %}
+{% from "macros/builder.jinja" import builder %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set nc_custom_image = namespace(x=[]) %}
-{% if values.nextcloud.tesseract_languages %}
-  {% do nc_custom_image.x.append("RUN apt update || { echo 'Failed to update apt cache. Exiting...'; exit 1; }") %}
-  {# Tesseract OCR Languages #}
-  {% for lang in values.nextcloud.tesseract_languages if "ocrmypdf" in values.nextcloud.apt_packages %}
-    {% set lang_pack = "tesseract-ocr-%s" | format(lang|replace("_", "-")) %}
-    {% do nc_custom_image.x.append("RUN apt install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(lang_pack, lang_pack)) %}
-  {% endfor %}
-{% endif %}
+{% do builder(values.nextcloud.build, nc_custom_image) %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
