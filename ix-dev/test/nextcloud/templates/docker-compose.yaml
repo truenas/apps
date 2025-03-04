@@ -103,18 +103,18 @@
 {% set ext_protocol = "https" if values.network.certificate_id else values.nextcloud.urls.protocol %}
 {% set ext_port = values.nextcloud.urls.external_port or values.network.web_port.port_number %}
 {% set port_host = "%s:%d"| format(values.nextcloud.urls.host | trim("/"), ext_port) %}
-{% set ext_host = namespace(x=port_host) %}
+{% set ext_host_port = namespace(x=port_host) %}
 {% if port_host.endswith(":443") or port_host.endswith(":80") %}
-  {% set ext_host.x = port_host | split(":") | first %}
+  {% set ext_host_port.x = port_host | split(":") | first %}
 {% endif %}
 {% do nc_container.environment.add_env("IX_OVERWRITE_PROTOCOL", ext_protocol) %}
-{% do nc_container.environment.add_env("IX_OVERWRITE_HOST", ext_host.x) %}
-{% do nc_container.environment.add_env("IX_OVERWRITE_CLI_URL", "%s://%s" | format(ext_protocol, ext_host.x)) %}
+{% do nc_container.environment.add_env("IX_OVERWRITE_HOST", ext_host_port.x) %}
+{% do nc_container.environment.add_env("IX_OVERWRITE_CLI_URL", "%s://%s" | format(ext_protocol, ext_host_port.x)) %}
 
 {% do nc_container.environment.add_env("IX_TRUSTED_DOMAINS", ([
   "localhost",
   "docker.internal.healthcheck",
-  ext_host,
+  values.nextcloud.urls.host,
 ] + values.nextcloud.urls.trusted_domains) | unique | list | join(" ")) %}
 
 {% do nc_container.environment.add_env("IX_TRUSTED_PROXIES", values.nextcloud.urls.trusted_proxies | join(" ")) %}
@@ -217,7 +217,7 @@
   {% do notify_push_container.environment.add_env("CONFIG_FILE", "%s/config/config.php" | format(values.consts.html_path)) %}
   {% do notify_push_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
   {% do notify_push_container.add_storage(values.consts.html_path, dict(values.storage.html, **{"read_only": true})) %}
-  {% do nc_container.environment.add_env("IX_NOTIFY_PUSH_ENDPOINT", "%s://%s/push" | format(ext_protocol, ext_host.x)) %}
+  {% do nc_container.environment.add_env("IX_NOTIFY_PUSH_ENDPOINT", "%s://%s/push" | format(ext_protocol, ext_host_port.x)) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
@@ -227,6 +227,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": ext_port, "scheme": ext_protocol, "host": ext_host.x}) %}
+{% do tpl.portals.add_portal({"port": ext_port, "scheme": ext_protocol, "host": values.nextcloud.urls.host}) %}
 
 {{ tpl.render() | tojson }}
