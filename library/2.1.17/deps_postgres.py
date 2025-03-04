@@ -56,7 +56,7 @@ class PostgresContainer:
             "POSTGRES_USER": config["user"],
             "POSTGRES_PASSWORD": config["password"],
             "POSTGRES_DB": config["database"],
-            "POSTGRES_PORT": port,
+            "PGPORT": port,
         }
 
         for k, v in common_variables.items():
