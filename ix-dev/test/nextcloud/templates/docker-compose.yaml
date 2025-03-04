@@ -102,8 +102,9 @@
 
 {% set ext_protocol = "https" if values.network.certificate_id else values.nextcloud.urls.protocol %}
 {% set ext_port = values.nextcloud.urls.external_port or values.network.web_port.port_number %}
+{% set ext_host = ("%s:%d"| format(values.nextcloud.urls.host | trim("/"), ext_port)) | trim(":443") | trim(":80") %}
+
 {% do nc_container.environment.add_env("IX_OVERWRITE_PROTOCOL", ext_protocol) %}
-{% set ext_host = "%s:%d"| format(values.nextcloud.urls.host, ext_port) | replace(":443", "") | replace(":80", "") %}
 {% do nc_container.environment.add_env("IX_OVERWRITE_HOST", ext_host) %}
 {% do nc_container.environment.add_env("IX_OVERWRITE_CLI_URL", "%s://%s" | format(ext_protocol, ext_host)) %}
 
@@ -111,7 +112,7 @@
   "localhost",
   "docker.internal.healthcheck",
   ext_host,
-] + values.nextcloud.urls.trusted_domains) | join(" ")) %}
+] + values.nextcloud.urls.trusted_domains) | unique | list | join(" ")) %}
 
 {% do nc_container.environment.add_env("IX_TRUSTED_PROXIES", values.nextcloud.urls.trusted_proxies | join(" ")) %}
 
