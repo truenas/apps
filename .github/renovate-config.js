@@ -198,9 +198,9 @@ module.exports = {
       ["odoo/odoo"]
     ),
     customVersioning(
-      // 3.0.0.0-full
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-full$",
-      ["apache/tika"]
+      // 1.0.0-hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
+      ["ixsystems/nextcloud-fpm", "ixsystems/nextcloud-notify-push"]
     ),
   ],
 };
