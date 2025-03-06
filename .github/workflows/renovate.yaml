@@ -9,16 +9,34 @@ concurrency:
   group: renovate
   cancel-in-progress: false
 
+env:
+  RENOVATE_CACHE_DIR: /tmp/renovate/cache
+
 jobs:
   renovate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore Renovate Cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.RENOVATE_CACHE_DIR }}
+          key: renovate-${{ github.run_id }}
+          restore-keys: |
+            renovate-
+
+      - name: Fix Cache Permissions
+        run: |
+          set -x
+          sudo mkdir -p "$RENOVATE_CACHE_DIR"
+          sudo chown -R 12021:0 $(dirname "$RENOVATE_CACHE_DIR")
+
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@v40.2.5
+        uses: renovatebot/github-action@v41.0.14
         env:
           RENOVATE_PR_HOURLY_LIMIT: 10
           LOG_LEVEL: debug
@@ -27,3 +45,12 @@ jobs:
           # TODO: https://github.com/renovatebot/github-action/tree/main?tab=readme-ov-file
           token: ${{ secrets.RENOVATE_TOKEN }}
           mount-docker-socket: true
+
+      - name: Save Renovate Cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          # Caches that don't get accessed for the last 7 days are deleted
+          # https://github.com/orgs/community/discussions/54404#discussioncomment-5804631
+          path: ${{ env.RENOVATE_CACHE_DIR }}
+          key: renovate-${{ github.run_id }}
