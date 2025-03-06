@@ -1,47 +1,222 @@
 groups:
-  - name: SFTPGo Configuration
-    description: Configure SFTPGo
-  - name: User and Group Configuration
-    description: Configure User and Group for SFTPGo
+  - name: Nextcloud Configuration
+    description: Configure Nextcloud
   - name: Network Configuration
-    description: Configure Network for SFTPGo
+    description: Configure Network for Nextcloud
   - name: Storage Configuration
-    description: Configure Storage for SFTPGo
+    description: Configure Storage for Nextcloud
   - name: Labels Configuration
-    description: Configure Labels for SFTPGo
+    description: Configure Labels for Nextcloud
   - name: Resources Configuration
-    description: Configure Resources for SFTPGo
+    description: Configure Resources for Nextcloud
 
 questions:
-  - variable: sftpgo
+  - variable: nextcloud
     label: ""
-    group: SFTPGo Configuration
+    group: Nextcloud Configuration
     schema:
       type: dict
       attrs:
-        - variable: image_selector
-          label: Image
-          description: The image to use for SFTPGo.
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: image
+            default: postgres_13_image
             required: true
             enum:
-              - value: image
-                description: Normal Image
-              - value: plugins_image
-                description: Plugins Image
-        - variable: stop_grace_period
-          label: Stop Grace Period
-          description: The time in seconds given to SFTPGo to stop before it is killed.
+              - value: postgres_13_image
+                description: Postgres 13
+              - value: postgres_17_image
+                description: Postgres 17
+        - variable: admin_user
+          label: Admin User
+          description: The admin user for Nextcloud.
+          schema:
+            type: string
+            default: ""
+            required: true
+        - variable: admin_password
+          label: Admin Password
+          description: The admin password for Nextcloud.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: apt_packages
+          label: APT Packages
+          description: |
+            The APT packages to install.</br>
+            For additional packages, please open an issue on GitHub.</br>
+            Sources and documentation links can help expedite the process.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: package
+                label: Package
+                schema:
+                  type: string
+                  required: true
+                  enum:
+                    - value: ffmpeg
+                      description: ffmpeg
+                    - value: smbclient
+                      description: smbclient
+                    - value: ocrmypdf
+                      description: ocrmypdf
+                    - value: libreoffice
+                      description: libreoffice
+        - variable: tesseract_languages
+          label: Tesseract Language Codes
+          description: |
+            The tesseract languages to install for OCRmypdf.</br>
+            See a list of language codes here https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html.</br>
+            Typing a wrong language code will block the container from starting.</br>
+            Only takes effect if ocrmypdf is selected above.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: language
+                label: Language
+                schema:
+                  type: string
+                  # eg: eng
+                  min_length: 3
+                  # eg chi-sim
+                  max_length: 7
+                  required: true
+        - variable: imaginary
+          label: Imaginary
+          description: |
+            Imaginary can help improve performance for generating image previews.</br>
+            Please see https://docs.nextcloud.com/server/latest/admin_manual/installation/server_tuning.html#previews for more information.</br>
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable Imaginary
+                schema:
+                  type: boolean
+                  default: false
+        - variable: host
+          label: Host
+          description: |
+            Nextcloud host to create application URLs</br>
+            Examples: </br>
+            cloud.domain.com:30001</br>
+            cloud.domain.com (if you use port 443 externally)</br>
+            192.168.1.100:9001 (replace ip and port with your own)</br></br>
+            This will be appended to the trusted domains list, but changing that will not remove it from the list.</br>
+          schema:
+            type: string
+            default: ""
+        - variable: data_dir_path
+          label: Data Directory Path
+          description: |
+            Configures the data directory where Nextcloud stores all files from the users.
+            The path refers to the path inside the container</br>
+            It is recommended to keep the default value. (/var/www/html/data)
+          schema:
+            type: string
+            default: "/var/www/html/data"
+            required: true
+        - variable: redis_password
+          label: Redis Password
+          description: The password for Redis.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: db_user
+          # This field is only here for backwards compatibility
+          # new installations should not use this field (hence the hidden flag)
+          label: Database User
+          description: The user for the database.
+          schema:
+            type: string
+            default: "nextcloud"
+            required: true
+            private: true
+            hidden: true
+        - variable: db_password
+          label: Database Password
+          description: The password for the database.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: php_upload_limit
+          label: PHP Upload Limit (in GB)
+          description: |
+            Applies the timeout to the following settings:</br>
+            - client_max_body_size in nginx</br>
+            - post_max_size and upload_max_filesize in php</br>
           schema:
             type: int
             min: 1
-            default: 60
+            default: 3
             required: true
+        - variable: max_execution_time
+          label: Max Execution Time (in seconds)
+          description: The max execution time for Nextcloud.
+          schema:
+            type: int
+            min: 30
+            default: 30
+            required: true
+        - variable: php_memory_limit
+          label: PHP Memory Limit (in MB)
+          description: The PHP memory limit.
+          schema:
+            type: int
+            min: 128
+            max: 4096
+            default: 512
+            required: true
+        - variable: op_cache_memory_consumption
+          label: Op Cache Memory Consumption (in MB)
+          description: The Op Cache memory consumption.
+          schema:
+            type: int
+            min: 128
+            max: 1024
+            default: 128
+            required: true
+        - variable: cron
+          label: Cron
+          description: The cron schedule.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable cron.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: schedule
+                label: Schedule
+                description: The cron schedule.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  default: "*/5 * * * *"
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for SFTPGo.
+          description: Configure additional environment variables for Nextcloud.
           schema:
             type: list
             default: []
@@ -61,28 +236,6 @@ questions:
                       schema:
                         type: string
                         required: true
-  - variable: run_as
-    label: ""
-    group: User and Group Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: user
-          label: User ID
-          description: The user id that SFTPGo files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
-        - variable: group
-          label: Group ID
-          description: The group id that SFTPGo files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
 
   - variable: network
     label: ""
@@ -92,131 +245,85 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for SFTPGo WebUI
+          description: The port for Nextcloud WebUI
           schema:
             type: int
-            default: 30112
+            default: 30027
             required: true
             $ref:
               - definitions/port
-        - variable: host_network
-          label: Host Network
+        - variable: dns_opts
+          label: DNS Options
           description: |
-            Bind to the host network. It's recommended to keep this disabled.
+            DNS options for the container.</br>
+            Format: key:value</br>
+            Example: attempts:3
           schema:
-            type: boolean
-            default: false
+            type: list
+            default: []
+            items:
+              - variable: option
+                label: Option
+                schema:
+                  type: string
+                  required: true
         - variable: certificate_id
           label: Certificate ID
-          description: The certificate id to use for SFTPGo.
+          description: The certificate ID to use for Nextcloud.
           schema:
             type: int
             "null": true
             $ref:
-              - definitions/certificate
-        - variable: sftpd_services
-          label: SFTPD Services
-          description: Enable one or more SFTPd services.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: sftpd_entry
-                label: SFTPD Entry
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: enabled
-                      label: Enabled
-                      description: Enable the service.
-                      schema:
-                        type: boolean
-                        default: true
-                    - variable: port
-                      label: Port
-                      description: The port for the service.
-                      schema:
-                        type: int
-                        required: true
-                        $ref:
-                          - definitions/port
-        - variable: webdavd_services
-          label: WebDAVD Services
-          description: Enable one or more WebDAVD services.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: webdavd_entry
-                label: WebDAVD Entry
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: enabled
-                      label: Enabled
-                      description: Enable the service.
-                      schema:
-                        type: boolean
-                        default: true
-                    - variable: port
-                      label: Port
-                      description: The port for the service.
-                      schema:
-                        type: int
-                        required: true
-                        $ref:
-                          - definitions/port
-        - variable: ftpd_services
-          label: FTPD Services
-          description: Enable one or more FTPD services.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: ftpd_entry
-                label: FTPD Entry
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: enabled
-                      label: Enabled
-                      description: Enable the service.
-                      schema:
-                        type: boolean
-                        default: true
-                    - variable: port
-                      label: Port
-                      description: The port for the service.
-                      schema:
-                        type: int
-                        required: true
-                        $ref:
-                          - definitions/port
-        - variable: ftpd_passive_port_range
-          label: FTPD Passive Port Range
-          description: |
-            The range of ports for passive FTPD services.</br>
-            Note that you have to make sure that ports within the range are not used by other services.
+              - "definitions/certificate"
+        - variable: nginx
+          label: Nginx Configuration
+          description: The configuration for the Nginx.
           schema:
             type: dict
-            show_if: [["ftpd_services", "!=", []]]
+            show_if: [["certificate_id", "!=", null]]
             attrs:
-              - variable: start
-                label: Start
-                description: The start of the range.
+              - variable: proxy_timeout
+                label: Proxy Timeout
+                description: |
+                  Applies the timeout to the following settings:</br>
+                  - proxy_connect_timeout</br>
+                  - proxy_send_timeout</br>
+                  - proxy_read_timeout</br>
                 schema:
                   type: int
+                  min: 30
+                  default: 60
                   required: true
-                  $ref:
-                    - definitions/port
-              - variable: end
-                label: End
-                description: The end of the range.
+              - variable: use_different_port
+                label: Use different port for URL rewrites
+                description: |
+                  If enabled, the URL rewrite will use [Access Port] defined below instead of the [Node Port].</br>
+                  Note that Nextcloud will still listen on the [Node Port]. (Default 9001)
+                schema:
+                  type: boolean
+                  default: false
+              - variable: external_port
+                label: External Port
+                description: The external port for Nginx.
                 schema:
                   type: int
+                  default: 443
+                  min: 443
+                  max: 65535
+                  show_if: [["use_different_port", "=", true]]
                   required: true
-                  $ref:
-                    - definitions/port
+              - variable: custom_confs
+                label: Custom Nginx Configurations
+                description: List of custom Nginx configurations.
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: conf
+                      label: Configuration
+                      schema:
+                        type: hostpath
+                        required: true
 
   - variable: storage
     label: ""
@@ -224,9 +331,24 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: config
-          label: SFTPGo Config Storage
-          description: The path to store SFTPGo Config.
+        - variable: is_data_in_the_same_volume
+          label: "DEPRECATED: Old Storage Structure (See the tooltip for more information)"
+          description: |
+            Do NOT check this, if this is a new installation.</br>
+            If this is checked, means that this is an installation coming from a previous version (where a different storage structure was used).</br>
+            In order to have backwards compatibility, the older storage structure was kept for this installation.<br/>
+            If you want to utilize the new storage structure, move 'data' in a separate directory or dataset.
+            Change the 'Nextcloud User Data' configuration below to point to the new location and then uncheck this checkbox.
+            <br/><br/>
+            You will NOT likely want to change that if your setup uses ixVolume as storage.
+            <br/>
+            See https://github.com/truenas/apps/issues/931 for more information on how to migrate.
+          schema:
+            type: boolean
+            default: false
+        - variable: html
+          label: Nextcloud AppData Storage (HTML, Custom Themes, Apps, etc.)
+          description: The path to store Nextcloud HTML and AppData.
           schema:
             type: dict
             attrs:
@@ -238,7 +360,6 @@ questions:
                 schema:
                   type: string
                   required: true
-                  immutable: true
                   default: "ix_volume"
                   enum:
                     - value: "host_path"
@@ -268,7 +389,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
+                        default: "html"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -303,8 +424,8 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: data
-          label: SFTPGo Data Storage
-          description: The path to store SFTPGo Data.
+          label: Nextcloud User Data Storage
+          description: The path to store Nextcloud User Data.
           schema:
             type: dict
             attrs:
@@ -316,7 +437,6 @@ questions:
                 schema:
                   type: string
                   required: true
-                  immutable: true
                   default: "ix_volume"
                   enum:
                     - value: "host_path"
@@ -380,9 +500,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: backups
-          label: SFTPGo Backups Storage
-          description: The path to store SFTPGo Backups.
+        - variable: postgres_data
+          label: Nextcloud Postgres Data Storage
+          description: The path to store Nextcloud Postgres Data.
           schema:
             type: dict
             attrs:
@@ -394,7 +514,6 @@ questions:
                 schema:
                   type: string
                   required: true
-                  immutable: true
                   default: "ix_volume"
                   enum:
                     - value: "host_path"
@@ -424,7 +543,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "data"
+                        default: "postgres_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -458,9 +577,22 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
+
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for SFTPGo.
+          description: Additional storage for Nextcloud.
           schema:
             type: list
             default: []
@@ -629,8 +761,16 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: sftpgo
-                            description: sftpgo
+                          - value: nextcloud
+                            description: nextcloud
+                          - value: cron
+                            description: cron
+                          - value: nginx
+                            description: nginx
+                          - value: postgres
+                            description: postgres
+                          - value: redis
+                            description: redis
 
   - variable: resources
     label: ""
@@ -645,15 +785,23 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for SFTPGo.
+                description: CPUs limit for Nextcloud.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for SFTPGo.
+                description: Memory limit for Nextcloud.
                 schema:
                   type: int
                   default: 4096
                   required: true
+        - variable: gpus
+          group: Resources Configuration
+          label: GPU Configuration
+          schema:
+            type: dict
+            $ref:
+              - "definitions/gpu_configuration"
+            attrs: []
