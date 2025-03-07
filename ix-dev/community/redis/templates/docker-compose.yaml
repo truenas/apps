@@ -8,15 +8,15 @@
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.healthcheck.set_custom_test(
-  "redis-cli -p %s %s ping | grep -q PONG" | format(values.network.tcp_port, "" if values.redis.allow_empty_password else '-a "$REDIS_PASSWORD"')
+  "redis-cli -p %s %s ping | grep -q PONG" | format(values.network.tcp_port.port_number, "" if values.redis.allow_empty_password else '-a "$REDIS_PASSWORD"')
 ) %}
 
-{% do c1.environment.add_env("REDIS_PORT_NUMBER", values.network.tcp_port) %}
+{% do c1.environment.add_env("REDIS_PORT_NUMBER", values.network.tcp_port.port_number) %}
 {% do c1.environment.add_env("ALLOW_EMPTY_PASSWORD", "yes" if values.redis.allow_empty_password else "no") %}
 {% do c1.environment.add_env("REDIS_PASSWORD", "" if values.redis.allow_empty_password else values.redis.password) %}
 {% do c1.environment.add_user_envs(values.redis.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.tcp_port, values.network.tcp_port) %}
+{% do c1.add_port(values.network.tcp_port) %}
 
 {% set tmp_config = {"type":"temporary", "volume_config": {"volume_name": "redis-temp"}} %}
 {% do c1.add_storage("/tmp", tmp_config) %}

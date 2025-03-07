@@ -18,18 +18,18 @@
 {% do c1.environment.add_env("IS_DOCKER", true) %}
 
 {% if values.network.certificate_id %}
-  {% do c1.environment.add_env("SSL_PORT", values.network.web_port) %}
+  {% do c1.environment.add_env("SSL_PORT", values.network.web_port.port_number) %}
   {% do c1.environment.add_env("SSL_PRIV_KEY_PATH", values.consts.ssl_key_path) %}
   {% do c1.environment.add_env("SSL_PUB_KEY_PATH", values.consts.ssl_cert_path) %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% else %}
-  {% do c1.environment.add_env("PORT", values.network.web_port) %}
+  {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% endif %}
 
 {% do c1.environment.add_user_envs(values.dashy.additional_envs) %}
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage(values.consts.dashy_config_path, values.storage.config) %}
 {# We mount the host dir in a different location, so we can pull the default config from the container into the host dir #}
@@ -39,6 +39,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": "https" if values.network.certificate_id else "http"}) %}
 
 {{ tpl.render() | tojson }}
