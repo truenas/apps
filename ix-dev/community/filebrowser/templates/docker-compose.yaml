@@ -25,7 +25,7 @@
 {% set cmd = namespace(x=[
   "--config", "%s/filebrowser.json"|format(values.consts.config_path),
   "--database", "%s/filebrowser.db"|format(values.consts.config_path),
-  "--port", "%s"|format(values.network.web_port),
+  "--port", "%s"|format(values.network.web_port.port_number),
   "--address", "0.0.0.0",
   "--root", values.consts.data_path,
 ]) %}
@@ -41,10 +41,10 @@
 
 {% do c1.set_command(cmd.x) %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/health", "scheme": proto}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health", "scheme": proto}) %}
 {% do c1.environment.add_user_envs(values.filebrowser.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage(values.consts.config_path, values.storage.config) %}
 {% do init.add_storage(values.consts.config_path, values.storage.config) %}
@@ -63,6 +63,6 @@
   {% do init.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto}) %}
 
 {{ tpl.render() | tojson }}
