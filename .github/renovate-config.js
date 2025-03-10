@@ -202,6 +202,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
       ["ixsystems/nextcloud-fpm", "ixsystems/nextcloud-notify-push"]
     ),
+    customVersioning(
+      // v0.137.0-noble-lite, v0.137.0-noble-full, v0.137.0-noble-nvidia
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-noble-(lite|full|nvidia)$",
+      ["ghcr.io/koush/scrypted"]
+    ),
   ],
 };
 
