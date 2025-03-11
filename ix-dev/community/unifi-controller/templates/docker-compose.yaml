@@ -23,20 +23,20 @@
 {% do c1.environment.add_env("PORTAL_HTTPS_PORT", values.network.portal_https_port) %}
 {% do c1.environment.add_user_envs(values.unifi.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_https_port, values.network.web_https_port) %}
-{% do c1.ports.add_port(values.network.portal_https_port, values.network.portal_https_port) %}
-{% do c1.ports.add_port(10001, 10001, {"protocol": "udp"}) %}
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.discovery_port, {"container_port": 10001, "protocol": "udp"}) %}
+  {% do c1.ports.add_port(values.network.web_https_port, values.network.web_https_port) %}
+  {% do c1.ports.add_port(values.network.portal_https_port, values.network.portal_https_port) %}
+  {% if values.network.enable_web_http %}
+    {% do c1.ports.add_port(values.network.web_http_port, values.network.web_http_port) %}
+  {% endif %}
+  {% if values.network.enable_portal_http %}
+    {% do c1.ports.add_port(values.network.portal_http_port, values.network.portal_http_port) %}
+  {% endif %}
 
-{% if values.network.enable_web_http %}
-  {% do c1.ports.add_port(values.network.web_http_port, values.network.web_http_port) %}
-{% endif %}
-
-{% if values.network.enable_portal_http %}
-  {% do c1.ports.add_port(values.network.portal_http_port, values.network.portal_http_port) %}
-{% endif %}
-
-{% if values.network.enable_throughput %}
-  {% do c1.ports.add_port(values.network.throughput_port, values.network.throughput_port) %}
+  {% if values.network.enable_throughput %}
+    {% do c1.ports.add_port(values.network.throughput_port, values.network.throughput_port) %}
+  {% endif %}
 {% endif %}
 
 {% do c1.add_storage("/usr/lib/unifi/data", values.storage.data) %}
