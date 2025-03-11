@@ -1,16 +1,12 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set c1 = tpl.add_container(values.consts.scrypted_container_name, "image") %}
+{% set c1 = tpl.add_container(values.consts.scrypted_container_name, values.scrypted.image_selector) %}
 
-{# {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.add_caps(["NET_BIND_SERVICE"]) %}
-{% if values.ci %}
-  {% do c1.healthcheck.disable() %}
-{% else %}
-  {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
-{% endif %} #}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.insecure_port.port_number}) %}
 
-{# TODO: Additional devices #}
+{% for device in values.scrypted.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
 
 {% do c1.environment.add_env("SCRYPTED_SECURE_PORT", values.network.secure_port.port_number) %}
 {% do c1.environment.add_env("SCRYPTED_INSECURE_PORT", values.network.insecure_port.port_number) %}
@@ -20,13 +16,14 @@
 {% do c1.add_port(values.network.insecure_port) %}
 
 {% do c1.environment.add_env("SCRYPTED_NVR_VOLUME", "/nvr") %}
-{% do c1.add_storage("/nvr", values.storage.data) %}
+{% do c1.add_storage("/nvr", values.storage.nvr) %}
+{% do c1.add_storage("/server/volume", values.storage.server) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
 {% do tpl.portals.add_portal({"name": "HTTP", "port": values.network.insecure_port.port_number}) %}
-{% do tpl.portals.add_portal({"name": "HTTPS", "port": values.network.secure_port.port_number}) %}
+{% do tpl.portals.add_portal({"name": "HTTPS", "port": values.network.secure_port.port_number, "scheme": "https"}) %}
 
 {{ tpl.render() | tojson }}
