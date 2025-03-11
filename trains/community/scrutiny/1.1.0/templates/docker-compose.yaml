@@ -3,21 +3,16 @@
 {% set c1 = tpl.add_container(values.consts.scrutiny_container_name, "image") %}
 
 {% do c1.set_user(0,0) %}
-{% do c1.add_caps(["SYS_RAWIO", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
-{% if values.scrutiny.elevate_privileges %}
-  {% do c1.add_caps(["SYS_ADMIN"]) %}
-{% endif %}
+{% do c1.set_privileged(true) %}
+{% do c1.clear_caps() %}
 
 {% do c1.add_storage("/run/udev", {"type": "host_path", "read_only": True, "host_path_config": {"path": "/run/udev"}}) %}
+{% do c1.add_storage("/dev", {"type": "host_path", "read_only": True, "host_path_config": {"path": "/dev"}}) %}
 {% do c1.add_storage(values.consts.config_dir, values.storage.config) %}
 {% do c1.add_storage("/opt/scrutiny/influxdb", values.storage.influxdb) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
-{% endfor %}
-
-{% for disk in values.scrutiny.disks %}
-  {% do c1.devices.add_device(disk.host_device, disk.container_device, "r") %}
 {% endfor %}
 
 {% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
