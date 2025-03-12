@@ -207,6 +207,11 @@ module.exports = {
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-noble-.+$",
       ["ghcr.io/koush/scrypted"]
     ),
+    customVersioning(
+      // 24.7
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)$",
+      ["nzbgetcom/nzbget"]
+    ),
   ],
 };
 
