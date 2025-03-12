@@ -25,14 +25,14 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_custom_test("/app/healthcheck.sh") %}
 {% if values.authelia.use_dummy_config %}
-  {% do c1.configs.add("init-configuration.yaml", values.consts.dummy_config, "/config/config.d/init-configuration.yaml") %}
+  {% do c1.configs.add("dummy-configuration.yaml", values.consts.dummy_config, "/dummy-configuration.yaml") %}
   {% do tpl.notes.add_warning(values.consts.warning) %}
 {% endif %}
 
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
-{% do c1.environment.add_env("X_AUTHELIA_CONFIG", "/config/config.d") %}
+{% do c1.environment.add_env("X_AUTHELIA_CONFIG", "/dummy-config.yaml,/config/config.d" if values.authelia.use_dummy_config else "/config/config.d") %}
 {% do c1.environment.add_env("AUTHELIA_SERVER_DISABLE_HEALTHCHECK", false) %}
 {% do c1.environment.add_env("AUTHELIA_SERVER_ADDRESS", "tcp://:%d"|format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_env("AUTHELIA_STORAGE_POSTGRES_ADDRESS", "tcp://%s:5432"|format(values.consts.postgres_container_name)) %}
