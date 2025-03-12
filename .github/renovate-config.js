@@ -204,7 +204,7 @@ module.exports = {
     ),
     customVersioning(
       // v0.137.0-noble-lite
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-noble-.+$",
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-noble-(?<compatibility>full|nvidia|lite)$",
       ["ghcr.io/koush/scrypted"]
     ),
     customVersioning(
