@@ -31,7 +31,10 @@ questions:
       attrs:
         - variable: eula
           label: EULA
-          description: The EULA for Minecraft Bedrock
+          description: |
+            The end user license agreement for Minecraft Bedrock. </br>
+            https://www.minecraft.net/en-us/eula
+            Must be checked... 
           schema:
             type: boolean
             default: false
@@ -39,13 +42,58 @@ questions:
         - variable: version
           label: Version
           description: |
-            Version of the minecraft server to load on startup. </br>
-            Internal updates are done when the app starts. </br>
+            Version of the minecraft server to load on startup : </br>
+            LATEST : determines the latest version (can be used to auto-upgrade on start). </br>
+            PREVIOUS : uses the previously maintained major version. (Useful when the mobile app is gradually being upgraded across devices.) </br> 
+            otherwise any specific server version can be provided to allow for temporary bug avoidance, etc. </br>
             https://github.com/truenas/apps/issues/1641
           schema:
             type: string
             default: "LATEST"
             required: true
+        - variable: server_name
+          label: Server Name
+          schema:
+            type: string
+            default: "Minecraft Bedrock Server"
+            required: true
+        - variable: level_name
+          label: Level Name
+          description: The name of which level used/generated. Each level has its own folder in /worlds.
+          schema:
+            type: string
+            default: "Bedrock level"
+            valid_chars: "^[^\\n\\r\\t\\f`?*\\<>|\"':]+$"  
+            valid_chars_error: |  
+              Cannot contain illegal filename characters: /\n\r\t\f`?*\\<>|\":  
+            required: true
+        - variable: level_type
+          label: Level Type
+          description: |
+            Type of generation for the world. </br>
+            Only used on world creation during install. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> level-type
+          schema:
+            type: string
+            default: "DEFAULT"
+            required: true
+            enum:
+              - value: DEFAULT
+                description: Default
+              - value: FLAT
+                description: Flat
+              - value: LEGACY
+                description: Legacy
+        - variable: level_seed
+          label: Level Seed
+          description: |
+            The seed for the world generator in the Minecraft Bedrock server.</br>
+            If left empty, a seed is chosen at random. </br>
+            Only used on world creation during install. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> seed
+          schema:
+            type: string
+            default: ""
         - variable: game_mode
           label: Game Mode
           schema:
@@ -59,30 +107,6 @@ questions:
                 description: Creative
               - value: adventure
                 description: Adventure
-        - variable: level_type
-          label: Level Type
-          schema:
-            type: string
-            default: "DEFAULT"
-            required: true
-            enum:
-              - value: DEFAULT
-                description: Default
-              - value: FLAT
-                description: Flat
-              - value: LEGACY
-                description: Legacy
-        - variable: allow_cheats
-          label: Allow Cheats
-          schema:
-            type: boolean
-            default: false
-        - variable: server_name
-          label: Server Name
-          schema:
-            type: string
-            default: "Minecraft Bedrock Server"
-            required: true
         - variable: force_game_mode
           label: Force Game Mode
           schema:
@@ -103,6 +127,14 @@ questions:
                 description: Normal
               - value: hard
                 description: Hard
+        - variable: allow_cheats
+          label: Allow Cheats
+          description: |
+            Allow usage of cheat like commands within game. </br>
+            https://minecraft.fandom.com/wiki/Commands#List_and_summary_of_commands
+          schema:
+            type: boolean
+            default: false
         - variable: view_distance
           label: View Distance
           schema:
@@ -133,31 +165,41 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: level_seed
-          label: Level Seed
+        - variable: online_mode
+          label: Online Mode
           description: |
-            The seed for the Minecraft Bedrock server.</br>
-            https://itzg.github.io/docker-minecraft Bedrock-docs/java/configuration/seed </br>
-            (Quotes is handled by the field automatically)
+            Enable online mode. </br>
+            When enabled, all connected players must be authenticated to Xbox Live. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> Online Mode
           schema:
-            type: string
-            default: ""
+            type: boolean
+            default: true
         - variable: max_players
-          label: Max Number of Players that can play at the same Time
+          label: Max Players Number 
+          description: |
+            Maximum number of player that can be connected at the same Time. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> max-players
           schema:
             type: int
-            default: 20
+            default: 10
             min: 1
             required: true
         - variable: player_idle_timeout
-          label: Player Idle Timeout in minutes
+          label: Player Idle Timeout
+          description: |
+            Number of minutes a player can be idle before being kicked from the server.</br>
+            0 to disable. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> player-idle-timeout
           schema:
             type: int
-            default: 0
+            default: 30
             min: 0
             required: true
         - variable: default_player_permission_level
           label: Default Player Permission Level
+          description: |
+            Permission level for new players joining for the first time. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> default-player-permission-level
           schema:
             type: string
             default: "member"
@@ -173,6 +215,7 @@ questions:
           label: Operators
           description: |
             Sets operator permissions for listed players.</br>
+            Operator can use commands. </br>
             https://hub.docker.com/r/itzg/minecraft-bedrock-server -> Permissions</br>
             One XUID per field. (Xbox User ID can be found at https://www.cxkes.me/xbox/xuid)
           schema:
