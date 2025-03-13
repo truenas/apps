@@ -130,6 +130,22 @@ def pull_app_catalog_container():
     print_stderr(f"Done pulling container image [{CONTAINER_IMAGE}]")
 
 
+def fix_permissions(file_path):
+    print_stderr("Fixing permissions")
+    cmd = " ".join(
+        [
+            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace",
+            f"--entrypoint /bin/bash {CONTAINER_IMAGE} -c 'chmod 777 /workspace/{file_path}'",
+        ]
+    )
+    res = subprocess.run(cmd, shell=True, capture_output=True)
+    if res.returncode != 0:
+        print_stderr(f"Failed to fix permissions for file [{file_path}]")
+        print_stderr(res.stderr.decode("utf-8"))
+        sys.exit(1)
+    print_stderr(f"Done fixing permissions for file [{file_path}]")
+
+
 def render_compose():
     print_stderr("Rendering docker-compose file")
     test_values_dir = "templates/test_values"
@@ -150,12 +166,15 @@ def render_compose():
         print_stderr("Failed to render docker-compose file")
         sys.exit(1)
 
-    with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
+    template_file = f"{app_dir}/templates/rendered/docker-compose.yaml"
+    fix_permissions(template_file)
+
+    with open(template_file, "r") as f:
         try:
             out = yaml.safe_load(f)
         except yaml.YAMLError as e:
             print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
-            with open(f"{app_dir}/templates/rendered/docker-compose.yaml", "r") as f:
+            with open(template_file, "r") as f:
                 print_stderr(f"Syntax Error in rendered docker-compose file:\n{f.read()}")
             sys.exit(1)
 
