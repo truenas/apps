@@ -1,18 +1,20 @@
 groups:
-  - name: Scrypted Configuration
-    description: Configure Scrypted
+  - name: Minecraft Bedrock Configuration
+    description: Configure Minecraft Bedrock
+  - name: User and Group Configuration
+    description: Configure User and Group for Minecraft Bedrock
   - name: Network Configuration
-    description: Configure Network for Scrypted
+    description: Configure Network for Minecraft Bedrock
   - name: Storage Configuration
-    description: Configure Storage for Scrypted
+    description: Configure Storage for Minecraft Bedrock
   - name: Labels Configuration
-    description: Configure Labels for Scrypted
+    description: Configure Labels for Minecraft Bedrock
   - name: Resources Configuration
-    description: Configure Resources for Scrypted
+    description: Configure Resources for Minecraft Bedrock
 
 questions:
   - variable: TZ
-    group: Scrypted Configuration
+    group: Minecraft Bedrock Configuration
     label: Timezone
     schema:
       type: string
@@ -20,52 +22,270 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: scrypted
+
+  - variable: minecraft_bedrock
     label: ""
-    group: Scrypted Configuration
+    group: Minecraft Bedrock Configuration
     schema:
       type: dict
       attrs:
-        - variable: image_selector
-          label: Image Selector
-          description: The image selector to use for Scrypted.
+        - variable: eula
+          label: EULA
+          description: |
+            The end user license agreement for Minecraft Bedrock. </br>
+            https://www.minecraft.net/en-us/eula
+            Must be checked... 
+          schema:
+            type: boolean
+            default: false
+            required: true
+        - variable: version
+          label: Version
+          description: |
+            Version of the minecraft server to load on startup : </br>
+            LATEST : determines the latest version (can be used to auto-upgrade on start). </br>
+            PREVIOUS : uses the previously maintained major version. (Useful when the mobile app is gradually being upgraded across devices.) </br> 
+            otherwise any specific server version can be provided to allow for temporary bug avoidance, etc. </br>
+            https://github.com/truenas/apps/issues/1641
           schema:
             type: string
-            default: image
-            enum:
-              - value: image
-                description: Full Image
-              - value: nvidia_image
-                description: Nvidia Image
-              - value: lite_image
-                description: Lite Image
-        - variable: devices
-          label: Devices
+            default: "LATEST"
+            required: true
+        - variable: server_name
+          label: Server Name
+          schema:
+            type: string
+            default: "Minecraft Bedrock Server"
+            required: true
+        - variable: level_name
+          label: Level Name
+          description: The name of which level used/generated. Each level has its own folder in /worlds.
+          schema:
+            type: string
+            default: "Bedrock level"
+            valid_chars: "^[^\\n\\r\\t\\f`?*\\<>|\"':]+$"  
+            valid_chars_error: |  
+              Cannot contain illegal filename characters: /\n\r\t\f`?*\\<>|\":  
+            required: true
+        - variable: level_type
+          label: Level Type
           description: |
-            Devices to use for ESPHome.
-            Eg: Host Device: /dev/ttyUSB0, Container Device: /dev/ttyACM0
+            Type of generation for the world. </br>
+            Only used on world creation during install. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> level-type
+          schema:
+            type: string
+            default: "DEFAULT"
+            required: true
+            enum:
+              - value: DEFAULT
+                description: Default
+              - value: FLAT
+                description: Flat
+              - value: LEGACY
+                description: Legacy
+        - variable: level_seed
+          label: Level Seed
+          description: |
+            The seed for the world generator in the Minecraft Bedrock server.</br>
+            If left empty, a seed is chosen at random. </br>
+            Only used on world creation during install. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> seed
+          schema:
+            type: string
+            default: ""
+        - variable: game_mode
+          label: Game Mode
+          schema:
+            type: string
+            default: "survival"
+            required: true
+            enum:
+              - value: survival
+                description: Survival
+              - value: creative
+                description: Creative
+              - value: adventure
+                description: Adventure
+        - variable: force_game_mode
+          label: Force Game Mode
+          schema:
+            type: boolean
+            default: false
+        - variable: difficulty
+          label: Difficulty
+          schema:
+            type: string
+            default: "easy"
+            required: true
+            enum:
+              - value: peaceful
+                description: Peaceful
+              - value: easy
+                description: Easy
+              - value: normal
+                description: Normal
+              - value: hard
+                description: Hard
+        - variable: allow_cheats
+          label: Allow Cheats
+          description: |
+            Allow usage of cheat like commands within game. </br>
+            https://minecraft.fandom.com/wiki/Commands#List_and_summary_of_commands
+          schema:
+            type: boolean
+            default: false
+        - variable: view_distance
+          label: View Distance
+          schema:
+            type: int
+            default: 32
+            min: 5
+            required: true
+        - variable: tick_distance
+          label: Tick Distance
+          schema:
+            type: int
+            default: 4
+            min: 4
+            max: 12
+            required: true
+        - variable: emit_server_telemetry
+          label: Emit Server Telemetry
+          schema:
+            type: boolean
+            default: false
+        - variable: texture_pack_required
+          label: Texture Pack Required
+          schema:
+            type: boolean
+            default: false
+        - variable: enable_lan_visibility
+          label: Enable LAN Visibility
+          schema:
+            type: boolean
+            default: false
+        - variable: online_mode
+          label: Online Mode
+          description: |
+            Enable online mode. </br>
+            When enabled, all connected players must be authenticated to Xbox Live. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> Online Mode
+          schema:
+            type: boolean
+            default: true
+        - variable: max_players
+          label: Max Players Number 
+          description: |
+            Maximum number of player that can be connected at the same Time. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> max-players
+          schema:
+            type: int
+            default: 10
+            min: 1
+            required: true
+        - variable: player_idle_timeout
+          label: Player Idle Timeout
+          description: |
+            Number of minutes a player can be idle before being kicked from the server.</br>
+            0 to disable. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> player-idle-timeout
+          schema:
+            type: int
+            default: 30
+            min: 0
+            required: true
+        - variable: default_player_permission_level
+          label: Default Player Permission Level
+          description: |
+            Permission level for new players joining for the first time. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> default-player-permission-level
+          schema:
+            type: string
+            default: "member"
+            required: true
+            enum:
+              - value: visitor
+                description: Visitor
+              - value: member
+                description: Member
+              - value: operator
+                description: Operator
+        - variable: ops
+          label: Operators
+          description: |
+            Sets operator permissions for listed players.</br>
+            Operator can use commands. </br>
+            https://hub.docker.com/r/itzg/minecraft-bedrock-server -> Permissions</br>
+            One XUID per field. (Xbox User ID can be found at https://www.cxkes.me/xbox/xuid)
           schema:
             type: list
             default: []
             items:
-              - variable: device
-                label: Device
+              - variable: op
+                label: Op
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+        - variable: members
+          label: Members
+          description: |
+            Sets member permissions for listed players.</br>
+            https://hub.docker.com/r/itzg/minecraft-bedrock-server -> Permissions </br>
+            One XUID per field. (Xbox User ID can be found at https://www.cxkes.me/xbox/xuid)
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: member
+                label: Member
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+        - variable: visitors
+          label: Visitors
+          description: |
+            Sets visitor permissions for listed players. </br>
+            https://hub.docker.com/r/itzg/minecraft-bedrock-server -> Permissions </br>
+            One XUID per field. (Xbox User ID can be found at https://www.cxkes.me/xbox/xuid)
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: visitor
+                label: Visitor
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+        - variable: allow_list_users
+          label: Allow List Users
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: allow_list_user
+                label: Allow List User
                 schema:
                   type: dict
                   attrs:
-                    - variable: host_device
-                      label: Host Device
+                    - variable: name
+                      label: Name
                       schema:
                         type: string
+                        default: ""
                         required: true
-                    - variable: container_device
-                      label: Container Device
+                    - variable: uuid
+                      label: UUID
                       schema:
                         type: string
+                        default: ""
                         required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Scrypted.
+          description: Configure additional environment variables for Minecraft Bedrock.
           schema:
             type: list
             default: []
@@ -85,14 +305,37 @@ questions:
                       schema:
                         type: string
                         required: true
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Minecraft Bedrock files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Minecraft Bedrock files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: insecure_port
-          label: Insecure Port
+        - variable: server_port
+          label: Server Port
           schema:
             type: dict
             attrs:
@@ -119,54 +362,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30130
-                  required: true
-                  $ref:
-                    - definitions/port
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: secure_port
-          label: Secure Port
-          schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 30131
+                  default: 19132
                   required: true
                   $ref:
                     - definitions/port
@@ -199,9 +395,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: nvr
-          label: Scrypted NVR Storage
-          description: The path to store Scrypted NVR.
+        - variable: data
+          label: Minecraft Bedrock Data Storage
+          description: The path to store Minecraft Bedrock Data.
           schema:
             type: dict
             attrs:
@@ -243,85 +439,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "nvr"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: server
-          label: Scrypted Server Storage
-          description: The path to store Scrypted Server.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  immutable: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        immutable: true
-                        hidden: true
-                        default: "server"
+                        default: "data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -357,7 +475,7 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Scrypted.
+          description: Additional storage for Minecraft Bedrock.
           schema:
             type: list
             default: []
@@ -453,8 +571,6 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
-                              $ref:
-                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -526,8 +642,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: scrypted
-                            description: scrypted
+                          - value: minecraft-bedrock
+                            description: minecraft-bedrock
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -541,23 +657,15 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Scrypted.
+                description: CPUs limit for Minecraft Bedrock.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Scrypted.
+                description: Memory limit for Minecraft Bedrock.
                 schema:
                   type: int
                   default: 4096
                   required: true
-        - variable: gpus
-          group: Resources Configuration
-          label: GPU Configuration
-          schema:
-            type: dict
-            $ref:
-              - "definitions/gpu_configuration"
-            attrs: []
