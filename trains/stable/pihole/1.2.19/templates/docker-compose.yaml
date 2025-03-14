@@ -8,7 +8,12 @@
 
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/admin/login"}) %}
 
-{% do c1.environment.add_env("FTLCONF_webserver_port", values.network.web_port) %}
+{% set web_ports = namespace(x=[values.network.web_port]) %}
+{% if values.network.https_port.bind_mode != "" %}
+  {% do web_ports.x.append("%ds"|format(values.network.https_port.port_number)) %}
+{% endif %}
+
+{% do c1.environment.add_env("FTLCONF_webserver_port", web_ports.x|join(",")) %}
 {% do c1.environment.add_env("FTLCONF_webserver_api_password", values.pihole.web_password) %}
 {% if values.network.get('dhcp_config', {}).get('dhcp_enabled', false) %}
   {% do c1.environment.add_env("FTLCONF_dhcp_active", "true") %}
