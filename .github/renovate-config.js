@@ -189,7 +189,7 @@ module.exports = {
     ),
     customVersioning(
       // 2.1.0.3-beta
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-stable$",
       ["duplicati/duplicati"]
     ),
     customVersioning(
