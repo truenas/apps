@@ -199,8 +199,13 @@ module.exports = {
     ),
     customVersioning(
       // 1.0.0-hash
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
-      ["ixsystems/nextcloud-fpm", "ixsystems/nextcloud-notify-push"]
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
+      ["ixsystems/nextcloud-notify-push"]
+    ),
+    customVersioning(
+      // 1.0.0-fpm-hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-fpm-(?<build>.+)$",
+      ["ixsystems/nextcloud-fpm"]
     ),
     customVersioning(
       // v0.137.0-noble-lite
