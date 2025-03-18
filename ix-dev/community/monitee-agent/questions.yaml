@@ -21,7 +21,7 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: test
+  - variable: monitee_agent
     label: ""
     group: Monitee-agent Configuration
     schema:
@@ -29,10 +29,48 @@ questions:
       attrs:
         - variable: docker_enable
           label: Enable Docker Monitoring Mode
-          description: Enable to allow Monitee-agent to see Docker Containers on your system.
+          description: Enable to allow monitee-agent to see Docker Containers on your system.
           schema:
             type: boolean
             default: false
+        - variable: storage_monitoring_enable
+          label: Enable disks monitoring
+          description: Enable to allow monitee-agent to see storage devices on your system.
+          schema:
+            type: boolean
+            default: false
+        - variable: systemd_journald_enable
+          label: Systemd and Journald monitoring
+          description: Enable to allow monitee-agent to manage systemd and journald on your system.
+          schema:
+            type: boolean
+            default: false
+        - variable: devices
+          label: Devices for temperature monitoring
+          description: |
+            Devices to monitor SMART temperature attributes for </br>
+            Example: </br>
+            Host Device: /dev/sda </br>
+            Container Device: /dev/sda
+          schema:
+            type: list
+            default: [ ]
+            items:
+              - variable: device
+                label: Device
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: host_device
+                      label: Host Device
+                      schema:
+                        type: string
+                        required: true
+                    - variable: container_device
+                      label: Container Device
+                      schema:
+                        type: string
+                        required: true
         - variable: additional_envs
           label: Additional Environment Variables
           description: Configure additional environment variables for Monitee-agent.
@@ -61,53 +99,48 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: Web Port
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. Without it, monitee-agent won't be able to monitor network interfaces.
           schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
+            type: boolean
+            default: true
+        - variable: https_port
+          label: HTTPS port
+          description: The TLS port for monitee-agent
+          schema:
+            type: int
+            default: 8443
+            show_if: [ [ "host_network", "=", false ] ]
+            required: true
+            $ref:
+              - definitions/port
+        - variable: http_port
+          label: HTTPS port
+          description: The plain text port for monitee-agent
+          schema:
+            type: int
+            default: 8080
+            show_if: [ [ "host_network", "=", false ] ]
+            required: true
+            $ref:
+              - definitions/port
+        - variable: host_ips
+          label: Host IPs
+          description: IPs on the host to bind this port
+          schema:
+            type: list
+            show_if: [["bind_mode", "=", "published"]]
+            default: []
+            items:
+              - variable: host_ip
+                label: Host IP
                 schema:
                   type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 30015
                   required: true
                   $ref:
-                    - definitions/port
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
+                    - definitions/node_bind_ip
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -116,7 +149,7 @@ questions:
       attrs:
         - variable: config
           label: Monitee-agent Config Storage
-          description: The path to store monitee-agent Config.
+          description: The path to store monitee-agent configuration files
           schema:
             type: dict
             attrs:
@@ -193,20 +226,11 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: data
-          label: monitee-agent Data Storage
-          description: The path to store monitee-agent data.
+          label: Monitee-agent data Storage
+          description: The path to store data files.
           schema:
             type: dict
             attrs:
-              - variable: mount_path
-                label: Mount Path
-                description: |
-                  The path where the volume will be mounted.</br>
-                  Note: Make sure the download path defined in the qBittorrent Web UI is within this path.
-                schema:
-                  type: path
-                  required: true
-                  default: "/data"
               - variable: type
                 label: Type
                 description: |
@@ -215,6 +239,7 @@ questions:
                 schema:
                   type: string
                   required: true
+                  immutable: true
                   default: "ix_volume"
                   enum:
                     - value: "host_path"
@@ -244,7 +269,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "downloads"
+                        default: "data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:

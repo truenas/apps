@@ -1,30 +1,52 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set monitee_agent_container = tpl.add_container(values.consts.monitee_agent_container_name, "image") %}
-{% do monitee_agent_container.set_tty(true) %}
-{% do monitee_agent_container.set_stdin(true) %}
-{% do monitee_agent_container.healthcheck.set_test("curl", {"port": values.network.web_port}) %}
+{% set c1 = tpl.add_container(values.consts.monitee_agent_container_name, "image") %}
+{% do c1.set_tty(true) %}
+{% do c1.set_stdin(true) %}
 
+{% do c1.add_caps([ "SYS_RAWIO" ]) %}
 
-{% do monitee_agent_container.add_caps([ "SYS_RAWIO" ]) %}
-{% do monitee_agent_container.remove_security_opt("no-new-privileges") %}
-{% do monitee_agent_container.add_security_opt("apparmor", "unconfined") %}
-
-{% do monitee_agent_container.add_port(values.network.web_port) %}
-
-{% if values.monitee_agent.docker_enable %}
-{% do monitee_agent_container.add_docker_socket(read_only=False) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.http_port}) %}
+{% if values.network.host_network %}
+  {% do c1.set_network_mode("host") %}
 {% endif %}
 
-{% do monitee_agent_container.add_storage("/host/etc/os-release", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/etc/os-release" } }) %}
-{% do monitee_agent_container.add_storage("/host/sys", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/sys" } }) %}
-{% do monitee_agent_container.add_storage("/host/proc", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/proc" } }) %}
+{% if not values.network.host_network %}
+  {% do c1.ports.add_port(values.network.https_port, values.network.https_port) %}
+  {% do c1.ports.add_port(values.network.http_port, values.network.http_port) %}
+{% endif %}
 
+{% if values.monitee_agent.docker_enable %}
+  {% do c1.add_docker_socket(read_only=False) %}
+{% endif %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage("/data", values.storage.data) %}
 {% for store in values.storage.additional_storage %}
-{% do monitee_agent_container.add_storage(store.mount_path, store) %}
+  {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({ "port": values.network.web_port.port_number }) %}
+{% if values.monitee_agent.docker_enable %}
+  {% do c1.add_storage("/run/udev", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/run/udev" } }) %}
+  {% do c1.add_storage("/dev", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/dev" } }) %}
+{% endif %}
+
+{% if values.monitee_agent.systemd_journald_enable %}
+  {% do c1.add_storage("/run/systemd", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/run/systemd" } }) %}
+  {% do c1.add_storage("/etc/machine-id", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/etc/machine-id" } }) %}
+  {% do c1.add_storage("/run/systemd/journal/socket", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/run/systemd/journal/socket" } }) %}
+  {% do c1.add_storage("/run/log/journal", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/run/log/journal" } }) %}
+{% endif %}
+
+{% do c1.add_storage("/etc/os-release", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/etc/os-release" } }) %}
+
+{% do c1.environment.add_user_envs(values.monitee_agent.additional_envs) %}
+
+{% for device in values.monitee_agent.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+
+{% do tpl.portals.add_portal({ "port": values.network.http_port }) %}
 
 {{ tpl.render() | tojson }}
 
