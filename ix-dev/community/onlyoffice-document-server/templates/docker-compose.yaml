@@ -22,9 +22,7 @@
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
 {% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
-
 {% do c1.healthcheck.set_test("wget", {"port": 80, "path": "/healthcheck"}) %}
-
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
@@ -51,8 +49,7 @@
   {% do c1.environment.add_env("SSL_CERTIFICATE_PATH", values.consts.ssl_cert_path) %}
 {% endif %}
 
-{% do c1.add_port(values.network.http_port, {"container_port": 80}) %}
-{% do c1.add_port(values.network.https_port, {"container_port": 443}) %}
+{% do c1.add_port(values.network.web_port, {"container_port": 443 if values.network.certificate_id else 80}) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
@@ -64,11 +61,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% if values.network.http_port.bind_mode != "" %}
- {% do tpl.portals.add_portal({"name": "HTTP", "port": values.network.http_port.port_number}) %}
-{% endif %}
-{% if values.network.https_port.bind_mode != "" %}
-  {% do tpl.portals.add_portal({"name": "HTTPS", "port": values.network.https_port.port_number, "scheme": "https"}) %}
-{% endif %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": "https" if values.network.certificate_id else "http"}) %}
 
 {{ tpl.render() | tojson }}
