@@ -189,7 +189,7 @@ module.exports = {
     ),
     customVersioning(
       // 2.1.0.3-beta
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta$",
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-stable$",
       ["duplicati/duplicati"]
     ),
     customVersioning(
@@ -199,8 +199,13 @@ module.exports = {
     ),
     customVersioning(
       // 1.0.0-hash
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
-      ["ixsystems/nextcloud-fpm", "ixsystems/nextcloud-notify-push"]
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
+      ["ixsystems/nextcloud-notify-push"]
+    ),
+    customVersioning(
+      // 1.0.0-fpm-hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-fpm-(?<build>.+)$",
+      ["ixsystems/nextcloud-fpm"]
     ),
     customVersioning(
       // v0.137.0-noble-lite
@@ -211,6 +216,11 @@ module.exports = {
       // 24.7
       "^v(?<major>\\d+)\\.(?<minor>\\d+)$",
       ["nzbgetcom/nzbget"]
+    ),
+    customVersioning(
+      // tshock-1.4.4.9-5.2.0-3
+      "^tshock-1\\.4\\.4\\.9-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
+      ["ryshe/terraria"]
     ),
   ],
 };
