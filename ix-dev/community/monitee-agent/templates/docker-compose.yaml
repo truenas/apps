@@ -6,14 +6,11 @@
 
 {% do c1.add_caps([ "SYS_RAWIO" ]) %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.network.http_port}) %}
-{% if values.network.host_network %}
-  {% do c1.set_network_mode("host") %}
-{% endif %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.http_port.port_number, "path": "/actuator/health"}) %}
 
 {% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.https_port, values.network.https_port) %}
-  {% do c1.ports.add_port(values.network.http_port, values.network.http_port) %}
+  {% do c1.add_port(values.network.https_port) %}
+  {% do c1.add_port(values.network.http_port) %}
 {% endif %}
 
 {% if values.monitee_agent.docker_enable %}
@@ -26,7 +23,7 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% if values.monitee_agent.docker_enable %}
+{% if values.monitee_agent.storage_monitoring_enable %}
   {% do c1.add_storage("/run/udev", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/run/udev" } }) %}
   {% do c1.add_storage("/dev", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/dev" } }) %}
 {% endif %}
@@ -46,7 +43,7 @@
   {% do c1.devices.add_device(device.host_device, device.container_device) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({ "port": values.network.http_port }) %}
+{% do tpl.portals.add_portal({"port": values.network.http_port.port_number, "path": "/graphiql?path=/graphql"}) %}
 
 {{ tpl.render() | tojson }}
 
