@@ -222,6 +222,11 @@ module.exports = {
       "^tshock-1\\.4\\.4\\.9-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
       ["ryshe/terraria"]
     ),
+    customVersioning(
+      // 335
+      "^(?<patch>\\d+)$",
+      ["quay.io/cockpit/ws"]
+    ),
   ],
 };
 
