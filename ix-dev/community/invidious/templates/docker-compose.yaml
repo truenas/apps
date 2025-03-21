@@ -24,14 +24,14 @@
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group} %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port}) %}
+{% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port.port_number}) %}
 {% do c1.environment.add_env("INVIDIOUS_CONFIG_FILE", "%s/config.yaml"|format(values.consts.config_path)) %}
 {% do c1.environment.add_user_envs(values.invidious.additional_envs) %}
 
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do db_fetch.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do db_fetch.healthcheck.disable() %}
@@ -64,7 +64,7 @@
   {"db.port": 5432},
   {"hmac_key": values.invidious.hmac_secret},
   {"host_binding": "0.0.0.0"},
-  {"port": values.network.web_port},
+  {"port": values.network.web_port.port_number},
   {"admins": values.invidious.admins},
   {"registration_enabled": values.invidious.registration_enabled},
   {"login_enabled": values.invidious.login_enabled},
@@ -127,6 +127,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
