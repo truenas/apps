@@ -1,6 +1,10 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.tvheadend_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
 {% if values.ci %}
   {% do c1.healthcheck.set_test("curl", {"port": values.consts.web_internal_port, "scheme": "http"}) %}
@@ -14,8 +18,6 @@
   {% do c1.add_storage("/dev/dvb", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/dev/dvb"}}) %}
 {% endif %}
 
-{% do c1.environment.add_env("PUID", values.network.run_as.user) %}
-{% do c1.environment.add_env("PGID", values.network.run_as.group) %}
 {% do c1.environment.add_user_envs(values.tvheadend.additional_envs) %}
 
 {% if not values.network.host_network %}
