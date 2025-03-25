@@ -1,3 +1,3 @@
-# Monero Wallet RPC
+# Monero LWS
 
-[Monero Wallet RPC](https://www.getmonero.org/) is RPC server that allows interaction with Monero wallets programmatically.
+[Monero LWS](https://github.com/vtnerd/monero-lws) is a Monero light-wallet server, currently compatible with MyMonero and Edge.
