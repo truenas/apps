@@ -82,7 +82,7 @@ def test_add_postgres(mock_values):
         "POSTGRES_USER": "test_user",
         "POSTGRES_PASSWORD": "test_@password",
         "POSTGRES_DB": "test_database",
-        "POSTGRES_PORT": "5432",
+        "PGPORT": "5432",
     }
     assert output["services"]["pg_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"},
