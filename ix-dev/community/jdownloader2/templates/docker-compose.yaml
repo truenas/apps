@@ -1,0 +1,38 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.jdownloader2_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_custom_test("pgrep java") %}
+
+{% do c1.environment.add_env("MYJD_DEVICE_NAME", values.jdownloader2.myjd_name) %}
+{% do c1.environment.add_env("MYJD_USER", values.jdownloader2.myjd_user) %}
+{% do c1.environment.add_env("MYJD_PASSWORD", values.jdownloader2.myjd_password) %}
+{% do c1.environment.add_env("XDG_DOWNLOAD_DIR", "/opt/JDownloader/Downloads") %}
+{% do c1.environment.add_user_envs(values.jdownloader2.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.direct_connection_port, {"container_port": 3129}) %}
+{% endif %}
+
+{% do c1.add_storage("/opt/JDownloader/app/cfg", values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+
+{% do c1.add_storage("/opt/JDownloader/Downloads", values.storage.downloads) %}
+{% do perm_container.add_or_skip_action("downloads", values.storage.downloads, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
