@@ -227,6 +227,11 @@ module.exports = {
       "^(?<patch>\\d+)$",
       ["quay.io/cockpit/ws"]
     ),
+    customVersioning(
+      // 0.3_0.18
+      "^(?<major>\\d+)\\.(?<minor>\\d+)_(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["ghcr.io/magicgrants/monero-lws"]
+    ),
   ],
 };
 
