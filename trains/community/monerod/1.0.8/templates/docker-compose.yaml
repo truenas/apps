@@ -25,7 +25,6 @@
   "--rpc-restricted-bind-port=%d" | format(values.network.monerod_restricted_rpc_port.port_number),
   "--p2p-bind-port=%d" | format(values.network.monerod_p2p_port.port_number),
   "--no-igd",
-  "--no-zmq",
 ]) %}
 
 {% if values.monero.pruned %}
@@ -70,6 +69,19 @@
   {% do commands.x.append("--pad-transactions") %}
 {% endif %}
 
+{% if values.network.monerod_zmq_rpc_port.bind_mode %}
+  {% do commands.x.append("--zmq-rpc-bind-ip=0.0.0.0") %}
+  {% do commands.x.append("--zmq-rpc-bind-port=%d" | format(values.network.monerod_zmq_rpc_port.port_number)) %}
+{% endif %}
+
+{% if values.network.monerod_zmq_pub_port.bind_mode %}
+  {% do commands.x.append("--zmq-pub=tcp://0.0.0.0:%d" | format(values.network.monerod_zmq_pub_port.port_number)) %}
+{% endif %}
+
+{% if not values.network.monerod_zmq_rpc_port.bind_mode and not values.network.monerod_zmq_pub_port.bind_mode %}
+  {% do commands.x.append("--no-zmq") %}
+{% endif %}
+
 {% do monerod.set_command(commands.x) %}
 
 {% for store in values.storage.additional_storage %}
@@ -84,6 +96,8 @@
   {% do monerod.add_port(values.network.monerod_p2p_port) %}
   {% do monerod.add_port(values.network.monerod_rpc_port) %}
   {% do monerod.add_port(values.network.monerod_restricted_rpc_port) %}
+  {% do monerod.add_port(values.network.monerod_zmq_rpc_port) %}
+  {% do monerod.add_port(values.network.monerod_zmq_pub_port) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
