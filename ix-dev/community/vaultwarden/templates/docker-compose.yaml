@@ -19,9 +19,8 @@
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.healthcheck.set_custom_test("/healthcheck.sh") %}
 
-{% do c1.environment.add_env("ROCKET_PORT", values.network.web_port) %}
-{% do c1.environment.add_env("WEBSOCKET_PORT", values.network.ws_port) %}
-{% do c1.environment.add_env("WEBSOCKET_ENABLED", values.network.ws_enabled) %}
+{% do c1.environment.add_env("ROCKET_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("ENABLE_WEBSOCKET", values.vaultwarden.enable_websocket) %}
 {% do c1.environment.add_env("ADMIN_TOKEN", values.vaultwarden.admin_token) %}
 {% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% if values.network.domain %}
@@ -43,10 +42,7 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-{% if values.network.ws_enabled %}
-  {% do c1.ports.add_port(values.network.ws_port, values.network.ws_port) %}
-{% endif %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
@@ -55,9 +51,9 @@
 {% endif %}
 
 {% set portal_scheme = "https" if values.network.certificate_id else "http" %}
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": portal_scheme}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": portal_scheme}) %}
 {% if values.vaultwarden.admin_token %}
-  {% do tpl.portals.add_portal({"name": "Admin Portal", "path": "/admin", "port": values.network.web_port, "scheme": portal_scheme}) %}
+  {% do tpl.portals.add_portal({"name": "Admin Portal", "path": "/admin", "port": values.network.web_port.port_number, "scheme": portal_scheme}) %}
 {% endif %}
 
 {{ tpl.render() | tojson }}
