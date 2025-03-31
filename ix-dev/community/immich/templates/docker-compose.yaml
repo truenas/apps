@@ -1,6 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": 0, "gid": 0, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -62,7 +63,9 @@
     {% do ml_container.x.environment.add_env("HF_ENDPOINT", values.immich.hugging_face_endpoint) %}
   {% endif %}
   {% do ml_container.x.environment.add_user_envs(values.immich.additional_envs) %}
-  {% do ml_container.x.add_storage(values.consts.ml_cache_path, {"type": "anonymous"}) %}
+  {% set ml_cache_config = dict(values.storage.ml_cache, **{"volume_config": {"volume_name": "ml-cache"}}) %}
+  {% do ml_container.x.add_storage(values.consts.ml_cache_path, ml_cache_config) %}
+  {% do perm_container.add_or_skip_action("ml-cache", ml_cache_config, perms_config) %}
 
   {% do server_container.depends.add_dependency(values.consts.ml_container_name, "service_healthy") %}
   {% do server_container.environment.add_env("IMMICH_MACHINE_LEARNING_ENABLED", "true") %}
