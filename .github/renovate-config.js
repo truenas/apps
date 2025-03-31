@@ -232,6 +232,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)_(?<patch>\\d+)\\.(?<build>\\d+)$",
       ["ghcr.io/magicgrants/monero-lws"]
     ),
+    customVersioning(
+      // 6.1.4.2
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["ghcr.io/justarchinet/archisteamfarm"]
+    ),
   ],
 };
 
