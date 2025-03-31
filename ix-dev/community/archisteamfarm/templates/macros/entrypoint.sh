@@ -1,4 +1,4 @@
-{% macro entrypoint() %}
+{% macro entrypoint() -%}
 #!/bin/sh
 set -e
 
@@ -7,4 +7,4 @@ cp /config/IPC.config /app/config/IPC.config
 
 echo "Starting ArchiSteamFarm..."
 exec ArchiSteamFarm --no-restart --system-required
-{% endmacro %}
+{%- endmacro %}
