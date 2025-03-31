@@ -1,4 +1,3 @@
-{% from "macros/entrypoint.sh" import entrypoint %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.archisteamfarm_container_name, "image") %}
@@ -9,22 +8,16 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.environment.add_user_envs(values.archisteamfarm.additional_envs) %}
 
-{% set config = {
-	"Kestrel": {
-		"Endpoints": {
-      "HTTP": {"Url": "http://*:%d" | format(values.network.web_port.port_number)}
-    },
-		"KnownNetworks": ["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]
-	}
-} %}
+{% set config = tpl.funcs.copy_dict(values.consts.config) %}
+{% do config.Kestrel.Endpoints.HTTP.update({"Url": "http://*:%d" | format(values.network.web_port.port_number)}) %}
+
 {% do c1.configs.add("ipc-config", config | tojson, "/config/IPC.config") %}
-{% do c1.configs.add("entrypoint.sh", entrypoint(), "/ix-entrypoint.sh", "0775") %}
+{% do c1.configs.add("entrypoint.sh", values.consts.entrypoint, "/ix-entrypoint.sh", "0775") %}
 {% do c1.set_entrypoint(["/ix-entrypoint.sh"]) %}
 
 {% if not values.network.host_network %}
   {% do c1.add_port(values.network.web_port) %}
 {% endif %}
-
 
 {% do c1.add_storage("/app/config", values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
