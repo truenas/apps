@@ -5,16 +5,19 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.add_caps(["DAC_OVERRIDE", "CHOWN"]) %}
+
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz"}) %}
 
 {% do c1.environment.add_env("DOCKER_USER", values.run_as.user) %}
 {% do c1.environment.add_user_envs(values.code_server.additional_envs) %}
-{% do c1.remove_security_opt("no-new-privileges") %}
-{% do c1.set_entrypoint([
-    "/usr/bin/entrypoint.sh",
-    "--bind-addr", "0.0.0.0:%d" | format(values.network.web_port.port_number),
-    "."
-]) %}
+
+{% do c1.set_entrypoint(
+  "/usr/bin/entrypoint.sh",
+  "--bind-addr", "0.0.0.0:%d" | format(values.network.web_port.port_number),
+  ".",
+) %}
 
 {% do c1.add_port(values.network.web_port) %}
 
