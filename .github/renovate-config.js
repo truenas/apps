@@ -237,6 +237,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
       ["ghcr.io/justarchinet/archisteamfarm"]
     ),
+    customVersioning(
+      // amd64-3.3.13
+      "^amd64-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["joplin/server"]
+    ),
   ],
 };
 
