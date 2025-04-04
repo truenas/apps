@@ -5,15 +5,15 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
 
-{% do c1.environment.add_env("PORT", values.network.web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("DOWNLOAD_DIR", values.consts.downloads_path) %}
 {% do c1.environment.add_env("STATE_DIR", "%s/.metube" | format(values.consts.downloads_path)) %}
 {% do c1.environment.add_env("DEFAULT_THEME", values.metube.default_theme) %}
 {% do c1.environment.add_user_envs(values.metube.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage(values.consts.downloads_path, values.storage.downloads) %}
 {% do perm_container.add_or_skip_action(values.consts.downloads_path, values.storage.downloads, perms_config) %}
@@ -28,6 +28,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
