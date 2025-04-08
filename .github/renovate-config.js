@@ -242,6 +242,11 @@ module.exports = {
       "^amd64-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["joplin/server"]
     ),
+    customVersioning(
+      // i2p-2.8.1
+      "^i2p-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["geti2p/i2p"]
+    ),
   ],
 };
 
