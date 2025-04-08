@@ -19,7 +19,7 @@
 {% do monerod.set_entrypoint(["monerod", "--non-interactive"]) %}
 
 {% set commands = namespace(x=[
-  "--rpc-bind-ip=%s" | format("0.0.0.0" if values.network.monerod_rpc_port.bind_mode != "" else "127.0.0.1"),
+  "--rpc-bind-ip=%s" | format("0.0.0.0" if values.network.monerod_rpc_port.bind_mode else "127.0.0.1"),
   "--rpc-bind-port=%d" | format(values.network.monerod_rpc_port.port_number),
   "--rpc-restricted-bind-ip=0.0.0.0",
   "--rpc-restricted-bind-port=%d" | format(values.network.monerod_restricted_rpc_port.port_number),
@@ -37,7 +37,7 @@
   {% do commands.x.append("--hide-my-port") %}
 {% endif %}
 
-{% if values.monero.publicly_available or values.network.monerod_rpc_port.bind_mode != "" %}
+{% if values.monero.publicly_available or values.network.monerod_rpc_port.bind_mode %}
   {% do commands.x.append("--confirm-external-bind") %}
 {% endif %}
 
@@ -57,15 +57,32 @@
 
 {% if values.monero.tor_connections_enabled %}
   {% do commands.x.append("--tx-proxy=tor,%s:%d,16" | format(values.monero.tor_ip, values.monero.tor_port)) %}
-  {% do commands.x.append("--pad-transactions") %}
+
   {% if values.monero.routing == "tor" %}
     {% do commands.x.append("--proxy=%s:%d" | format(values.monero.tor_ip, values.monero.tor_port)) %}
     {% do commands.x.append("--p2p-bind-ip=%s" | format(values.monero.tor_ip)) %}
   {% endif %}
 {% endif %}
 
+{% if values.monero.tor_inbound_connections_enabled and values.network.tor_inbound_port.bind_mode %}
+  {% do commands.x.append("--anonymous-inbound=%s,0.0.0.0:%d" | format(
+    values.monero.tor_inbound_address,
+    values.network.tor_inbound_port.port_number
+  )) %}
+{% endif %}
+
 {% if values.monero.i2p_connections_enabled %}
   {% do commands.x.append("--tx-proxy=i2p,%s:%d,16" | format(values.monero.i2p_ip, values.monero.i2p_port)) %}
+{% endif %}
+
+{% if values.monero.i2p_inbound_connections_enabled and values.network.i2p_inbound_port.bind_mode %}
+  {% do commands.x.append("--anonymous-inbound=%s,0.0.0.0:%d" | format(
+    values.monero.i2p_inbound_address,
+    values.network.i2p_inbound_port.port_number
+  )) %}
+{% endif %}
+
+{% if values.monero.tor_connections_enabled or values.monero.i2p_connections_enabled %}
   {% do commands.x.append("--pad-transactions") %}
 {% endif %}
 
@@ -97,7 +114,8 @@
   {% do monerod.add_port(values.network.monerod_rpc_port) %}
   {% do monerod.add_port(values.network.monerod_restricted_rpc_port) %}
   {% do monerod.add_port(values.network.monerod_zmq_rpc_port) %}
-  {% do monerod.add_port(values.network.monerod_zmq_pub_port) %}
+  {% do monerod.add_port(values.network.tor_inbound_port) %}
+  {% do monerod.add_port(values.network.i2p_inbound_port) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}

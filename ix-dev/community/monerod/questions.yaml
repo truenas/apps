@@ -67,7 +67,7 @@ questions:
         - variable: tor_connections_enabled
           label: Enable Tor connections
           description: |
-            Requires a connection to a Tor proxy, such as the Arti TrueNAS App.
+            Requires a connection to a Tor SOCKS proxy, such as the Arti TrueNAS App.
           schema:
             type: boolean
             default: false
@@ -87,6 +87,22 @@ questions:
             max: 65535
             required: true
             show_if: [["tor_connections_enabled", "=", true]]
+        - variable: tor_inbound_connections_enabled
+          label: Enable inbound Tor connections
+          schema:
+            type: boolean
+            default: false
+            show_if: [["tor_connections_enabled", "=", true]]
+        - variable: tor_inbound_address
+          label: Inbound onion address
+          description: |
+            Port needs to be configured under "Network".
+          schema:
+            type: string
+            required: true
+            valid_chars: "^[a-zA-Z0-9]+\\.onion$"
+            valid_chars_error: Invalid onion address.
+            show_if: [["tor_inbound_connections_enabled", "=", true]]
         - variable: routing
           label: Route all traffic through
           description: |
@@ -108,12 +124,14 @@ questions:
         - variable: i2p_connections_enabled
           label: Enable I2P connections
           description: |
-            Requires a connection to an i2p proxy, such as the i2p TrueNAS App.
+            Requires a connection to an I2P SOCKS proxy, such as the I2P TrueNAS App.
           schema:
             type: boolean
             default: false
         - variable: i2p_ip
           label: I2P IP
+          description: |
+            Enter the local IP of this machine if you are running the I2P TrueNAS App.
           schema:
             type: ipaddr
             required: true
@@ -126,6 +144,22 @@ questions:
             max: 65535
             required: true
             show_if: [["i2p_connections_enabled", "=", true]]
+        - variable: i2p_inbound_connections_enabled
+          label: Enable inbound I2P connections
+          schema:
+            type: boolean
+            default: false
+            show_if: [["i2p_connections_enabled", "=", true]]
+        - variable: i2p_inbound_address
+          label: Inbound I2P base32 address
+          description: |
+            Port needs to be configured under "Network".
+          schema:
+            type: string
+            required: true
+            valid_chars: "^[a-zA-Z0-9]+\\.b32\\.i2p$"
+            valid_chars_error: Invalid I2P address.
+            show_if: [["i2p_inbound_connections_enabled", "=", true]]
         - variable: additional_flags
           label: Additional flags
           description: |
@@ -148,7 +182,7 @@ questions:
       type: dict
       attrs:
         - variable: monerod_p2p_port
-          label: Monerod P2P Port
+          label: P2P Port
           description: |
             The port used for your node to communicate blockchain data with other nodes. This should be published for external access in most scenarios.
           schema:
@@ -197,7 +231,7 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: monerod_rpc_port
-          label: Monerod RPC Port
+          label: RPC Port
           description: |
             This is the unrestricted RPC endpoint which will only be made available on the local network. Unless you specifically need this, leave it disabled.
           schema:
@@ -246,7 +280,7 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: monerod_restricted_rpc_port
-          label: Monerod Restricted RPC Port
+          label: Restricted RPC Port
           description: |
             This is the restricted RPC endpoint which is safe to expose publicly. This allows Monero wallet users to connect to your node. Use in conjunction with "Advertise as publicly-available". If you do not want Monero wallet users to connect to your node, set the bind mode to "None" (for no RPC access) or "Expose port for inter-container communication" (for RPC access only to other TrueNAS apps).</br>
             Note that unless you configure SSL for your node separately, for example with Cloudflare or Nginx, then all wallet RPC traffic will be unencrypted which has privacy risks.
@@ -296,8 +330,7 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: monerod_zmq_rpc_port
-          label: Monerod ZMQ RPC Port
-          description: ""
+          label: ZMQ RPC Port
           schema:
             type: dict
             attrs:
@@ -344,8 +377,7 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: monerod_zmq_pub_port
-          label: Monerod ZMQ Pub Port
-          description: ""
+          label: ZMQ Pub Port
           schema:
             type: dict
             attrs:
@@ -373,6 +405,100 @@ questions:
                 schema:
                   type: int
                   default: 18083
+                  required: true
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: tor_inbound_port
+          label: Tor inbound port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 18084
+                  required: true
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: i2p_inbound_port
+          label: I2P inbound port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 18085
                   required: true
                   $ref:
                     - definitions/port
