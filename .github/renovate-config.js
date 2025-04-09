@@ -165,7 +165,7 @@ module.exports = {
     customVersioning(
       // 20250122_091948  {year}{month}{day}_{build}
       "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
-      ["nextcloud/aio-imaginary"]
+      ["ghcr.io/nextcloud-releases/aio-imaginary"]
     ),
     customVersioning(
       // 2024.10.22-7ca5933
@@ -241,6 +241,11 @@ module.exports = {
       // amd64-3.3.13
       "^amd64-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["joplin/server"]
+    ),
+    customVersioning(
+      // i2p-2.8.1
+      "^i2p-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["geti2p/i2p"]
     ),
   ],
 };
