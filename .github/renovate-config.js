@@ -235,7 +235,7 @@ module.exports = {
     customVersioning(
       // 6.1.4.2
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
-      ["ghcr.io/justarchinet/archisteamfarm"]
+      ["ghcr.io/justarchinet/archisteamfarm", "ghcr.io/sassanix/warracker/main"]
     ),
     customVersioning(
       // amd64-3.3.13
