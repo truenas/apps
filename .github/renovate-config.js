@@ -244,7 +244,7 @@ module.exports = {
     ),
     customVersioning(
       // i2p-2.8.1
-      "^i2p-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "^i2p-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
       ["geti2p/i2p"]
     ),
   ],
