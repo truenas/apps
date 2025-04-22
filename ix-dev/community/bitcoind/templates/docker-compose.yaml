@@ -1,16 +1,18 @@
 {% from "macros/setup.py.jinja" import setup_script %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+
 {% set setup = tpl.add_container(values.consts.setup_container_name, "python_image") %}
 {% do setup.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do setup.deploy.resources.set_profile("low") %}
+{% do setup.remove_devices() %}
 {% do setup.healthcheck.disable() %}
 {% do setup.configs.add("config_setup", setup_script(values), "/setup.py", "0777") %}
 {% do setup.restart.set_policy("on-failure", 1) %}
 {% do setup.set_entrypoint(["python3", "/setup.py"]) %}
 {% do setup.add_storage("/bitcoin/.bitcoin", values.storage.bitcoin) %}
-
-{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
 {% set bitcoind = tpl.add_container(values.consts.bitcoind_container_name, "image") %}
 {% do bitcoind.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
@@ -28,7 +30,6 @@
 {% set MB_TO_MIB = 0.953674 %}
 
 {% do bitcoind.set_entrypoint(["bitcoind"]) %}
-
 {% set commands = namespace(x=["-server=1"]) %}
 
 {# Clearnet #}
@@ -48,24 +49,17 @@
 {% endif %}
 
 {% if values.bitcoin.clearnet_outgoing_via_tor_enabled %}
-  {% do commands.x.append("-proxy=%s:%d" | format(
-    values.bitcoin.tor_ip, values.bitcoin.tor_port
-  )) %}
+  {% do commands.x.append("-proxy=%s:%d" | format(values.bitcoin.tor_ip, values.bitcoin.tor_port)) %}
 {% endif %}
 
-{% do commands.x.append("-listenonion=%d" | format(
-  1 if values.bitcoin.tor_incoming_enabled else 0
-)) %}
+{% do commands.x.append("-listenonion=%d" | format(1 if values.bitcoin.tor_incoming_enabled else 0)) %}
 
 {% if values.bitcoin.tor_incoming_enabled %}
   {% do commands.x.append("-externalip=%s" | format (values.bitcoin.tor_incoming_address))%}
 {% endif %}
 
 {% if values.bitcoin.tor_outgoing_enabled or values.bitcoin.tor_incoming_enabled %}
-  {% do commands.x.append("-onion=%s:%d" | format(
-    values.bitcoin.tor_ip,
-    values.bitcoin.tor_port
-  )) %}
+  {% do commands.x.append("-onion=%s:%d" | format(values.bitcoin.tor_ip, values.bitcoin.tor_port)) %}
 {% endif %}
 
 {# I2P #}
@@ -73,15 +67,10 @@
   {% do commands.x.append("-onlynet=i2p") %}
 {% endif %}
 
-{% do commands.x.append("-i2pacceptincoming=%d" | format(
-  1 if values.bitcoin.i2p_incoming_enabled else 0
-)) %}
+{% do commands.x.append("-i2pacceptincoming=%d" | format(1 if values.bitcoin.i2p_incoming_enabled else 0)) %}
 
 {% if values.bitcoin.i2p_outgoing_enabled or values.bitcoin.i2p_incoming_enabled %}
-  {% do commands.x.append("-i2psam=%s:%d" | format(
-    values.bitcoin.i2p_ip,
-    values.bitcoin.i2p_port
-  )) %}
+  {% do commands.x.append("-i2psam=%s:%d" | format(values.bitcoin.i2p_ip, values.bitcoin.i2p_port)) %}
 {% endif %}
 
 {# REST #}
@@ -96,17 +85,9 @@
 {% do commands.x.append("-rpcworkqueue=%d" | format(values.bitcoin.rpc_work_queue_size)) %}
 
 {# Filters #}
-{% do commands.x.append("-peerblockfilters=%d" | format(
-  1 if values.bitcoin.peer_block_filters_enabled else 0
-)) %}
-
-{% do commands.x.append("-blockfilterindex=%d" | format(
-  1 if values.bitcoin.block_filter_index_enabled else 0
-)) %}
-
-{% do commands.x.append("-peerbloomfilters=%d" | format(
-  1 if values.bitcoin.peer_bloom_filters_enabled else 0
-)) %}
+{% do commands.x.append("-peerblockfilters=%d" | format(1 if values.bitcoin.peer_block_filters_enabled else 0)) %}
+{% do commands.x.append("-blockfilterindex=%d" | format(1 if values.bitcoin.block_filter_index_enabled else 0)) %}
+{% do commands.x.append("-peerbloomfilters=%d" | format(1 if values.bitcoin.peer_bloom_filters_enabled else 0)) %}
 
 {# Connections #}
 {% do commands.x.append("-bantime=%d" | format(values.bitcoin.peer_ban_time)) %}
@@ -121,21 +102,13 @@
 {% do commands.x.append("-dbcache=%d" | format(values.bitcoin.cache_size * MB_TO_MIB)) %}
 {% do commands.x.append("-prune=%d" | format(values.bitcoin.prune_size * GB_TO_MIB)) %}
 {% do commands.x.append("-txindex=%d" | format(0 if values.bitcoin.prune_size else 1)) %}
-{% do commands.x.append("-mempoolfullrbf=%d" | format(
-  1 if values.bitcoin.full_rbf_enabled else 0
-)) %}
-{% do commands.x.append("-datacarrier=%d" | format(
-  1 if values.bitcoin.op_return_txs_relay_enabled else 0
-)) %}
+{% do commands.x.append("-mempoolfullrbf=%d" | format(1 if values.bitcoin.full_rbf_enabled else 0)) %}
+{% do commands.x.append("-datacarrier=%d" | format(1 if values.bitcoin.op_return_txs_relay_enabled else 0)) %}
 {% do commands.x.append("-datacarriersize=%d" | format(values.bitcoin.max_op_return_size)) %}
-{% do commands.x.append("-permitbaremultisig=%d" | format(
-  1 if values.bitcoin.bare_multisig_txs_relay_enabled else 0
-)) %}
+{% do commands.x.append("-permitbaremultisig=%d" | format(1 if values.bitcoin.bare_multisig_txs_relay_enabled else 0)) %}
 {% do commands.x.append("-maxmempool=%d" | format(values.bitcoin.max_mempool_size)) %}
 {% do commands.x.append("-mempoolexpiry=%d" | format(values.bitcoin.mempool_expiry)) %}
-{% do commands.x.append("-persistmempool=%d" | format(
-  1 if values.bitcoin.mempool_persist_enabled else 0
-)) %}
+{% do commands.x.append("-persistmempool=%d" | format(1 if values.bitcoin.mempool_persist_enabled else 0)) %}
 {% do commands.x.append("-maxorphantx=%d" | format(values.bitcoin.max_orphan_txs)) %}
 
 {% for flag in values.bitcoin.additional_flags %}
