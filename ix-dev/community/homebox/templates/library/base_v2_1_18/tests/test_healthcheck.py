@@ -139,7 +139,18 @@ def test_wget_healthcheck(mock_values):
     output = render.render()
     assert (
         output["services"]["test_container"]["healthcheck"]["test"]
-        == "wget --spider --quiet http://127.0.0.1:8080/health"
+        == "wget --quiet --spider http://127.0.0.1:8080/health"
+    )
+
+
+def test_wget_healthcheck_no_spider(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("wget", {"port": 8080, "path": "/health", "spider": False})
+    output = render.render()
+    assert (
+        output["services"]["test_container"]["healthcheck"]["test"]
+        == "wget --quiet -O /dev/null http://127.0.0.1:8080/health"
     )
 
 
