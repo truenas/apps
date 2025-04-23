@@ -251,6 +251,11 @@ module.exports = {
       ["joplin/server"]
     ),
     customVersioning(
+      // v1.52.0-jammy
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>(noble|jammy))$",
+      ["mcr.microsoft.com/playwright"]
+    ),
+    customVersioning(
       // i2p-2.8.1
       "^i2p-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
       ["geti2p/i2p"]
