@@ -10,25 +10,51 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{# -- Postgres -- #}
-{% set pg_config = {
-  "user": values.consts.db_user,
-  "password": values.nextcloud.db_password,
-  "database": values.consts.db_name,
-  "volume": values.storage.postgres_data,
-} %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.nextcloud.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{# -- Database Configuration -- #}
+{% if values.nextcloud.database_type == "postgres" %}
+  {# -- Postgres -- #}
+  {% set pg_config = {
+    "user": values.consts.db_user,
+    "password": values.nextcloud.db_password,
+    "database": values.consts.db_name,
+    "volume": values.storage.postgres_data,
+  } %}
+  {% set postgres = tpl.deps.postgres(
+    values.consts.postgres_container_name,
+    values.nextcloud.postgres_image_selector,
+    pg_config, perm_container
+  ) %}
+  {% set db_container_name = values.consts.postgres_container_name %}
+  {% set db_type = "pgsql" %}
+{% else %}
+  {# -- MariaDB -- #}
+  {% set mariadb_container = tpl.add_container("mariadb", "mariadb_image") %}
+  {% do mariadb_container.set_user("mysql", "mysql") %}
+  {% do mariadb_container.environment.add_env("MYSQL_DATABASE", values.consts.db_name) %}
+  {% do mariadb_container.environment.add_env("MYSQL_USER", values.consts.db_user) %}
+  {% do mariadb_container.environment.add_env("MYSQL_PASSWORD", values.nextcloud.db_password) %}
+  {% do mariadb_container.environment.add_env("MYSQL_ROOT_PASSWORD", values.nextcloud.db_password) %}
+  {% do mariadb_container.add_storage("/var/lib/mysql", values.nextcloud.mariadb_data) %}
+  {% do mariadb_container.healthcheck.set_test("mysqladmin", {"user": values.consts.db_user, "password": values.nextcloud.db_password}) %}
+  {% set db_container_name = "mariadb" %}
+  {% set db_type = "mysql" %}
+{% endif %}
 
 {# -- Redis -- #}
 {% do tpl.funcs.disallow_chars(values.nextcloud.redis_password, ["&", "@", "#", "%"], "redis_password") %}
 {% set redis_config = {
   "password": values.nextcloud.redis_password,
-  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+  "volume": {
+    "type": "ix_volume" if values.nextcloud.redis_storage.persistence else "temporary",
+    "volume_config": {
+      "volume_name": "redis-data",
+      "dataset_name": "redis_data"
+    }
+  },
 } %}
+{% if values.nextcloud.redis_storage.persistence %}
+  {% do redis_config.volume.volume_config.update({"path": values.nextcloud.redis_storage.data_path}) %}
+{% endif %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
 {# -- Nextcloud -- #}
@@ -39,7 +65,7 @@
 {% do nc_container.set_user(values.run_as.user, values.run_as.group) %}
 {% do nc_container.healthcheck.set_custom_test("/healthcheck.sh") %}
 {% do nc_container.add_extra_host("host.docker.internal", "host-gateway") %}
-{% do nc_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do nc_container.depends.add_dependency(db_container_name, "service_healthy") %}
 {% do nc_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do nc_container.configs.add("php_tune", php_tune_ini(values), "/usr/local/etc/php-fpm.d/zz-tune.conf") %}
 {% do nc_container.configs.add("redis_session", redis_session(values), "/usr/local/etc/php/conf.d/redis-session.ini") %}
@@ -49,10 +75,17 @@
 {# Only on initial startup #}
 {% do nc_container.environment.add_env("NEXTCLOUD_ADMIN_USER", values.nextcloud.admin_user) %}
 {% do nc_container.environment.add_env("NEXTCLOUD_ADMIN_PASSWORD", values.nextcloud.admin_password) %}
-{% do nc_container.environment.add_env("POSTGRES_HOST", values.consts.postgres_container_name) %}
-{% do nc_container.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
-{% do nc_container.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
-{% do nc_container.environment.add_env("POSTGRES_PASSWORD", values.nextcloud.db_password) %}
+{% if values.nextcloud.database_type == "postgres" %}
+  {% do nc_container.environment.add_env("POSTGRES_HOST", db_container_name) %}
+  {% do nc_container.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+  {% do nc_container.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
+  {% do nc_container.environment.add_env("POSTGRES_PASSWORD", values.nextcloud.db_password) %}
+{% else %}
+  {% do nc_container.environment.add_env("MYSQL_HOST", db_container_name) %}
+  {% do nc_container.environment.add_env("MYSQL_DATABASE", values.consts.db_name) %}
+  {% do nc_container.environment.add_env("MYSQL_USER", values.consts.db_user) %}
+  {% do nc_container.environment.add_env("MYSQL_PASSWORD", values.nextcloud.db_password) %}
+{% endif %}
 {% do nc_container.environment.add_env("NEXTCLOUD_DATA_DIR", values.consts.data_path) %}
 
 {# On every startup #}

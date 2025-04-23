@@ -29,6 +29,18 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: database_type
+          label: Database Type
+          description: Choose between PostgreSQL and MariaDB as the database backend
+          schema:
+            type: string
+            default: postgres
+            enum:
+              - value: postgres
+                description: PostgreSQL Database
+              - value: mariadb
+                description: MariaDB Database
+            required: true
         - variable: postgres_image_selector
           label: Postgres Image (CAUTION)
           description: |
@@ -42,9 +54,30 @@ questions:
             type: string
             default: postgres_17_image
             required: true
+            show_if: [["database_type", "=", "postgres"]]
             enum:
               - value: postgres_17_image
                 description: Postgres 17
+        - variable: mariadb_version
+          label: MariaDB Version
+          description: Select the MariaDB version to use
+          schema:
+            type: string
+            default: "10.11"
+            show_if: [["database_type", "=", "mariadb"]]
+            enum:
+              - value: "10.11"
+                description: MariaDB 10.11 (Recommended)
+              - value: "10.6"
+                description: MariaDB 10.6
+        - variable: mariadb_data
+          label: MariaDB Data Directory
+          description: The directory where MariaDB data will be stored
+          schema:
+            type: path
+            show_if: [["database_type", "=", "mariadb"]]
+            default: "/var/lib/mysql"
+            required: true
         - variable: admin_user
           label: Admin User
           description: The admin user for Nextcloud.
@@ -68,6 +101,26 @@ questions:
             default: ""
             required: true
             private: true
+        - variable: redis_storage
+          label: Redis Storage
+          description: Configure Redis storage settings
+          schema:
+            type: dict
+            attrs:
+              - variable: persistence
+                label: Enable Persistence
+                description: Enable Redis data persistence to disk
+                schema:
+                  type: boolean
+                  default: true
+              - variable: data_path
+                label: Data Directory
+                description: The directory where Redis data will be stored
+                schema:
+                  type: path
+                  show_if: [["persistence", "=", true]]
+                  default: "/var/lib/redis"
+                  required: true
         - variable: db_password
           label: Database Password
           description: The password for the database.
@@ -906,84 +959,6 @@ questions:
                         immutable: true
                         hidden: true
                         default: "data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: postgres_data
-          label: Nextcloud Postgres Data Storage
-          description: The path to store Nextcloud Postgres Data.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  immutable: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        immutable: true
-                        hidden: true
-                        default: "postgres_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
