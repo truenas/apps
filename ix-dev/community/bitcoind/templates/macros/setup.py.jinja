@@ -1,0 +1,22 @@
+{% macro setup_script(values) -%}
+import os
+import hmac
+import secrets
+
+print("Updating config...")
+
+username = '{{ values.bitcoin.rpc_user }}'
+password = '{{ values.bitcoin.rpc_password }}'
+salt = secrets.token_hex(16)
+password_hmac = hmac.new(salt.encode('utf-8'), password.encode('utf-8'), 'SHA256').hexdigest()
+conf_content = f'rpcauth={username}:{salt}${password_hmac}'
+conf_path = '{{ values.consts.bitcoin_dir }}/bitcoin.conf'
+
+if not os.path.exists(conf_path):
+  os.makedirs(os.path.dirname(conf_path), exist_ok=True)
+  with open(conf_path, 'w') as f:
+    f.write(conf_content)
+    print('Config created!')
+
+exit(0)
+{%- endmacro -%}
