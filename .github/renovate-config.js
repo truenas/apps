@@ -85,7 +85,6 @@ module.exports = {
       // This is something that we need to investigate if one of the images start having 2 digit major versions
       "^(?<major>\\d{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       [
-        "ghcr.io/linuxserver/calibre-web",
         "ghcr.io/linuxserver/deluge",
         "ghcr.io/linuxserver/heimdall",
         "ghcr.io/linuxserver/transmission",
@@ -95,7 +94,7 @@ module.exports = {
       // The current major version is 2.x.x, but there is a random 5.x.x tag.
       // So we limit it to 0-4 for major. Date issue mentioned above still stands
       "^(?<major>[0-4]{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["ghcr.io/linuxserver/diskover"]
+      ["ghcr.io/linuxserver/diskover", "ghcr.io/linuxserver/calibre-web"]
     ),
     customVersioning(
       "^(?<build>[a-z0-9]+)-ls(?<major>\\d{1})(?<minor>\\d{1})(?<patch>\\d{1})$",
