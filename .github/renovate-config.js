@@ -79,18 +79,16 @@ module.exports = {
       matchFileNames: ["ix-dev/enterprise/**"],
     },
     // Custom versioning matching
+    // customVersioning(
+    //   // There are tags with date format (24.08.0), but newer versions are semver
+    //   // We still limit major to 1 digit, as we don't want to match "24.08.0" as a major version
+    //   // This is something that we need to investigate if one of the images start having 2 digit major versions
+    //   "^(?<major>\\d{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+    //   []
+    // ),
     customVersioning(
-      // There are tags with date format (24.08.0), but newer versions are semver
-      // We still limit major to 1 digit, as we don't want to match "24.08.0" as a major version
-      // This is something that we need to investigate if one of the images start having 2 digit major versions
-      "^(?<major>\\d{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      [
-        "linuxserver/deluge",
-        "linuxserver/diskover",
-        "linuxserver/transmission",
-        "linuxserver/calibre-web",
-        "linuxserver/heimdall",
-      ]
+      "^(?<build>[a-z0-9]+)-ls(?<major>\\d{1})(?<minor>\\d{1})(?<patch>\\d{1})$",
+      ["ghcr.io/linuxserver/tvheadend"]
     ),
     customVersioning(
       // v0.8.1-omnibus
