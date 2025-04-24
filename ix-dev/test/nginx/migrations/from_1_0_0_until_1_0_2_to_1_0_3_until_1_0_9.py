@@ -6,7 +6,7 @@ import yaml
 
 
 def migrate(values):
-    values.network.update({"some_migrated_field": 1})
+    values["network"].update({"some_migrated_field": 1})
     with open("/tmp/migrations/from_1_0_0_until_1_0_2_to_1_0_3_until_1_0_9.txt", "w") as f:
         f.write(yaml.dump(values))
     return values
