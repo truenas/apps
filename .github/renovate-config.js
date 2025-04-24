@@ -85,11 +85,20 @@ module.exports = {
       // This is something that we need to investigate if one of the images start having 2 digit major versions
       "^(?<major>\\d{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       [
-        "linuxserver/deluge",
-        "linuxserver/diskover",
-        "linuxserver/transmission",
-        "linuxserver/calibre-web",
+        "ghcr.io/linuxserver/deluge",
+        "ghcr.io/linuxserver/heimdall",
+        "ghcr.io/linuxserver/transmission",
       ]
+    ),
+    customVersioning(
+      // The current major version is 2.x.x, but there is a random 5.x.x tag.
+      // So we limit it to 0-4 for major. Date issue mentioned above still stands
+      "^(?<major>[0-4]{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["ghcr.io/linuxserver/diskover", "ghcr.io/linuxserver/calibre-web"]
+    ),
+    customVersioning(
+      "^(?<build>[a-z0-9]+)-ls(?<major>\\d{1})(?<minor>\\d{1})(?<patch>\\d{1})$",
+      ["ghcr.io/linuxserver/tvheadend"]
     ),
     customVersioning(
       // v0.8.1-omnibus
@@ -164,7 +173,7 @@ module.exports = {
     customVersioning(
       // 20250122_091948  {year}{month}{day}_{build}
       "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
-      ["nextcloud/aio-imaginary"]
+      ["ghcr.io/nextcloud-releases/aio-imaginary"]
     ),
     customVersioning(
       // 2024.10.22-7ca5933
@@ -175,6 +184,86 @@ module.exports = {
       // 2.5.x -- Yes x is exact value and not a placeholder
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.x$",
       ["uroni/urbackup-server"]
+    ),
+    customVersioning(
+      // 1.1.11-1 or 1.1.11
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
+      ["rustdesk/rustdesk-server"]
+    ),
+    customVersioning(
+      // 9.0.2-stable
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
+      ["lmscommunity/lyrionmusicserver"]
+    ),
+    customVersioning(
+      // 2.1.0.3-beta
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-stable$",
+      ["duplicati/duplicati"]
+    ),
+    customVersioning(
+      // 18.0-20250218
+      "^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)$",
+      ["odoo/odoo"]
+    ),
+    customVersioning(
+      // 1.0.0-hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
+      ["ixsystems/nextcloud-notify-push"]
+    ),
+    customVersioning(
+      // 1.0.0-fpm-hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-fpm-(?<build>.+)$",
+      ["ixsystems/nextcloud-fpm"]
+    ),
+    customVersioning(
+      // v0.137.0-noble-lite
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-noble-(?<compatibility>full|nvidia|lite)$",
+      ["ghcr.io/koush/scrypted"]
+    ),
+    customVersioning(
+      // 24.7
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)$",
+      ["nzbgetcom/nzbget"]
+    ),
+    customVersioning(
+      // tshock-1.4.4.9-5.2.0-3
+      "^tshock-1\\.4\\.4\\.9-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
+      ["ryshe/terraria"]
+    ),
+    customVersioning(
+      // 335
+      "^(?<patch>\\d+)$",
+      ["quay.io/cockpit/ws"]
+    ),
+    customVersioning(
+      // 0.3_0.18
+      "^(?<major>\\d+)\\.(?<minor>\\d+)_(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["ghcr.io/magicgrants/monero-lws"]
+    ),
+    customVersioning(
+      // 6.1.4.2
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["ghcr.io/justarchinet/archisteamfarm", "ghcr.io/sassanix/warracker/main"]
+    ),
+    customVersioning(
+      // amd64-3.3.13
+      "^amd64-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["joplin/server"]
+    ),
+    customVersioning(
+      // v1.52.0-jammy
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>(noble|jammy))$",
+      ["mcr.microsoft.com/playwright"]
+    ),
+    customVersioning(
+      // i2p-2.8.1
+      "^i2p-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
+      ["geti2p/i2p"]
+    ),
+    customVersioning(
+      // 0.18.0-rootless
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-rootless$",
+      ["ghcr.io/sysadminsmedia/homebox"]
     ),
   ],
 };

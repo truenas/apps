@@ -1,0 +1,64 @@
+{% from "macros/entrypoint.sh" import entrypoint %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+
+{% set lws = tpl.add_container(values.consts.lws_container_name, "image") %}
+{% do lws.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% if values.ci %}
+  {% do lws.healthcheck.disable() %}
+{% else %}
+  {% do lws.healthcheck.set_test("tcp", {"port": values.network.basic_rest_server_port.port_number}) %}
+{% endif %}
+
+{% for flag in values.lws.additional_flags %}
+  {% for reserved_flag in values.consts.reserved_flags %}
+    {% if flag.startswith(reserved_flag) %}
+      {% do tpl.funcs.fail("Flag [%s] is reserved and cannot be set." | format(flag)) %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+{% set daemon_host = values.lws.remote_node_host if values.lws.use_remote_node else "host.docker.internal" %}
+
+{% set commands = namespace(x=[
+  "--daemon=tcp://%s:%d" | format(daemon_host, values.lws.monerod_zmq_rpc_port),
+  "--sub=tcp://%s:%d" | format(daemon_host, values.lws.monerod_zmq_pub_port),
+  "--rest-server=http://0.0.0.0:%d" | format(values.network.basic_rest_server_port.port_number),
+  "--admin-rest-server=http://0.0.0.0:%d" | format(values.network.admin_rest_server_port.port_number),
+  "--confirm-external-bind"
+]) %}
+
+{% if values.lws.use_remote_node and not values.lws.trust_remote_daemon %}
+  {% do commands.x.append("--untrusted-daemon") %}
+{% endif %}
+
+{% for flag in values.lws.additional_flags %}
+  {% do commands.x.append(flag) %}
+{% endfor %}
+
+{% do lws.configs.add("entrypoint.sh", entrypoint(values), "/entrypoint.sh", "0755") %}
+{% do lws.set_entrypoint(["/entrypoint.sh"]) %}
+{% do lws.set_command(commands.x) %}
+
+{% do lws.environment.add_user_envs(values.lws.additional_envs) %}
+
+{% do lws.add_storage(values.consts.monero_lws_path, values.storage.monero_lws) %}
+{% do perm_container.add_or_skip_action("monero_lws", values.storage.monero_lws, perm_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do lws.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+{% endfor %}
+
+{% do lws.add_port(values.network.basic_rest_server_port) %}
+{% do lws.add_port(values.network.admin_rest_server_port) %}
+{% do lws.add_extra_host("host.docker.internal", "host-gateway") %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do lws.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
