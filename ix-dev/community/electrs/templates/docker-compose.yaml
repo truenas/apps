@@ -7,11 +7,7 @@
 {% set electrs = tpl.add_container(values.consts.electrs_container_name, "image") %}
 {% do electrs.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 
-{% if values.ci %}
-  {% do electrs.healthcheck.disable() %}
-{% else %}
-  {% do electrs.healthcheck.set_test("tcp", {"port": values.network.rpc_port.port_number}) %}
-{% endif %}
+{% do electrs.healthcheck.set_test("tcp", {"port": values.network.rpc_port.port_number}) %}
 
 {% for flag in values.electrs.additional_flags %}
   {% for reserved_flag in values.consts.reserved_flags %}
@@ -21,21 +17,13 @@
   {% endfor %}
 {% endfor %}
 
-{% set commands = namespace(x=[]) %}
-
+{% do electrs.add_extra_host("host.docker.internal", "host-gateway") %}
 {% set daemon_ip = "host.docker.internal" if values.electrs.use_installed_bitcoin_app else values.electrs.external_bitcoind_ip %}
-
-{% do commands.x.append("--daemon-p2p-addr=%s:%d" | format(
-  daemon_ip, values.electrs.bitcoind_p2p_port
-)) %}
-
-{% do commands.x.append("--daemon-rpc-addr=%s:%d" | format(
-  daemon_ip, values.electrs.bitcoind_rpc_port
-)) %}
-
-{% do commands.x.append("--electrum-rpc-addr=0.0.0.0:%d" | format(
-  values.network.rpc_port.port_number
-)) %}
+{% set commands = namespace(x=[
+  "--daemon-p2p-addr=%s:%d" | format(daemon_ip, values.electrs.bitcoind_p2p_port),
+  "--daemon-rpc-addr=%s:%d" | format(daemon_ip, values.electrs.bitcoind_rpc_port),
+  "--electrum-rpc-addr=0.0.0.0:%d" | format(values.network.rpc_port.port_number),
+]) %}
 
 {% for flag in values.electrs.additional_flags %}
   {% do commands.x.append(flag) %}
@@ -50,14 +38,12 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
 {% endfor %}
 
-{% do electrs.add_storage(values.consts.electrs_data_dir_path, values.storage.electrs_data) %}
-{% do perm_container.add_or_skip_action("electrs", values.storage.electrs_data, perm_config) %}
+{% do electrs.add_storage(values.consts.data_dir_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("electrs_data", values.storage.data, perm_config) %}
 
 {% if not values.network.host_network %}
   {% do electrs.add_port(values.network.rpc_port) %}
 {% endif %}
-
-{% do electrs.add_extra_host("host.docker.internal", "host-gateway") %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
