@@ -99,7 +99,7 @@ def test_mapping(variant: str, config: dict | None = None) -> str:
 
 
 def get_key(config: dict, key: str, default: Any, required: bool):
-    if not config.get(key):
+    if key not in config:
         if not required:
             return default
         raise RenderError(f"Expected [{key}] to be set")
@@ -137,6 +137,7 @@ def wget_test(config: dict) -> str:
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
+    spider = get_key(config, "spider", True, False)
 
     opts = []
     if scheme == "https":
@@ -147,7 +148,8 @@ def wget_test(config: dict) -> str:
             raise RenderError("Expected [header] to be a list of two items for wget test")
         opts.append(f'--header "{header[0]}: {header[1]}"')
 
-    cmd = "wget --spider --quiet"
+    cmd = f"wget --quiet {'--spider' if spider else '-O /dev/null'}"
+
     if opts:
         cmd += f" {' '.join(opts)}"
     cmd += f" {scheme}://{host}:{port}{path}"
