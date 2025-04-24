@@ -260,6 +260,11 @@ module.exports = {
       "^i2p-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
       ["geti2p/i2p"]
     ),
+    customVersioning(
+      // 0.18.0-rootless
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-rootless$",
+      ["ghcr.io/sysadminsmedia/homebox"]
+    ),
   ],
 };
 
