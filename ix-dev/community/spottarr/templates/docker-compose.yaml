@@ -5,19 +5,19 @@
 {% set perms_data = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("http", {"host": "localhost", "port": values.consts.internal_webui_port, "path": "/"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
 
-{% do c1.environment.add_env("USENET__HOSTNAME", values.usenet.hostname) %}
-{% do c1.environment.add_env("USENET__USERNAME", values.usenet.username) %}
-{% do c1.environment.add_env("USENET__PASSWORD", values.usenet.password) %}
-{% do c1.environment.add_env("USENET__PORT", values.usenet.port) %}
-{% do c1.environment.add_env("USENET__USETLS", values.usenet.usetls) %}
-{% do c1.environment.add_env("USENET__MAXCONNECTIONS", values.usenet.max_connections) %}
-{% do c1.environment.add_user_envs(values.usenet.additional_envs) %}
-{% do c1.environment.add_env("SPOTNET__RETRIEVEAFTER", values.spotnet.retrieve_after) %}
-{% do c1.environment.add_user_envs(values.spotnet.additional_envs) %}
+{% do c1.environment.add_env("ASPNETCORE_HTTP_PORTS", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("USENET__HOSTNAME", values.spottarr.usenet.hostname) %}
+{% do c1.environment.add_env("USENET__USERNAME", values.spottarr.usenet.username) %}
+{% do c1.environment.add_env("USENET__PASSWORD", values.spottarr.usenet.password) %}
+{% do c1.environment.add_env("USENET__PORT", values.spottarr.usenet.port) %}
+{% do c1.environment.add_env("USENET__USETLS", values.spottarr.usenet.usetls) %}
+{% do c1.environment.add_env("USENET__MAXCONNECTIONS", values.spottarr.usenet.max_connections) %}
+{% do c1.environment.add_env("SPOTNET__RETRIEVEAFTER", values.spottarr.spotnet.retrieve_after) %}
+{% do c1.environment.add_user_envs(values.spottarr.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_data) %}
@@ -32,6 +32,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
