@@ -23,6 +23,7 @@ try:
     from .tmpfs import Tmpfs
     from .validations import (
         valid_cap_or_raise,
+        valid_cgroup_or_raise,
         valid_ipc_mode_or_raise,
         valid_network_mode_or_raise,
         valid_port_bind_mode_or_raise,
@@ -50,6 +51,7 @@ except ImportError:
     from tmpfs import Tmpfs
     from validations import (
         valid_cap_or_raise,
+        valid_cgroup_or_raise,
         valid_ipc_mode_or_raise,
         valid_network_mode_or_raise,
         valid_port_bind_mode_or_raise,
@@ -88,6 +90,7 @@ class Container:
         self._storage: Storage = Storage(self._render_instance, self)
         self._tmpfs: Tmpfs = Tmpfs(self._render_instance, self)
         self._ipc_mode: str | None = None
+        self._cgroup: str | None = None
         self._device_cgroup_rules: DeviceCGroupRules = DeviceCGroupRules(self._render_instance)
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)
         self.configs: ContainerConfigs = ContainerConfigs(self._render_instance, self._render_instance.configs)
@@ -204,6 +207,9 @@ class Container:
 
     def add_device_cgroup_rule(self, dev_grp_rule: str):
         self._device_cgroup_rules.add_rule(dev_grp_rule)
+
+    def set_cgroup(self, cgroup: str):
+        self._cgroup = valid_cgroup_or_raise(cgroup)
 
     def set_init(self, enabled: bool = False):
         self._init = enabled
@@ -338,6 +344,9 @@ class Container:
 
         if self._device_cgroup_rules.has_rules():
             result["device_cgroup_rules"] = self._device_cgroup_rules.render()
+
+        if self._cgroup is not None:
+            result["cgroup"] = self._cgroup
 
         if self._extra_hosts.has_hosts():
             result["extra_hosts"] = self._extra_hosts.render()

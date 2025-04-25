@@ -17,10 +17,11 @@ class Healthcheck:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._test: str | list[str] = ""
-        self._interval_sec: int = 10
+        self._interval_sec: int = 30
         self._timeout_sec: int = 5
-        self._retries: int = 30
-        self._start_period_sec: int = 10
+        self._retries: int = 15
+        self._start_period_sec: int = 0
+        self._start_interval_sec: int = 5
         self._disabled: bool = False
         self._use_built_in: bool = False
 
@@ -57,6 +58,9 @@ class Healthcheck:
     def set_start_period(self, start_period: int):
         self._start_period_sec = start_period
 
+    def set_start_interval(self, start_interval: int):
+        self._start_interval_sec = start_interval
+
     def has_healthcheck(self):
         return not self._use_built_in
 
@@ -72,10 +76,11 @@ class Healthcheck:
 
         return {
             "test": self._get_test(),
+            "retries": self._retries,
             "interval": f"{self._interval_sec}s",
             "timeout": f"{self._timeout_sec}s",
-            "retries": self._retries,
             "start_period": f"{self._start_period_sec}s",
+            "start_interval": f"{self._start_interval_sec}s",
         }
 
 

@@ -38,10 +38,11 @@ def test_set_custom_test(mock_values):
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"] == {
         "test": "echo $$1",
-        "interval": "10s",
+        "interval": "30s",
         "timeout": "5s",
-        "retries": 30,
-        "start_period": "10s",
+        "retries": 15,
+        "start_period": "0s",
+        "start_interval": "5s",
     }
 
 
@@ -52,10 +53,11 @@ def test_set_custom_test_array(mock_values):
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"] == {
         "test": ["CMD", "echo", "$$1"],
-        "interval": "10s",
+        "interval": "30s",
         "timeout": "5s",
-        "retries": 30,
-        "start_period": "10s",
+        "retries": 15,
+        "start_period": "0s",
+        "start_interval": "5s",
     }
 
 
@@ -67,6 +69,7 @@ def test_set_options(mock_values):
     c1.healthcheck.set_timeout(8)
     c1.healthcheck.set_retries(7)
     c1.healthcheck.set_start_period(6)
+    c1.healthcheck.set_start_interval(5)
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"] == {
         "test": ["CMD", "echo", "$$1"],
@@ -74,6 +77,7 @@ def test_set_options(mock_values):
         "timeout": "8s",
         "retries": 7,
         "start_period": "6s",
+        "start_interval": "5s",
     }
 
 
