@@ -19,9 +19,9 @@ class Healthcheck:
         self._test: str | list[str] = ""
         self._interval_sec: int = 30
         self._timeout_sec: int = 5
-        self._retries: int = 15
-        self._start_period_sec: int = 0
-        self._start_interval_sec: int = 5
+        self._retries: int = 5
+        self._start_period_sec: int = 15
+        self._start_interval_sec: int = 2
         self._disabled: bool = False
         self._use_built_in: bool = False
 

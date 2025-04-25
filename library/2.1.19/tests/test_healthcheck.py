@@ -40,9 +40,9 @@ def test_set_custom_test(mock_values):
         "test": "echo $$1",
         "interval": "30s",
         "timeout": "5s",
-        "retries": 15,
-        "start_period": "0s",
-        "start_interval": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
     }
 
 
@@ -55,9 +55,9 @@ def test_set_custom_test_array(mock_values):
         "test": ["CMD", "echo", "$$1"],
         "interval": "30s",
         "timeout": "5s",
-        "retries": 15,
-        "start_period": "0s",
-        "start_interval": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
     }
 
 

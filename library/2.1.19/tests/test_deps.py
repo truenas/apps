@@ -62,9 +62,9 @@ def test_add_postgres(mock_values):
         "test": "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB",
         "interval": "30s",
         "timeout": "5s",
-        "retries": 15,
-        "start_period": "0s",
-        "start_interval": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
     }
     assert output["services"]["pg_container"]["volumes"] == [
         {
@@ -151,9 +151,9 @@ def test_add_redis(mock_values):
         "test": "redis-cli -h 127.0.0.1 -p 6379 -a $$REDIS_PASSWORD ping | grep -q PONG",
         "interval": "30s",
         "timeout": "5s",
-        "retries": 15,
-        "start_period": "0s",
-        "start_interval": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
     }
     assert output["services"]["redis_container"]["volumes"] == [
         {
@@ -221,9 +221,9 @@ def test_add_mariadb(mock_values):
         "test": "mariadb-admin --user=root --host=127.0.0.1 --port=3306 --password=$$MARIADB_ROOT_PASSWORD ping",
         "interval": "30s",
         "timeout": "5s",
-        "retries": 15,
-        "start_period": "0s",
-        "start_interval": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
     }
     assert output["services"]["mariadb_container"]["volumes"] == [
         {
