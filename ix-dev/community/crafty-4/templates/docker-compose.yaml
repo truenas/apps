@@ -13,6 +13,21 @@
   {% do c1.add_port(port) %}
 {% endfor %}
 
+{% for port_range in values.network.additional_port_ranges %}
+  {% if port_range.start > port_range.end %}
+    {% do tpl.funcs.fail("Expected [additional_port_ranges.%d.start] to be less than [additional_port_ranges.%d.end], but got [%d] and [%d]" | format(loop.index0, loop.index0, port_range.start, port_range.end)) %}
+  {% endif %}
+
+  {% for port in range(port_range.start, port_range.end+1) %}
+    {% do c1.add_port({
+      "port_number": port,
+      "protocol": port_range.protocol,
+      "bind_mode": port_range.bind_mode,
+      "host_ips": port_range.host_ips,
+    }) %}
+  {% endfor %}
+{% endfor %}
+
 {% do c1.add_storage("/crafty/app/config", values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
 
