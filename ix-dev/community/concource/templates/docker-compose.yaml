@@ -35,10 +35,10 @@
 {% do worker.healthcheck.set_test("http", {"port": values.consts.worker_healthcheck_port}) %}
 
 {% do worker.environment.add_env("CONCOURSE_BIND_PORT", values.consts.worker_port) %}
-{% do worker.environment.add_env("CONCOURSE_HEALTHCHECK_BIND_PORT", values.consts.worker_port) %}
+{% do worker.environment.add_env("CONCOURSE_HEALTHCHECK_BIND_PORT", values.consts.worker_healthcheck_port) %}
 {% do worker.environment.add_env("CONCOURSE_RUNTIME", "containerd") %}
 {% do worker.environment.add_env("CONCOURSE_WORK_DIR", values.concourse.worker_workspace) %}
-{% do worker.environment.add_env("CONCOURSE_TSA_HOST", "%s:%d" | format(values.consts.concourse_web_container_name, values.network.web_port.port_number)) %}
+{% do worker.environment.add_env("CONCOURSE_TSA_HOST", "%s:%d" | format(values.consts.concourse_web_container_name, values.consts.web_tsa_bind_port)) %}
 {% do worker.environment.add_env("CONCOURSE_TSA_PUBLIC_KEY", values.consts.tsa_public_key_path) %}
 {% do worker.environment.add_env("CONCOURSE_TSA_WORKER_PRIVATE_KEY", values.consts.tsa_worker_private_key_path) %}
 {% do worker.environment.add_user_envs(values.concourse.worker_additional_envs) %}
@@ -49,10 +49,12 @@
 {# Web #}
 {% do web.set_command(["web"]) %}
 {% do web.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do web.healthcheck.disable() %}
-{# {% do web.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/v1/info"}) %} #}
+{% do web.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/api/v1/info"}) %}
 
+{# FIXME: This accepts a list of users #}
 {% do web.environment.add_env("CONCOURSE_ADD_LOCAL_USER", "%s:%s" | format(values.concourse.username, values.concourse.password)) %}
+{% do web.environment.add_env("CONCOURSE_BIND_PORT", values.network.web_port.port_number) %}
+{% do web.environment.add_env("CONCOURSE_TSA_BIND_PORT",  values.consts.web_tsa_bind_port) %}
 {% do web.environment.add_env("CONCOURSE_MAIN_TEAM_LOCAL_USER", values.concourse.username) %}
 {% do web.environment.add_env("CONCOURSE_SESSION_SIGNING_KEY", values.consts.session_signing_key_path) %}
 {% do web.environment.add_env("CONCOURSE_TSA_HOST_KEY", values.consts.tsa_host_key_path) %}
