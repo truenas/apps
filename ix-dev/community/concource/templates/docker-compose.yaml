@@ -1,3 +1,4 @@
+{% from "macros/keys.sh" import gen_keys %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
@@ -18,26 +19,18 @@
 ) %}
 
 {# Keys #}
-
-{% set cmds = [
-  "concourse generate-keys -t rsa -f %s/session_signing_key" | format(values.consts.keys_path),
-  "concourse generate-keys -t ssh -f %s/tsa_host_key" | format(values.consts.keys_path),
-  "concourse generate-keys -t ssh -f %s/worker_key" | format(values.consts.keys_path),
-  "ls %s" | format(values.consts.keys_path),
-] %}
-
 {% do keys.healthcheck.disable() %}
 {% do keys.restart.set_policy("on-failure", 1) %}
 {% do keys.deploy.resources.set_profile("low") %}
-{% do keys.set_entrypoint(["/bin/sh", "-c"]) %}
-{% do keys.set_command([cmds | join(" && ")]) %}
+{% do keys.configs.add("config.sh", gen_keys(values), "/config.sh", "0755") %}
+{% do keys.set_entrypoint(["/config.sh"]) %}
 {% do keys.add_storage(values.consts.keys_path, values.storage.keystore) %}
 
 {# Worker #}
 {% do worker.set_cgroup("host") %}
 {% do worker.set_privileged(true) %}
 {% do worker.set_command(["worker"]) %}
-{% do worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do worker.depends.add_dependency(values.consts.concourse_web_container_name, "service_healthy") %}
 {% do worker.depends.add_dependency(values.consts.concourse_keys_container_name, "service_completed_successfully") %}
 {% do worker.healthcheck.set_test("http", {"port": values.consts.worker_healthcheck_port}) %}
 
@@ -55,7 +48,7 @@
 
 {# Web #}
 {% do web.set_command(["web"]) %}
-{% do web.depends.add_dependency(values.consts.concourse_worker_container_name, "service_healthy") %}
+{% do web.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do web.healthcheck.disable() %}
 {# {% do web.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/v1/info"}) %} #}
 
