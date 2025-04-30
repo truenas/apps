@@ -168,9 +168,9 @@ some other info.
 
 ## Warnings
 
+- Container [test_container] is running with a TTY, Logs will not appear correctly in the UI due to an [upstream bug](https://github.com/docker/docker-py/issues/1394)
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
-- Container [test_container] is running with a TTY, Logs will not appear correctly in the UI
 
 ## Deprecations
 

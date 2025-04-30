@@ -48,6 +48,9 @@ class Notes:
     def add_warning(self, warning: str):
         self._warnings.append(warning)
 
+    def _prepend_warning(self, warning: str):
+        self._warnings.insert(0, warning)
+
     def add_deprecation(self, deprecation: str):
         self._deprecations.append(deprecation)
 
@@ -72,7 +75,11 @@ class Notes:
             if "no-new-privileges=true" not in c._security_opt.render():
                 self._security[name].append("Is running without [no-new-privileges] security option")
             if c._tty:
-                self.add_warning(f"Container [{name}] is running with a TTY, Logs will not appear correctly in the UI")
+                self._prepend_warning(
+                    f"Container [{name}] is running with a TTY, "
+                    "Logs will not appear correctly in the UI due to an [upstream bug]"
+                    "(https://github.com/docker/docker-py/issues/1394)"
+                )
 
         self._security = {k: v for k, v in self._security.items() if v}
 
