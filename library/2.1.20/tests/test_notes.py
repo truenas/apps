@@ -198,5 +198,5 @@ some other info.
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
 
-"""
+"""  # noqa
     )
