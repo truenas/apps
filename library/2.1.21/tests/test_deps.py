@@ -22,7 +22,7 @@ def test_add_postgres_missing_config(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.postgres(
-            "test_container",
+            "pg_container",
             "test_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
         )
@@ -36,8 +36,8 @@ def test_add_postgres_unsupported_repo(mock_values):
     perms_container = render.deps.perms("perms_container")
     with pytest.raises(Exception):
         render.deps.postgres(
-            "test_container",
-            "test_image",
+            "pg_container",
+            "pg_image",
             {
                 "user": "test_user",
                 "password": "test_@password",
@@ -118,7 +118,7 @@ def test_add_redis_missing_config(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.redis(
-            "test_container",
+            "redis_container",
             "test_image",
             {"password": "test_password", "volume": {}},  # type: ignore
         )
@@ -132,7 +132,7 @@ def test_add_redis_unsupported_repo(mock_values):
     perms_container = render.deps.perms("perms_container")
     with pytest.raises(Exception):
         render.deps.redis(
-            "test_container",
+            "redis_container",
             "redis_image",
             {
                 "password": "test&password@",
@@ -149,8 +149,8 @@ def test_add_redis_with_password_with_spaces(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.redis(
-            "test_container",
-            "test_image",
+            "redis_container",
+            "redis_image",
             {"password": "test password", "volume": {}},  # type: ignore
         )
 
@@ -222,7 +222,7 @@ def test_add_mariadb_missing_config(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.mariadb(
-            "test_container",
+            "mariadb_container",
             "test_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
         )
@@ -236,7 +236,7 @@ def test_add_mariadb_unsupported_repo(mock_values):
     perms_container = render.deps.perms("perms_container")
     with pytest.raises(Exception):
         render.deps.mariadb(
-            "test_container",
+            "mariadb_container",
             "mariadb_image",
             {
                 "user": "test_user",
@@ -450,7 +450,7 @@ def test_add_unsupported_postgres_version(mock_values):
     with pytest.raises(Exception):
         render.deps.postgres(
             "test_container",
-            "pg_image",
+            "test_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
         )
 
@@ -462,8 +462,8 @@ def test_add_postgres_with_invalid_tag(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.postgres(
-            "test_container",
-            "test_image",
+            "pg_container",
+            "pg_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
         )
 
