@@ -1,0 +1,28 @@
+{% from "macros/caddyfile" import caddyfile %}
+{% from "macros/Dockerfile" import dockerfile %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set caddy_image = dockerfile(values) %}
+{% set caddy_container = tpl.add_container(values.consts.caddy_container_name, "builder") %}
+
+{% do caddy_container.build_image(caddy_image.split("\n")) %}
+{% do caddy_container.add_caps(["NET_BIND_SERVICE", "NET_ADMIN", "NET_RAW"]) %}
+{% do caddy_container.healthcheck.set_test("wget", {"port": 2019, "path": "/reverse_proxy/upstreams"}) %}
+
+{% do caddy_container.configs.add("caddyfile", caddyfile(values), "/etc/caddy/Caddyfile") %}
+{% do caddy_container.environment.add_user_envs(values.caddy.additional_envs) %}
+
+{% do caddy_container.add_extra_host("host.docker.internal", "host-gateway") %}
+{% if not values.network.host_network %}
+  {% for port in values.network.additional_ports %}
+    {% do caddy_container.ports.add_port(port.published, port.target, {"protocol": port.protocol}) %}
+  {% endfor %}
+{% endif %}
+
+{% do caddy_container.add_storage("/data", values.storage.data) %}
+{% do caddy_container.add_storage("/config", values.storage.conf) %}
+{% for store in values.storage.additional_storage %}
+  {% do caddy_container.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}

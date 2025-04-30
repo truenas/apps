@@ -1,0 +1,29 @@
+
+{% macro caddyfile(values) -%}
+{
+	auto_https off
+	tailscale {
+		auth_key {{ values.caddy.tailscale_key }}
+	}
+}
+{% if values.caddy.admin.enabled -%}
+https://{{ values.caddy.admin.hostname }}.{{ values.caddy.tailnet}} {
+	bind tailscale/{{ values.caddy.admin.hostname }}
+	tailscale_auth
+	reverse_proxy :80 {
+		header_up X-Webauth-User {http.auth.user.tailscale_login}
+		header_up X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
+	}
+}
+{%- endif %}
+{% for proxy in values.caddy.proxies -%}
+https://{{ proxy.hostname }}.{{ values.caddy.tailnet}} {
+	bind tailscale/{{ proxy.hostname }}
+	tailscale_auth
+	reverse_proxy :{{ proxy.hostport }} {
+		header_up X-Webauth-User {http.auth.user.tailscale_login}
+		header_up X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
+	}
+}
+{% endfor %}
+{% endmacro %}
