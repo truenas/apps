@@ -59,15 +59,16 @@
 {% do web.healthcheck.set_test("http", {"port": values.network.http_port.port_number, "path": "/api/v1/info"}) %}
 
 {% if values.network.certificate_id %}
-  {% do web.environment.add_env("CONCOURSE_TLS_BIND_PORT", values.network.https_port.port_number) %}
-  {% do web.environment.add_env("CONCOURSE_TLS_CERT", values.consts.ssl_cert_path) %}
-  {% do web.environment.add_env("CONCOURSE_TLS_KEY", values.consts.ssl_key_path) %}
-  {% do web.add_port(values.network.https_port) %}
-  {% do tpl.portals.add_portal({"name": "HTTPS", "port": values.network.https_port.port_number, "scheme": "https"}) %}
-
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do web.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do web.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+
+  {% do web.environment.add_env("CONCOURSE_TLS_CERT", values.consts.ssl_cert_path) %}
+  {% do web.environment.add_env("CONCOURSE_TLS_KEY", values.consts.ssl_key_path) %}
+
+  {% do web.environment.add_env("CONCOURSE_TLS_BIND_PORT", values.network.https_port.port_number) %}
+  {% do web.add_port(values.network.https_port) %}
+  {% do tpl.portals.add_portal({"name": "HTTPS", "port": values.network.https_port.port_number, "scheme": "https"}) %}
 {% endif %}
 
 {% do web.environment.add_env("CONCOURSE_BIND_PORT", values.network.http_port.port_number) %}
