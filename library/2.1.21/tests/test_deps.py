@@ -28,6 +28,26 @@ def test_add_postgres_missing_config(mock_values):
         )
 
 
+def test_add_postgres_unsupported_repo(mock_values):
+    mock_values["images"]["pg_image"] = {"repository": "unsupported_repo", "tag": "16"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.postgres(
+            "test_container",
+            "test_image",
+            {
+                "user": "test_user",
+                "password": "test_@password",
+                "database": "test_database",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
+        )
+
+
 def test_add_postgres(mock_values):
     mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16"}
     render = Render(mock_values)
@@ -101,6 +121,24 @@ def test_add_redis_missing_config(mock_values):
             "test_container",
             "test_image",
             {"password": "test_password", "volume": {}},  # type: ignore
+        )
+
+
+def test_add_redis_unsupported_repo(mock_values):
+    mock_values["images"]["redis_image"] = {"repository": "unsupported_repo", "tag": "latest"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.redis(
+            "test_container",
+            "redis_image",
+            {
+                "password": "test&password@",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
         )
 
 
@@ -187,6 +225,26 @@ def test_add_mariadb_missing_config(mock_values):
             "test_container",
             "test_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+        )
+
+
+def test_add_mariadb_unsupported_repo(mock_values):
+    mock_values["images"]["mariadb_image"] = {"repository": "unsupported_repo", "tag": "latest"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.mariadb(
+            "test_container",
+            "mariadb_image",
+            {
+                "user": "test_user",
+                "password": "test_password",
+                "database": "test_database",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
         )
 
 
@@ -392,7 +450,7 @@ def test_add_unsupported_postgres_version(mock_values):
     with pytest.raises(Exception):
         render.deps.postgres(
             "test_container",
-            "test_image",
+            "pg_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
         )
 
