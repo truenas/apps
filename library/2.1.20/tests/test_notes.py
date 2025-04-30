@@ -155,6 +155,12 @@ some other info.
     )
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
+    c1.set_privileged(True)
+    c1.set_user(0, 0)
+    c1.set_ipc_mode("host")
+    c1.set_cgroup("host")
+    c1.set_tty(True)
+    c1.remove_security_opt("no-new-privileges")
     output = render.render()
     assert (
         output["x-notes"]
@@ -164,11 +170,23 @@ some other info.
 
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
+- Container [test_container] is running with a TTY, Logs will not appear correctly in the UI
 
 ## Deprecations
 
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
+
+## Security
+
+### test_container
+
+- Is running with privileged mode enabled
+- Is running as root user
+- Is running as root group
+- Is running with host IPC namespace
+- Is running with host cgroup namespace
+- Is running without [no-new-privileges] security option
 
 ## Additional info
 

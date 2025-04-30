@@ -11,6 +11,7 @@ class Notes:
         self._app_train: str = ""
         self._warnings: list[str] = []
         self._deprecations: list[str] = []
+        self._security: dict[str, list[str]] = {}
         self._header: str = ""
         self._body: str = ""
         self._footer: str = ""
@@ -53,7 +54,31 @@ class Notes:
     def set_body(self, body: str):
         self._body = body
 
+    def scan_containers(self):
+        for name, c in self._render_instance._containers.items():
+            if self._security.get(name) is None:
+                self._security[name] = []
+
+            if c._privileged:
+                self._security[name].append("Is running with privileged mode enabled")
+            if c._user.startswith("0:"):
+                self._security[name].append("Is running as root user")
+            if c._user.endswith(":0"):
+                self._security[name].append("Is running as root group")
+            if c._ipc_mode == "host":
+                self._security[name].append("Is running with host IPC namespace")
+            if c._cgroup == "host":
+                self._security[name].append("Is running with host cgroup namespace")
+            if "no-new-privileges=true" not in c._security_opt.render():
+                self._security[name].append("Is running without [no-new-privileges] security option")
+            if c._tty:
+                self.add_warning(f"Container [{name}] is running with a TTY, Logs will not appear correctly in the UI")
+
+        self._security = {k: v for k, v in self._security.items() if v}
+
     def render(self):
+        self.scan_containers()
+
         result = self._header
 
         if self._warnings:
@@ -67,6 +92,14 @@ class Notes:
             for deprecation in self._deprecations:
                 result += f"- {deprecation}\n"
             result += "\n"
+
+        if self._security:
+            result += "## Security\n\n"
+            for c_name, security in self._security.items():
+                result += "### " + c_name + "\n\n"
+                for s in security:
+                    result += f"- {s}\n"
+                result += "\n"
 
         if self._body:
             result += self._body.strip() + "\n\n"
