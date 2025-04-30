@@ -63,7 +63,7 @@ class MariadbContainer:
         self._container = c
 
     def _get_port(self):
-        return self._config.get("port") or 5432
+        return self._config.get("port") or 3306
 
     def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
