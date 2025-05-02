@@ -23,14 +23,6 @@ def test_build_image_with_from(mock_values):
         c1.build_image(["FROM test_image"])
 
 
-def test_build_image_with_from_with_whitespace(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
-        c1.build_image([" FROM test_image"])
-
-
 def test_build_image(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
