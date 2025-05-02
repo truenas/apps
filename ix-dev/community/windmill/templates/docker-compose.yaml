@@ -11,6 +11,7 @@
 {% endif %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -39,7 +40,7 @@
 {% do c_server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do c_server.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
-{% do perm_container.add_or_skip_action("worker_logs", values.storage.worker_logs, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
+{% do perm_container.add_or_skip_action("worker_logs", values.storage.worker_logs, perms_config) %}
 
 {# Windmill Worker Container #}
 {% set c_worker = tpl.add_container(values.consts.windmill_worker_container_name, "image") %}
@@ -55,7 +56,7 @@
 {% do c_worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do c_worker.add_storage("/tmp/windmill/cache", values.storage.worker_cache) %}
-{% do perm_container.add_or_skip_action("worker_cache", values.storage.worker_cache, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
+{% do perm_container.add_or_skip_action("worker_cache", values.storage.worker_cache, perms_config) %}
 
 {% do c_worker.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
 
@@ -93,7 +94,7 @@
 {% do c_lsp.healthcheck.set_test("wget", {"port": 3001, "path": "/", "scheme": "http"}) %}
 
 {% do c_lsp.add_storage("/pyls/.cache", values.storage.lsp_cache) %}
-{% do perm_container.add_or_skip_action("lsp_cache", values.storage.lsp_cache, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
+{% do perm_container.add_or_skip_action("lsp_cache", values.storage.lsp_cache, perms_config) %}
 
 {# Caddy Container #}
 {% set c_caddy = tpl.add_container(values.consts.caddy_container_name, "caddy_image") %}
@@ -106,7 +107,7 @@
 {% do c_caddy.depends.add_dependency(values.consts.lsp_container_name, "service_started") %}
 
 {% do c_caddy.add_storage("/data", values.storage.caddy_data) %}
-{% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
+{% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, perms_config) %}
 
 {% do c_caddy.configs.add("Caddyfile", "Caddyfile", "/etc/caddy/Caddyfile") %}
 
@@ -121,7 +122,6 @@
 
 {# Add additional storage to containers #}
 {% for store in values.storage.additional_storage %}
-  {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
   {% do c_server.add_storage(store.mount_path, store) %}
   {% do c_worker.add_storage(store.mount_path, store) %}
   {% do c_worker_native.add_storage(store.mount_path, store) %}
