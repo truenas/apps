@@ -99,27 +99,6 @@
 {% do c_worker_native.scale.set_replicas(values.worker.native_replicas) %}
 #}
 
-{# Windmill Indexer Container (Optional) #}
-{% if values.optional.enable_indexer %}
-{% set c_indexer = tpl.add_container(values.consts.windmill_indexer_container_name, "image") %}
-{% do c_indexer.set_user(values.run_as.user, values.run_as.group) %}
-{% do c_indexer.healthcheck.set_test("wget", {"port": 8002, "path": "/api/health", "scheme": "http"}) %}
-
-{% do c_indexer.environment.add_env("PORT", "8002") %}
-{% do c_indexer.environment.add_env("DATABASE_URL", database_url) %}
-{% do c_indexer.environment.add_env("MODE", "indexer") %}
-{# TZ is already defined automatically from the library #}
-{% do c_indexer.environment.add_user_envs(values.windmill.additional_envs) %}
-
-{% do c_indexer.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-
-{% do c_indexer.add_storage("/tmp/windmill/search", values.storage.windmill_index) %}
-{% do perm_container.add_or_skip_action("windmill_index", values.storage.windmill_index, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
-
-{% do c_indexer.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
-
-{% do c_indexer.expose.add_port(8002) %}
-{% endif %}
 
 {# LSP Container #}
 {% set c_lsp = tpl.add_container(values.consts.lsp_container_name, "lsp_image") %}
@@ -131,14 +110,6 @@
 
 {% do c_lsp.expose.add_port(3001) %}
 
-{# Multiplayer Container (Optional) #}
-{% if values.optional.enable_multiplayer %}
-{% set c_multiplayer = tpl.add_container(values.consts.multiplayer_container_name, "multiplayer_image") %}
-{% do c_multiplayer.set_user(values.run_as.user, values.run_as.group) %}
-{% do c_multiplayer.healthcheck.set_test("wget", {"port": 3002, "path": "/", "scheme": "http"}) %}
-
-{% do c_multiplayer.expose.add_port(3002) %}
-{% endif %}
 
 {# Caddy Container #}
 {% set c_caddy = tpl.add_container(values.consts.caddy_container_name, "caddy_image") %}
@@ -149,12 +120,6 @@
 
 {% do c_caddy.depends.add_dependency(values.consts.windmill_server_container_name, "service_healthy") %}
 {% do c_caddy.depends.add_dependency(values.consts.lsp_container_name, "service_started") %}
-{% if values.optional.enable_multiplayer %}
-{% do c_caddy.depends.add_dependency(values.consts.multiplayer_container_name, "service_started") %}
-{% endif %}
-{% if values.optional.enable_indexer %}
-{% do c_caddy.depends.add_dependency(values.consts.windmill_indexer_container_name, "service_started") %}
-{% endif %}
 
 {% do c_caddy.add_storage("/data", values.storage.caddy_data) %}
 {% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
@@ -176,9 +141,6 @@
   {% do c_server.add_storage(store.mount_path, store) %}
   {% do c_worker.add_storage(store.mount_path, store) %}
   {% do c_worker_native.add_storage(store.mount_path, store) %}
-  {% if values.optional.enable_indexer %}
-  {% do c_indexer.add_storage(store.mount_path, store) %}
-  {% endif %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
@@ -191,12 +153,8 @@
       {% do c_worker.labels.add(label.key, label.value) %}
     {% elif container == "windmill_worker_native" %}
       {% do c_worker_native.labels.add(label.key, label.value) %}
-    {% elif container == "windmill_indexer" and values.optional.enable_indexer %}
-      {% do c_indexer.labels.add(label.key, label.value) %}
     {% elif container == "lsp" %}
       {% do c_lsp.labels.add(label.key, label.value) %}
-    {% elif container == "multiplayer" and values.optional.enable_multiplayer %}
-      {% do c_multiplayer.labels.add(label.key, label.value) %}
     {% elif container == "caddy" %}
       {% do c_caddy.labels.add(label.key, label.value) %}
     {% elif container == "postgres" %}
@@ -210,13 +168,7 @@
   {% do c_server.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do c_worker.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do c_worker_native.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% if values.optional.enable_indexer %}
-  {% do c_indexer.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% endif %}
   {% do c_lsp.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% if values.optional.enable_multiplayer %}
-  {% do c_multiplayer.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% endif %}
   {% do c_caddy.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
