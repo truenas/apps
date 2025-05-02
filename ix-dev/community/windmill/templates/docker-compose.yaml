@@ -25,14 +25,13 @@
 ) %}
 
 {% set proto = "https" if values.network.certificate_id else "http" %}
-{% set database_url = "postgres://" + values.consts.db_user + ":" + values.windmill.db_password + "@" + values.consts.postgres_container_name + "/" + values.consts.db_name + "?sslmode=disable" %}
 
 {# Windmill Server Container #}
 {% set c_server = tpl.add_container(values.consts.windmill_server_container_name, "image") %}
 {% do c_server.set_user(values.run_as.user, values.run_as.group) %}
 {% do c_server.healthcheck.set_test("wget", {"port": 8000, "path": "/api/health", "scheme": "http"}) %}
 
-{% do c_server.environment.add_env("DATABASE_URL", database_url) %}
+{% do c_server.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c_server.environment.add_env("MODE", "server") %}
 {# TZ is already defined automatically from the library #}
 {% do c_server.environment.add_user_envs(values.windmill.additional_envs) %}
@@ -47,7 +46,7 @@
 {% do c_worker.set_user(values.run_as.user, values.run_as.group) %}
 {% do c_worker.healthcheck.set_test("wget", {"port": 8000, "path": "/api/health", "scheme": "http"}) %}
 
-{% do c_worker.environment.add_env("DATABASE_URL", database_url) %}
+{% do c_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c_worker.environment.add_env("MODE", "worker") %}
 {% do c_worker.environment.add_env("WORKER_GROUP", "default") %}
 {# TZ is already defined automatically from the library #}
@@ -73,7 +72,7 @@
 {% do c_worker_native.set_user(values.run_as.user, values.run_as.group) %}
 {% do c_worker_native.healthcheck.set_test("wget", {"port": 8000, "path": "/api/health", "scheme": "http"}) %}
 
-{% do c_worker_native.environment.add_env("DATABASE_URL", database_url) %}
+{% do c_worker_native.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c_worker_native.environment.add_env("MODE", "worker") %}
 {% do c_worker_native.environment.add_env("WORKER_GROUP", "native") %}
 {% do c_worker_native.environment.add_env("NUM_WORKERS", values.worker.native_num_workers) %}
