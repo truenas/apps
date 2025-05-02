@@ -1,13 +1,14 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set reserved_args = ["--no-autoupdate", "tunnel", "run"] %}
 {% if values.cloudflared.additional_args != values.cloudflared.additional_args|unique|list %}
   {% do tpl.funcs.fail("Cloudflared [cloudflared.additional_args] contains duplicate values [%s], please remove them" | format(values.cloudflared.additional_args|join(', '))) %}
 {% endif %}
 {% for arg in values.cloudflared.additional_args %}
-  {% if arg in reserved_args %}
-    {% do tpl.funcs.fail("Cloudflared already inserts [%s] as an argument, please remove it from [cloudflared.additional_args]" | format(arg)) %}
-  {% endif %}
+  {% for reserved_arg in values.consts.reserved_args %}
+    {% if arg.startswith(reserved_arg) %}
+      {% do tpl.funcs.fail("Cloudflared already inserts [%s] as an argument, please remove it from [cloudflared.additional_args]" | format(arg)) %}
+    {% endif %}
+  {% endfor %}
 {% endfor %}
 
 {% set c1 = tpl.add_container(values.consts.cloudflared_container_name, "image") %}
@@ -16,17 +17,23 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.disable() %}
-{% set cmd = namespace(x=["tunnel", "--no-autoupdate"]) %}
-{% if values.ci %}
-  {% do cmd.x.append("--hello-world") %}
+{% set cmd = (values.cloudflared.additional_args + ["run"]) if not values.ci else [] %}
+{% do c1.set_command(["tunnel"] + cmd) %}
+
+{% do c1.environment.add_env("TUNNEL_HELLO_WORLD", values.ci) %}
+{% do c1.environment.add_env("NO_AUTOUPDATE", true) %}
+{% do c1.environment.add_env("TUNNEL_TOKEN", values.cloudflared.tunnel_token) %}
+
+{% if values.cloudflared.tunnel_dns %}
+  {% do c1.environment.add_env("TUNNEL_DNS", values.cloudflared.tunnel_dns) %}
+  {% do c1.environment.add_env("TUNNEL_DNS_UPSTREAM", values.cloudflared.tunnel_dns_upstream|join(',')) %}
+  {% do c1.environment.add_env("TUNNEL_DNS_PORT", values.network.tunnel_dns_port.port_number) %}
 {% else %}
-  {% do cmd.x.extend(values.cloudflared.additional_args) %}
-  {% do cmd.x.append("run") %}
+  {% if values.network.tunnel_dns_port.bind_mode %}
+    {% do tpl.funcs.fail("Cloudflared tunnel DNS is disabled, but [network.tunnel_dns_port.bind_mode] is set, please set [cloudflared.tunnel_dns] to true or remove [network.tunnel_dns_port.bind_mode]") %}
+  {% endif %}
 {% endif %}
 
-{% do c1.set_command(cmd.x) %}
-
-{% do c1.environment.add_env("TUNNEL_TOKEN", values.cloudflared.tunnel_token) %}
 {% do c1.environment.add_user_envs(values.cloudflared.additional_envs) %}
 
 {% for store in values.storage.additional_storage %}
