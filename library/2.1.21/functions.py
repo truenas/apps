@@ -99,6 +99,23 @@ class Functions:
             return default
         return value
 
+    def _require_unique(self, values, key, split_char=""):
+        new_values = []
+        for value in values:
+            new_values.append(value.split(split_char)[0] if split_char else value)
+
+        if len(new_values) != len(set(new_values)):
+            raise RenderError(f"Expected values in [{key}] to be unique, but got [{', '.join(values)}]")
+
+    def _require_no_reserved(self, values, key, reserved, split_char=""):
+        new_values = []
+        for value in values:
+            new_values.append(value.split(split_char)[0] if split_char else value)
+
+        for reserved_value in reserved:
+            if reserved_value in new_values:
+                raise RenderError(f"Value [{reserved_value}] is reserved and cannot be set in [{key}]")
+
     def _temp_config(self, name):
         if not name:
             raise RenderError("Expected [name] to be set when calling [temp_config].")
@@ -126,7 +143,6 @@ class Functions:
                 raise RenderError(f"Storage type [{source_type}] does not support host path.")
 
     def func_map(self):
-        # TODO: Check what is no longer used and remove
         return {
             "auto_cast": self._auto_cast,
             "basic_auth_header": self._basic_auth_header,
@@ -146,4 +162,6 @@ class Functions:
             "get_host_path": self._get_host_path,
             "or_default": self._or_default,
             "temp_config": self._temp_config,
+            "require_unique": self._require_unique,
+            "require_no_reserved": self._require_no_reserved,
         }

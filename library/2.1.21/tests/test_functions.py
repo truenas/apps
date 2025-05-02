@@ -72,6 +72,22 @@ def test_funcs(mock_values):
             "values": ["test"],
             "expected": {"type": "temporary", "volume_config": {"volume_name": "test"}},
         },
+        {"func": "require_unique", "values": [["a=1", "b=2", "c"], "values.key", "="], "expected": None},
+        {
+            "func": "require_unique",
+            "values": [["a=1", "b=2", "b=3"], "values.key", "="],
+            "expect_raise": True,
+        },
+        {
+            "func": "require_no_reserved",
+            "values": [["a=1", "b=2", "c"], "values.key", ["d"], "="],
+            "expected": None,
+        },
+        {
+            "func": "require_no_reserved",
+            "values": [["a=1", "b=2", "c"], "values.key", ["a"], "="],
+            "expect_raise": True,
+        },
     ]
 
     for test in tests:
