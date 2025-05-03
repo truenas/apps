@@ -25,12 +25,10 @@
   pg_config, perm_container
 ) %}
 
-{% set proto = "https" if values.network.certificate_id else "http" %}
-
 {# Windmill Server Container #}
 {% set c_server = tpl.add_container(values.consts.windmill_server_container_name, "image") %}
 {% do c_server.set_user(values.run_as.user, values.run_as.group) %}
-{% do c_server.healthcheck.set_test("wget", {"port": 8000, "path": "/api/health"}) %}
+{% do c_server.healthcheck.set_test("wget", {"port": 8000, "path": "/"}) %}
 
 {% do c_server.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c_server.environment.add_env("MODE", "server") %}
@@ -45,7 +43,7 @@
 {# Windmill Worker Container #}
 {% set c_worker = tpl.add_container(values.consts.windmill_worker_container_name, "image") %}
 {% do c_worker.set_user(values.run_as.user, values.run_as.group) %}
-{% do c_worker.healthcheck.set_test("wget", {"port": 8000, "path": "/api/health"}) %}
+{% do c_worker.healthcheck.disable() %}
 
 {% do c_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c_worker.environment.add_env("MODE", "worker") %}
@@ -71,7 +69,7 @@
 {# Windmill Worker Native Container #}
 {% set c_worker_native = tpl.add_container(values.consts.windmill_worker_native_container_name, "image") %}
 {% do c_worker_native.set_user(values.run_as.user, values.run_as.group) %}
-{% do c_worker_native.healthcheck.set_test("wget", {"port": 8000, "path": "/api/health"}) %}
+{% do c_worker_native.healthcheck.disable() %}
 
 {% do c_worker_native.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c_worker_native.environment.add_env("MODE", "worker") %}
@@ -91,7 +89,7 @@
 {# LSP Container #}
 {% set c_lsp = tpl.add_container(values.consts.lsp_container_name, "lsp_image") %}
 {% do c_lsp.set_user(values.run_as.user, values.run_as.group) %}
-{% do c_lsp.healthcheck.set_test("wget", {"port": 3001, "path": "/"}) %}
+{% do c_lsp.healthcheck.set_test("tcp", {"port": 3001}) %}
 
 {% do c_lsp.add_storage("/pyls/.cache", values.storage.lsp_cache) %}
 {% do perm_container.add_or_skip_action("lsp_cache", values.storage.lsp_cache, perms_config) %}
@@ -111,14 +109,8 @@
 
 {% do c_caddy.configs.add("Caddyfile", "Caddyfile", "/etc/caddy/Caddyfile") %}
 
-{% do c_caddy.ports.add_port(values.network.web_port, 80) %}
-{% do c_caddy.ports.add_port(values.network.smtp_port, 25) %}
-
-{% if values.network.certificate_id %}
-  {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do c_caddy.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
-  {% do c_caddy.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
-{% endif %}
+{% do c_caddy.ports.add_port(values.network.web_port.port_number, 80) %}
+{% do c_caddy.ports.add_port(values.network.smtp_port.port_number, 25) %}
 
 {# Add additional storage to containers #}
 {% for store in values.storage.additional_storage %}
@@ -138,6 +130,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
