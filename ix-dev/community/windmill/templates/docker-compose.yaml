@@ -28,7 +28,8 @@
 
 {# Windmill Server Container #}
 {% set c_server = tpl.add_container(values.consts.windmill_server_container_name, "image") %}
-{% do c_server.set_user(values.run_as.user, values.run_as.group) %}
+{% do c_server.set_user(0, 0) %}
+{% do c_server.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
 {% do c_server.healthcheck.set_test("wget", {"port": 8000, "path": "/"}) %}
 
 {% do c_server.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
@@ -43,13 +44,13 @@
 
 {# Windmill Worker Container #}
 {% set c_worker = tpl.add_container(values.consts.windmill_worker_container_name, "image") %}
-{% do c_worker.set_user(values.run_as.user, values.run_as.group) %}
+{% do c_worker.set_user(0, 0) %}
+{% do c_worker.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
 {% do c_worker.healthcheck.disable() %}
 
 {% do c_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c_worker.environment.add_env("MODE", "worker") %}
 {% do c_worker.environment.add_env("WORKER_GROUP", "default") %}
-{# TZ is already defined automatically from the library #}
 {% do c_worker.environment.add_user_envs(values.windmill.additional_envs) %}
 
 {% do c_worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -69,7 +70,8 @@
 
 {# Windmill Worker Native Container #}
 {% set c_worker_native = tpl.add_container(values.consts.windmill_worker_native_container_name, "image") %}
-{% do c_worker_native.set_user(values.run_as.user, values.run_as.group) %}
+{% do c_worker_native.set_user(0, 0) %}
+{% do c_worker_native.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
 {% do c_worker_native.healthcheck.disable() %}
 
 {% do c_worker_native.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
@@ -82,6 +84,27 @@
 {% do c_worker_native.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do c_worker_native.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
+
+{# Windmill Worker Reports Container #}
+{% if values.windmill.enable_report_workers %}
+{% set c_worker_reports = tpl.add_container(values.consts.windmill_worker_reports_container_name, "image") %}
+{# required to let the worker install dependencies on startup #}
+{% do c_worker_reports.set_user(0, 0) %}
+{% do c_worker_reports.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
+{% do c_worker_reports.healthcheck.disable() %}
+
+{% do c_worker_reports.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do c_worker_reports.environment.add_env("MODE", "worker") %}
+{% do c_worker_reports.environment.add_env("WORKER_GROUP", "reports") %}
+{% do c_worker_reports.environment.add_env("NUM_WORKERS", values.worker.reports_num_workers) %}
+{% do c_worker_reports.environment.add_env("SLEEP_QUEUE", 200) %}
+{% do c_worker_reports.environment.add_user_envs(values.windmill.additional_envs) %}
+
+{% do c_worker_reports.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{% do c_worker_reports.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
+
+{% endif %}
 
 {# Commented out due to missing resources attribute
 {% do c_worker_native.resources.set_limits({"cpu": values.resources.limits.worker_cpus, "memory": values.resources.limits.worker_memory}) %}
