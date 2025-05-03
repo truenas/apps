@@ -1,3 +1,4 @@
+{% from "macros/caddyfile.conf.jinja" import caddyfile %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% if values.windmill.web_host.startswith("https://") or values.windmill.web_host.startswith("http://") %}
@@ -107,10 +108,12 @@
 {% do c_caddy.add_storage("/data", values.storage.caddy_data) %}
 {% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, perms_config) %}
 
-{% do c_caddy.configs.add("Caddyfile", "Caddyfile", "/etc/caddy/Caddyfile") %}
+{% do c_caddy.configs.add("Caddyfile", caddyfile(values), "/etc/caddy/Caddyfile") %}
 
 {% do c_caddy.ports.add_port(values.network.web_port.port_number, 80) %}
 {% do c_caddy.ports.add_port(values.network.smtp_port.port_number, 25) %}
+
+{% do c_caddy.add_caps(["NET_BIND_SERVICE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
 
 {# Add additional storage to containers #}
 {% for store in values.storage.additional_storage %}
