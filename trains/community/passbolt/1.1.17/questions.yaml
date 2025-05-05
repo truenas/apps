@@ -1,34 +1,25 @@
 groups:
-  - name: WordPress Configuration
-    description: Configure WordPress
+  - name: Passbolt Configuration
+    description: Configure Passbolt
   - name: Network Configuration
-    description: Configure Network for WordPress
+    description: Configure Network for Passbolt
   - name: Storage Configuration
-    description: Configure Storage for WordPress
+    description: Configure Storage for Passbolt
   - name: Labels Configuration
-    description: Configure Labels for WordPress
+    description: Configure Labels for Passbolt
   - name: Resources Configuration
-    description: Configure Resources for WordPress
+    description: Configure Resources for Passbolt
 
 questions:
-  - variable: TZ
-    group: WordPress Configuration
-    label: Timezone
-    schema:
-      type: string
-      default: Etc/UTC
-      required: true
-      $ref:
-        - definitions/timezone
-  - variable: wordpress
+  - variable: passbolt
     label: ""
-    group: WordPress Configuration
+    group: Passbolt Configuration
     schema:
       type: dict
       attrs:
         - variable: db_password
           label: Database Password
-          description: The database password for WordPress.
+          description: The database password for Passbolt.
           schema:
             type: string
             default: ""
@@ -36,15 +27,24 @@ questions:
             private: true
         - variable: db_root_password
           label: Root Database Password
-          description: The root database password for WordPress.
+          description: The root database password for Passbolt.
           schema:
             type: string
             default: ""
-            required: false
+            required: true
             private: true
+        - variable: app_url
+          label: App URL
+          description: |
+            The URL for the Passbolt WebUI.</br>
+            Format is: https://sub.domain.tld:port
+          schema:
+            type: uri
+            default: ""
+            required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for WordPress.
+          description: Configure additional environment variables for Passbolt.
           schema:
             type: list
             default: []
@@ -73,13 +73,21 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for WordPress WebUI
+          description: The port for Passbolt WebUI
           schema:
             type: int
-            default: 30040
+            default: 30097
             required: true
             $ref:
               - definitions/port
+        - variable: certificate_id
+          label: Certificate
+          description: The certificate to use for Passbolt.
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - "definitions/certificate"
 
   - variable: storage
     label: ""
@@ -87,9 +95,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: data
-          label: WordPress Data Storage
-          description: The path to store WordPress Data.
+        - variable: gpg
+          label: Passbolt GPG Storage
+          description: The path to store Passbolt GPG.
           schema:
             type: dict
             attrs:
@@ -131,7 +139,85 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "data"
+                        default: "gpg"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: jwt
+          label: Passbolt JWT Storage
+          description: The path to store Passbolt JWT.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  immutable: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        immutable: true
+                        hidden: true
+                        default: "jwt"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -166,8 +252,8 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: mariadb_data
-          label: WordPress MariaDB Data Storage
-          description: The path to store WordPress MariaDB Data.
+          label: Passbolt MariaDB Data Storage
+          description: The path to store Passbolt MariaDB Data.
           schema:
             type: dict
             attrs:
@@ -245,7 +331,7 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for WordPress.
+          description: Additional storage for Passbolt.
           schema:
             type: list
             default: []
@@ -414,8 +500,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: wordpress
-                            description: wordpress
+                          - value: passbolt
+                            description: passbolt
                           - value: mariadb
                             description: mariadb
   - variable: resources
@@ -431,14 +517,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for WordPress.
+                description: CPUs limit for Passbolt.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for WordPress.
+                description: Memory limit for Passbolt.
                 schema:
                   type: int
                   default: 4096
