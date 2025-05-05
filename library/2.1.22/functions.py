@@ -44,18 +44,18 @@ class Functions:
         return string.title()
 
     def _auto_cast(self, value):
-        try:
-            return int(value)
-        except ValueError:
-            pass
+        if value.lower() in ["true", "false"]:
+            return value.lower() == "true"
 
         try:
             return float(value)
         except ValueError:
             pass
 
-        if value.lower() in ["true", "false"]:
-            return value.lower() == "true"
+        try:
+            return int(value)
+        except ValueError:
+            pass
 
         return value
 
