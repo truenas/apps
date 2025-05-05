@@ -28,6 +28,7 @@ def test_funcs(mock_values):
         {"func": "auto_cast", "values": ["TrUe"], "expected": True},
         {"func": "auto_cast", "values": ["FaLsE"], "expected": False},
         {"func": "auto_cast", "values": ["0.2"], "expected": 0.2},
+        {"func": "auto_cast", "values": [True], "expected": True},
         {"func": "basic_auth_header", "values": ["my_user", "my_pass"], "expected": "Basic bXlfdXNlcjpteV9wYXNz"},
         {"func": "basic_auth", "values": ["my_user", "my_pass"], "expected": "bXlfdXNlcjpteV9wYXNz"},
         {

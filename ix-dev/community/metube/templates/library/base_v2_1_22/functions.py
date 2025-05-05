@@ -44,8 +44,9 @@ class Functions:
         return string.title()
 
     def _auto_cast(self, value):
-        if value.lower() in ["true", "false"]:
-            return value.lower() == "true"
+        lower_str_value = str(value).lower()
+        if lower_str_value in ["true", "false"]:
+            return lower_str_value == "true"
 
         try:
             return float(value)
