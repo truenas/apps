@@ -8,15 +8,20 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
 {% do c1.environment.add_env("JWT_SECRET", values.convertx.jwt_secret) %}
-{% do c1.environment.add_env("WEBROOT", "/") %}
+{% do c1.environment.add_env("WEBROOT", "") %}
 {% do c1.environment.add_user_envs(values.convertx.additional_envs) %}
 
 {% if not values.network.host_network %}
   {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% endif %}
 
+{% set tmp_config = {"type": "temporary", "volume_config": {"volume_name": "tmp-convertx"}} %}
+{% do c1.add_storage("/.config", tmp_config) %}
+{% do perm_container.add_or_skip_action("tmp-convertx", tmp_config, perms_config) %}
+
 {% do c1.add_storage("/app/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
