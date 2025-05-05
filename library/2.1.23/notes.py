@@ -113,7 +113,7 @@ class Notes:
         if self._security:
             result += "## Security\n\n"
             for c_name, security in self._security.items():
-                result += "### Container: " + c_name
+                result += f"### Container: [{c_name}]"
                 if "short-lived" in security:
                     result += "\n\n**This container is short-lived.**"
                 result += "\n\n"

@@ -34,7 +34,7 @@ def test_notes(mock_values):
 
 ## Security
 
-### Container: test_container
+### Container: [test_container]
 
 - Is running as unknown user
 - Is running as unknown group
@@ -191,7 +191,7 @@ some other info.
 
 ## Security
 
-### Container: test_container
+### Container: [test_container]
 
 **This container is short-lived.**
 
