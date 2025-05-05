@@ -149,6 +149,7 @@ class Container:
     def build_image(self, content: list[str | None]):
         dockerfile = f"FROM {self._image}\n"
         for line in content:
+            line = line.strip() if line else ""
             if not line:
                 continue
             if line.startswith("FROM"):
