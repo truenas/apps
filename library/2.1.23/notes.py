@@ -69,10 +69,10 @@ class Notes:
                 self._security[name].append("Is running with privileged mode enabled")
 
             run_as = c._user.split(":") if c._user else [-1, -1]
-            if run_as[0] == "0" or run_as[0] == -1:
-                self._security[name].append(f"Is running as {'root' if run_as[0] == 0 else 'unknown'} user")
-            if run_as[1] == "0" or run_as[1] == -1:
-                self._security[name].append(f"Is running as {'root' if run_as[1] == 0 else 'unknown'} group")
+            if run_as[0] in ["0", -1]:
+                self._security[name].append(f"Is running as {'root' if run_as[0] == '0' else 'unknown'} user")
+            if run_as[1] in ["0", -1]:
+                self._security[name].append(f"Is running as {'root' if run_as[1] == '0' else 'unknown'} group")
 
             if c._ipc_mode == "host":
                 self._security[name].append("Is running with host IPC namespace")
