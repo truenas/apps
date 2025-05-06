@@ -1,0 +1,31 @@
+{% macro setup_py(values) -%}
+import sys
+sys.path.append('/tmp/python')
+from pathlib import Path
+import toml
+import os
+import io
+
+config_file_path = '/arti/arti.toml'
+Path(config_file_path).touch(exist_ok=True)
+os.chmod(config_file_path, 0o664)
+
+docker_host_ip = os.popen("getent hosts host.docker.internal").read().split()[0]
+arti_config = toml.load(config_file_path)
+arti_config['onion_services'] = {}
+
+{% for service in values.arti.hidden_services %}
+ip = '{{ service.ip }}' or docker_host_ip
+
+arti_config['onion_services']['{{ service.name }}'] = {}
+arti_config['onion_services']['{{ service.name }}']['proxy_ports'] = [
+  ['{{ service.hidden_service_port }}', f'{ip}:{{ service.port }}'],
+  ['*', 'destroy']
+]
+{% endfor %}
+
+with open(config_file_path, 'w') as f:
+  toml.dump(arti_config, f)
+
+print('Arti config updated successfully!')
+{%- endmacro %}
