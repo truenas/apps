@@ -56,7 +56,7 @@ class PostgresContainer:
             "POSTGRES_USER": config["user"],
             "POSTGRES_PASSWORD": config["password"],
             "POSTGRES_DB": config["database"],
-            "POSTGRES_PORT": port,
+            "PGPORT": port,
         }
 
         for k, v in common_variables.items():
@@ -66,7 +66,7 @@ class PostgresContainer:
             f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
         )
 
-        repo = self._get_repo(image)
+        repo = self._get_repo(image, ("postgres", "tensorchord/pgvecto-rs"))
         # eg we don't want to handle upgrades of pg_vector at the moment
         if repo == "postgres":
             target_major_version = self._get_target_version(image)
@@ -103,13 +103,15 @@ class PostgresContainer:
     def _get_port(self):
         return self._config.get("port") or 5432
 
-    def _get_repo(self, image):
+    def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
-        repo = images[image].get("repository", "")
+        repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
+        if repo not in supported_repos:
+            raise RenderError(f"Unsupported repo [{repo}] for postgres. Supported repos: {', '.join(supported_repos)}")
         return repo
 
     def _get_target_version(self, image):

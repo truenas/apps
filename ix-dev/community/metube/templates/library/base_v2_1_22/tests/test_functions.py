@@ -25,6 +25,10 @@ def test_funcs(mock_values):
 
     tests = [
         {"func": "auto_cast", "values": ["1"], "expected": 1},
+        {"func": "auto_cast", "values": ["TrUe"], "expected": True},
+        {"func": "auto_cast", "values": ["FaLsE"], "expected": False},
+        {"func": "auto_cast", "values": ["0.2"], "expected": 0.2},
+        {"func": "auto_cast", "values": [True], "expected": True},
         {"func": "basic_auth_header", "values": ["my_user", "my_pass"], "expected": "Basic bXlfdXNlcjpteV9wYXNz"},
         {"func": "basic_auth", "values": ["my_user", "my_pass"], "expected": "bXlfdXNlcjpteV9wYXNz"},
         {
@@ -71,6 +75,22 @@ def test_funcs(mock_values):
             "func": "temp_config",
             "values": ["test"],
             "expected": {"type": "temporary", "volume_config": {"volume_name": "test"}},
+        },
+        {"func": "require_unique", "values": [["a=1", "b=2", "c"], "values.key", "="], "expected": None},
+        {
+            "func": "require_unique",
+            "values": [["a=1", "b=2", "b=3"], "values.key", "="],
+            "expect_raise": True,
+        },
+        {
+            "func": "require_no_reserved",
+            "values": [["a=1", "b=2", "c"], "values.key", ["d"], "="],
+            "expected": None,
+        },
+        {
+            "func": "require_no_reserved",
+            "values": [["a=1", "b=2", "c"], "values.key", ["a"], "="],
+            "expect_raise": True,
         },
     ]
 

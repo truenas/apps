@@ -157,6 +157,13 @@ def valid_cgroup_perm_or_raise(cgroup_perm: str):
     return cgroup_perm
 
 
+def valid_cgroup_or_raise(cgroup: str):
+    valid_cgroup = ("host", "private")
+    if cgroup not in valid_cgroup:
+        raise RenderError(f"Cgroup [{cgroup}] is not valid. Valid options are: [{', '.join(valid_cgroup)}]")
+    return cgroup
+
+
 def valid_device_cgroup_rule_or_raise(dev_grp_rule: str):
     parts = dev_grp_rule.split(" ")
     if len(parts) != 3:
