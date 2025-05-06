@@ -62,12 +62,18 @@ class Notes:
             if self._security.get(name) is None:
                 self._security[name] = []
 
+            if c.restart._policy == "on-failure":
+                self._security[name].append("short-lived")
+
             if c._privileged:
                 self._security[name].append("Is running with privileged mode enabled")
-            if c._user.startswith("0:"):
-                self._security[name].append("Is running as root user")
-            if c._user.endswith(":0"):
-                self._security[name].append("Is running as root group")
+
+            run_as = c._user.split(":") if c._user else [-1, -1]
+            if run_as[0] in ["0", -1]:
+                self._security[name].append(f"Is running as {'root' if run_as[0] == '0' else 'unknown'} user")
+            if run_as[1] in ["0", -1]:
+                self._security[name].append(f"Is running as {'root' if run_as[1] == '0' else 'unknown'} group")
+
             if c._ipc_mode == "host":
                 self._security[name].append("Is running with host IPC namespace")
             if c._cgroup == "host":
@@ -103,8 +109,11 @@ class Notes:
         if self._security:
             result += "## Security\n\n"
             for c_name, security in self._security.items():
-                result += "### " + c_name + "\n\n"
-                for s in security:
+                result += f"### Container: [{c_name}]"
+                if "short-lived" in security:
+                    result += "\n\n**This container is short-lived.**"
+                result += "\n\n"
+                for s in [s for s in security if s != "short-lived"]:
                     result += f"- {s}\n"
                 result += "\n"
 
