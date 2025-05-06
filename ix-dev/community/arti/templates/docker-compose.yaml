@@ -5,17 +5,17 @@
 {% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 {% set state_perm_config = dict(perm_config, **{"chmod": "0750"}) %}
 
-{% set config = tpl.add_container(values.consts.config_container_name, "config") %}
-{% do config.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% set config = tpl.add_container(values.consts.config_container_name, "config_image") %}
+{% do config.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do config.restart.set_policy("on-failure", 1) %}
 {% do config.healthcheck.disable() %}
 {% do config.deploy.resources.set_profile("low") %}
 {% do config.remove_devices() %}
 {% do config.configs.add("setup.py", setup_py(values), "/setup.py", "0755") %}
-{% do config.configs.add("entrypoint.sh", values.consts.config_entrypoint, "/entrypoint.sh", "0775") %}
+{% do config.configs.add("entrypoint.sh", values.consts.config_entrypoint, "/entrypoint.sh", "0755") %}
 {% do config.set_entrypoint(["/entrypoint.sh"]) %}
 
-{% set arti = tpl.add_container(values.consts.arti_container_name, values.consts.arti_container_name) %}
+{% set arti = tpl.add_container(values.consts.arti_container_name, "image") %}
 {% do arti.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 
 {% do arti.healthcheck.set_timeout(20) %}
