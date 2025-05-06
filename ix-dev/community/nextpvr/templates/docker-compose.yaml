@@ -1,14 +1,15 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.nextpvr_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.healthcheck.set_test("tcp", {"port": values.consts.internal_web_port}) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
 {% if values.nextpvr.dvb_support %}
   {% do c1.devices.add_device("/dev/dvb", "/dev/dvb") %}
 {% endif %}
-
-{% do c1.environment.add_user_envs(values.nextpvr.additional_envs) %}
 
 {% if not values.network.host_network %}
   {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
@@ -17,14 +18,16 @@
   {% endif %}
 {% endif %}
 
-
-
 {% do c1.add_storage("/config", values.storage.config) %}
 {% do c1.add_storage("/recordings", values.storage.recordings) %}
 {% do c1.add_storage("/buffer", values.storage.recordings) %}
 
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+{% do perm_container.add_or_skip_action("recordings", values.storage.recordings, perms_config) %}
+
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% do tpl.portals.add_portal({"port": values.consts.internal_web_port if values.network.host_network else values.network.web_port.port_number}) %}
