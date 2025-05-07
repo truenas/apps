@@ -41,6 +41,7 @@
 {% do worker.environment.add_env("WORKER_GROUP", "default") %}
 {% do worker.environment.add_user_envs(values.windmill.additional_envs) %}
 
+{% do worker.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do worker.add_storage("/tmp/windmill/cache", values.storage.worker_cache) %}
@@ -62,6 +63,7 @@
 {% do worker_native.environment.add_env("NUM_WORKERS", values.windmill.native_workers) %}
 {% do worker_native.environment.add_user_envs(values.windmill.additional_envs) %}
 
+{% do worker_native.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do worker_native.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do worker_native.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
@@ -80,6 +82,7 @@
   {% do worker_reports.environment.add_env("NUM_WORKERS", values.windmill.reports_workers) %}
   {% do worker_reports.environment.add_user_envs(values.windmill.additional_envs) %}
 
+  {% do worker_reports.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
   {% do worker_reports.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
   {% do worker_reports.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
@@ -93,6 +96,7 @@
 {% set lsp = tpl.add_container(values.consts.lsp_container_name, "lsp_image") %}
 {% do lsp.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do lsp.healthcheck.set_test("wget", {"port": values.consts.lsp_internal_port, "path": "/health", "spider": false}) %}
+
 {% do lsp.environment.add_env("PORT", values.consts.lsp_internal_port) %}
 {% do lsp.environment.add_user_envs(values.windmill.additional_envs) %}
 
@@ -108,17 +112,16 @@
 {% do caddy.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do caddy.depends.add_dependency(values.consts.lsp_container_name, "service_healthy") %}
 
-{% do caddy.add_storage("/data", values.storage.caddy_data) %}
-
 {% do caddy.add_port(values.network.web_port) %}
 {% do caddy.add_port(values.network.smtp_port) %}
+
+{% do caddy.add_storage("/data", values.storage.caddy_data) %}
 
 {% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, perms_config) %}
 {% do perm_container.add_or_skip_action("lsp_cache", values.storage.lsp_cache, perms_config) %}
 {% do perm_container.add_or_skip_action("worker_cache", values.storage.worker_cache, perms_config) %}
 {% do perm_container.add_or_skip_action("worker_logs", values.storage.worker_logs, perms_config) %}
 
-{# Add additional storage to containers #}
 {% for store in values.storage.additional_storage %}
   {% do server.add_storage(store.mount_path, store) %}
   {% do worker.add_storage(store.mount_path, store) %}
