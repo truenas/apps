@@ -82,10 +82,12 @@
 {# Windmill Worker Reports Container #}
 {% if values.windmill.enable_report_workers %}
   {% set worker_reports = tpl.add_container(values.consts.worker_reports_container_name, "image") %}
-  {% do worker_reports.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-  {% do worker_reports.healthcheck.set_test("wget" , {"port": values.consts.server_internal_port, "path": "/api/version"}) %}
+  {% do worker_reports.set_user(0, 0) %}
+  {% do worker_reports.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
+  {% do worker_reports.healthcheck.set_test("wget" , {"port": values.consts.worker_reports_internal_port, "path": "/api/version"}) %}
 
   {% do worker_reports.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+  {% do worker_reports.environment.add_env("PORT", values.consts.worker_reports_internal_port) %}
   {% do worker_reports.environment.add_env("MODE", "worker") %}
   {% do worker_reports.environment.add_env("WORKER_GROUP", "reports") %}
   {% do worker_reports.environment.add_env("NUM_WORKERS", values.windmill.reports_workers) %}
@@ -112,7 +114,8 @@
 
 {# Caddy Container #}
 {% set caddy = tpl.add_container(values.consts.caddy_container_name, "caddy_image") %}
-{% do caddy.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
+{% do caddy.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+{% do caddy.add_caps(["NET_BIND_SERVICE"]) %}
 
 {% do caddy.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do caddy.depends.add_dependency(values.consts.lsp_container_name, "service_healthy") %}
