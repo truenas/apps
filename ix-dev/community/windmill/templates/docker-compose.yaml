@@ -1,4 +1,5 @@
 {% from "macros/caddyfile.conf.jinja" import caddyfile %}
+
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% if values.windmill.web_host.startswith("https://") or values.windmill.web_host.startswith("http://") %}
@@ -27,130 +28,129 @@
 ) %}
 
 {# Windmill Server Container #}
-{% set c_server = tpl.add_container(values.consts.windmill_server_container_name, "image") %}
-{% do c_server.set_user(0, 0) %}
-{% do c_server.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
-{% do c_server.healthcheck.set_test("wget", {"port": 8000, "path": "/"}) %}
+{% set server = tpl.add_container(values.consts.server_container_name, "image") %}
+{% do server.set_user(1000, 1000) %}
+{# {% do server.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %} #}
+{% do server.healthcheck.set_test("wget", {"port": values.consts.server_internal_port, "path": "/api/version"}) %}
 
-{% do c_server.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
-{% do c_server.environment.add_env("MODE", "server") %}
-{% do c_server.environment.add_user_envs(values.windmill.additional_envs) %}
+{% do server.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do server.environment.add_env("MODE", "server") %}
+{% do server.environment.add_user_envs(values.windmill.additional_envs) %}
 
-{% do c_server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% do c_server.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
+{% do server.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
 {% do perm_container.add_or_skip_action("worker_logs", values.storage.worker_logs, perms_config) %}
 
 {# Windmill Worker Container #}
-{% set c_worker = tpl.add_container(values.consts.windmill_worker_container_name, "image") %}
-{% do c_worker.set_user(0, 0) %}
-{% do c_worker.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
-{% do c_worker.healthcheck.disable() %}
+{% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
+{% do worker.set_user(1000, 1000) %}
+{# {% do worker.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %} #}
+{% do worker.healthcheck.set_test("wget" , {"port": values.consts.server_internal_port, "path": "/api/version"}) %}
 
-{% do c_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
-{% do c_worker.environment.add_env("MODE", "worker") %}
-{% do c_worker.environment.add_env("WORKER_GROUP", "default") %}
-{% do c_worker.environment.add_user_envs(values.windmill.additional_envs) %}
+{% do worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do worker.environment.add_env("MODE", "worker") %}
+{% do worker.environment.add_env("WORKER_GROUP", "default") %}
+{% do worker.environment.add_user_envs(values.windmill.additional_envs) %}
 
-{% do c_worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% do c_worker.add_storage("/tmp/windmill/cache", values.storage.worker_cache) %}
+{% do worker.add_storage("/tmp/windmill/cache", values.storage.worker_cache) %}
 {% do perm_container.add_or_skip_action("worker_cache", values.storage.worker_cache, perms_config) %}
 
-{% do c_worker.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
+{% do worker.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
 
 {% if values.worker.mount_docker_socket %}
-{% do c_worker.add_docker_socket(read_only=False) %}
+  {% do worker.add_docker_socket(read_only=False) %}
 {% endif %}
 
 {# Windmill Worker Native Container #}
-{% set c_worker_native = tpl.add_container(values.consts.windmill_worker_native_container_name, "image") %}
-{% do c_worker_native.set_user(0, 0) %}
-{% do c_worker_native.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
-{% do c_worker_native.healthcheck.disable() %}
+{% set worker_native = tpl.add_container(values.consts.worker_native_container_name, "image") %}
+{% do worker_native.set_user(1000, 1000) %}
+{# {% do worker_native.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %} #}
+{% do worker_native.healthcheck.set_test("wget" , {"port": values.consts.server_internal_port, "path": "/api/version"}) %}
 
-{% do c_worker_native.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
-{% do c_worker_native.environment.add_env("MODE", "worker") %}
-{% do c_worker_native.environment.add_env("WORKER_GROUP", "native") %}
-{% do c_worker_native.environment.add_env("NUM_WORKERS", values.worker.native_num_workers) %}
-{% do c_worker_native.environment.add_env("SLEEP_QUEUE", 200) %}
-{% do c_worker_native.environment.add_user_envs(values.windmill.additional_envs) %}
+{% do worker_native.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do worker_native.environment.add_env("MODE", "worker") %}
+{% do worker_native.environment.add_env("WORKER_GROUP", "native") %}
+{% do worker_native.environment.add_env("NUM_WORKERS", values.worker.native_num_workers) %}
+{% do worker_native.environment.add_env("SLEEP_QUEUE", 200) %}
+{% do worker_native.environment.add_user_envs(values.windmill.additional_envs) %}
 
-{% do c_worker_native.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do worker_native.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% do c_worker_native.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
+{% do worker_native.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
 
 {# Windmill Worker Reports Container #}
 {% if values.windmill.enable_report_workers %}
-{% set c_worker_reports = tpl.add_container(values.consts.windmill_worker_reports_container_name, "image") %}
-{# required to let the worker install dependencies on startup #}
-{% do c_worker_reports.set_user(0, 0) %}
-{% do c_worker_reports.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
-{% do c_worker_reports.healthcheck.disable() %}
+  {% set worker_reports = tpl.add_container(values.consts.worker_reports_container_name, "image") %}
+  {# required to let the worker install dependencies on startup #}
+  {% do worker_reports.set_user(1000, 1000) %}
+  {# {% do worker_reports.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %} #}
+  {% do worker_reports.healthcheck.set_test("wget" , {"port": values.consts.server_internal_port, "path": "/api/version"}) %}
 
-{% do c_worker_reports.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
-{% do c_worker_reports.environment.add_env("MODE", "worker") %}
-{% do c_worker_reports.environment.add_env("WORKER_GROUP", "reports") %}
-{% do c_worker_reports.environment.add_env("NUM_WORKERS", values.worker.reports_num_workers) %}
-{% do c_worker_reports.environment.add_env("SLEEP_QUEUE", 200) %}
-{% do c_worker_reports.environment.add_user_envs(values.windmill.additional_envs) %}
+  {% do worker_reports.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+  {% do worker_reports.environment.add_env("MODE", "worker") %}
+  {% do worker_reports.environment.add_env("WORKER_GROUP", "reports") %}
+  {% do worker_reports.environment.add_env("NUM_WORKERS", values.worker.reports_num_workers) %}
+  {% do worker_reports.environment.add_env("SLEEP_QUEUE", 200) %}
+  {% do worker_reports.environment.add_user_envs(values.windmill.additional_envs) %}
 
-{% do c_worker_reports.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+  {% do worker_reports.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% do c_worker_reports.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
+  {% do worker_reports.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
 
-{% if values.worker.mount_docker_socket %}
-{% do c_worker_reports.add_docker_socket(read_only=False) %}
-{% endif %}
-
+  {% if values.worker.mount_docker_socket %}
+    {% do worker_reports.add_docker_socket(read_only=False) %}
+  {% endif %}
 {% endif %}
 
 {# LSP Container #}
-{% set c_lsp = tpl.add_container(values.consts.lsp_container_name, "lsp_image") %}
-{% do c_lsp.set_user(values.run_as.user, values.run_as.group) %}
-{% do c_lsp.healthcheck.set_test("tcp", {"port": 3001}) %}
+{% set lsp = tpl.add_container(values.consts.lsp_container_name, "lsp_image") %}
+{% do lsp.set_user(1000, 1000) %}
+{% do lsp.healthcheck.set_test("wget", {"port": values.consts.lsp_internal_port, "path": "/health"}) %}
 
-{% do c_lsp.add_storage("/pyls/.cache", values.storage.lsp_cache) %}
+{% do lsp.add_storage("/pyls/.cache", values.storage.lsp_cache) %}
 {% do perm_container.add_or_skip_action("lsp_cache", values.storage.lsp_cache, perms_config) %}
 
 {# Caddy Container #}
-{% set c_caddy = tpl.add_container(values.consts.caddy_container_name, "caddy_image") %}
-{% do c_caddy.healthcheck.set_test("wget", {"port": 80, "path": "/"}) %}
+{% set caddy = tpl.add_container(values.consts.caddy_container_name, "caddy_image") %}
+{% do caddy.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
 
-{% do c_caddy.depends.add_dependency(values.consts.windmill_server_container_name, "service_healthy") %}
-{% do c_caddy.depends.add_dependency(values.consts.lsp_container_name, "service_started") %}
+{% do caddy.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
+{% do caddy.depends.add_dependency(values.consts.lsp_container_name, "service_started") %}
 
-{% do c_caddy.add_storage("/data", values.storage.caddy_data) %}
+{% do caddy.add_storage("/data", values.storage.caddy_data) %}
 {% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, perms_config) %}
 
-{% do c_caddy.configs.add("Caddyfile", caddyfile(values), "/etc/caddy/Caddyfile") %}
+{% do caddy.configs.add("caddyfile", caddyfile(values), "/etc/caddy/Caddyfile") %}
 
-{% do c_caddy.ports.add_port(values.network.web_port.port_number, 80) %}
-{% do c_caddy.ports.add_port(values.network.smtp_port.port_number, 25) %}
+{% do caddy.add_port(values.network.web_port.port_number) %}
+{% do caddy.add_port(values.network.smtp_port.port_number) %}
 
-{% do c_caddy.add_caps(["NET_BIND_SERVICE"]) %}
+{% do caddy.add_caps(["NET_BIND_SERVICE"]) %}
 
 {# Add additional storage to containers #}
 {% for store in values.storage.additional_storage %}
-  {% do c_server.add_storage(store.mount_path, store) %}
-  {% do c_worker.add_storage(store.mount_path, store) %}
-  {% do c_worker_native.add_storage(store.mount_path, store) %}
+  {% do server.add_storage(store.mount_path, store) %}
+  {% do worker.add_storage(store.mount_path, store) %}
+  {% do worker_native.add_storage(store.mount_path, store) %}
   {% if values.windmill.enable_report_workers %}
-  {% do c_worker_reports.add_storage(store.mount_path, store) %}
-  {% endif %}}
+    {% do worker_reports.add_storage(store.mount_path, store) %}
+  {% endif %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
-  {% do c_server.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do c_worker.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do server.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do worker.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% if values.windmill.enable_report_workers %}
-  {% do c_worker_reports.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+    {% do worker_reports.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% endif %}
-  {% do c_worker_native.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do c_lsp.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do c_caddy.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do worker_native.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do lsp.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do caddy.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
