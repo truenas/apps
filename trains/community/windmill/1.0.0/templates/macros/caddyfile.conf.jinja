@@ -1,0 +1,23 @@
+{% macro caddyfile(values) -%}
+{
+	layer4 {
+		:{{ values.network.smtp_port.port_number }} {
+			proxy {
+				to {{ values.consts.server_container_name }}:{{ values.consts.server_smtp_internal_port }}
+			}
+		}
+	}
+}
+
+:{{ values.network.web_port.port_number }} {
+	handle /health {
+		respond 200 {
+			body "OK"
+			close
+		}
+	}
+
+	reverse_proxy /ws/* http://{{ values.consts.lsp_container_name }}:{{ values.consts.lsp_internal_port }}
+	reverse_proxy /* http://{{ values.consts.server_container_name }}:{{ values.consts.server_internal_port }}
+}
+{%- endmacro %}
