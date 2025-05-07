@@ -1,7 +1,8 @@
 {% macro setup_cron(values) -%}
 #!/bin/bash
 function check_path() {
-    if [ ! -f $1 ]; then return; fi
+    [ ! $(ls -A $1) ] && echo "Empty directory found, writing a dummy file at [$1] to trigger indexing" | tee $1/diskover_test.txt
+    if [ ! -f "/config/crontab" ]; then return; fi
     if grep -q "/app/diskover/diskover.py $1" /config/crontab; then
         echo "------------------------------------WARNING-----------------------------------"
         echo "A crontab entry for [$1] has been found in /config/crontab".
@@ -9,7 +10,6 @@ function check_path() {
         echo "Please remove the entry from /config/crontab"
         echo "------------------------------------------------------------------------------"
     fi
-    [ ! $(ls -A $1) ] && echo "Empty directory found, writing a dummy file at [$1] to trigger indexing" | tee $1/diskover_test.txt
 }
 
 check_path /data
