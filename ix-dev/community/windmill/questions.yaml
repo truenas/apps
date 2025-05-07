@@ -1,16 +1,10 @@
 groups:
   - name: Windmill Configuration
     description: Configure Windmill
-  - name: User and Group Configuration
-    description: Configure User and Group for Windmill
   - name: Network Configuration
     description: Configure Network for Windmill
   - name: Storage Configuration
     description: Configure Storage for Windmill
-  - name: Worker Configuration
-    description: Configure Worker settings for Windmill
-  - name: Optional Components
-    description: Configure optional components for Windmill
   - name: Labels Configuration
     description: Configure Labels for Windmill
   - name: Resources Configuration
@@ -44,22 +38,11 @@ questions:
             If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: postgres_16_image
+            default: postgres_17_image
             required: true
             enum:
-              - value: postgres_16_image
+              - value: postgres_17_image
                 description: Postgres 16
-        - variable: web_host
-          label: Web Host
-          description: |
-            The host address.</br>
-            Examples:</br>
-            windmill.example.com </br>
-            192.168.1.100
-          schema:
-            type: string
-            default: "localhost"
-            required: true
         - variable: db_password
           label: Database Password
           description: The password for PostgreSQL database.
@@ -68,12 +51,49 @@ questions:
             default: "changeme"
             required: true
             private: true
+        - variable: web_host
+          label: Web Host
+          description: |
+            The host address.</br>
+            Examples:</br>
+            windmill.example.com </br>
+            192.168.1.100
+          schema:
+            type: uri
+            default: "localhost"
+            required: true
         - variable: enable_report_workers
           label: Enable Report Workers
           description: |
             Enable report workers for Windmill.</br>
             This is used for generating reports, web scraping and
             sending notifications.
+          schema:
+            type: boolean
+            default: false
+            required: true
+        - variable: reports_num_workers
+          label: Report Worker Threads
+          description: Number of worker threads per report worker.
+          schema:
+            type: int
+            show_if: [["enable_report_workers", "=", true]]
+            min: 1
+            default: 8
+            required: true
+        - variable: native_num_workers
+          label: Native Worker Threads
+          description: Number of worker threads per native worker.
+          schema:
+            type: int
+            default: 8
+            min: 1
+            required: true
+        - variable: mount_docker_socket
+          label: Mount Docker Socket
+          description: |
+            Mount the Docker socket to allow running Docker containers from within workers.</br>
+            This gives the workers access to the host Docker daemon.
           schema:
             type: boolean
             default: false
@@ -100,29 +120,6 @@ questions:
                       schema:
                         type: string
                         required: true
-
-  - variable: run_as
-    label: ""
-    group: User and Group Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: user
-          label: User ID
-          description: The user id that Windmill files will be owned by.
-          schema:
-            type: int
-            min: 1000
-            default: 1000
-            required: true
-        - variable: group
-          label: Group ID
-          description: The group id that Windmill files will be owned by.
-          schema:
-            type: int
-            min: 1000
-            default: 1000
-            required: true
 
   - variable: network
     label: ""
@@ -224,54 +221,6 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-
-  - variable: worker
-    label: ""
-    group: Worker Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: native_num_workers
-          label: Native Worker Threads
-          description: Number of worker threads per native worker.
-          schema:
-            type: int
-            default: 8
-            min: 1
-            required: true
-        - variable: reports_num_workers
-          label: Report Worker Threads
-          description: Number of worker threads per report worker.
-          schema:
-            type: int
-            default: 8
-            min: 1
-            required: true
-        - variable: mount_docker_socket
-          label: Mount Docker Socket
-          description: |
-            Mount the Docker socket to allow running Docker containers from within workers.</br>
-            This gives the workers access to the host Docker daemon.
-          schema:
-            type: boolean
-            default: false
-            required: true
-
-  - variable: optional
-    label: ""
-    group: Optional Components
-    schema:
-      type: dict
-      attrs:
-        - variable: enterprise_edition
-          label: Use Enterprise Edition
-          description: |
-            Use the Enterprise Edition of Windmill.</br>
-            Make sure you have a valid license.
-          schema:
-            type: boolean
-            default: false
-            required: true
 
   - variable: storage
     label: ""
@@ -865,18 +814,20 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: windmill_server
-                            description: Windmill Server
-                          - value: windmill_worker
-                            description: Windmill Worker
-                          - value: windmill_worker_native
-                            description: Windmill Worker Native
+                          - value: server
+                            description: server
+                          - value: worker
+                            description: worker
+                          - value: worker-reports
+                            description: worker-reports
+                          - value: worker-native
+                            description: worker-native
                           - value: lsp
-                            description: LSP
+                            description: lsp
                           - value: caddy
-                            description: Caddy
+                            description: caddy
                           - value: postgres
-                            description: PostgreSQL
+                            description: postgres
 
   - variable: resources
     label: ""
