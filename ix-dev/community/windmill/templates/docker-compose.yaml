@@ -29,7 +29,6 @@
 {% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do server.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
-{% do perm_container.add_or_skip_action("worker_logs", values.storage.worker_logs, perms_config) %}
 
 {# Windmill Worker Container #}
 {% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
@@ -45,8 +44,6 @@
 {% do worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do worker.add_storage("/tmp/windmill/cache", values.storage.worker_cache) %}
-{% do perm_container.add_or_skip_action("worker_cache", values.storage.worker_cache, perms_config) %}
-
 {% do worker.add_storage("/tmp/windmill/logs", values.storage.worker_logs) %}
 
 {% if values.windmill.mount_docker_socket %}
@@ -100,23 +97,25 @@
 {% do lsp.environment.add_user_envs(values.windmill.additional_envs) %}
 
 {% do lsp.add_storage("/pyls/.cache", values.storage.lsp_cache) %}
-{% do perm_container.add_or_skip_action("lsp_cache", values.storage.lsp_cache, perms_config) %}
 
 {# Caddy Container #}
 {% set caddy = tpl.add_container(values.consts.caddy_container_name, "caddy_image") %}
 {% do caddy.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do caddy.add_caps(["NET_BIND_SERVICE"]) %}
 
+{% do caddy.configs.add("caddyfile", caddyfile(values), "/etc/caddy/Caddyfile") %}
 {% do caddy.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do caddy.depends.add_dependency(values.consts.lsp_container_name, "service_healthy") %}
 
 {% do caddy.add_storage("/data", values.storage.caddy_data) %}
-{% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, perms_config) %}
-
-{% do caddy.configs.add("caddyfile", caddyfile(values), "/etc/caddy/Caddyfile") %}
 
 {% do caddy.add_port(values.network.web_port) %}
 {% do caddy.add_port(values.network.smtp_port) %}
+
+{% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, perms_config) %}
+{% do perm_container.add_or_skip_action("lsp_cache", values.storage.lsp_cache, perms_config) %}
+{% do perm_container.add_or_skip_action("worker_cache", values.storage.worker_cache, perms_config) %}
+{% do perm_container.add_or_skip_action("worker_logs", values.storage.worker_logs, perms_config) %}
 
 {# Add additional storage to containers #}
 {% for store in values.storage.additional_storage %}
