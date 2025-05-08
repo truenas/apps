@@ -39,10 +39,21 @@
   {% endif %}
 {% endif %}
 
-{% do tpl.funcs.require_no_reserved(values.versity.additional_global_flags, "Additional Global Flags", values.consts.restricted_args, "=") %}
-{% do cmd.x.extend(values.versity.additional_global_flags) %}
+{% set global_flags = values.versity.additional_global_flags|map(attribute="flag") %}
+{% do tpl.funcs.require_no_reserved(global_flags, "Additional Global Flags", values.consts.restricted_args, "=") %}
+{% for f in values.versity.additional_global_flags %}
+  {% if not f.flag.startswith("--") %}{% do tpl.funcs.fail("Flags must start with --") %}{% endif %}
+  {% do cmd.x.append(f.flag) %}
+  {% if f.value %}{% do cmd.x.append(f.value) %}{% endif %}
+{% endfor %}
+
 {% do cmd.x.extend(["posix", values.consts.buckets_path]) %}
-{% do cmd.x.extend(values.versity.additional_posix_flags) %}
+{% for f in values.versity.additional_posix_flags %}
+  {% if not f.flag.startswith("--") %}{% do tpl.funcs.fail("Flags must start with --") %}{% endif %}
+  {% do cmd.x.append(f.flag) %}
+  {% if f.value %}{% do cmd.x.append(f.value) %}{% endif %}
+{% endfor %}
+
 {% do c1.set_command(cmd.x) %}
 
 {% if not values.network.host_network %}
