@@ -8,14 +8,14 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.api_port.port_number, "path": "/healthz",}) %}
 
+{% do c1.environment.add_user_envs(values.versity.additional_envs) %}
+
 {% set cmd = namespace(x=[
   "--port", ":%d" | format(values.network.api_port.port_number),
   "--health", "/healthz",
   "--access", values.versity.root_user_access_key,
   "--secret", values.versity.root_user_secret_access_key,
 ]) %}
-
-{% do c1.environment.add_user_envs(values.versity.additional_envs) %}
 
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
@@ -40,7 +40,7 @@
 {% endif %}
 
 {% set global_flags = values.versity.additional_global_flags|map(attribute="flag") %}
-{% do tpl.funcs.require_no_reserved(global_flags, "Additional Global Flags", values.consts.restricted_args, "=") %}
+{% do tpl.funcs.require_no_reserved(global_flags, "Additional Global Flags", values.consts.restricted_global_flags, "=") %}
 {% for f in values.versity.additional_global_flags %}
   {% if not f.flag.startswith("--") %}{% do tpl.funcs.fail("Flags must start with --") %}{% endif %}
   {% do cmd.x.append(f.flag) %}
