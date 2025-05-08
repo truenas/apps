@@ -8,18 +8,13 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.api_port.port_number, "path": "/healthz",}) %}
 
-{% do tpl.funcs.require_no_reserved(values.consts.restricted_args, "restricted_args", "=") %}
+{% set cmd = namespace(x=[
+  "--port", ":%d" | format(values.network.api_port.port_number),
+  "--health", "/healthz",
+  "--access", values.versity.root_user_access_key,
+  "--secret", values.versity.root_user_secret_access_key,
+]) %}
 
-{% set cmd = namespace(x=[]) %}
-{% do cmd.x.extend(values.versity.additional_global_flags) %}
-{% do cmd.x.extend(["posix", values.consts.buckets_path]) %}
-{% do cmd.x.extend(values.versity.additional_posix_flags) %}
-{% do c1.set_command(cmd.x) %}
-
-{% do c1.environment.add_env("VGW_PORT", values.network.api_port.port_number) %}
-{% do c1.environment.add_env("VGW_HEALTH", "/healthz") %}
-{% do c1.environment.add_env("ROOT_ACCESS_KEY_ID", values.versity.root_user_access_key) %}
-{% do c1.environment.add_env("ROOT_SECRET_ACCESS_KEY", values.versity.root_user_secret_access_key) %}
 {% do c1.environment.add_user_envs(values.versity.additional_envs) %}
 
 {% if values.network.certificate_id %}
@@ -27,22 +22,28 @@
   {% do c1.configs.add("public", cert.certificate, value.consts.ssl_cert_path) %}
   {% do c1.configs.add("private", cert.privatekey, value.consts.ssl_key_path) %}
 
-  {% do c1.environment.add_env("VGW_CERT", value.consts.ssl_cert_path) %}
-  {% do c1.environment.add_env("VGW_KEY", value.consts.ssl_key_path) %}
+  {% do cmd.x.extend(["--cert", value.consts.ssl_cert_path]) %}
+  {% do cmd.x.extend(["--key", value.consts.ssl_key_path]) %}
 {% endif %}
 
 {% if values.network.admin_port.bind_mode %}
-  {% do c1.environment.add_env("VGW_ADMIN_PORT", values.network.admin_port.port_number) %}
+  {% do cmd.x.extend(["--admin-port", ":%d" | format(values.network.admin_port.port_number)]) %}
 
   {% if values.network.admin_certificate_id %}
     {% set cert = values.ix_certificates[values.network.admin_certificate_id] %}
     {% do c1.configs.add("public", cert.certificate, values.consts.admin_ssl_cert_path) %}
     {% do c1.configs.add("private", cert.privatekey, values.consts.admin_ssl_key_path) %}
 
-    {% do c1.environment.add_env("VGW_ADMIN_CERT", values.consts.admin_ssl_cert_path) %}
-    {% do c1.environment.add_env("VGW_ADMIN_KEY", values.consts.admin_ssl_key_path) %}
+    {% do cmd.x.extend(["--admin-cert", values.consts.admin_ssl_cert_path]) %}
+    {% do cmd.x.extend(["--admin-key", values.consts.admin_ssl_key_path]) %}
   {% endif %}
 {% endif %}
+
+{% do tpl.funcs.require_no_reserved(values.versity.additional_global_flags, "Additional Global Flags", values.consts.restricted_args, "=") %}
+{% do cmd.x.extend(values.versity.additional_global_flags) %}
+{% do cmd.x.extend(["posix", values.consts.buckets_path]) %}
+{% do cmd.x.extend(values.versity.additional_posix_flags) %}
+{% do c1.set_command(cmd.x) %}
 
 {% if not values.network.host_network %}
   {% do c1.add_port(values.network.api_port) %}
