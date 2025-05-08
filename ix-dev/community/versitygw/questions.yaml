@@ -23,7 +23,7 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: versitygw
+  - variable: versity
     label: ""
     group: Versity Gateway Configuration
     schema:
@@ -66,7 +66,7 @@ questions:
         - variable: additional_global_flags
           label: Additional Global Flags
           description: |
-            Additional global command-line flags for Versity Gateway.
+            Additional global command-line flags for Versity Gateway.</br>
             If you are unsure, leave this blank.
           schema:
             type: list
@@ -79,7 +79,7 @@ questions:
         - variable: additional_posix_flags
           label: Additional POSIX Flags
           description: |
-            Additional command-line flags for the POSIX backend of Versity Gateway.
+            Additional command-line flags for the POSIX backend of Versity Gateway.</br>
             If you are unsure, leave this blank.
           schema:
             type: list
@@ -123,19 +123,98 @@ questions:
           label: API Port
           description: The port for Versity Gateway S3 API
           schema:
-            type: int
-            default: 7070
-            required: true
-            $ref:
-              - definitions/api_port
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30157
+                  required: true
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: admin_port
           label: Admin Port
           description: The port for Versity Gateway admin API (defaults to the same as the API port)
           schema:
-            type: int
-            required: false
-            $ref:
-              - definitions/admin_port
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30158
+                  required: true
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: host_network
           label: Host Network
           description: |
@@ -153,10 +232,11 @@ questions:
               - "definitions/certificate"
         - variable: admin_certificate_id
           label: Admin Certificate
-          description: The certificate to use for the admin server of Versity Gateway.
+          description: |
+            The certificate to use for the admin server of Versity Gateway.</br>
+            Will be ignored if Admin Port is not set.
           schema:
             type: int
-            show_if: [["admin_port", "!=", null]]
             "null": true
             $ref:
               - "definitions/certificate"
@@ -211,7 +291,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
+                        default: "buckets"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -416,8 +496,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: versitygw
-                            description: versitygw
+                          - value: versity
+                            description: versity
 
   - variable: resources
     label: ""
