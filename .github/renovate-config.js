@@ -91,6 +91,11 @@ module.exports = {
       ]
     ),
     customVersioning(
+      // 1.16.1 - There are some tags like 1.120.20221218 that are not semver and are too old
+      "^(?<major>\\d{1})\\.(?<minor>\\d{2})\\.(?<patch>\\d+)$",
+      ["ghcr.io/linuxserver/kasm"]
+    ),
+    customVersioning(
       // The current major version is 2.x.x, but there is a random 5.x.x tag.
       // So we limit it to 0-4 for major. Date issue mentioned above still stands
       "^(?<major>[0-4]{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
