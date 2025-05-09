@@ -1,5 +1,3 @@
-# Postgres
+# MongoDB
 
-[Postgres](https://www.postgresql.org) - Object-relational database system provides reliability and data integrity.
-
-The PostgreSQL object-relational database system provides reliability and data integrity.
+[MongoDB](https://www.mongodb.com/) is a document database designed for ease of application development and scaling.
