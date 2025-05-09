@@ -1,0 +1,18 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.newt_container_name, "image") %}
+{# FIXME: https://github.com/fosrl/newt/issues/31 #}
+{% do c1.healthcheck.set_custom_test("pgrep newt") %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+
+{% do c1.environment.add_env("PANGOLIN_ENDPOINT", values.newt.pangolin_endpoint) %}
+{% do c1.environment.add_env("NEWT_ID", values.newt.newt_id) %}
+{% do c1.environment.add_env("NEWT_SECRET", values.newt.newt_secret) %}
+{% do c1.environment.add_user_envs(values.newt.additional_envs) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
