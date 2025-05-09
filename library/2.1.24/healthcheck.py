@@ -95,6 +95,7 @@ def test_mapping(variant: str, config: dict | None = None) -> str:
         "redis": redis_test,
         "postgres": postgres_test,
         "mariadb": mariadb_test,
+        "mongodb": mongodb_test,
     }
 
     if variant not in tests:
@@ -208,3 +209,11 @@ def mariadb_test(config: dict) -> str:
     host = get_key(config, "host", "127.0.0.1", False)
 
     return f"mariadb-admin --user=root --host={host} --port={port} --password=$MARIADB_ROOT_PASSWORD ping"
+
+
+def mongodb_test(config: dict) -> str:
+    config = config or {}
+    port = get_key(config, "port", 27017, False)
+    host = get_key(config, "host", "127.0.0.1", False)
+
+    return f"mongosh --host {host} --port {port} $MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")' --quiet"
