@@ -208,3 +208,14 @@ def test_mariadb_healthcheck(mock_values):
         output["services"]["test_container"]["healthcheck"]["test"]
         == "mariadb-admin --user=root --host=127.0.0.1 --port=3306 --password=$$MARIADB_ROOT_PASSWORD ping"
     )
+
+
+def test_mongodb_healthcheck(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("mongodb")
+    output = render.render()
+    assert (
+        output["services"]["test_container"]["healthcheck"]["test"]
+        == "mongo --host 127.0.0.1 --port 27017 $$MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")'"
+    )
