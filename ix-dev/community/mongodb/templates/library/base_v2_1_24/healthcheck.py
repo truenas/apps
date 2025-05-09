@@ -216,4 +216,4 @@ def mongodb_test(config: dict) -> str:
     port = get_key(config, "port", 27017, False)
     host = get_key(config, "host", "127.0.0.1", False)
 
-    return f"mongo --host {host} --port {port} $MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")'"
+    return f"mongosh --host {host} --port {port} $MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")'"
