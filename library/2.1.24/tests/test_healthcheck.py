@@ -217,5 +217,5 @@ def test_mongodb_healthcheck(mock_values):
     output = render.render()
     assert (
         output["services"]["test_container"]["healthcheck"]["test"]
-        == "mongosh --host 127.0.0.1 --port 27017 $$MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")'"
+        == "mongosh --host 127.0.0.1 --port 27017 $$MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")' --quiet"
     )
