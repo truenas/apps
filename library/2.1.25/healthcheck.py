@@ -119,6 +119,7 @@ def curl_test(config: dict) -> str:
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
+    method = get_key(config, "method", "GET", False)
 
     opts = []
     if scheme == "https":
@@ -129,7 +130,7 @@ def curl_test(config: dict) -> str:
             raise RenderError("Expected [header] to be a list of two items for curl test")
         opts.append(f'--header "{header[0]}: {header[1]}"')
 
-    cmd = "curl --silent --output /dev/null --show-error --fail"
+    cmd = f"curl --request {method} --silent --output /dev/null --show-error --fail"
     if opts:
         cmd += f" {' '.join(opts)}"
     cmd += f" {scheme}://{host}:{port}{path}"
