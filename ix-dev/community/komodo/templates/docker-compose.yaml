@@ -19,11 +19,10 @@
 {% do periphery.labels.add_label("komodo.skip", "true") %}
 {% do mongo.container.labels.add_label("komodo.skip", "true") %}
 
-{# {% do periphery.set_user(values.consts.run_as_user, values.consts.run_as_group) %} #}
-{# {% do periphery.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/heartbeat"}) %} #}
+{# Periphery #}
 {% do periphery.healthcheck.disable() %}
-{# TODO: check if we want to allow multiple passkeys #}
-{% do periphery.environment.add_env("KOMODO_PASSKEYS", values.komodo.passkey) %}
+
+{% do periphery.environment.add_env("PERIPHERY_PASSKEYS", ([values.komodo.passkey] + values.komodo.additional_passkeys)|unique|list|join(",")) %}
 {% do periphery.environment.add_env("PERIPHERY_SSL_ENABLED", true) %}
 {% do periphery.environment.add_env("PERIPHERY_PORT", values.consts.internal_periphery_port) %}
 {% do periphery.environment.add_user_envs(values.komodo.additional_envs) %}
@@ -31,13 +30,17 @@
 {% do periphery.add_docker_socket(read_only=False) %}
 {% do periphery.add_storage("/proc", {"type": "host_path", "host_path_config": {"path": "/proc", "read_only": False}}) %}
 
-{# {% do core.set_user(values.consts.run_as_user, values.consts.run_as_group) %} #}
-{# {% do core.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/heartbeat"}) %} #}
-{% do core.healthcheck.disable() %}
+{# Note that the PERIPHERY_ROOT_DIRECTORY (container path) must be the SAME path as the host path #}
+{% set periphery_host_path = tpl.funcs.get_host_path(values.storage.periphery_root) %}
+{% do periphery.add_storage(periphery_host_path, values.storage.periphery_root) %}
+{% do periphery.environment.add_env("PERIPHERY_ROOT_DIRECTORY", periphery_host_path) %}
+
+{# Core #}
+{% do core.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/auth"}) %}
 {% do core.depends.add_dependency(values.consts.mongo_container_name, "service_healthy") %}
 
 {% do core.environment.add_env("KOMODO_PASSKEY", values.komodo.passkey) %}
-{% do core.environment.add_env("KOMODO_JWT_SECRET", values.komodo.jwt_secret) %}
+{% do core.environment.add_env("KOMODO_LOCAL_AUTH", values.komodo.local_auth) %}
 {% do core.environment.add_env("KOMODO_FIRST_SERVER", "https://%s:%d"|format(values.consts.periphery_container_name, values.consts.internal_periphery_port)) %}
 {% do core.environment.add_env("KOMODO_PORT", values.network.web_port.port_number) %}
 {% do core.environment.add_env("KOMODO_DATABASE_ADDRESS", mongo.get_url("host_port")) %}
@@ -54,21 +57,13 @@
 {% do core.add_storage(values.consts.syncs_directory, values.storage.syncs) %}
 {% do core.add_storage(values.consts.repo_directory, values.storage.repo_cache) %}
 
-{# Note that the PERIPHERY_ROOT_DIRECTORY (container path) must be the SAME path as the host path #}
-{% set periphery_host_path = tpl.funcs.get_host_path(values.storage.periphery_root) %}
-{% do periphery.add_storage(periphery_host_path, values.storage.periphery_root) %}
-{% do periphery.environment.add_env("PERIPHERY_ROOT_DIRECTORY", periphery_host_path) %}
-
 {% for store in values.storage.additional_storage %}
   {% do core.add_storage(store.mount_path, store) %}
   {% do periphery.add_storage(store.mount_path, store) %}
-  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
-  {% do core.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do periphery.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do mongo.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
