@@ -1,3 +1,3 @@
-# Umami
+# Komodo
 
-[Umami](https://umami.is/) is a simple, fast, privacy-focused alternative to Google Analytics.
+[Komodo](https://komo.do/) is a tool to build and deploy software across many servers.
