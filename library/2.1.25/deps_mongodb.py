@@ -61,7 +61,7 @@ class MongoDBContainer:
         return self._container
 
     def _get_port(self):
-        return self._config.get("port") or 5432
+        return self._config.get("port") or 27017
 
     def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
