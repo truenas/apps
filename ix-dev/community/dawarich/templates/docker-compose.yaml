@@ -12,18 +12,18 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(values.consts.postgis_container_name, "postgis_image", pg_config, perm_container) %}
+{% set postgis = tpl.deps.postgres(values.consts.postgis_container_name, "postgis_image", pg_config, perm_container) %}
 
 {# Redis #}
 {% set redis_config = {
   "password": values.dawarich.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
-{% set redis_container = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
 {# Sidekiq #}
 {% do sidekiq.set_tty(true) %}
-{% do sidekiq.set_stdin_open(true) %}
+{% do sidekiq.set_stdin(true) %}
 {% do sidekiq.set_entrypoint("sidekiq-entrypoint.sh") %}
 {% do sidekiq.set_command(["sidekiq"]) %}
 
@@ -40,12 +40,12 @@
 {% do sidekiq.environment.add_env("DATABASE_USERNAME", values.consts.db_user) %}
 {% do sidekiq.environment.add_env("DATABASE_PASSWORD", values.dawarich.db_password) %}
 {% do sidekiq.environment.add_env("DATABASE_NAME", values.consts.db_name) %}
-{% do sidekiq.environment.add_env("REDIS_URL", redis_container.get_url("redis")) %}
+{% do sidekiq.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
 {% do sidekiq.environment.add_user_envs(values.dawarich.additional_envs) %}
 
 {# App #}
 {% do app.set_tty(true) %}
-{% do app.set_stdin_open(true) %}
+{% do app.set_stdin(true) %}
 {% do app.set_entrypoint("web-entrypoint.sh") %}
 {% do app.set_command(["bin/rails", "server", "-p", values.network.web_port.port_number, "-b", "::"]) %}
 
@@ -58,7 +58,7 @@
 {% do app.environment.add_env("SELF_HOSTED", true) %}
 {% do app.environment.add_env("TIME_ZONE", values.TZ) %}
 {% do app.environment.add_env("APPLICATION_PROTOCOL", "http") %}
-{% do app.environment.add_env("REDIS_URL", redis_container.get_url("redis")) %}
+{% do app.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
 {% do app.environment.add_env("DATABASE_HOST", values.consts.postgis_container_name) %}
 {% do app.environment.add_env("DATABASE_USERNAME", values.consts.db_user) %}
 {% do app.environment.add_env("DATABASE_PASSWORD", values.dawarich.db_password) %}
@@ -81,8 +81,8 @@
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
-  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do redis.container.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgis.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
 {% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
