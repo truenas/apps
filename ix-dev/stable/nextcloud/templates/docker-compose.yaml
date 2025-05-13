@@ -107,9 +107,8 @@
 
 {% set host = namespace(x="") %}
 {% if values.nextcloud.host %}
-  {% set host.x = values.nextcloud.host if ":" in values.nextcloud.host else "%s:%d"|format(values.nextcloud.host, values.network.web_port) %}
-  {% set host.x = host.x.replace("https://", "") %}
-  {% set host.x = host.x.replace("http://", "") %}
+  {% set host.x = "%s:%d"|format(values.nextcloud.host, values.network.web_port) %}
+  {% set host.x = host.x.replace("https://", "").replace("http://", "") %}
 {% endif %}
 
 {% if values.network.certificate_id %}
@@ -119,6 +118,7 @@
   {% do nc_confs.append(("logformat.conf", use_x_real_ip_in_logs(), "/etc/apache2/conf-enabled/logformat.conf", "")) %}
   {% if values.nextcloud.host and values.network.nginx.use_different_port %}
     {% set host.x = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
+    {% set host.x = host.x.replace("https://", "").replace("http://", "") %}
     {% do nc_env.x.append(("OVERWRITEHOST", host.x)) %}
   {% endif %}
 {% endif %}
@@ -208,7 +208,7 @@
     "port": values.network.web_port, "path": "/status.php",
     "headers": [("Host", "localhost")], "scheme": "https"
   }) %}
-  {% do nginx_container.ports.add_port(values.network.web_port, values.network.web_port) %}
+  {% do nginx_container.ports.add_port(values.network.nginx.external_port if values.network.nginx.use_different_port else values.network.web_port, values.network.web_port) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
@@ -218,6 +218,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}) %}
+{% do tpl.portals.add_portal({"port": values.network.nginx.external_port if values.network.nginx.use_different_port else values.network.web_port, "scheme": "https" if values.network.certificate_id else "http"}) %}
 
 {{ tpl.render() | tojson }}
