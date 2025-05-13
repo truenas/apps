@@ -1,15 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% if values.cloudflared.additional_args != values.cloudflared.additional_args|unique|list %}
-  {% do tpl.funcs.fail("Cloudflared [cloudflared.additional_args] contains duplicate values [%s], please remove them" | format(values.cloudflared.additional_args|join(', '))) %}
-{% endif %}
-{% for arg in values.cloudflared.additional_args %}
-  {% for reserved_arg in values.consts.reserved_args %}
-    {% if arg.startswith(reserved_arg) %}
-      {% do tpl.funcs.fail("Cloudflared already inserts [%s] as an argument, please remove it from [cloudflared.additional_args]" | format(arg)) %}
-    {% endif %}
-  {% endfor %}
-{% endfor %}
+{% do tpl.funcs.require_unique(values.cloudflared.additional_args, "Additional args") %}
+{% do tpl.funcs.require_no_reserved(values.cloudflared.additional_args, "Additional args", values.consts.reserved_args, starts_with=true) %}
 
 {% set c1 = tpl.add_container(values.consts.cloudflared_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
