@@ -117,10 +117,14 @@
   {% do nc_env.x.append(("TRUSTED_PROXIES", ["127.0.0.1", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"] | join(" "))) %}
   {% do nc_confs.append(("logformat.conf", use_x_real_ip_in_logs(), "/etc/apache2/conf-enabled/logformat.conf", "")) %}
   {% if values.nextcloud.host and values.network.nginx.use_different_port %}
-    {% set host.x = "%s:%d"|format(values.nextcloud.host, values.network.nginx.external_port) %}
+    {% set temp_host = values.nextcloud.host.split(":") %}
+    {% if temp_host[1] and temp_host[1] != values.network.nginx.external_port %}
+      {% do tpl.notes.add_warning("The port in the Host field is different from the external port. The port from the Host field will be ignored.") %}
+    {% endif %}
+    {% set host.x = "%s:%d"|format(temp_host[0], values.network.nginx.external_port) %}
     {% set host.x = host.x.replace("https://", "").replace("http://", "") %}
+    {% do nc_env.x.append(("OVERWRITEHOST", host.x)) %}
   {% endif %}
-  {% do nc_env.x.append(("OVERWRITEHOST", host.x)) %}
 {% endif %}
 
 {% if host.x %}
