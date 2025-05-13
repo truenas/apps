@@ -21,6 +21,8 @@
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
+{% set application_hosts = (["localhost"] + values.dawarich.application_hosts)|unique|list %}
+
 {# Sidekiq #}
 {% do sidekiq.set_tty(true) %}
 {% do sidekiq.set_stdin(true) %}
@@ -36,11 +38,12 @@
 {% do sidekiq.environment.add_env("RAILS_ENV", "development") %}
 {% do sidekiq.environment.add_env("SELF_HOSTED", true) %}
 {% do sidekiq.environment.add_env("APPLICATION_PROTOCOL", "http") %}
+{% do sidekiq.environment.add_env("APPLICATION_HOSTS", application_hosts|join(",")) %}
 {% do sidekiq.environment.add_env("DATABASE_HOST", values.consts.postgis_container_name) %}
 {% do sidekiq.environment.add_env("DATABASE_USERNAME", values.consts.db_user) %}
 {% do sidekiq.environment.add_env("DATABASE_PASSWORD", values.dawarich.db_password) %}
 {% do sidekiq.environment.add_env("DATABASE_NAME", values.consts.db_name) %}
-{% do sidekiq.environment.add_env("DATABASE_PORT", postgis.get_port()) %}
+{% do sidekiq.environment.add_env("DATABASE_PORT", 5432) %}
 {% do sidekiq.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
 {% do sidekiq.environment.add_env("DISTANCE_UNIT", values.dawarich.distance_unit) %}
 {% do sidekiq.environment.add_user_envs(values.dawarich.additional_envs) %}
@@ -60,12 +63,13 @@
 {% do app.environment.add_env("SELF_HOSTED", true) %}
 {% do app.environment.add_env("TIME_ZONE", values.TZ) %}
 {% do app.environment.add_env("APPLICATION_PROTOCOL", "http") %}
+{% do app.environment.add_env("APPLICATION_HOSTS", application_hosts|join(",")) %}
 {% do app.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
 {% do app.environment.add_env("DATABASE_HOST", values.consts.postgis_container_name) %}
 {% do app.environment.add_env("DATABASE_USERNAME", values.consts.db_user) %}
 {% do app.environment.add_env("DATABASE_PASSWORD", values.dawarich.db_password) %}
 {% do app.environment.add_env("DATABASE_NAME", values.consts.db_name) %}
-{% do app.environment.add_env("DATABASE_PORT", postgis.get_port()) %}
+{% do app.environment.add_env("DATABASE_PORT", 5432) %}
 {% do app.environment.add_env("DISTANCE_UNIT", values.dawarich.distance_unit) %}
 {% do app.environment.add_user_envs(values.dawarich.additional_envs) %}
 
