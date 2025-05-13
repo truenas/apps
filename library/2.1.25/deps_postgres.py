@@ -139,14 +139,13 @@ class PostgresContainer:
         addr = f"{self._name}:{self._get_port()}"
         db = self._config["database"]
 
-        match variant:
-            case "postgres":
-                return f"postgres://{creds}@{addr}/{db}?sslmode=disable"
-            case "postgresql":
-                return f"postgresql://{creds}@{addr}/{db}?sslmode=disable"
-            case "postgresql_no_creds":
-                return f"postgresql://{addr}/{db}?sslmode=disable"
-            case "host_port":
-                return addr
-            case _:
-                raise RenderError(f"Expected [variant] to be one of [postgres, postgresql], got [{variant}]")
+        urls = {
+            "postgres": f"postgres://{creds}@{addr}/{db}?sslmode=disable",
+            "postgresql": f"postgresql://{creds}@{addr}/{db}?sslmode=disable",
+            "postgresql_no_creds": f"postgresql://{addr}/{db}?sslmode=disable",
+            "host_port": addr,
+        }
+
+        if variant not in urls:
+            raise RenderError(f"Expected [variant] to be one of [{', '.join(urls.keys())}], got [{variant}]")
+        return urls[variant]
