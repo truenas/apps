@@ -66,7 +66,7 @@ class PostgresContainer:
             f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
         )
 
-        repo = self._get_repo(image, ("postgres", "tensorchord/pgvecto-rs"))
+        repo = self._get_repo(image, ("postgres", "tensorchord/pgvecto-rs", "postgis/postgis"))
         # eg we don't want to handle upgrades of pg_vector at the moment
         if repo == "postgres":
             target_major_version = self._get_target_version(image)
