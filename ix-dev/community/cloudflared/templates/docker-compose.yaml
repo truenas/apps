@@ -1,15 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% if values.cloudflared.additional_args != values.cloudflared.additional_args|unique|list %}
-  {% do tpl.funcs.fail("Cloudflared [cloudflared.additional_args] contains duplicate values [%s], please remove them" | format(values.cloudflared.additional_args|join(', '))) %}
-{% endif %}
-{% for arg in values.cloudflared.additional_args %}
-  {% for reserved_arg in values.consts.reserved_args %}
-    {% if arg.startswith(reserved_arg) %}
-      {% do tpl.funcs.fail("Cloudflared already inserts [%s] as an argument, please remove it from [cloudflared.additional_args]" | format(arg)) %}
-    {% endif %}
-  {% endfor %}
-{% endfor %}
+{% do tpl.funcs.require_unique(values.cloudflared.additional_args, "Additional args") %}
+{% do tpl.funcs.require_no_reserved(values.cloudflared.additional_args, "Additional args", values.consts.reserved_args, starts_with=true) %}
 
 {% set c1 = tpl.add_container(values.consts.cloudflared_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
@@ -17,24 +9,30 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.disable() %}
-{% set cmd = (values.cloudflared.additional_args + ["run"]) if not values.ci else [] %}
-{% do c1.set_command(["tunnel"] + cmd) %}
 
-{% do c1.environment.add_env("TUNNEL_HELLO_WORLD", values.ci) %}
 {% do c1.environment.add_env("NO_AUTOUPDATE", true) %}
-{% do c1.environment.add_env("TUNNEL_TOKEN", values.cloudflared.tunnel_token) %}
+{% do c1.environment.add_user_envs(values.cloudflared.additional_envs) %}
 
-{% if values.cloudflared.tunnel_dns %}
-  {% do c1.environment.add_env("TUNNEL_DNS", values.cloudflared.tunnel_dns) %}
-  {% do c1.environment.add_env("TUNNEL_DNS_UPSTREAM", values.cloudflared.tunnel_dns_upstream|join(',')) %}
-  {% do c1.environment.add_env("TUNNEL_DNS_PORT", values.network.tunnel_dns_port.port_number) %}
-{% else %}
-  {% if values.network.tunnel_dns_port.bind_mode %}
-    {% do tpl.funcs.fail("Cloudflared tunnel DNS is disabled, but [network.tunnel_dns_port.bind_mode] is set, please set [cloudflared.tunnel_dns] to true or remove [network.tunnel_dns_port.bind_mode]") %}
-  {% endif %}
+{% set cmd = namespace(x=[]) %}
+
+{% if values.cloudflared.mode == "tunnel" %}
+  {% do cmd.x.extend(["tunnel", "run"]) %}
+  {% do c1.environment.add_env("TUNNEL_TOKEN", values.cloudflared.tunnel_token) %}
+
+{% elif values.cloudflared.mode == "proxy-dns" %}
+
+  {% do cmd.x.append("proxy-dns") %}
+  {% do cmd.x.extend(["--proxy-dns-address", "0.0.0.0"]) %}
+  {% do cmd.x.extend(["--proxy-dns-port", values.network.tunnel_dns_port.port_number]) %}
+  {% for upstream in values.cloudflared.tunnel_dns_upstream %}
+    {% do cmd.x.extend(["--proxy-dns-upstream", upstream]) %}
+  {% endfor %}
+
+  {% do c1.add_port(values.network.tunnel_dns_port) %}
 {% endif %}
 
-{% do c1.environment.add_user_envs(values.cloudflared.additional_envs) %}
+{% do cmd.x.extend(values.cloudflared.additional_args) %}
+{% do c1.set_command(cmd.x if not values.ci else ["tunnel", "--hello-world"]) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
