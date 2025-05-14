@@ -270,6 +270,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-rootless$",
       ["ghcr.io/sysadminsmedia/homebox"]
     ),
+    customVersioning(
+      // 17-3.5
+      "^17-(?<major>\\d+)\\.(?<minor>\\d+)$",
+      ["postgis/postgis"]
+    ),
   ],
 };
 
