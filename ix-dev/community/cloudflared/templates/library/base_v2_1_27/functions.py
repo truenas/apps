@@ -108,10 +108,17 @@ class Functions:
         if len(new_values) != len(set(new_values)):
             raise RenderError(f"Expected values in [{key}] to be unique, but got [{', '.join(values)}]")
 
-    def _require_no_reserved(self, values, key, reserved, split_char=""):
+    def _require_no_reserved(self, values, key, reserved, split_char="", starts_with=False):
         new_values = []
         for value in values:
             new_values.append(value.split(split_char)[0] if split_char else value)
+
+        if starts_with:
+            for arg in new_values:
+                for reserved_value in reserved:
+                    if arg.startswith(reserved_value):
+                        raise RenderError(f"Value [{reserved_value}] is reserved and cannot be set in [{key}]")
+            return
 
         for reserved_value in reserved:
             if reserved_value in new_values:
