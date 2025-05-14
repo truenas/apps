@@ -13,14 +13,16 @@
 
 
 {% do es.set_user(values.consts.elastic_run_as_user, values.consts.elastic_run_as_group) %}
-{% do es.healthcheck.set_test("curl", {"port": values.consts.elastic_port, "path": "/_cluster/health",
+{% do es.healthcheck.set_test("curl", {"port": values.consts.elastic_port, "path": "/_cluster/health?local=true",
   "headers": [("Authorization", tpl.funcs.basic_auth_header(values.consts.elastic_basic_auth_user, es_password))]}
 ) %}
 
 {% do es.environment.add_env("ELASTIC_PASSWORD", es_password) %}
-{% do es.environment.add_env("http.port", values.consts.elastic_port) %}
-{% do es.environment.add_env("discovery.type", "single-node") %}
-{% do es.environment.add_env("node.name", "diskoverdata") %}
+{% do es.environment.add_env("ES_SETTING_HTTP_PORT", values.consts.elastic_port) %}
+{% do es.environment.add_env("ES_SETTING_DISCOVERY_TYPE", "single-node") %}
+{% do es.environment.add_env("ES_SETTING_NODE_NAME", "diskoverdata") %}
+{% do es.environment.add_env("ES_SETTING_XPACK_SECURITY_ENABLED", true) %}
+{% do es.environment.add_env("ES_SETTING_XPACK_SECURITY_TRANSPORT_SSL_ENABLED", false) %}
 
 {% do es.add_storage("/usr/share/elasticsearch/data", values.storage.es_data) %}
 {% do perm_container.add_or_skip_action("es_data", values.storage.es_data, es_perm_config) %}
