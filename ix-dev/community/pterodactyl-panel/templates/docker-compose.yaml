@@ -2,7 +2,6 @@
 
 {% set c1 = tpl.add_container(values.consts.pterodactyl_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": 0, "gid": 0, "mode": "check"} %}
 
 {% set redis_config = {
   "password": values.pterodactyl.redis_password,
@@ -27,8 +26,10 @@
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
 {% do c1.environment.add_env("APP_TIMEZONE", values.TZ) %}
-{% do c1.environment.add_env("TRUSTED_PROXIES", values.pterodactyl.trusted_proxies) %}
-{% do c1.environment.add_env("APP_URL", values.pterodactyl.panel_uri) %}
+{% do c1.environment.add_env("TRUSTED_PROXIES", values.pterodactyl.trusted_proxies|join(",")) %}
+{% do c1.environment.add_env("APP_URL", values.pterodactyl.app_url) %}
+{% do c1.environment.add_env("APP_ENV", "production") %}
+{% do c1.environment.add_env("APP_KEY", values.pterodactyl.app_key) %}
 
 {% do c1.environment.add_env("CACHE_DRIVER", "redis") %}
 {% do c1.environment.add_env("SESSION_DRIVER", "redis") %}
@@ -41,19 +42,19 @@
 {% do c1.environment.add_env("DB_HOST", values.consts.mariadb_container_name) %}
 {% do c1.environment.add_env("DB_PORT", 3306) %}
 {% do c1.environment.add_env("DB_PASSWORD", values.pterodactyl.db_password) %}
+{% do c1.environment.add_env("DB_DATABASE", values.consts.db_name) %}
 
+{% do c1.environment.add_env("DB_USERNAME", values.consts.db_user) %}
 {% do c1.environment.add_user_envs(values.pterodactyl.additional_envs) %}
 
 {% if not values.network.host_network %}
   {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% endif %}
 
-{% do c1.add_storage("/app/var/", values.storage.config) %}
-{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+{% do c1.add_storage("/app/var", values.storage.config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
-  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
@@ -62,6 +63,6 @@
   {% do redis_container.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.consts.internal_web_port if values.network.host_network else values.network.web_port.port_number}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
