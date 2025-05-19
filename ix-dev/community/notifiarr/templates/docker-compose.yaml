@@ -4,12 +4,14 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% set proto = "https" if values.network.certificate_id else "http" %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.set_hostname(values.notifiarr.hostname) %}
-{% do c1.healthcheck.set_custom_test(["CMD", "/notifiarr", "--curl", "http://localhost:%d"|format(values.network.web_port.port_number)]) %}
 
-{# DN_SSL_KEY_FILE #}
-{# DN_SSL_CERT_FILE #}
+{% if values.notifiarr.monitor_disks %}{% do c1.set_privileged(true) %}{% endif %}
+
+{% do c1.set_hostname(values.notifiarr.hostname) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/notifiarr", "--curl", "%s://localhost:%d"|format(proto, values.network.web_port.port_number)]) %}
+
 {% do c1.environment.add_env("DN_MODE", "production") %}
 {% do c1.environment.add_env("DN_AUTO_UPDATE", false) %}
 {% do c1.environment.add_env("DN_BIND_ADDR", "0.0.0.0:%d"|format(values.network.web_port.port_number)) %}
@@ -30,6 +32,10 @@
 {% do c1.add_storage("/config", values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
 
+{% if values.notifiarr.mount_utmp %}
+  {% do c1.add_storage("/var/run/utmp", {"type": "host_path", "host_path_config": {"path": "/var/run/utmp", "read_only": true}}) %}
+{% endif %}
+
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
@@ -40,6 +46,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": "https" if values.network.certificate_id else "http"}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto}) %}
 
 {{ tpl.render() | tojson }}
