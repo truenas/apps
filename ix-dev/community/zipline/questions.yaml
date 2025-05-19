@@ -28,38 +28,63 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: instance_name
-          label: Instance Name
-          description: The name of the Zipline instance.
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: "Zipline"
+            default: postgres_17_image
             required: true
-        - variable: core_secret
-          label: Core secret
-          description: A secret that is 32 characters long.
-          schema:
-            type: string
-            required: true
-            private: true
-        - variable: db_user
-          label: Database User
-          description: The user for the database.
-          group: Postgress Configuration
-          schema:
-            type: string
-            default: "zipline"
-            required: true
-            private: true
+            enum:
+              - value: postgres_17_image
+                description: Postgres 17
         - variable: db_password
           label: Database Password
-          description: The password for the database.
-          group: Postgress Configuration
+          description: The password for Authelia.
           schema:
             type: string
             default: ""
             required: true
             private: true
+        - variable: core_secret
+          label: Core secret
+          description: A secret that is 32 characters long.
+          schema:
+            type: string
+            min_length: 32
+            max_length: 32
+            default: ""
+            private: true
+            required: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: Configure additional environment variables for Authelia.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+                        required: true
+
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -98,21 +123,15 @@ questions:
             required: true
             $ref:
               - definitions/port
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
-          schema:
-            type: boolean
-            default: false
+
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: zipline-uploads
-          label: Zipline Uploads Storage
+        - variable: uploads
+          label: Uploads Storage
           description: The folder where all the user uploads are stored.
           schema:
             type: dict
@@ -155,7 +174,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
+                        default: "uploads"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -189,8 +208,8 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: zipline-public
-          label: Zipline Public Storage
+        - variable: public
+          label: Public Storage
           description: The folder where all the public assets are stored.
           schema:
             type: dict
@@ -233,7 +252,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
+                        default: "public"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -267,8 +286,8 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: zipline-themes
-          label: Zipline Themes Storage
+        - variable: themes
+          label: Themes Storage
           description: The folder where all the custom themes are stored.
           schema:
             type: dict
@@ -311,7 +330,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
+                        default: "themes"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -346,8 +365,8 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: postgres_data
-          label: Zipline Postgres Data Storage
-          description: The path to store Zipline Postgres Data.
+          label: Postgres Data Storage
+          description: The path to store Postgres Data.
           schema:
             type: dict
             attrs:
@@ -389,7 +408,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "config"
+                        default: "pg_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -423,6 +442,18 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
           description: Additional storage for Zipline.
@@ -596,6 +627,9 @@ questions:
                         enum:
                           - value: zipline
                             description: zipline
+                          - value: postgres
+                            description: postgres
+
   - variable: resources
     label: ""
     group: Resources Configuration
