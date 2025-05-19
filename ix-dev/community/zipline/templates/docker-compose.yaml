@@ -16,12 +16,14 @@
   pg_config, perm_container
 ) %}
 
+{% set proto = "https" if values.network.certificate_id else "http" %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/healthcheck"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/healthcheck", "scheme": proto}) %}
 
+{% do c1.environment.add_env("DATASOURCE_TYPE", "local") %}
 {% do c1.environment.add_env("CORE_PORT", values.network.web_port.port_number) %}
-{% do c1.environment.add_env("CORE_DATABASE_URL", postgres.get_url("postgres")) %}
+{% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c1.environment.add_env("CORE_SECRET", values.zipline.core_secret) %}
 
 {% if values.network.certificate_id %}
@@ -32,7 +34,6 @@
   {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
-
 
 {% do c1.environment.add_user_envs(values.zipline.additional_envs) %}
 
@@ -52,6 +53,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto}) %}
 
 {{ tpl.render() | tojson }}
