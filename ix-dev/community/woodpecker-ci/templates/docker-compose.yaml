@@ -41,19 +41,6 @@
 {% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do server.healthcheck.set_custom_test(["CMD", "/bin/woodpecker-server", "ping"]) %}
 
-{% if values.network.certificate_id %}
-  {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do server.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
-  {% do server.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
-
-  {% do server.environment.add_env("WOODPECKER_SERVER_CERT", values.consts.ssl_cert_path) %}
-  {% do server.environment.add_env("WOODPECKER_SERVER_KEY", values.consts.ssl_key_path) %}
-
-  {% do server.environment.add_env("SERVER_ADDR_TLS", ":%d" | format(values.network.https_port.port_number)) %}
-  {% do server.add_port(values.network.https_port) %}
-  {% do tpl.portals.add_portal({"name": "HTTPS", "port": values.network.https_port.port_number, "scheme": "https"}) %}
-{% endif %}
-
 {% do server.environment.add_env("WOODPECKER_HOST", values.woodpecker.external_url) %}
 {% do server.environment.add_env("WOODPECKER_SERVER_ADDR", ":%d" | format(values.network.http_port.port_number)) %}
 {% do server.environment.add_env("WOODPECKER_GRPC_ADDR", ":%d" | format(values.network.grpc_port.port_number)) %}
@@ -61,6 +48,20 @@
 {% do server.environment.add_env("WOODPECKER_DATABASE_DRIVER", "postgres") %}
 {% do server.environment.add_env("WOODPECKER_DATABASE_DATASOURCE", postgres.get_url("postgres")) %}
 {% do server.environment.add_user_envs(values.woodpecker.server_additional_envs) %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do server.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do server.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+
+  {% do server.environment.add_env("WOODPECKER_SERVER_CERT", values.consts.ssl_cert_path) %}
+  {% do server.environment.add_env("WOODPECKER_SERVER_KEY", values.consts.ssl_key_path) %}
+  {% do server.environment.add_env("SERVER_ADDR_TLS", ":%d" | format(values.network.https_port.port_number)) %}
+
+  {% do server.add_port(values.network.https_port) %}
+
+  {% do tpl.portals.add_portal({"name": "HTTPS", "port": values.network.https_port.port_number, "scheme": "https"}) %}
+{% endif %}
 
 {% do server.add_port(values.network.http_port) %}
 
