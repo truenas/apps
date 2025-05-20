@@ -41,17 +41,24 @@
   {% do c1.devices.add_device(device.host_device, device.container_device) %}
 {% endfor %}
 
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/manifest.json"}) %}
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{% set proto = "https" if values.network.certificate_id else "http" %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port, "path": "/manifest.json", "scheme": proto, "spider": false}) %}
 {% do c1.environment.add_user_envs(values.home_assistant.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
+{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
 {% for port in values.network.additional_ports %}
   {% do c1.add_port(port) %}
 {% endfor %}
 
+{% do c1.add_storage("/media", values.storage.media) %}
 {% do c1.add_storage(values.consts.config_path, values.storage.config) %}
 {% do init.add_storage(values.consts.config_path, values.storage.config) %}
-{% do c1.add_storage("/media", values.storage.media) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
@@ -63,6 +70,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto}) %}
 
 {{ tpl.render() | tojson }}
