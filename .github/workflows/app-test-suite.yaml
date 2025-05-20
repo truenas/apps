@@ -16,8 +16,15 @@ jobs:
       - name: Check Docker socket ownership
         run: |
           ls -la /var/run/docker.sock
-          stat -c '%g' /var/run/docker.sock
-          getent group $(stat -c '%g' /var/run/docker.sock)
+          gid=$(stat -c '%g' /var/run/docker.sock)
+          # We know that this is the ID, if that changes, we need to update code in some apps
+          # So lets fail here so we don't spent any time to found out why it's not working
+          if [ $gid -ne 108 ]; then
+            echo "Docker socket group is not 108"
+            echo "Docker socket group is $gid"
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 
