@@ -42,6 +42,34 @@
 {% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do server.healthcheck.set_custom_test(["CMD", "/bin/woodpecker-server", "ping"]) %}
 
+{% if values.woodpecker.forge.type == "github" %}
+  {% do server.environment.add_env("WOODPECKER_GITHUB", true) %}
+  {% do server.environment.add_env("WOODPECKER_GITHUB_CLIENT_ID", values.woodpecker.forge.github.client_id) %}
+  {% do server.environment.add_env("WOODPECKER_GITHUB_CLIENT_SECRET", values.woodpecker.forge.github.client_secret) %}
+{% elif values.woodpecker.forge.type == "gitea" %}
+  {% do server.environment.add_env("WOODPECKER_GITEA", true) %}
+  {% do server.environment.add_env("WOODPECKER_GITEA_URL", values.woodpecker.forge.gitea.url) %}
+  {% do server.environment.add_env("WOODPECKER_GITEA_CLIENT_ID", values.woodpecker.forge.gitea.client_id) %}
+  {% do server.environment.add_env("WOODPECKER_GITEA_CLIENT_SECRET", values.woodpecker.forge.gitea.client_secret) %}
+  {% do server.environment.add_env("WOODPECKER_GITEA_SKIP_VERIFY", values.woodpecker.forge.gitea.skip_tls_verify) %}
+{% elif values.woodpecker.forge.type == "forgejo" %}
+  {% do server.environment.add_env("WOODPECKER_FORGEJO", true) %}
+  {% do server.environment.add_env("WOODPECKER_FORGEJO_URL", values.woodpecker.forge.forgejo.url or "https://next.forgejo.org") %}
+  {% do server.environment.add_env("WOODPECKER_FORGEJO_CLIENT_ID", values.woodpecker.forge.forgejo.client_id) %}
+  {% do server.environment.add_env("WOODPECKER_FORGEJO_CLIENT_SECRET", values.woodpecker.forge.forgejo.client_secret) %}
+  {% do server.environment.add_env("WOODPECKER_FORGEJO_SKIP_VERIFY", values.woodpecker.forge.forgejo.skip_tls_verify) %}
+{% elif values.woodpecker.forge.type == "bitbucket" %}
+  {% do server.environment.add_env("WOODPECKER_BITBUCKET", true) %}
+  {% do server.environment.add_env("WOODPECKER_BITBUCKET_CLIENT_ID", values.woodpecker.forge.bitbucket.client_id) %}
+  {% do server.environment.add_env("WOODPECKER_BITBUCKET_CLIENT_SECRET", values.woodpecker.forge.bitbucket.client_secret) %}
+{% elif values.woodpecker.forge.type == "gitlab" %}
+  {% do server.environment.add_env("WOODPECKER_GITLAB", true) %}
+  {% do server.environment.add_env("WOODPECKER_GITLAB_URL", values.woodpecker.forge.gitlab.url or "https://gitlab.com") %}
+  {% do server.environment.add_env("WOODPECKER_GITLAB_CLIENT_ID", values.woodpecker.forge.gitlab.client_id) %}
+  {% do server.environment.add_env("WOODPECKER_GITLAB_CLIENT_SECRET", values.woodpecker.forge.gitlab.client_secret) %}
+  {% do server.environment.add_env("WOODPECKER_GITLAB_SKIP_VERIFY", values.woodpecker.forge.gitlab.skip_tls_verify) %}
+{% endif %}
+
 {% do server.environment.add_env("WOODPECKER_HOST", values.woodpecker.external_url) %}
 {% do server.environment.add_env("WOODPECKER_SERVER_ADDR", ":%d" | format(values.network.http_port.port_number)) %}
 {% do server.environment.add_env("WOODPECKER_GRPC_ADDR", ":%d" | format(values.network.grpc_port.port_number)) %}
