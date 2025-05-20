@@ -23,5 +23,20 @@ if ! yq --exit-status '.recorder' < "{{ config_file }}" &> /dev/null; then
 fi
 echo "Ensure DB URL is up to date [{{ db_url }}] in [{{ config_file }}]"
 yq -i '.recorder.db_url = "{{ db_url }}"' "{{ config_file }}"
+
+if ! yq --exit-status '.http' < "{{ config_file }}" &> /dev/null; then
+  echo "Section [http] does NOT exist in [{{ config_file }}]. Appending..."
+  yq -i '.http = {}' "{{ config_file }}"
+fi
+
+echo "Matching server port to configured port [{{ values.network.web_port }}] in [{{ config_file }}]"
+yq -i '.http.server_port = {{ values.network.web_port }}' "{{ config_file }}"
+
+{%- if values.network.certificate_id %}
+echo "Setting up ssl paths [{{ values.consts.ssl_key_path }}] and [{{ values.consts.ssl_cert_path }}] in [{{ config_file }}]"
+yq -i '.http.ssl_key = "{{ values.consts.ssl_key_path }}"' "{{ config_file }}"
+yq -i '.http.ssl_certificate = "{{ values.consts.ssl_cert_path }}"' "{{ config_file }}"
+{%- endif %}
+
 echo "Done"
 {%- endmacro %}
