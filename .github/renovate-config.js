@@ -275,6 +275,11 @@ module.exports = {
       "^17-(?<major>\\d+)\\.(?<minor>\\d+)$",
       ["postgis/postgis"]
     ),
+    customVersioning(
+      // stable-e043ecf
+      "^stable-(?<build>[a-z0-9]+)$",
+      ["ghcr.io/toeverything/affine-graphql"]
+    ),
   ],
 };
 
