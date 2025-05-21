@@ -5,12 +5,12 @@
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port, "path": "/api/v1/status"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/v1/status"}) %}
 
-{% do c1.environment.add_env("PORT", values.network.web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_user_envs(values.jellyseerr.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/app/config", values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perm_config) %}
@@ -25,6 +25,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
