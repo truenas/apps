@@ -1,3 +1,3 @@
-# Zigbee2mqtt
+# Wger
 
-[Zigbee 🐝 to MQTT](www.zigbee2mqtt.io) bridge 🌉, get rid of your proprietary Zigbee bridges 🔨
+[Wger](https://wger.de) is a self hosted FLOSS fitness/workout, nutrition and weight tracker.
