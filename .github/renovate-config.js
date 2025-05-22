@@ -277,7 +277,7 @@ module.exports = {
     ),
     customVersioning(
       // stable-e043ecf
-      "^stable-(?<build>[a-z0-9]+)$",
+      "^stable-(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
       ["ghcr.io/toeverything/affine-graphql"]
     ),
     customVersioning(
