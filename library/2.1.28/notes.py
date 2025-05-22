@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from render import Render
 
+SHORT_LIVED = "short-lived"
+
 
 class Notes:
     def __init__(self, render_instance: "Render"):
@@ -63,7 +65,7 @@ class Notes:
                 self._security[name] = []
 
             if c.restart._policy == "on-failure":
-                self._security[name].append("short-lived")
+                self._security[name].append(SHORT_LIVED)
 
             if c._privileged:
                 self._security[name].append("Is running with privileged mode enabled")
@@ -109,8 +111,10 @@ class Notes:
         if self._security:
             result += "## Security\n\n"
             for c_name, security in self._security.items():
+                if SHORT_LIVED in security and len(security) == 0:
+                    continue
                 result += f"### Container: [{c_name}]"
-                if "short-lived" in security:
+                if SHORT_LIVED in security:
                     result += "\n\n**This container is short-lived.**"
                 result += "\n\n"
                 for s in [s for s in security if s != "short-lived"]:
