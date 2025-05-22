@@ -173,6 +173,11 @@ some other info.
     c1.set_tty(True)
     c1.remove_security_opt("no-new-privileges")
     c1.restart.set_policy("on-failure", 1)
+
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+    c2.set_user(568, 568)
+
     output = render.render()
     assert (
         output["x-notes"]

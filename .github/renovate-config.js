@@ -280,6 +280,11 @@ module.exports = {
       "^stable-(?<build>[a-z0-9]+)$",
       ["ghcr.io/toeverything/affine-graphql"]
     ),
+    customVersioning(
+      // 2.4-dev
+      "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
+      ["wger/server"]
+    ),
   ],
 };
 
