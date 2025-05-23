@@ -1,3 +1,4 @@
+import json
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,10 +18,11 @@ class Healthcheck:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._test: str | list[str] = ""
-        self._interval_sec: int = 10
+        self._interval_sec: int = 30
         self._timeout_sec: int = 5
-        self._retries: int = 30
-        self._start_period_sec: int = 10
+        self._retries: int = 5
+        self._start_period_sec: int = 15
+        self._start_interval_sec: int = 2
         self._disabled: bool = False
         self._use_built_in: bool = False
 
@@ -57,6 +59,9 @@ class Healthcheck:
     def set_start_period(self, start_period: int):
         self._start_period_sec = start_period
 
+    def set_start_interval(self, start_interval: int):
+        self._start_interval_sec = start_interval
+
     def has_healthcheck(self):
         return not self._use_built_in
 
@@ -72,10 +77,11 @@ class Healthcheck:
 
         return {
             "test": self._get_test(),
+            "retries": self._retries,
             "interval": f"{self._interval_sec}s",
             "timeout": f"{self._timeout_sec}s",
-            "retries": self._retries,
             "start_period": f"{self._start_period_sec}s",
+            "start_interval": f"{self._start_interval_sec}s",
         }
 
 
@@ -90,6 +96,7 @@ def test_mapping(variant: str, config: dict | None = None) -> str:
         "redis": redis_test,
         "postgres": postgres_test,
         "mariadb": mariadb_test,
+        "mongodb": mongodb_test,
     }
 
     if variant not in tests:
@@ -99,7 +106,7 @@ def test_mapping(variant: str, config: dict | None = None) -> str:
 
 
 def get_key(config: dict, key: str, default: Any, required: bool):
-    if not config.get(key):
+    if key not in config:
         if not required:
             return default
         raise RenderError(f"Expected [{key}] to be set")
@@ -113,6 +120,8 @@ def curl_test(config: dict) -> str:
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
+    method = get_key(config, "method", "GET", False)
+    data = get_key(config, "data", None, False)
 
     opts = []
     if scheme == "https":
@@ -122,8 +131,10 @@ def curl_test(config: dict) -> str:
         if not header[0] or not header[1]:
             raise RenderError("Expected [header] to be a list of two items for curl test")
         opts.append(f'--header "{header[0]}: {header[1]}"')
+    if data is not None:
+        opts.append(f"--data '{json.dumps(data)}'")
 
-    cmd = "curl --silent --output /dev/null --show-error --fail"
+    cmd = f"curl --request {method} --silent --output /dev/null --show-error --fail"
     if opts:
         cmd += f" {' '.join(opts)}"
     cmd += f" {scheme}://{host}:{port}{path}"
@@ -137,6 +148,7 @@ def wget_test(config: dict) -> str:
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
+    spider = get_key(config, "spider", True, False)
 
     opts = []
     if scheme == "https":
@@ -147,7 +159,8 @@ def wget_test(config: dict) -> str:
             raise RenderError("Expected [header] to be a list of two items for wget test")
         opts.append(f'--header "{header[0]}: {header[1]}"')
 
-    cmd = "wget --spider --quiet"
+    cmd = f"wget --quiet {'--spider' if spider else '-O /dev/null'}"
+
     if opts:
         cmd += f" {' '.join(opts)}"
     cmd += f" {scheme}://{host}:{port}{path}"
@@ -201,3 +214,11 @@ def mariadb_test(config: dict) -> str:
     host = get_key(config, "host", "127.0.0.1", False)
 
     return f"mariadb-admin --user=root --host={host} --port={port} --password=$MARIADB_ROOT_PASSWORD ping"
+
+
+def mongodb_test(config: dict) -> str:
+    config = config or {}
+    port = get_key(config, "port", 27017, False)
+    host = get_key(config, "host", "127.0.0.1", False)
+
+    return f"mongosh --host {host} --port {port} $MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")' --quiet"

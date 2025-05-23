@@ -36,6 +36,7 @@ class RedisContainer:
         valid_redis_password_or_raise(config["password"])
 
         port = valid_port_or_raise(self._get_port())
+        self._get_repo(image, ("bitnami/redis"))
 
         c = self._render_instance.add_container(name, image)
         c.set_user(1001, 0)
@@ -57,6 +58,17 @@ class RedisContainer:
 
     def _get_port(self):
         return self._config.get("port") or 6379
+
+    def _get_repo(self, image, supported_repos):
+        images = self._render_instance.values["images"]
+        if image not in images:
+            raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
+        repo = images[image].get("repository")
+        if not repo:
+            raise RenderError("Could not determine repo")
+        if repo not in supported_repos:
+            raise RenderError(f"Unsupported repo [{repo}] for redis. Supported repos: {', '.join(supported_repos)}")
+        return repo
 
     def get_url(self, variant: str):
         addr = f"{self._name}:{self._get_port()}"
