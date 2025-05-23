@@ -1,20 +1,20 @@
 groups:
-  - name: Vaultwarden Configuration
-    description: Configure Vaultwarden
+  - name: Teamspeak Configuration
+    description: Configure Teamspeak
   - name: User and Group Configuration
-    description: Configure User and Group for Vaultwarden
+    description: Configure User and Group for Teamspeak
   - name: Network Configuration
-    description: Configure Network for Vaultwarden
+    description: Configure Network for Teamspeak
   - name: Storage Configuration
-    description: Configure Storage for Vaultwarden
+    description: Configure Storage for Teamspeak
   - name: Labels Configuration
-    description: Configure Labels for Vaultwarden
+    description: Configure Labels for Teamspeak
   - name: Resources Configuration
-    description: Configure Resources for Vaultwarden
+    description: Configure Resources for Teamspeak
 
 questions:
   - variable: TZ
-    group: Vaultwarden Configuration
+    group: Teamspeak Configuration
     label: Timezone
     schema:
       type: string
@@ -23,48 +23,39 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: vaultwarden
+  - variable: teamspeak
     label: ""
-    group: Vaultwarden Configuration
+    group: Teamspeak Configuration
     schema:
       type: dict
       attrs:
-        - variable: postgres_image_selector
-          label: Postgres Image (CAUTION)
-          description: |
-            If you are changing this after the postgres directory has been initialized,</br>
-            STOP! and make sure you have a backup of your data.</br>
-            Changing this will trigger an one way database upgrade.</br>
-            You can only select newer versions of postgres.</br>
-            Selecting an older version will refuse to start.</br>
-            If something goes wrong, you will have to restore from backup.
+        - variable: accept_license
+          label: Accept License
+          description: Accept the Teamspeak license to use this app.
           schema:
-            type: string
-            default: postgres_15_image
+            type: boolean
+            default: false
             required: true
-            enum:
-              - value: postgres_15_image
-                description: Postgres 15
-              - value: postgres_17_image
-                description: Postgres 17
-        - variable: db_password
-          label: Database Password
-          description: The password for Vaultwarden.
+        - variable: query_protocols
+          label: Query Protocols
+          description: The query protocols to enable.
           schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-        - variable: admin_token
-          label: Admin Token
-          description: Setting this, will enable the admin portal
-          schema:
-            type: string
-            default: ""
-            private: true
+            type: list
+            default: ["raw", "ssh"]
+            items:
+              - variable: protocol
+                label: Protocol
+                schema:
+                  type: string
+                  required: true
+                  enum:
+                    - value: raw
+                      description: Raw
+                    - value: ssh
+                      description: SSH
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Vaultwarden.
+          description: Configure additional environment variables for Teamspeak.
           schema:
             type: list
             default: []
@@ -92,7 +83,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Vaultwarden files will be owned by.
+          description: The user id that Teamspeak files will be owned by.
           schema:
             type: int
             min: 568
@@ -100,63 +91,221 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Vaultwarden files will be owned by.
+          description: The group id that Teamspeak files will be owned by.
           schema:
             type: int
             min: 568
             default: 568
             required: true
-
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
-          description: The port for Vaultwarden WebUI
+        - variable: voice_port
+          label: Voice Port
           schema:
-            type: int
-            default: 30032
-            required: true
-            $ref:
-              - definitions/port
-        - variable: ws_enabled
-          label: Enable Websocket
-          description: Enable Websocket for Vaultwarden.
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 9987
+                  required: true
+                  show_if: [["bind_mode", "=", "published"]]
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: file_transfer_port
+          label: File Transfer Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30033
+                  required: true
+                  show_if: [["bind_mode", "=", "published"]]
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: raw_query_port
+          label: Raw Query Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 10011
+                  required: true
+                  show_if: [["bind_mode", "=", "published"]]
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: ssh_query_port
+          label: SSH Query Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 10022
+                  required: true
+                  show_if: [["bind_mode", "=", "published"]]
+                  $ref:
+                    - definitions/port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
           schema:
             type: boolean
-            default: true
-        - variable: ws_port
-          label: Websocket Port
-          description: The port for Vaultwarden Websocket
-          schema:
-            type: int
-            default: 30174
-            show_if: [["ws_enabled", "=", true]]
-            required: true
-            $ref:
-              - definitions/port
-        - variable: certificate_id
-          label: Certificate ID
-          description: |
-            The certificate to use for Vaultwarden </br>
-            Using the Rocket method for TLS setup is NOT recommended </br>
-            Prefer a reverse proxy with a valid certificate
-          schema:
-            type: int
-            "null": true
-            $ref:
-              - definitions/certificate
-        - variable: domain
-          label: Domain
-          description: |
-            The domain to use for Vaultwarden </br>
-            Format is: https://sub.domain.tld:port
-          schema:
-            type: uri
-            default: ""
+            default: false
 
   - variable: storage
     label: ""
@@ -165,8 +314,8 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Vaultwarden Data Storage
-          description: The path to store Vaultwarden Data.
+          label: Teamspeak Data Storage
+          description: The path to store Teamspeak Data.
           schema:
             type: dict
             attrs:
@@ -242,99 +391,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: postgres_data
-          label: Vaultwarden Postgres Data Storage
-          description: The path to store Vaultwarden Postgres Data.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  immutable: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        immutable: true
-                        hidden: true
-                        default: "postgres_data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this, will check the top level directory,</br>
-                        If it finds incorrect permissions, it will `chown` the
-                        host path to the user and group required for the
-                        postgres container.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Vaultwarden.
+          description: Additional storage for Teamspeak.
           schema:
             type: list
             default: []
@@ -504,10 +563,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: vaultwarden
-                            description: vaultwarden
-                          - value: postgres
-                            description: postgres
+                          - value: teamspeak
+                            description: teamspeak
 
   - variable: resources
     label: ""
@@ -522,14 +579,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Vaultwarden.
+                description: CPUs limit for Teamspeak.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Vaultwarden.
+                description: Memory limit for Teamspeak.
                 schema:
                   type: int
                   default: 4096
