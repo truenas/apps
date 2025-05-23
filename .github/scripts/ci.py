@@ -9,7 +9,7 @@ import yaml
 import sys
 import os
 
-CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:dev"
+CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 PLATFORM = "linux/amd64"
 
 
@@ -513,7 +513,7 @@ def wait_for_user_input():
 def main():
     print_info()
     check_app_dir_exists()
-    # pull_app_catalog_container()
+    pull_app_catalog_container()
     copy_lib()
     copy_macros()
     if args["with_migration_helpers"]:
