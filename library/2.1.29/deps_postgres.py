@@ -1,5 +1,5 @@
 import urllib.parse
-from typing import TYPE_CHECKING, TypedDict, NotRequired, Literal
+from typing import TYPE_CHECKING, TypedDict, NotRequired
 
 
 if TYPE_CHECKING:
@@ -21,7 +21,6 @@ class PostgresConfig(TypedDict):
     user: str
     password: str
     database: str
-    storage_optimization: Literal["HDD", "SSD"]
     port: NotRequired[int]
     volume: "IxStorage"
 
@@ -56,25 +55,20 @@ class PostgresContainer:
         common_variables = {
             "POSTGRES_USER": config["user"],
             "POSTGRES_PASSWORD": config["password"],
-            "POSTGRES_DB": config["database"],   
+            "POSTGRES_DB": config["database"],
             "PGPORT": port,
         }
-        
-        repo = self._get_repo(
-            image, ("postgres", "tensorchord/pgvecto-rs", "postgis/postgis", "ghcr.io/immich-app/postgres")
-        )
-        
-        # Only relevant for Immich since it is a crucial vectorchord variable.
-        if repo == "ghcr.io/immich-app/postgres":
-            common_variables["DB_STORAGE_TYPE"] = config["storage_optimization"]
-            
+
         for k, v in common_variables.items():
             c.environment.add_env(k, v)
 
         perms_instance.add_or_skip_action(
             f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
         )
-            
+
+        repo = self._get_repo(
+            image, ("postgres", "tensorchord/pgvecto-rs", "postgis/postgis", "ghcr.io/immich-app/postgres")
+        )
         # eg we don't want to handle upgrades of pg_vector at the moment
         if repo == "postgres":
             target_major_version = self._get_target_version(image)
