@@ -1,63 +1,69 @@
 groups:
-  - name: MongoDB Configuration
-    description: Configure MongoDB
-  - name: User and Group Configuration
-    description: Configure User and Group for MongoDB
+  - name: Jellystat Configuration
+    description: Configure Jellystat
   - name: Network Configuration
-    description: Configure Network for MongoDB
+    description: Configure Network for Jellystat
   - name: Storage Configuration
-    description: Configure Storage for MongoDB
+    description: Configure Storage for Jellystat
   - name: Labels Configuration
-    description: Configure Labels for MongoDB
+    description: Configure Labels for Jellystat
   - name: Resources Configuration
-    description: Configure Resources for MongoDB
+    description: Configure Resources for Jellystat
 
 questions:
-  - variable: mongodb
+  - variable: TZ
+    group: Jellystat Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+  - variable: jellystat
     label: ""
-    group: MongoDB Configuration
+    group: Jellystat Configuration
     schema:
       type: dict
       attrs:
-        - variable: image_selector
-          label: Image Selector
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
           description: |
-            The image to use for MongoDB.</br>
-            Selecting an image with pgvector will use a pgvector image (not the official MongoDB).
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: "image"
+            default: postgres_17_image
             required: true
             enum:
-              - value: "image"
-                description: MongoDB 8 Image
-              - value: "v7_image"
-                description: MongoDB 7 Image
-        - variable: user
-          label: User
-          description: The database user.
-          schema:
-            type: string
-            default: ""
-            required: true
-        - variable: password
-          label: Password
-          description: The database password.
+              - value: postgres_17_image
+                description: Postgres 17
+        - variable: db_password
+          label: Database Password
           schema:
             type: string
             default: ""
             required: true
             private: true
-        - variable: database
-          label: Database
-          description: The database name.
+        - variable: jwt_secret
+          label: JWT Secret
           schema:
             type: string
             default: ""
             required: true
+            private: true
+        - variable: is_emby_api
+          label: Is Emby API?
+          schema:
+            type: boolean
+            default: false
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for MongoDB.
+          description: Configure additional environment variables for Jellystat.
           schema:
             type: list
             default: []
@@ -77,28 +83,6 @@ questions:
                       schema:
                         type: string
                         required: true
-  - variable: run_as
-    label: ""
-    group: User and Group Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: user
-          label: User ID
-          description: The user id that MongoDB files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
-        - variable: group
-          label: Group ID
-          description: The group id that MongoDB files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
 
   - variable: network
     label: ""
@@ -106,12 +90,10 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: tcp_port
-          label: TCP Port
-          description: The port for MongoDB TCP
+        - variable: web_port
+          label: WebUI Port
           schema:
             type: dict
-            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -136,7 +118,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 27017
+                  default: 30176
                   show_if: [["bind_mode", "=", "published"]]
                   required: true
                   $ref:
@@ -156,22 +138,14 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: host_network
-          label: Host Network
-          description: Bind to the host network. It's recommended to keep this disabled.
-          schema:
-            type: boolean
-            default: false
-
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: data
-          label: MongoDB Data Storage
-          description: The path to store MongoDB Data.
+        - variable: backup
+          label: Backup Storage
           schema:
             type: dict
             attrs:
@@ -213,7 +187,7 @@ questions:
                         required: true
                         immutable: true
                         hidden: true
-                        default: "data"
+                        default: "backup"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -247,9 +221,99 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: postgres_data
+          label: Postgres Data Storage
+          description: The path to store Postgres Data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  immutable: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        immutable: true
+                        hidden: true
+                        default: "pg_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for MongoDB.
+          description: Additional storage for Jellystat.
           schema:
             type: list
             default: []
@@ -384,7 +448,6 @@ questions:
                             description: The domain to use for the SMB share.
                             schema:
                               type: string
-
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -419,9 +482,10 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: mongodb
-                            description: mongodb
-
+                          - value: jellystat
+                            description: jellystat
+                          - value: postgres
+                            description: postgres
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -435,14 +499,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for MongoDB.
+                description: CPUs limit for Jellystat.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for MongoDB.
+                description: Memory limit for Jellystat.
                 schema:
                   type: int
                   default: 4096
