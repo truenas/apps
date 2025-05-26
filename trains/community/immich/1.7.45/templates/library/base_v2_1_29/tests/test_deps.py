@@ -22,9 +22,29 @@ def test_add_postgres_missing_config(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.postgres(
-            "test_container",
+            "pg_container",
             "test_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+        )
+
+
+def test_add_postgres_unsupported_repo(mock_values):
+    mock_values["images"]["pg_image"] = {"repository": "unsupported_repo", "tag": "16"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.postgres(
+            "pg_container",
+            "pg_image",
+            {
+                "user": "test_user",
+                "password": "test_@password",
+                "database": "test_database",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
         )
 
 
@@ -60,10 +80,11 @@ def test_add_postgres(mock_values):
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["pg_container"]["healthcheck"] == {
         "test": "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB",
-        "interval": "10s",
+        "interval": "30s",
         "timeout": "5s",
-        "retries": 30,
-        "start_period": "10s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
     }
     assert output["services"]["pg_container"]["volumes"] == [
         {
@@ -82,7 +103,7 @@ def test_add_postgres(mock_values):
         "POSTGRES_USER": "test_user",
         "POSTGRES_PASSWORD": "test_@password",
         "POSTGRES_DB": "test_database",
-        "POSTGRES_PORT": "5432",
+        "PGPORT": "5432",
     }
     assert output["services"]["pg_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"},
@@ -97,9 +118,27 @@ def test_add_redis_missing_config(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.redis(
-            "test_container",
+            "redis_container",
             "test_image",
             {"password": "test_password", "volume": {}},  # type: ignore
+        )
+
+
+def test_add_redis_unsupported_repo(mock_values):
+    mock_values["images"]["redis_image"] = {"repository": "unsupported_repo", "tag": "latest"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.redis(
+            "redis_container",
+            "redis_image",
+            {
+                "password": "test&password@",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
         )
 
 
@@ -110,8 +149,8 @@ def test_add_redis_with_password_with_spaces(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.redis(
-            "test_container",
-            "test_image",
+            "redis_container",
+            "redis_image",
             {"password": "test password", "volume": {}},  # type: ignore
         )
 
@@ -148,10 +187,11 @@ def test_add_redis(mock_values):
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["redis_container"]["healthcheck"] == {
         "test": "redis-cli -h 127.0.0.1 -p 6379 -a $$REDIS_PASSWORD ping | grep -q PONG",
-        "interval": "10s",
+        "interval": "30s",
         "timeout": "5s",
-        "retries": 30,
-        "start_period": "10s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
     }
     assert output["services"]["redis_container"]["volumes"] == [
         {
@@ -182,9 +222,29 @@ def test_add_mariadb_missing_config(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.mariadb(
-            "test_container",
+            "mariadb_container",
             "test_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+        )
+
+
+def test_add_mariadb_unsupported_repo(mock_values):
+    mock_values["images"]["mariadb_image"] = {"repository": "unsupported_repo", "tag": "latest"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.mariadb(
+            "mariadb_container",
+            "mariadb_image",
+            {
+                "user": "test_user",
+                "password": "test_password",
+                "database": "test_database",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
         )
 
 
@@ -217,10 +277,11 @@ def test_add_mariadb(mock_values):
     assert output["services"]["mariadb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["mariadb_container"]["healthcheck"] == {
         "test": "mariadb-admin --user=root --host=127.0.0.1 --port=3306 --password=$$MARIADB_ROOT_PASSWORD ping",
-        "interval": "10s",
+        "interval": "30s",
         "timeout": "5s",
-        "retries": 30,
-        "start_period": "10s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
     }
     assert output["services"]["mariadb_container"]["volumes"] == [
         {
@@ -401,8 +462,8 @@ def test_add_postgres_with_invalid_tag(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         render.deps.postgres(
-            "test_container",
-            "test_image",
+            "pg_container",
+            "pg_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
         )
 
@@ -474,3 +535,81 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pgup["healthcheck"] == {"disable": True}
     assert pgup["image"] == "ixsystems/postgres-upgrade:1.0.1"
     assert pgup["entrypoint"] == ["/bin/bash", "-c", "/upgrade.sh"]
+
+
+def test_add_mongodb(mock_values):
+    mock_values["images"]["mongodb_image"] = {"repository": "mongodb", "tag": "latest"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    m = render.deps.mongodb(
+        "mongodb_container",
+        "mongodb_image",
+        {
+            "user": "test_user",
+            "password": "test_password",
+            "database": "test_database",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+    output = render.render()
+    assert "devices" not in output["services"]["mongodb_container"]
+    assert "reservations" not in output["services"]["mongodb_container"]["deploy"]["resources"]
+    assert output["services"]["mongodb_container"]["image"] == "mongodb:latest"
+    assert output["services"]["mongodb_container"]["user"] == "999:999"
+    assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert output["services"]["mongodb_container"]["healthcheck"] == {
+        "test": "mongosh --host 127.0.0.1 --port 27017 $$MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")' --quiet",  # noqa
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
+    }
+    assert output["services"]["mongodb_container"]["volumes"] == [
+        {
+            "type": "volume",
+            "source": "test_volume",
+            "target": "/data/db",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
+    ]
+    assert output["services"]["mongodb_container"]["environment"] == {
+        "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+        "MONGO_INITDB_ROOT_USERNAME": "test_user",
+        "MONGO_INITDB_ROOT_PASSWORD": "test_password",
+        "MONGO_INITDB_DATABASE": "test_database",
+    }
+    assert output["services"]["mongodb_container"]["depends_on"] == {
+        "perms_container": {"condition": "service_completed_successfully"}
+    }
+
+
+def test_add_mongodb_unsupported_repo(mock_values):
+    mock_values["images"]["mongo_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.mongodb(
+            "mongo_container",
+            "mongo_image",
+            {
+                "user": "test_user",
+                "password": "test_@password",
+                "database": "test_database",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
+        )
