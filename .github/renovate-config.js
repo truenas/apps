@@ -275,6 +275,21 @@ module.exports = {
       "^17-(?<major>\\d+)\\.(?<minor>\\d+)$",
       ["postgis/postgis"]
     ),
+    customVersioning(
+      // stable-e043ecf
+      "^stable-(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
+      ["ghcr.io/toeverything/affine-graphql"]
+    ),
+    customVersioning(
+      // 2.4-dev
+      "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
+      ["wger/server"]
+    ),
+    customVersioning(
+      // 15-vectorchord0.3.0-pgvectors0.2.0
+      "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pgvectors0.2.0$",
+      ["ghcr.io/immich-app/postgres"]
+    ),
   ],
 };
 
