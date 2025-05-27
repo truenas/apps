@@ -66,7 +66,9 @@ class PostgresContainer:
             f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
         )
 
-        repo = self._get_repo(image)
+        repo = self._get_repo(
+            image, ("postgres", "tensorchord/pgvecto-rs", "postgis/postgis", "ghcr.io/immich-app/postgres")
+        )
         # eg we don't want to handle upgrades of pg_vector at the moment
         if repo == "postgres":
             target_major_version = self._get_target_version(image)
@@ -103,13 +105,15 @@ class PostgresContainer:
     def _get_port(self):
         return self._config.get("port") or 5432
 
-    def _get_repo(self, image):
+    def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
-        repo = images[image].get("repository", "")
+        repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
+        if repo not in supported_repos:
+            raise RenderError(f"Unsupported repo [{repo}] for postgres. Supported repos: {', '.join(supported_repos)}")
         return repo
 
     def _get_target_version(self, image):
@@ -137,14 +141,13 @@ class PostgresContainer:
         addr = f"{self._name}:{self._get_port()}"
         db = self._config["database"]
 
-        match variant:
-            case "postgres":
-                return f"postgres://{creds}@{addr}/{db}?sslmode=disable"
-            case "postgresql":
-                return f"postgresql://{creds}@{addr}/{db}?sslmode=disable"
-            case "postgresql_no_creds":
-                return f"postgresql://{addr}/{db}?sslmode=disable"
-            case "host_port":
-                return addr
-            case _:
-                raise RenderError(f"Expected [variant] to be one of [postgres, postgresql], got [{variant}]")
+        urls = {
+            "postgres": f"postgres://{creds}@{addr}/{db}?sslmode=disable",
+            "postgresql": f"postgresql://{creds}@{addr}/{db}?sslmode=disable",
+            "postgresql_no_creds": f"postgresql://{addr}/{db}?sslmode=disable",
+            "host_port": addr,
+        }
+
+        if variant not in urls:
+            raise RenderError(f"Expected [variant] to be one of [{', '.join(urls.keys())}], got [{variant}]")
+        return urls[variant]
