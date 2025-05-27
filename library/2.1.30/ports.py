@@ -1,5 +1,5 @@
 import ipaddress
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict, Literal, NotRequired
 
 if TYPE_CHECKING:
     from render import Render
@@ -109,7 +109,7 @@ class Ports:
             self.add_port(host_port, container_port, config | {"host_ip": "::"})
             return
 
-        host_ip = valid_ip_or_raise(config.get("host_ip", None))
+        host_ip = valid_ip_or_raise(config.get("host_ip", ""))
         ip = ipaddress.ip_address(host_ip)
 
         port_config = {
