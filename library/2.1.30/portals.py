@@ -25,8 +25,14 @@ class Portals:
         if not isinstance(host_ips, list):
             raise RenderError("Expected [host_ips] to be a list of strings")
 
+        # Remove wildcard IPs
+        if "::" in host_ips:
+            host_ips.remove("::")
+        if "0.0.0.0" in host_ips:
+            host_ips.remove("0.0.0.0")
+
         # If host is not set, use the first host_ip (if it exists)
-        if not host and len(host_ips) > 1:
+        if not host and len(host_ips) >= 1:
             host = host_ips[0]
 
         config["host"] = host
