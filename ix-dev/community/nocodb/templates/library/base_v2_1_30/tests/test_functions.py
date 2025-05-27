@@ -97,6 +97,11 @@ def test_funcs(mock_values):
             "values": [["a=1", "b=2", "c"], "values.key", ["b"], "=", True],
             "expect_raise": True,
         },
+        {
+            "func": "url_encode",
+            "values": ["7V!@@%%63r@a5#e!2X9!68g4b"],
+            "expected": "7V%21%40%40%25%2563r%40a5%23e%212X9%2168g4b",
+        },
     ]
 
     for test in tests:
