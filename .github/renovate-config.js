@@ -91,6 +91,11 @@ module.exports = {
       ]
     ),
     customVersioning(
+      // 1.16.1 - There are some tags like 1.120.20221218 that are not semver and are too old
+      "^(?<major>\\d{1})\\.(?<minor>\\d{2})\\.(?<patch>\\d+)$",
+      ["ghcr.io/linuxserver/kasm"]
+    ),
+    customVersioning(
       // The current major version is 2.x.x, but there is a random 5.x.x tag.
       // So we limit it to 0-4 for major. Date issue mentioned above still stands
       "^(?<major>[0-4]{1})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
@@ -264,6 +269,26 @@ module.exports = {
       // 0.18.0-rootless
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-rootless$",
       ["ghcr.io/sysadminsmedia/homebox"]
+    ),
+    customVersioning(
+      // 17-3.5
+      "^17-(?<major>\\d+)\\.(?<minor>\\d+)$",
+      ["postgis/postgis"]
+    ),
+    customVersioning(
+      // stable-e043ecf
+      "^stable-(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
+      ["ghcr.io/toeverything/affine-graphql"]
+    ),
+    customVersioning(
+      // 2.4-dev
+      "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
+      ["wger/server"]
+    ),
+    customVersioning(
+      // 15-vectorchord0.3.0-pgvectors0.2.0
+      "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pgvectors0.2.0$",
+      ["ghcr.io/immich-app/postgres"]
     ),
   ],
 };
