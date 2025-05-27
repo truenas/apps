@@ -2,6 +2,7 @@ import re
 import copy
 import bcrypt
 import secrets
+import urllib.parse
 from base64 import b64encode
 from typing import TYPE_CHECKING
 
@@ -124,6 +125,9 @@ class Functions:
             if reserved_value in new_values:
                 raise RenderError(f"Value [{reserved_value}] is reserved and cannot be set in [{key}]")
 
+    def _url_encode(self, string):
+        return urllib.parse.quote_plus(string)
+
     def _temp_config(self, name):
         if not name:
             raise RenderError("Expected [name] to be set when calling [temp_config].")
@@ -172,4 +176,5 @@ class Functions:
             "temp_config": self._temp_config,
             "require_unique": self._require_unique,
             "require_no_reserved": self._require_no_reserved,
+            "url_encode": self._url_encode,
         }
