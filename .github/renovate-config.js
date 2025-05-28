@@ -290,6 +290,11 @@ module.exports = {
       "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pgvectors0.2.0$",
       ["ghcr.io/immich-app/postgres"]
     ),
+    customVersioning(
+      // v1.134.0-cuda|rocm|openvino
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(cuda|rocm|openvino))?",
+      ["ghcr.io/immich-app/immich-machine-learning"]
+    )
   ],
 };
 
