@@ -37,6 +37,26 @@ def test_add_portal(mock_values):
     ]
 
 
+def test_add_portal_with_host_ips(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    port = {"port_number": 8080, "host_ips": ["1.2.3.4", "5.6.7.8"]}
+    port2 = {"port_number": 8081, "host_ips": ["::", "0.0.0.0"]}
+    port3 = {"port_number": 8081, "host_ips": ["1.2.3.4"]}
+    render.portals.add(port)
+    render.portals.add(port, {"name": "test", "host": "my-host.com"})
+    render.portals.add(port2, {"name": "test2"})
+    render.portals.add(port3, {"name": "test3"})
+    output = render.render()
+    assert output["x-portals"] == [
+        {"name": "Web UI", "scheme": "http", "host": "1.2.3.4", "port": 8080, "path": "/"},
+        {"name": "test", "scheme": "http", "host": "my-host.com", "port": 8080, "path": "/"},
+        {"name": "test2", "scheme": "http", "host": "0.0.0.0", "port": 8081, "path": "/"},
+        {"name": "test3", "scheme": "http", "host": "1.2.3.4", "port": 8081, "path": "/"},
+    ]
+
+
 def test_add_duplicate_portal(mock_values):
     render = Render(mock_values)
     render.portals.add_portal({"scheme": "http", "path": "/", "port": 8080})
