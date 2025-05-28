@@ -26,6 +26,7 @@ TEST_VALUES_DIR = "templates/test_values"
 RENDERED_COMPOSE_PATH = "templates/rendered/docker-compose.yaml"
 APP_YAML = "app.yaml"
 IX_VALUES_YAML = "ix_values.yaml"
+QUESTIONS_YAML = "questions.yaml"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -173,8 +174,59 @@ class AppDiscovery:
         return apps
 
 
+class QuestionsAnalyzer:
+    @staticmethod
+    def analyze_containers_in_labels_section(app_path: str, service_names: List[str]) -> None:
+        """Update containers in labels section of app.yaml."""
+        app_yaml_path = Path(app_path) / QUESTIONS_YAML
+        if not app_yaml_path.exists():
+            raise FileNotFoundError(f"App {app_path} does not have {QUESTIONS_YAML}")
+        try:
+            with open(app_yaml_path, "r") as f:
+                app_config = yaml.safe_load(f)
+        except (IOError, yaml.YAMLError) as e:
+            raise RuntimeError(f"Failed to read {app_yaml_path}") from e
+
+        if not isinstance(app_config, dict):
+            raise ValueError(f"Invalid app config in {app_yaml_path}")
+
+        for question in app_config.get("questions", []):
+            if question["variable"] != "labels":
+                continue
+            for item in question["schema"]["items"][0]["schema"]["attrs"]:
+                if item["variable"] != "containers":
+                    continue
+                old_enum = item["schema"]["items"][0]["schema"]["enum"]
+                new_enum = [{"value": service_name, "description": service_name} for service_name in service_names]
+                if sorted(old_enum, key=lambda x: x["value"]) != sorted(new_enum, key=lambda x: x["value"]):
+                    difference = set([e["value"] for e in new_enum]) ^ (set([e["value"] for e in old_enum]))
+                    raise ValueError(
+                        f"Containers in labels section and service names of {app_path} have a mismatch"
+                        f" the difference is ({len(difference)}) {difference}"
+                    )
+            break
+
+
 class DockerComposeAnalyzer:
     """Analyzes Docker Compose files for capability requirements."""
+
+    @staticmethod
+    def extract_service_names(compose_data: Dict, include_short_lived: bool = False) -> List[str]:
+        """Extract service names from docker-compose data."""
+        if "services" not in compose_data:
+            raise ValueError("No services found in compose data")
+
+        service_names = []
+        for service_name, service_config in compose_data["services"].items():
+            if not include_short_lived:
+                # Skip services without restart policies (short-lived containers)
+                restart_policy = service_config.get("restart", "")
+                if restart_policy.startswith("on-failure"):
+                    logger.debug(f"Skipping short-lived service: {service_name}")
+                    continue
+            service_names.append(service_name)
+
+        return service_names
 
     @staticmethod
     def extract_capabilities(compose_data: Dict) -> Dict[str, Set[str]]:
@@ -354,6 +406,12 @@ class AppUpdater:
             raise RuntimeError(f"Failed to write {app_yaml_path}") from e
 
 
+@dataclass
+class AnalyzedApp:
+    capabilities: List[Capability]
+    service_names: List[str]
+
+
 class MetadataManager:
     """Main class for managing TrueNAS app metadata."""
 
@@ -362,15 +420,16 @@ class MetadataManager:
         self.analyzer = DockerComposeAnalyzer()
         self.descriptor = CapabilityDescriptor()
 
-    def analyze_app_capabilities(self, app_path: str, app_info: Dict[str, List[str]]) -> List[Capability]:
-        """Analyze all capabilities required by an app across all test configurations."""
+    def analyze_app(self, app_path: str, app_info: Dict[str, List[str]]) -> AnalyzedApp:
+        """Analyzes app across all test configurations."""
         # CHOWN: [service1, service2]
         all_capabilities: Dict[str, Set[str]] = {}
+        service_names = set()
 
         test_files = app_info["test_values"]
         if not test_files:
             logger.warning(f"No test values found for {app_path}")
-            return []
+            return AnalyzedApp([], [])
 
         for test_file in test_files:
             logger.debug(f"Processing test file: {test_file}")
@@ -378,6 +437,8 @@ class MetadataManager:
             try:
                 # Render the app with this test configuration
                 compose_data = self.renderer.render_app(app_path, test_file)
+
+                service_names.update(set(self.analyzer.extract_service_names(compose_data)))
 
                 # Extract capabilities from the rendered compose
                 service_caps = self.analyzer.extract_capabilities(compose_data)
@@ -391,7 +452,7 @@ class MetadataManager:
 
             except Exception as e:
                 logger.error(f"Failed to process {app_path}/{test_file}: {e}")
-                continue
+                raise
 
         # Convert to Capability objects
         capabilities = []
@@ -405,14 +466,17 @@ class MetadataManager:
 
         # Sort by capability name for consistency
         capabilities.sort(key=lambda c: c.name)
-        return capabilities
+        return AnalyzedApp(capabilities, sorted(service_names))
 
     def update_single_app(self, app_path: str, app_info: Dict[str, List[str]]) -> None:
         """Update capabilities for a single app."""
-        logger.info(f"Updating capabilities for {app_path}")
+        logger.debug(f"Updating capabilities for {app_path}")
 
         try:
-            capabilities = self.analyze_app_capabilities(app_path, app_info)
+            data = self.analyze_app(app_path, app_info)
+            capabilities = data.capabilities
+            service_names = data.service_names
+            QuestionsAnalyzer.analyze_containers_in_labels_section(app_path, service_names)
             AppUpdater.update_app_metadata(app_path, capabilities)
             logger.info(f"Successfully updated {app_path} with {len(capabilities)} capabilities")
         except Exception as e:
@@ -428,19 +492,24 @@ class MetadataManager:
             return
 
         success_count = 0
+        failed_count = 0
         for app_path, app_info in apps.items():
             try:
                 self.update_single_app(app_path, app_info)
                 success_count += 1
             except Exception as e:
                 logger.error(f"Skipping {app_path} due to error: {e}")
+                failed_count += 1
                 continue
 
         logger.info(f"Successfully processed {success_count}/{len(apps)} apps")
+        if failed_count:
+            logger.error(f"Failed to process {failed_count}/{len(apps)} apps")
+            sys.exit(1)
 
 
 def fix_permissions(file_path):
-    logger.info(f"Fixing permissions for file [{file_path}]")
+    logger.debug(f"Fixing permissions for file [{file_path}]")
     cmd = " ".join(
         [
             f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace",
@@ -452,7 +521,7 @@ def fix_permissions(file_path):
         logger.error(f"Failed to fix permissions for file [{file_path}]")
         logger.error(res.stderr.decode("utf-8"))
         sys.exit(1)
-    logger.info(f"Done fixing permissions for file [{file_path}]")
+    logger.debug(f"Done fixing permissions for file [{file_path}]")
 
 
 def main():
@@ -462,8 +531,8 @@ def main():
     try:
         manager = MetadataManager()
         parser = argparse.ArgumentParser(description="TrueNAS Apps Capability Manager")
-        parser.add_argument("train", help="train name")
-        parser.add_argument("app", help="app name")
+        parser.add_argument("--train", help="train name", required=False)
+        parser.add_argument("--app", help="app name", required=False)
         parser.add_argument("--no-bump", help="do not bump version", action="store_true", default=False, required=False)
         args = parser.parse_args()
 
