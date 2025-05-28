@@ -9,11 +9,15 @@ by rendering app templates and extracting capability requirements from docker-co
 import os
 import sys
 import yaml
-import subprocess
 import logging
+import argparse
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
+
+
+args: argparse.Namespace | None = None
 
 
 # Configuration
@@ -265,6 +269,10 @@ class AppUpdater:
     @staticmethod
     def bump_version(version: str) -> str:
         """Increment the patch version number."""
+
+        if args is not None and args.no_bump:
+            return version
+
         try:
             parts = version.split(".")
             if len(parts) != 3:
@@ -347,8 +355,8 @@ class AppUpdater:
             raise RuntimeError(f"Failed to write {app_yaml_path}") from e
 
 
-class CapabilityManager:
-    """Main class for managing TrueNAS app capabilities."""
+class MetadataManager:
+    """Main class for managing TrueNAS app metadata."""
 
     def __init__(self):
         self.renderer = AppRenderer()
@@ -434,22 +442,27 @@ class CapabilityManager:
 
 def main():
     """Main entry point."""
+    global args
+
     try:
-        manager = CapabilityManager()
+        manager = MetadataManager()
+        parser = argparse.ArgumentParser(description="TrueNAS Apps Capability Manager")
+        parser.add_argument("train", help="train name")
+        parser.add_argument("app", help="app name")
+        parser.add_argument("--no-bump", help="do not bump version", action="store_true", default=False, required=False)
+        args = parser.parse_args()
 
-        # Check if specific app was requested
-        if len(sys.argv) == 3:
-            train = sys.argv[1]
-            app = sys.argv[2]
-            app_path = f"{IX_DEV_DIR}/{train}/{app}"
-
-            # Validate the specific app exists
-            app = AppDiscovery.discover_single_app(Path(app_path), train)
+        if args.train and args.app:
+            app_path = f"{IX_DEV_DIR}/{args.train}/{args.app}"
+            app = AppDiscovery.discover_single_app(Path(app_path), args.train)
             if app is None:
                 logger.error(f"App {app_path} not found")
                 sys.exit(1)
-
             manager.update_single_app(app_path, app)
+        elif args.train or args.app:
+            logger.error("Both train and app must be provided together, or neither")
+            parser.print_help()
+            sys.exit(1)
         else:
             manager.update_all_apps()
 
