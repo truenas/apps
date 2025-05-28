@@ -23,6 +23,7 @@ IX_DEV_DIR = "ix-dev"
 TEST_VALUES_DIR = "templates/test_values"
 RENDERED_COMPOSE_PATH = "templates/rendered/docker-compose.yaml"
 APP_YAML = "app.yaml"
+IX_VALUES_YAML = "ix_values.yaml"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -268,6 +269,23 @@ class AppUpdater:
             raise ValueError(f"Invalid version format: {version}") from e
 
     @staticmethod
+    def get_app_version(app_path: str) -> str:
+        """Get the app version from app.yaml."""
+        if app_path == f"{IX_DEV_DIR}/stable/ix-app":
+            with open(Path(app_path) / APP_YAML, "r") as f:
+                app_config = yaml.safe_load(f)
+            return app_config["version"]
+        yaml_path = Path(app_path) / IX_VALUES_YAML
+        if not yaml_path.exists():
+            raise FileNotFoundError(f"App {app_path} does not have {IX_VALUES_YAML}")
+        try:
+            with open(yaml_path, "r") as f:
+                values = yaml.safe_load(f)
+                return values["images"]["image"]["tag"]
+        except (IOError, yaml.YAMLError) as e:
+            raise RuntimeError(f"Failed to read {yaml_path}") from e
+
+    @staticmethod
     def update_app_metadata(app_path: str, capabilities: List[Capability]) -> None:
         """Update app.yaml with new capabilities."""
         app_yaml_path = Path(app_path) / APP_YAML
@@ -290,7 +308,16 @@ class AppUpdater:
             logger.warning(f"App {app_path} has no date added")
         if "changelog_url" not in app_config:
             logger.warning(f"App {app_path} has no changelog URL")
-        # TODO: Add other checks here, or update other metadata
+
+        should_bump = False
+
+        # Make sure app version is up to date
+        new_version = AppUpdater.get_app_version(app_path)
+        old_version = app_config["app_version"]
+
+        if new_version != old_version:
+            should_bump = True
+        app_config["app_version"] = new_version
 
         # Convert capabilities to dict format
         new_capabilities = [cap.to_dict() for cap in capabilities]
@@ -298,11 +325,13 @@ class AppUpdater:
 
         # Update version if capabilities changed
         if old_capabilities != new_capabilities:
+            should_bump = True
+        app_config["capabilities"] = new_capabilities
+
+        if should_bump:
             current_version = app_config["version"]
             app_config["version"] = AppUpdater.bump_version(current_version)
             logger.info(f"Updated version from {current_version} to {app_config['version']}")
-
-        app_config["capabilities"] = new_capabilities
 
         try:
             with open(app_yaml_path, "w") as f:
