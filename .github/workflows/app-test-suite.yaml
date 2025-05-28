@@ -95,6 +95,16 @@ jobs:
           echo "Testing [${{matrix.train}}/${{matrix.app}}/templates/test_values/${{matrix.test_file}}]"
           python3 ./.github/scripts/ci.py --train ${{matrix.train}} --app ${{matrix.app}} --test-file ${{matrix.test_file}}
 
+      - name: Check Metadata
+        shell: bash
+        run: |
+          echo "Checking [${{matrix.train}}/${{matrix.app}}/app.yaml]"
+          python3 ./.github/scripts/generate_metadata.py ${{matrix.train}} ${{matrix.app}}
+          if [ "$(git diff --exit-code)" != "" ]; then
+            echo "App metadata is not up to date"
+            echo "Please run [python3 ./.github/scripts/generate_metadata.py ${{matrix.train}} ${{matrix.app}}] and commit the changes"
+            exit 1
+          fi
   run-apps-matrix-2:
     name: Run Docker Compose Render/Install (Matrix 2)
     needs: changed-files
