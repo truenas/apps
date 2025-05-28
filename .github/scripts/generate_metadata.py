@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-TrueNAS Apps Capability Manager
-
-This script analyzes Docker capabilities for TrueNAS apps and updates their metadata
-by rendering app templates and extracting capability requirements from docker-compose files.
+This script analyzes Docker Compose for apps and updates their metadata
+by rendering app templates and extracting "real" data from docker-compose files.
 """
 
 import os
