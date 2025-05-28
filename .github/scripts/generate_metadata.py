@@ -257,6 +257,7 @@ class AppRenderer:
             raise FileNotFoundError(f"Rendered compose file not found: {compose_path}")
 
         try:
+            fix_permissions(compose_path)
             with open(compose_path, "r") as f:
                 return yaml.safe_load(f)
         except yaml.YAMLError as e:
@@ -438,6 +439,22 @@ class MetadataManager:
                 continue
 
         logger.info(f"Successfully processed {success_count}/{len(apps)} apps")
+
+
+def fix_permissions(file_path):
+    logger.info(f"Fixing permissions for file [{file_path}]")
+    cmd = " ".join(
+        [
+            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace",
+            f"--entrypoint /bin/bash {CONTAINER_IMAGE} -c 'chmod 777 /workspace/{file_path}'",
+        ]
+    )
+    res = subprocess.run(cmd, shell=True, capture_output=True)
+    if res.returncode != 0:
+        logger.error(f"Failed to fix permissions for file [{file_path}]")
+        logger.error(res.stderr.decode("utf-8"))
+        sys.exit(1)
+    logger.info(f"Done fixing permissions for file [{file_path}]")
 
 
 def main():
