@@ -1,14 +1,49 @@
+#!/usr/bin/env python3
+"""
+TrueNAS Apps Capability Manager
+
+This script analyzes Docker capabilities for TrueNAS apps and updates their metadata
+by rendering app templates and extracting capability requirements from docker-compose files.
+"""
+
 import os
 import sys
 import yaml
 import subprocess
+import logging
+from pathlib import Path
+from typing import Dict, List, Set
+from dataclasses import dataclass
 
+
+# Configuration
 CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 PLATFORM = "linux/amd64"
+IX_DEV_DIR = "ix-dev"
+TEST_VALUES_DIR = "templates/test_values"
+RENDERED_COMPOSE_PATH = "templates/rendered/docker-compose.yaml"
+APP_YAML = "app.yaml"
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
-def cap_description_map(cap: str, services: list[str]):
-    data = {
+@dataclass
+class Capability:
+    """Represents a Docker capability with its description."""
+
+    name: str
+    description: str
+
+    def to_dict(self) -> Dict[str, str]:
+        return {"name": self.name, "description": self.description}
+
+
+class CapabilityDescriptor:
+    """Manages capability descriptions and formatting."""
+
+    CAPABILITY_DESCRIPTIONS = {
         "AUDIT_CONTROL": "able to control audit subsystem configuration",
         "AUDIT_READ": "able to read audit log entries",
         "AUDIT_WRITE": "able to write records to audit log",
@@ -52,109 +87,343 @@ def cap_description_map(cap: str, services: list[str]):
         "WAKE_ALARM": "able to trigger system wake alarms",
     }
 
-    if cap not in data:
-        raise Exception(f"Cap [{cap}] not found")
-    if len(services) == 0:
-        raise Exception(f"No services found for cap [{cap}]")
+    @classmethod
+    def create_description(cls, capability: str, services: List[str]) -> str:
+        """Create a human-readable description for a capability."""
+        if capability not in cls.CAPABILITY_DESCRIPTIONS:
+            raise ValueError(f"Unknown capability: {capability}")
 
-    services = [s.replace("-", " ").title() for s in services]
+        if not services:
+            raise ValueError(f"No services provided for capability: {capability}")
 
-    if len(services) == 1:
-        return f"{services[0].title()} is {data[cap]}"
-    return f"{', '.join(services)} are {data[cap]}"
+        # Format service names (replace hyphens with spaces and title case)
+        formatted_services = [service.replace("-", " ").title() for service in services]
+
+        base_description = cls.CAPABILITY_DESCRIPTIONS[capability]
+
+        if len(formatted_services) == 1:
+            return f"{formatted_services[0]} is {base_description}"
+        else:
+            return f"{', '.join(formatted_services)} are {base_description}"
 
 
-def get_apps():
-    apps = {}
-    for train in os.listdir("ix-dev"):
-        for app in os.listdir(f"ix-dev/{train}"):
-            if train == "test" and app in ("other-nginx", "nginx"):
+class AppDiscovery:
+    """Handles discovery and validation of TrueNAS apps."""
+
+    EXCLUDED_APPS = {"other-nginx", "nginx"}  # Excluded from test train
+
+    @classmethod
+    def discover_apps(cls, base_dir: str = IX_DEV_DIR) -> Dict[str, Dict[str, List[str]]]:
+        """Discover all valid apps and their test values."""
+        apps = {}
+        base_path = Path(base_dir)
+
+        if not base_path.exists():
+            logger.error(f"Base directory {base_dir} does not exist")
+            return apps
+
+        for train_path in base_path.iterdir():
+            if not train_path.is_dir():
                 continue
-            app_path = f"ix-dev/{train}/{app}"
-            if not os.path.exists(os.path.join(app_path, "app.yaml")):
+
+            train_name = train_path.name
+            logger.info(f"Processing train: {train_name}")
+
+            for app_path in train_path.iterdir():
+                if not app_path.is_dir():
+                    continue
+
+                app_name = app_path.name
+
+                # Skip excluded apps in test train
+                if train_name == "test" and app_name in cls.EXCLUDED_APPS:
+                    logger.debug(f"Skipping excluded app: {app_name}")
+                    continue
+
+                # Validate app structure
+                app_yaml_path = app_path / APP_YAML
+                if not app_yaml_path.exists():
+                    logger.warning(f"Skipping {app_path}: missing {APP_YAML}")
+                    continue
+
+                # Find test values
+                test_values_path = app_path / TEST_VALUES_DIR
+                test_values = []
+
+                if test_values_path.exists():
+                    test_values = [f.name for f in test_values_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
+
+                if not test_values:
+                    logger.warning(f"No test values found for {app_path}")
+
+                apps[str(app_path)] = {"test_values": test_values}
+                logger.debug(f"Found app: {app_path} with {len(test_values)} test values")
+
+        logger.info(f"Discovered {len(apps)} apps")
+        return apps
+
+
+class DockerComposeAnalyzer:
+    """Analyzes Docker Compose files for capability requirements."""
+
+    @staticmethod
+    def extract_capabilities(compose_data: Dict) -> Dict[str, Set[str]]:
+        """Extract capabilities from docker-compose data."""
+        service_capabilities = {}
+
+        if "services" not in compose_data:
+            raise ValueError("No services found in compose data")
+
+        for service_name, service_config in compose_data["services"].items():
+            # Skip services without restart policies (short-lived containers)
+            restart_policy = service_config.get("restart", "")
+            if not restart_policy:
+                logger.warning(f"No restart policy for service: {service_name}")
                 continue
 
-            test_values = []
-            for test_file in os.listdir(os.path.join(app_path, "templates/test_values")):
-                if test_file.endswith(".yaml"):
-                    test_values.append(test_file)
+            # Skip services that restart only on failure
+            if restart_policy.startswith("on-failure"):
+                logger.debug(f"Skipping short-lived service: {service_name}")
+                continue
 
-            apps[app_path] = {"test_values": test_values}
-    return apps
+            if "cap_drop" not in service_config:
+                logger.warning(f"No cap_drop for service: {service_name}")
+            else:
+                if service_config["cap_drop"] != ["ALL"]:
+                    logger.warning(f"Non-default cap_drop for service: {service_name}")
 
+            # Extract capabilities
+            if "cap_add" in service_config:
+                capabilities = set(service_config["cap_add"])
+                if capabilities:
+                    service_capabilities[service_name] = capabilities
+                    logger.debug(f"Service {service_name} has capabilities: {capabilities}")
 
-def get_caps_from_compose(compose):
-    caps = {}
-    for service in compose["services"]:
-        data = compose["services"][service]
-        # Ignore short-lived containers
-        if not data.get("restart", ""):
-            print(f"No restart found for {service} in {app_path}")
-            continue
-        if data["restart"].startswith("on-failure"):
-            continue
-        if "cap_add" in data:
-            caps[service] = set(data["cap_add"])
-    return caps
+        return service_capabilities
 
 
-def bump_version(version: str):
-    parts = version.split(".")
-    parts[2] = str(int(parts[2]) + 1)
-    return ".".join(parts)
+class AppRenderer:
+    """Handles rendering of TrueNAS apps using Docker container."""
+
+    def __init__(self, container_image: str = CONTAINER_IMAGE, platform: str = PLATFORM):
+        self.container_image = container_image
+        self.platform = platform
+
+    def render_app(self, app_path: str, test_values_file: str) -> Dict:
+        """Render an app with specific test values and return compose data."""
+        workspace_path = os.getcwd()
+
+        cmd = [
+            "docker",
+            "run",
+            f"--platform={self.platform}",
+            "--quiet",
+            "--rm",
+            f"-v={workspace_path}:/workspace",
+            self.container_image,
+            "apps_render_app",
+            "render",
+            f"--path=/workspace/{app_path}",
+            f"--values=/workspace/{app_path}/{TEST_VALUES_DIR}/{test_values_file}",
+        ]
+
+        logger.debug(f"Rendering command: {' '.join(cmd)}")
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            logger.debug(f"Render completed successfully for {app_path}/{test_values_file}")
+            if result.stdout:
+                logger.debug(f"Render output: {result.stdout}")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to render {app_path}/{test_values_file}")
+            logger.error(f"Error output: {e.stderr}")
+            raise RuntimeError(f"Rendering failed for {app_path}/{test_values_file}") from e
+
+        # Read the rendered compose file
+        compose_path = Path(app_path) / RENDERED_COMPOSE_PATH
+        if not compose_path.exists():
+            raise FileNotFoundError(f"Rendered compose file not found: {compose_path}")
+
+        try:
+            with open(compose_path, "r") as f:
+                return yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise RuntimeError(f"Failed to parse rendered compose file: {compose_path}") from e
 
 
-def update_caps_for_app(app_path: str, app: dict):
-    all_caps: dict[str, set[str]] = {}
+class AppUpdater:
+    """Handles updating app metadata with capability information."""
 
-    for test_file in app["test_values"]:
-        cmd = " ".join(
-            [
-                f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
-                "apps_render_app render",
-                f"--path /workspace/{app_path}",
-                f"--values /workspace/{app_path}/templates/test_values/{test_file}",
-            ]
-        )
-        res = subprocess.run(cmd, shell=True, capture_output=True)
-        if res.returncode != 0:
-            print(res.stderr.decode("utf-8"))
-            raise Exception(f"Failed to render {app_path}/{test_file}")
-        with open(os.path.join(app_path, "templates/rendered/docker-compose.yaml"), "r") as f:
-            out = yaml.safe_load(f)
-            for service, caps in get_caps_from_compose(out).items():
-                for cap in caps:
-                    if cap not in all_caps:
-                        all_caps[cap] = set()
-                    all_caps[cap].add(service)
+    @staticmethod
+    def bump_version(version: str) -> str:
+        """Increment the patch version number."""
+        try:
+            parts = version.split(".")
+            if len(parts) != 3:
+                raise ValueError("Version must be in format x.y.z")
 
-    capabilities = []
-    print(f"Updating capabilities for {app_path}")
-    for cap, services in all_caps.items():
-        capabilities.append({"name": cap, "description": cap_description_map(cap, list(services))})
-    capabilities = sorted(capabilities, key=lambda c: c["name"])
-    with open(os.path.join(app_path, "app.yaml"), "r") as f:
-        app = yaml.safe_load(f)
-        if len(app["categories"]) > 1:
-            print(f"WARNING: App [{app_path}] has more than one category")
-        if app["capabilities"] != capabilities:
-            app["version"] = bump_version(app["version"])
-        app["capabilities"] = capabilities
-        with open(os.path.join(app_path, "app.yaml"), "w") as f:
-            yaml.dump(app, f)
+            parts[2] = str(int(parts[2]) + 1)
+            return ".".join(parts)
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Invalid version format: {version}") from e
+
+    @staticmethod
+    def update_app_metadata(app_path: str, capabilities: List[Capability]) -> None:
+        """Update app.yaml with new capabilities."""
+        app_yaml_path = Path(app_path) / APP_YAML
+
+        try:
+            with open(app_yaml_path, "r") as f:
+                app_config = yaml.safe_load(f)
+        except (IOError, yaml.YAMLError) as e:
+            raise RuntimeError(f"Failed to read {app_yaml_path}") from e
+
+        # Validate app config
+        if not isinstance(app_config, dict):
+            raise ValueError(f"Invalid app config in {app_yaml_path}")
+
+        # Check for multiple categories (warning only)
+        categories = app_config.get("categories", [])
+        if len(categories) > 1:
+            logger.warning(f"App {app_path} has multiple categories: {categories}")
+        if "date_added" not in app_config:
+            logger.warning(f"App {app_path} has no date added")
+        if "changelog_url" not in app_config:
+            logger.warning(f"App {app_path} has no changelog URL")
+        # TODO: Add other checks here, or update other metadata
+
+        # Convert capabilities to dict format
+        new_capabilities = [cap.to_dict() for cap in capabilities]
+        old_capabilities = app_config.get("capabilities", [])
+
+        # Update version if capabilities changed
+        if old_capabilities != new_capabilities:
+            current_version = app_config["version"]
+            app_config["version"] = AppUpdater.bump_version(current_version)
+            logger.info(f"Updated version from {current_version} to {app_config['version']}")
+
+        app_config["capabilities"] = new_capabilities
+
+        try:
+            with open(app_yaml_path, "w") as f:
+                yaml.dump(app_config, f, default_flow_style=False, sort_keys=False)
+        except IOError as e:
+            raise RuntimeError(f"Failed to write {app_yaml_path}") from e
+
+
+class CapabilityManager:
+    """Main class for managing TrueNAS app capabilities."""
+
+    def __init__(self):
+        self.renderer = AppRenderer()
+        self.analyzer = DockerComposeAnalyzer()
+        self.descriptor = CapabilityDescriptor()
+
+    def analyze_app_capabilities(self, app_path: str, app_info: Dict[str, List[str]]) -> List[Capability]:
+        """Analyze all capabilities required by an app across all test configurations."""
+        # CHOWN: [service1, service2]
+        all_capabilities: Dict[str, Set[str]] = {}
+
+        test_files = app_info["test_values"]
+        if not test_files:
+            logger.warning(f"No test values found for {app_path}")
+            return []
+
+        for test_file in test_files:
+            logger.debug(f"Processing test file: {test_file}")
+
+            try:
+                # Render the app with this test configuration
+                compose_data = self.renderer.render_app(app_path, test_file)
+
+                # Extract capabilities from the rendered compose
+                service_caps = self.analyzer.extract_capabilities(compose_data)
+
+                # Aggregate capabilities across services
+                for service, caps in service_caps.items():
+                    for cap in caps:
+                        if cap not in all_capabilities:
+                            all_capabilities[cap] = set()
+                        all_capabilities[cap].add(service)
+
+            except Exception as e:
+                logger.error(f"Failed to process {app_path}/{test_file}: {e}")
+                continue
+
+        # Convert to Capability objects
+        capabilities = []
+        for cap_name, services in all_capabilities.items():
+            try:
+                description = self.descriptor.create_description(cap_name, list(services))
+                capabilities.append(Capability(cap_name, description))
+            except ValueError as e:
+                logger.error(f"Failed to create capability description: {e}")
+                continue
+
+        # Sort by capability name for consistency
+        capabilities.sort(key=lambda c: c.name)
+        return capabilities
+
+    def update_single_app(self, app_path: str, app_info: Dict[str, List[str]]) -> None:
+        """Update capabilities for a single app."""
+        logger.info(f"Updating capabilities for {app_path}")
+
+        try:
+            capabilities = self.analyze_app_capabilities(app_path, app_info)
+            AppUpdater.update_app_metadata(app_path, capabilities)
+            logger.info(f"Successfully updated {app_path} with {len(capabilities)} capabilities")
+        except Exception as e:
+            logger.error(f"Failed to update {app_path}: {e}")
+            raise
+
+    def update_all_apps(self) -> None:
+        """Update capabilities for all discovered apps."""
+        apps = AppDiscovery.discover_apps()
+
+        if not apps:
+            logger.warning("No apps found to process")
+            return
+
+        success_count = 0
+        for app_path, app_info in apps.items():
+            try:
+                self.update_single_app(app_path, app_info)
+                success_count += 1
+            except Exception as e:
+                logger.error(f"Skipping {app_path} due to error: {e}")
+                continue
+
+        logger.info(f"Successfully processed {success_count}/{len(apps)} apps")
+
+
+def main():
+    """Main entry point."""
+    try:
+        manager = CapabilityManager()
+
+        # Check if specific app was requested
+        if len(sys.argv) == 3:
+            train = sys.argv[1]
+            app = sys.argv[2]
+            app_path = f"{IX_DEV_DIR}/{train}/{app}"
+
+            # Validate the specific app exists
+            apps = AppDiscovery.discover_apps()
+            if app_path not in apps:
+                logger.error(f"App {app_path} not found")
+                sys.exit(1)
+
+            manager.update_single_app(app_path, apps[app_path])
+        else:
+            manager.update_all_apps()
+
+    except KeyboardInterrupt:
+        logger.info("Operation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    apps = get_apps()
-
-    if len(sys.argv) > 2:
-        train = sys.argv[1]
-        app = sys.argv[2]
-        key = f"ix-dev/{train}/{app}"
-        if key not in apps:
-            print(f"App [{key}] not found")
-            sys.exit(1)
-        update_caps_for_app(key, apps[key])
-    else:
-        for app_path, app in apps.items():
-            update_caps_for_app(app_path, app)
+    main()
