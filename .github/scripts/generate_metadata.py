@@ -12,7 +12,7 @@ import yaml
 import subprocess
 import logging
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
 
 
@@ -111,7 +111,36 @@ class CapabilityDescriptor:
 class AppDiscovery:
     """Handles discovery and validation of TrueNAS apps."""
 
-    EXCLUDED_APPS = {"other-nginx", "nginx"}  # Excluded from test train
+    EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}  # Excluded from test train
+
+    @classmethod
+    def discover_single_app(cls, app_path: Path, train_name: str) -> Optional[Dict[str, List[str]]]:
+        """Discover a single app and return its test values."""
+        app_name = app_path.name
+
+        # Skip excluded apps in test train
+        if train_name == "test" and app_name in cls.EXCLUDED_TEST_APPS:
+            logger.debug(f"Skipping excluded app: {app_name}")
+            return None
+
+        # Validate app structure
+        app_yaml_path = app_path / APP_YAML
+        if not app_yaml_path.exists():
+            logger.warning(f"Skipping {app_path}: missing {APP_YAML}")
+            return None
+
+        # Find test values
+        test_values_path = app_path / TEST_VALUES_DIR
+        test_values = []
+
+        if test_values_path.exists():
+            test_values = [f.name for f in test_values_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
+
+        if not test_values:
+            logger.warning(f"No test values found for {app_path}")
+
+        logger.debug(f"Found app: {app_path} with {len(test_values)} test values")
+        return {"test_values": test_values}
 
     @classmethod
     def discover_apps(cls, base_dir: str = IX_DEV_DIR) -> Dict[str, Dict[str, List[str]]]:
@@ -134,31 +163,9 @@ class AppDiscovery:
                 if not app_path.is_dir():
                     continue
 
-                app_name = app_path.name
-
-                # Skip excluded apps in test train
-                if train_name == "test" and app_name in cls.EXCLUDED_APPS:
-                    logger.debug(f"Skipping excluded app: {app_name}")
-                    continue
-
-                # Validate app structure
-                app_yaml_path = app_path / APP_YAML
-                if not app_yaml_path.exists():
-                    logger.warning(f"Skipping {app_path}: missing {APP_YAML}")
-                    continue
-
-                # Find test values
-                test_values_path = app_path / TEST_VALUES_DIR
-                test_values = []
-
-                if test_values_path.exists():
-                    test_values = [f.name for f in test_values_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
-
-                if not test_values:
-                    logger.warning(f"No test values found for {app_path}")
-
-                apps[str(app_path)] = {"test_values": test_values}
-                logger.debug(f"Found app: {app_path} with {len(test_values)} test values")
+                app_info = cls.discover_single_app(app_path, train_name)
+                if app_info is not None:
+                    apps[str(app_path)] = app_info
 
         logger.info(f"Discovered {len(apps)} apps")
         return apps
@@ -437,12 +444,12 @@ def main():
             app_path = f"{IX_DEV_DIR}/{train}/{app}"
 
             # Validate the specific app exists
-            apps = AppDiscovery.discover_apps()
-            if app_path not in apps:
+            app = AppDiscovery.discover_single_app(Path(app_path), train)
+            if app is None:
                 logger.error(f"App {app_path} not found")
                 sys.exit(1)
 
-            manager.update_single_app(app_path, apps[app_path])
+            manager.update_single_app(app_path, app)
         else:
             manager.update_all_apps()
 
