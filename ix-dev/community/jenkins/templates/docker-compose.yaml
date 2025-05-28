@@ -11,7 +11,7 @@
   ],
   "java_opts": [
     "-Djenkins.model.Jenkins.slaveAgentPortEnforce=true",
-    "-Djenkins.model.Jenkins.slaveAgentPort=%d"|format(values.network.agent_port.port_number if values.network.agent_port.bind_mode != '' else -1),
+    "-Djenkins.model.Jenkins.slaveAgentPort=%d"|format(values.network.agent_port.port_number if values.network.agent_port.bind_mode else -1),
   ]
 }) %}
 
@@ -82,7 +82,7 @@
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/login", "scheme": proto}) %}
-{% do c1.environment.add_env("JENKINS_SLAVE_AGENT_PORT", values.network.agent_port.port_number if values.network.agent_port.bind_mode != '' else -1) %}
+{% do c1.environment.add_env("JENKINS_SLAVE_AGENT_PORT", values.network.agent_port.port_number if values.network.agent_port.bind_mode else -1) %}
 {% do c1.environment.add_env("JENKINS_JAVA_OPTS", config.java_opts|join(" ")) %}
 {% do c1.environment.add_env("JENKINS_OPTS", config.opts|join(" ")) %}
 {% do c1.environment.add_user_envs(values.jenkins.additional_envs) %}
@@ -90,8 +90,8 @@
 {% do c1.add_port(values.network.web_port) %}
 {% do c1.add_port(values.network.agent_port) %}
 
-{% if values.network.enable_agent %}
-  {% do c1.ports.add_port(values.network.agent_port, values.network.agent_port) %}
+{% if values.network.agent_port.bind_mode %}
+  {% do c1.add_port(values.network.agent_port) %}
 {% endif %}
 
 {% do c1.add_storage("/var/jenkins_home", values.storage.home) %}
