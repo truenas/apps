@@ -5,13 +5,15 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.set_command(["serve"]) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.http_port.port_number, "path": "/v1/health"}) %}
 
 {% if values.network.certificate_id %}
   {% do c1.environment.add_env("NTFY_KEY_FILE", values.consts.ssl_key_path) %}
   {% do c1.environment.add_env("NTFY_CERT_FILE", values.consts.ssl_cert_path) %}
   {% do c1.environment.add_env("NTFY_LISTEN_HTTPS", ":%d"|format(values.network.https_port.port_number)) %}
-  {% do tpl.portals.add(values.network.https_port, {"name": "HTTPS"}) %}
+  {% do tpl.portals.add(values.network.https_port, {"name": "HTTPS", "scheme": "https"}) %}
+  {% do c1.add_port(values.network.https_port) %}
 
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
