@@ -13,9 +13,8 @@ import logging
 import argparse
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Set, Optional, Tuple
+from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
-from functools import lru_cache
 
 
 # Global configuration
@@ -142,14 +141,34 @@ class FileSystemCache:
     """Simple file system cache to avoid repeated file reads."""
 
     def __init__(self):
-        self._cache = {}
+        self._yaml_cache = {}
 
-    @lru_cache(maxsize=128)
     def read_yaml_file(self, file_path: Path) -> Dict:
         """Read and cache YAML file contents."""
+        # Convert to string for hashing
+        file_key = str(file_path)
+
+        # Check if file is cached and still valid
+        if file_key in self._yaml_cache:
+            cached_data, cached_mtime = self._yaml_cache[file_key]
+            try:
+                current_mtime = file_path.stat().st_mtime
+                if current_mtime == cached_mtime:
+                    return cached_data
+            except OSError:
+                # File might have been deleted, remove from cache
+                del self._yaml_cache[file_key]
+
+        # Read and cache the file
         try:
             with open(file_path, "r") as f:
-                return yaml.safe_load(f)
+                data = yaml.safe_load(f)
+
+            # Cache with modification time
+            mtime = file_path.stat().st_mtime
+            self._yaml_cache[file_key] = (data, mtime)
+            return data
+
         except (IOError, yaml.YAMLError) as e:
             raise RuntimeError(f"Failed to read YAML file {file_path}") from e
 
@@ -158,10 +177,18 @@ class FileSystemCache:
         try:
             with open(file_path, "w") as f:
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
-            # Invalidate cache for this file
-            self.read_yaml_file.cache_clear()
+
+            # Remove from cache since file was modified
+            file_key = str(file_path)
+            if file_key in self._yaml_cache:
+                del self._yaml_cache[file_key]
+
         except IOError as e:
             raise RuntimeError(f"Failed to write YAML file {file_path}") from e
+
+    def clear_cache(self) -> None:
+        """Clear all cached data."""
+        self._yaml_cache.clear()
 
 
 class AppDiscoveryService:
@@ -407,10 +434,8 @@ class AppQuestionsValidator:
                 new_values = {item["value"] for item in new_enum}
 
                 if old_values != new_values:
-                    difference = old_values.symmetric_difference(new_values)
                     raise ValueError(
-                        f"Container labels mismatch in {app_manifest.name}: "
-                        f"difference ({len(difference)}): {difference}"
+                        f"Container labels section should have {sorted(new_values)} " f"but has {sorted(old_values)}"
                     )
             break
 
@@ -418,8 +443,9 @@ class AppQuestionsValidator:
 class AppVersionManager:
     """Manages app version information and updates."""
 
-    def __init__(self, file_cache: FileSystemCache):
+    def __init__(self, file_cache: FileSystemCache, should_bump_versions: bool = True):
         self.file_cache = file_cache
+        self.should_bump_versions = should_bump_versions
 
     def get_current_app_version(self, app_manifest: AppManifest) -> str:
         """Get the current app version from appropriate source."""
@@ -436,10 +462,9 @@ class AppVersionManager:
         values_config = self.file_cache.read_yaml_file(values_path)
         return values_config["images"]["image"]["tag"]
 
-    @staticmethod
-    def increment_patch_version(version: str, should_bump: bool = True) -> str:
+    def increment_patch_version(self, version: str) -> str:
         """Increment the patch version number."""
-        if not should_bump:
+        if not self.should_bump_versions:
             return version
 
         try:
@@ -484,7 +509,7 @@ class AppMetadataUpdater:
         old_app_version = app_config.get("app_version", "")
         if current_app_version != old_app_version:
             needs_version_bump = True
-            app_config["app_version"] = current_app_version
+        app_config["app_version"] = current_app_version
 
         # Update capabilities if changed
         new_capabilities_data = [cap.to_dict() for cap in capabilities]
@@ -492,7 +517,7 @@ class AppMetadataUpdater:
 
         if old_capabilities_data != new_capabilities_data:
             needs_version_bump = True
-            app_config["capabilities"] = new_capabilities_data
+        app_config["capabilities"] = new_capabilities_data
 
         # Bump version if needed
         if needs_version_bump and should_bump_version:
@@ -541,7 +566,7 @@ class TrueNASAppCapabilityManager:
         self.compose_renderer = DockerComposeRenderer()
         self.compose_analyzer = DockerComposeAnalyzer()
         self.questions_validator = AppQuestionsValidator(self.file_cache)
-        self.version_manager = AppVersionManager(self.file_cache)
+        self.version_manager = AppVersionManager(self.file_cache, should_bump_versions)
         self.metadata_updater = AppMetadataUpdater(self.file_cache, self.version_manager)
         self.capability_registry = DockerCapabilityRegistry()
 
