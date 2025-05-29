@@ -62,13 +62,6 @@ def parse_args():
         type=bool,
         help="Wait for user input before stopping the app",
     )
-    parser.add_argument(
-        "--with-migration-helpers",
-        required=False,
-        default=False,
-        type=bool,
-        help="Copy migration helpers",
-    )
     parsed = parser.parse_args()
 
     return {
@@ -79,7 +72,6 @@ def parse_args():
         "render_only_debug": parsed.render_only_debug,
         "project": secrets.token_hex(16),
         "wait": parsed.wait,
-        "with_migration_helpers": parsed.with_migration_helpers,
     }
 
 
@@ -92,7 +84,6 @@ def print_info():
     print_stderr(f"  - render-only: [{args['render_only']}]")
     print_stderr(f"  - render-only-debug: [{args['render_only_debug']}]")
     print_stderr(f"  - wait: [{args['wait']}]")
-    print_stderr(f"  - with-migration-helpers: [{args['with_migration_helpers']}]")
 
 
 def command_exists(command):
@@ -469,24 +460,6 @@ def copy_macros():
         sys.exit(1)
 
 
-def copy_migration_helpers():
-    if not os.path.exists("migration_helpers"):
-        print_stderr("Migration helpers directory does not exist. Skipping helpers copy")
-        return
-
-    print_stderr("Copying migration helpers")
-    target_helpers_dir = f"ix-dev/{args['train']}/{args['app']}/migrations/migration_helpers"
-    os.makedirs(target_helpers_dir, exist_ok=True)
-    if pathlib.Path(target_helpers_dir).exists():
-        shutil.rmtree(target_helpers_dir, ignore_errors=True)
-
-    try:
-        shutil.copytree("migration_helpers", target_helpers_dir, dirs_exist_ok=True)
-    except shutil.Error:
-        print_stderr("Failed to copy migration helpers")
-        sys.exit(1)
-
-
 def generate_item_file():
     with open(f"ix-dev/{args['train']}/{args['app']}/app.yaml", "r") as f:
         app_yaml = yaml.safe_load(f)
@@ -516,8 +489,6 @@ def main():
     pull_app_catalog_container()
     copy_lib()
     copy_macros()
-    if args["with_migration_helpers"]:
-        copy_migration_helpers()
     generate_item_file()
     check_required_commands()
     render_compose()
