@@ -248,7 +248,12 @@ module.exports = {
     customVersioning(
       // 6.1.4.2
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
-      ["ghcr.io/justarchinet/archisteamfarm", "ghcr.io/sassanix/warracker/main"]
+      ["ghcr.io/justarchinet/archisteamfarm"]
+    ),
+    customVersioning(
+      // 0.1.4.2
+      "^0\\.(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["ghcr.io/sassanix/warracker/main"]
     ),
     customVersioning(
       // amd64-3.3.13
@@ -294,7 +299,7 @@ module.exports = {
       // v1.134.0-cuda|rocm|openvino
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(cuda|rocm|openvino))?",
       ["ghcr.io/immich-app/immich-machine-learning"]
-    )
+    ),
   ],
 };
 
