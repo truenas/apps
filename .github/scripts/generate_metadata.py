@@ -385,12 +385,12 @@ class DockerComposeAnalyzer:
 
             # Validate cap_drop configuration
             if "cap_drop" not in service_config:
-                logger.warning(
+                logger.error(
                     f"No cap_drop for service: {service_name}. Consider explicitly setting the defaults via cap_add "
                     "https://github.com/moby/moby/blob/7a0bf747f5c25da0794e42d5f9e5a40db5a7786e/oci/caps/defaults.go#L4"
                 )
             elif service_config["cap_drop"] != ["ALL"]:
-                logger.warning(f"Non-standard cap_drop for service: {service_name}")
+                logger.error(f"Non-standard cap_drop for service: {service_name}")
 
             # Extract capabilities
             if "cap_add" in service_config:
