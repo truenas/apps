@@ -375,6 +375,12 @@ class AppUpdater:
         if "changelog_url" not in app_config:
             logger.warning(f"App {app_path} has no changelog URL")
 
+        for sc in app_config.get("screenshots", []):
+            if not sc.startswith(f"https://media.sys.truenas.net/apps/{app_config['name']}/screenshots/"):
+                logger.warning(f"App {app_path} has invalid screenshot URL: {sc}")
+        if not app_config["icon"].startswith(f"https://media.sys.truenas.net/apps/{app_config['name']}/icons/"):
+            logger.warning(f"App {app_path} has invalid icon URL: {app_config['icon']}")
+
         should_bump = False
 
         # Make sure app version is up to date
