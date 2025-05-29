@@ -7,11 +7,13 @@ try:
     from .deps_postgres import PostgresContainer, PostgresConfig
     from .deps_redis import RedisContainer, RedisConfig
     from .deps_mariadb import MariadbContainer, MariadbConfig
+    from .deps_mongodb import MongoDBContainer, MongoDBConfig
     from .deps_perms import PermsContainer
 except ImportError:
     from deps_postgres import PostgresContainer, PostgresConfig
     from deps_redis import RedisContainer, RedisConfig
     from deps_mariadb import MariadbContainer, MariadbConfig
+    from deps_mongodb import MongoDBContainer, MongoDBConfig
     from deps_perms import PermsContainer
 
 
@@ -30,3 +32,6 @@ class Deps:
 
     def mariadb(self, name: str, image: str, config: MariadbConfig, perms_instance: PermsContainer):
         return MariadbContainer(self._render_instance, name, image, config, perms_instance)
+
+    def mongodb(self, name: str, image: str, config: MongoDBConfig, perms_instance: PermsContainer):
+        return MongoDBContainer(self._render_instance, name, image, config, perms_instance)
