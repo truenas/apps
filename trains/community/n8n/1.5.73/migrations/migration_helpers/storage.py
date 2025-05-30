@@ -9,14 +9,18 @@ def migrate_storage_item(storage_item, include_read_only=False):
         elif storage_item.get("datasetName"):
             result = migrate_old_ix_volume_type(storage_item)
         else:
-            raise ValueError("Expected [ix_volume] to have [ixVolumeConfig] or [datasetName] set")
+            raise ValueError(
+                "Expected [ix_volume] to have [ixVolumeConfig] or [datasetName] set"
+            )
     elif storage_item["type"] == "hostPath":
         if storage_item.get("hostPathConfig"):
             result = migrate_host_path_type(storage_item)
         elif storage_item.get("hostPath"):
             result = migrate_old_host_path_type(storage_item)
         else:
-            raise ValueError("Expected [host_path] to have [hostPathConfig] or [hostPath] set")
+            raise ValueError(
+                "Expected [host_path] to have [hostPathConfig] or [hostPath] set"
+            )
     elif storage_item["type"] == "emptyDir":
         result = migrate_empty_dir_type(storage_item)
     elif storage_item["type"] == "smb-pv-pvc":
@@ -91,7 +95,9 @@ def migrate_ix_volume_type(ix_volume):
     }
 
     if vol_config.get("aclEnable", False):
-        result["ix_volume_config"].update({"acl_entries": migrate_acl_entries(vol_config["aclEntries"])})
+        result["ix_volume_config"].update(
+            {"acl_entries": migrate_acl_entries(vol_config["aclEntries"])}
+        )
 
     return result
 
@@ -122,7 +128,9 @@ def migrate_host_path_type(host_path):
     }
 
     if path_config.get("aclEnable", False):
-        result["host_path_config"].update({"acl": migrate_acl_entries(path_config.get("acl", {}))})
+        result["host_path_config"].update(
+            {"acl": migrate_acl_entries(path_config.get("acl", {}))}
+        )
     else:
         result["host_path_config"].update({"path": path_config["hostPath"]})
 
