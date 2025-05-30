@@ -99,10 +99,13 @@ jobs:
         shell: bash
         run: |
           echo "Checking [${{matrix.train}}/${{matrix.app}}/app.yaml]"
-          python3 ./.github/scripts/generate_metadata.py --train ${{matrix.train}} --app ${{matrix.app}}
-          git diff --exit-code
+          echo "Current diff:"
+          git diff
 
-          if ! git diff --exit-code --quiet; then
+          curr_diff=$(git diff --exit-code)
+          python3 ./.github/scripts/generate_metadata.py --train ${{matrix.train}} --app ${{matrix.app}}
+          new_diff=$(git diff --exit-code)
+          if [ "$curr_diff" != "$new_diff" ]; then
             echo "App metadata is not up to date"
             echo "Please run [python3 ./.github/scripts/generate_metadata.py ${{matrix.train}} ${{matrix.app}}] and commit the changes"
             exit 1
