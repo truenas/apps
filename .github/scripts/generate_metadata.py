@@ -118,17 +118,46 @@ class DockerCapabilityRegistry:
         "WAKE_ALARM": "able to trigger system wake alarms",
     }
 
+    _RENAME_MAPPINGS = {
+        "dssystem": "DS System",
+        "npm": "Nginx Proxy Manager",
+        "omada": "Omada Controller",
+    }
+
+    @staticmethod
+    def service_name_to_title(service_name: str) -> str:
+        """Convert a service name to a human-readable title."""
+        return service_name.replace("-", " ").replace("_", " ").title()
+
+    @staticmethod
+    def hash_service_name(service_name: str) -> str:
+        """Hash a service name to a short, unique identifier."""
+        return service_name.lower().replace("_", "").replace("-", "").replace(" ", "")
+
     @classmethod
-    def create_capability_description(cls, capability_name: str, service_names: List[str]) -> str:
+    def create_capability_description(cls, capability_name: str, service_names: List[str], title: str) -> str:
         """Create a human-readable description for a capability and its services."""
         if capability_name not in cls._CAPABILITY_DESCRIPTIONS:
             raise ValueError(f"Unknown capability: {capability_name}")
 
         if not service_names:
             raise ValueError(f"No services provided for capability: {capability_name}")
+        clean_service_names = set()
+        for name in service_names:
+            parts = name.split("-")
+            if parts[-1].isnumeric():
+                name = "-".join(parts[:-1])
+            clean_service_names.add(name)
 
-        # Format service names (replace hyphens with spaces and title case)
-        formatted_services = [name.replace("-", " ").title() for name in service_names]
+        formatted_services = []
+        for name in clean_service_names:
+            if cls.hash_service_name(name) == cls.hash_service_name(title):
+                formatted_services.append(title)
+            elif name.lower() in cls._RENAME_MAPPINGS:
+                formatted_services.append(cls._RENAME_MAPPINGS[name.lower()])
+            else:
+                formatted_services.append(cls.service_name_to_title(name))
+
         base_description = cls._CAPABILITY_DESCRIPTIONS[capability_name]
 
         if len(formatted_services) == 1:
@@ -163,6 +192,10 @@ class FileSystemCache:
         try:
             with open(file_path, "r") as f:
                 data = yaml.safe_load(f)
+
+            # Ensure we have a dict
+            if not isinstance(data, dict):
+                raise ValueError(f"YAML file {file_path} must contain a dictionary at root level, got {type(data)}")
 
             # Cache with modification time
             mtime = file_path.stat().st_mtime
@@ -304,16 +337,22 @@ class DockerComposeRenderer:
             raise RuntimeError(f"Rendering failed for {app_manifest.name}") from e
 
         # Read rendered compose file
-        rendered_compose_path = app_manifest.path / Config.RENDERED_COMPOSE_PATH
-        if not rendered_compose_path.exists():
-            raise FileNotFoundError(f"Rendered compose file not found: {rendered_compose_path}")
+        compose_path = app_manifest.path / Config.RENDERED_COMPOSE_PATH
+        if not compose_path.exists():
+            raise FileNotFoundError(f"Rendered compose file not found: {compose_path}")
 
         try:
-            self._fix_file_permissions(rendered_compose_path)
-            with open(rendered_compose_path, "r") as f:
-                return yaml.safe_load(f)
+            self._fix_file_permissions(compose_path)
+            with open(compose_path, "r") as f:
+                data = yaml.safe_load(f)
+
+            # Ensure we have a dict
+            if not isinstance(data, dict):
+                raise ValueError(f"YAML file {compose_path} must contain a dictionary at root level, got {type(data)}")
+            return data
+
         except yaml.YAMLError as e:
-            raise RuntimeError(f"Failed to parse rendered compose: {rendered_compose_path}") from e
+            raise RuntimeError(f"Failed to parse rendered compose: {compose_path}") from e
 
     def _fix_file_permissions(self, file_path: Path) -> None:
         """Fix file permissions using Docker container."""
@@ -576,6 +615,13 @@ class TrueNASAppCapabilityManager:
             logger.warning(f"No test configurations for {app_manifest.name}")
             return AppAnalysisResult([], [], "")
 
+        # Extract app title from app.yaml
+        app_metadata_path = app_manifest.path / Config.APP_METADATA_FILE
+        app_config = self.file_cache.read_yaml_file(app_metadata_path)
+        if not isinstance(app_config, dict):
+            raise ValueError(f"Invalid app config in {app_metadata_path}")
+        app_title = app_config.get("title", app_manifest.name)
+
         # Track capabilities across all test configurations
         capability_to_services: Dict[str, Set[str]] = {}
         all_service_names = set()
@@ -609,7 +655,9 @@ class TrueNASAppCapabilityManager:
         capabilities = []
         for capability_name, services in capability_to_services.items():
             try:
-                description = self.capability_registry.create_capability_description(capability_name, sorted(services))
+                description = self.capability_registry.create_capability_description(
+                    capability_name, sorted(services), app_title
+                )
                 capabilities.append(DockerCapability(capability_name, description))
             except ValueError as e:
                 logger.error(f"Failed to create capability description: {e}")
@@ -621,7 +669,7 @@ class TrueNASAppCapabilityManager:
         return AppAnalysisResult(
             capabilities=sorted(capabilities, key=lambda c: c.name),
             service_names=sorted(all_service_names),
-            app_version=current_version,
+            app_version=str(current_version),
         )
 
     def update_single_app(self, app_manifest: AppManifest) -> None:
