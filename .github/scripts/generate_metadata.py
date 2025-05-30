@@ -13,6 +13,7 @@ import logging
 import argparse
 import subprocess
 from pathlib import Path
+from collections import OrderedDict
 from typing import Dict, List, Set, Optional
 from dataclasses import dataclass
 
@@ -49,7 +50,7 @@ class DockerCapability:
     description: str
 
     def to_dict(self) -> Dict[str, str]:
-        return {"name": self.name, "description": self.description}
+        return OrderedDict([("description", self.description), ("name", self.name)])
 
 
 @dataclass
