@@ -163,7 +163,7 @@ class DockerCapabilityRegistry:
         if len(formatted_services) == 1:
             return f"{formatted_services[0]} is {base_description}"
         else:
-            return f"{', '.join(formatted_services)} are {base_description}"
+            return f"{', '.join(sorted(formatted_services))} are {base_description}"
 
 
 class FileSystemCache:
