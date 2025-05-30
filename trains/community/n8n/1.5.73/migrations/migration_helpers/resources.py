@@ -14,9 +14,13 @@ def migrate_resources(resources, gpus=None, system_gpus=None):
     }
 
     if resources.get("limits", {}).get("cpu", ""):
-        result["limits"].update({"cpus": transform_cpu(resources.get("limits", {}).get("cpu", ""))})
+        result["limits"].update(
+            {"cpus": transform_cpu(resources.get("limits", {}).get("cpu", ""))}
+        )
     if resources.get("limits", {}).get("memory", ""):
-        result["limits"].update({"memory": transform_memory(resources.get("limits", {}).get("memory", ""))})
+        result["limits"].update(
+            {"memory": transform_memory(resources.get("limits", {}).get("memory", ""))}
+        )
 
     gpus_result = {}
     for gpu in gpus.items() if gpus else []:
@@ -44,7 +48,9 @@ def migrate_resources(resources, gpus=None, system_gpus=None):
                 if not guid or not pci_slot:
                     continue
 
-                gpus_result.update({"nvidia_gpu_selection": {pci_slot: {"uuid": guid, "use_gpu": True}}})
+                gpus_result.update(
+                    {"nvidia_gpu_selection": {pci_slot: {"uuid": guid, "use_gpu": True}}}
+                )
                 count -= 1
 
     if gpus_result:
