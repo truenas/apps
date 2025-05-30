@@ -49,7 +49,7 @@ class DockerCapability:
     description: str
 
     def to_dict(self) -> Dict[str, str]:
-        return {"name": self.name, "description": self.description}
+        return {"description": self.description, "name": self.name}
 
 
 @dataclass
@@ -512,8 +512,8 @@ class AppMetadataUpdater:
         app_config["app_version"] = current_app_version
 
         # Update capabilities if changed
-        new_capabilities_data = [cap.to_dict() for cap in capabilities]
-        old_capabilities_data = app_config.get("capabilities", [])
+        new_capabilities_data = sorted([cap.to_dict() for cap in capabilities], key=lambda c: c["name"])
+        old_capabilities_data = sorted(app_config.get("capabilities", []), key=lambda c: c["name"])
 
         if old_capabilities_data != new_capabilities_data:
             needs_version_bump = True
