@@ -1,0 +1,26 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.directus_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_storage("/app/database", values.storage.database) %}
+{% do c1.add_storage("/app/uploads", values.storage.uploads) %}
+{% do c1.add_storage("/app/extensions", values.storage.extensions) %}
+
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/admin"}) %}
+
+{% do c1.environment.add_env("CONTAINERIZED", true) %}
+{% do c1.environment.add_env("SECRET", values.directus.SECRET) %}
+{% do c1.environment.add_env("ADMIN_EMAIL", values.directus.ADMIN_EMAIL) %}
+{% do c1.environment.add_env("ADMIN_PASSWORD", values.directus.ADMIN_PASSWORD) %}
+{% do c1.environment.add_env("DB_CLIENT", values.directus.DB_CLIENT) %}
+{% do c1.environment.add_env("DB_FILENAME", values.directus.DB_FILENAME) %}
+{% do c1.environment.add_env("WEBSOCKETS_ENABLED", values.directus.WEBSOCKETS_ENABLED) %}
+{% do c1.environment.add_env("PORT", values.network.web_port) %}
+{% do c1.environment.add_user_envs(values.directus.additional_envs) %}
+
+{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+
+{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+
+{{ tpl.render() | tojson }}
