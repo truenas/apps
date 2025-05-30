@@ -17,11 +17,11 @@ class Portals:
         self._portals: set[Portal] = set()
 
     def add(self, port: dict, config: dict | None = None):
-        config = config or {}
+        config = (config or {}).copy()
         name = config.get("name", "Web UI")
         host = config.get("host", None)
 
-        host_ips = port.get("host_ips", [])
+        host_ips = port.get("host_ips", []).copy()
         if not isinstance(host_ips, list):
             raise RenderError("Expected [host_ips] to be a list of strings")
 
