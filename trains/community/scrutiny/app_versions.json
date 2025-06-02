@@ -1,41 +1,19 @@
 {
-    "1.1.11": {
+    "1.2.0": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/scrutiny/1.1.11",
-        "last_update": "2025-06-02 08:22:44",
+        "location": "/__w/apps/apps/trains/community/scrutiny/1.2.0",
+        "last_update": "2025-06-02 13:44:06",
         "required_features": [],
-        "human_version": "v0.8.1_1.1.11",
-        "version": "1.1.11",
+        "human_version": "v0.8.1-omnibus_1.2.0",
+        "version": "1.2.0",
         "app_metadata": {
-            "app_version": "v0.8.1",
-            "capabilities": [
-                {
-                    "description": "Scrutiny is able to use raw I/O.",
-                    "name": "SYS_RAWIO"
-                },
-                {
-                    "description": "Scrutiny is able to perform privileged operations.",
-                    "name": "SYS_ADMIN"
-                },
-                {
-                    "description": "Scrutiny is able to bypass permission checks for it's sub-processes.",
-                    "name": "FOWNER"
-                },
-                {
-                    "description": "Scrutiny is able to bypass permission checks.",
-                    "name": "DAC_OVERRIDE"
-                },
-                {
-                    "description": "Scrutiny is able to set group ID for it's sub-processes.",
-                    "name": "SETGID"
-                },
-                {
-                    "description": "Scrutiny is able to set user ID for it's sub-processes.",
-                    "name": "SETUID"
-                }
-            ],
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
+            "app_version": "v0.8.1-omnibus",
+            "capabilities": [],
             "categories": [
                 "monitoring"
             ],
@@ -85,7 +63,7 @@
             ],
             "title": "Scrutiny",
             "train": "community",
-            "version": "1.1.11"
+            "version": "1.2.0"
         },
         "schema": {
             "groups": [
@@ -118,57 +96,6 @@
                     "schema": {
                         "type": "dict",
                         "attrs": [
-                            {
-                                "variable": "elevate_privileges",
-                                "label": "WARNING: Elevate Privileges",
-                                "description": "Elevate privileges for Scrutiny.</br>\nThis is only needed for **SOME** NVMe drives.</br>\nEnabling this option, Scrutiny will get SYS_ADMIN capability.</br>\nThis is a security risk, in case the application is compromised.</br>\nUse at your own risk.\n",
-                                "schema": {
-                                    "type": "boolean",
-                                    "hidden": true,
-                                    "default": false
-                                }
-                            },
-                            {
-                                "variable": "disks",
-                                "label": "Disks",
-                                "description": "Disks for Scrutiny.",
-                                "schema": {
-                                    "type": "list",
-                                    "hidden": true,
-                                    "min": 1,
-                                    "required": true,
-                                    "default": [],
-                                    "items": [
-                                        {
-                                            "variable": "disk",
-                                            "label": "Disk",
-                                            "schema": {
-                                                "type": "dict",
-                                                "attrs": [
-                                                    {
-                                                        "variable": "host_device",
-                                                        "label": "Host Disk Path",
-                                                        "description": "Host Disk Path",
-                                                        "schema": {
-                                                            "type": "path",
-                                                            "required": true
-                                                        }
-                                                    },
-                                                    {
-                                                        "variable": "container_device",
-                                                        "label": "Container Disk Path",
-                                                        "description": "Container Disk Path",
-                                                        "schema": {
-                                                            "type": "path",
-                                                            "required": true
-                                                        }
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    ]
-                                }
-                            },
                             {
                                 "variable": "additional_envs",
                                 "label": "Additional Environment Variables",
@@ -220,8 +147,7 @@
                                 "label": "WebUI Port",
                                 "description": "The port for Scrutiny WebUI",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 31054,
+                                    "type": "dict",
                                     "show_if": [
                                         [
                                             "host_network",
@@ -229,9 +155,78 @@
                                             false
                                         ]
                                     ],
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": 31054,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
@@ -240,8 +235,7 @@
                                 "label": "InfluxDB Port",
                                 "description": "The port for InfluxDB",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 31055,
+                                    "type": "dict",
                                     "show_if": [
                                         [
                                             "host_network",
@@ -249,9 +243,78 @@
                                             false
                                         ]
                                     ],
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": 31055,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
@@ -915,33 +978,11 @@
         "readme": "<h1>Scrutiny</h1> <p><a href=\"https://github.com/AnalogJ/scrutiny\">Scrutiny</a> - Hard Drive S.M.A.R.T Monitoring, Historical Trends &amp; Real World Failure Thresholds</p> <p>Scrutiny is tool for Hard Drive S.M.A.R.T Monitoring, Historical Trends &amp; Real World Failure Thresholds</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "v0.8.1",
-            "capabilities": [
-                {
-                    "description": "Scrutiny is able to use raw I/O.",
-                    "name": "SYS_RAWIO"
-                },
-                {
-                    "description": "Scrutiny is able to perform privileged operations.",
-                    "name": "SYS_ADMIN"
-                },
-                {
-                    "description": "Scrutiny is able to bypass permission checks for it's sub-processes.",
-                    "name": "FOWNER"
-                },
-                {
-                    "description": "Scrutiny is able to bypass permission checks.",
-                    "name": "DAC_OVERRIDE"
-                },
-                {
-                    "description": "Scrutiny is able to set group ID for it's sub-processes.",
-                    "name": "SETGID"
-                },
-                {
-                    "description": "Scrutiny is able to set user ID for it's sub-processes.",
-                    "name": "SETUID"
-                }
-            ],
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
+            "app_version": "v0.8.1-omnibus",
+            "capabilities": [],
             "categories": [
                 "monitoring"
             ],
@@ -991,7 +1032,7 @@
             ],
             "title": "Scrutiny",
             "train": "community",
-            "version": "1.1.11"
+            "version": "1.2.0"
         }
     }
 }

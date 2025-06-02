@@ -1,14 +1,17 @@
 {
-    "1.7.48": {
+    "1.8.0": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/immich/1.7.48",
-        "last_update": "2025-06-02 08:22:44",
+        "location": "/__w/apps/apps/trains/community/immich/1.8.0",
+        "last_update": "2025-06-02 13:44:06",
         "required_features": [],
-        "human_version": "v1.134.0_1.7.48",
-        "version": "1.7.48",
+        "human_version": "v1.134.0_1.8.0",
+        "version": "1.8.0",
         "app_metadata": {
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
             "app_version": "v1.134.0",
             "capabilities": [],
             "categories": [
@@ -36,11 +39,11 @@
             "name": "immich",
             "run_as_context": [
                 {
-                    "description": "Immich runs as root user.",
-                    "gid": 0,
-                    "group_name": "root",
-                    "uid": 0,
-                    "user_name": "root"
+                    "description": "Immich runs as any non-root user.",
+                    "gid": 568,
+                    "group_name": "immich",
+                    "uid": 568,
+                    "user_name": "immich"
                 },
                 {
                     "description": "Postgres runs as non-root user.",
@@ -64,13 +67,17 @@
             ],
             "title": "Immich",
             "train": "community",
-            "version": "1.7.48"
+            "version": "1.8.0"
         },
         "schema": {
             "groups": [
                 {
                     "name": "Immich Configuration",
                     "description": "Configure Immich"
+                },
+                {
+                    "name": "User and Group Configuration",
+                    "description": "Configure User and Group for Immich"
                 },
                 {
                     "name": "Network Configuration",
@@ -267,6 +274,38 @@
                     }
                 },
                 {
+                    "variable": "run_as",
+                    "label": "",
+                    "group": "User and Group Configuration",
+                    "schema": {
+                        "type": "dict",
+                        "attrs": [
+                            {
+                                "variable": "user",
+                                "label": "User ID",
+                                "description": "The user id that Immich files will be owned by.",
+                                "schema": {
+                                    "type": "int",
+                                    "min": 0,
+                                    "default": 568,
+                                    "required": true
+                                }
+                            },
+                            {
+                                "variable": "group",
+                                "label": "Group ID",
+                                "description": "The group id that Immich files will be owned by.",
+                                "schema": {
+                                    "type": "int",
+                                    "min": 0,
+                                    "default": 568,
+                                    "required": true
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
                     "variable": "network",
                     "label": "",
                     "group": "Network Configuration",
@@ -278,11 +317,72 @@
                                 "label": "WebUI Port",
                                 "description": "The port for Immich WebUI",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 30041,
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 30041,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             }
@@ -1855,6 +1955,9 @@
         "readme": "<h1>Immich</h1> <p><a href=\"https://immich.app\">Immich</a> - Self-hosted backup solution for photos and videos on mobile device</p>",
         "changelog": null,
         "chart_metadata": {
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
             "app_version": "v1.134.0",
             "capabilities": [],
             "categories": [
@@ -1882,11 +1985,11 @@
             "name": "immich",
             "run_as_context": [
                 {
-                    "description": "Immich runs as root user.",
-                    "gid": 0,
-                    "group_name": "root",
-                    "uid": 0,
-                    "user_name": "root"
+                    "description": "Immich runs as any non-root user.",
+                    "gid": 568,
+                    "group_name": "immich",
+                    "uid": 568,
+                    "user_name": "immich"
                 },
                 {
                     "description": "Postgres runs as non-root user.",
@@ -1910,7 +2013,7 @@
             ],
             "title": "Immich",
             "train": "community",
-            "version": "1.7.48"
+            "version": "1.8.0"
         }
     }
 }
