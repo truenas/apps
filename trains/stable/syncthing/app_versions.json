@@ -1,46 +1,49 @@
 {
-    "1.1.19": {
+    "1.2.0": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/stable/syncthing/1.1.19",
-        "last_update": "2025-06-02 08:22:44",
+        "location": "/__w/apps/apps/trains/stable/syncthing/1.2.0",
+        "last_update": "2025-06-02 13:44:06",
         "required_features": [],
-        "human_version": "1.29.6_1.1.19",
-        "version": "1.1.19",
+        "human_version": "1.29.6_1.2.0",
+        "version": "1.2.0",
         "app_metadata": {
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
             "app_version": "1.29.6",
             "capabilities": [
                 {
-                    "description": "Syncthing is able to chown files.",
+                    "description": "Syncthing is able to change file ownership arbitrarily",
                     "name": "CHOWN"
                 },
                 {
-                    "description": "Syncthing is able to bypass permission checks.",
+                    "description": "Syncthing is able to bypass file permission checks",
                     "name": "DAC_OVERRIDE"
                 },
                 {
-                    "description": "Syncthing is able bypass permission checks for it's sub-processes.",
+                    "description": "Syncthing is able to bypass permission checks for file operations",
                     "name": "FOWNER"
                 },
                 {
-                    "description": "Syncthing is able to set user ID for it's sub-processes.",
-                    "name": "SETUID"
-                },
-                {
-                    "description": "Syncthing is able to set group ID for it's sub-processes.",
-                    "name": "SETGID"
-                },
-                {
-                    "description": "Syncthing is able to set process capabilities.",
-                    "name": "SETPCAP"
-                },
-                {
-                    "description": "Syncthing is able to set file capabilities.",
+                    "description": "Syncthing is able to set file capabilities on other files",
                     "name": "SETFCAP"
                 },
                 {
-                    "description": "Syncthing is able to use system administration privileges.",
+                    "description": "Syncthing is able to change group ID of processes",
+                    "name": "SETGID"
+                },
+                {
+                    "description": "Syncthing is able to transfer capabilities between processes",
+                    "name": "SETPCAP"
+                },
+                {
+                    "description": "Syncthing is able to change user ID of processes",
+                    "name": "SETUID"
+                },
+                {
+                    "description": "Syncthing is able to perform system administration operations",
                     "name": "SYS_ADMIN"
                 }
             ],
@@ -90,7 +93,7 @@
             ],
             "title": "Syncthing",
             "train": "stable",
-            "version": "1.1.19"
+            "version": "1.2.0"
         },
         "schema": {
             "groups": [
@@ -221,23 +224,81 @@
                             {
                                 "variable": "web_port",
                                 "label": "WebUI Port",
-                                "description": "The port for Syncthing WebUI",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 20910,
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 20910,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
                             {
                                 "variable": "tcp_port",
                                 "label": "TCP Port",
-                                "description": "The port for Syncthing TCP",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 20978,
+                                    "type": "dict",
                                     "show_if": [
                                         [
                                             "host_network",
@@ -245,19 +306,86 @@
                                             false
                                         ]
                                     ],
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": 20978,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
                             {
                                 "variable": "udp_port",
                                 "label": "UDP Port",
-                                "description": "The port for Syncthing UDP",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 20979,
+                                    "type": "dict",
                                     "show_if": [
                                         [
                                             "host_network",
@@ -265,9 +393,78 @@
                                             false
                                         ]
                                     ],
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": 20970,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
@@ -801,38 +998,41 @@
         "readme": "<h1>Syncthing</h1> <p><a href=\"https://syncthing.net/\">Syncthing</a> is a continuous file synchronization program. It synchronizes files between two or more computers in real time, safely protected from prying eyes. Your data is your data alone and you deserve to choose where it is stored, whether it is shared with some third party, and how it's transmitted over the internet.</p> <blockquote> <p><strong>WARNING</strong> Do check out <a href=\"https://docs.syncthing.net/users/faq.html#what-things-are-synced\">official docs</a> to see what is synced.</p> </blockquote>",
         "changelog": null,
         "chart_metadata": {
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
             "app_version": "1.29.6",
             "capabilities": [
                 {
-                    "description": "Syncthing is able to chown files.",
+                    "description": "Syncthing is able to change file ownership arbitrarily",
                     "name": "CHOWN"
                 },
                 {
-                    "description": "Syncthing is able to bypass permission checks.",
+                    "description": "Syncthing is able to bypass file permission checks",
                     "name": "DAC_OVERRIDE"
                 },
                 {
-                    "description": "Syncthing is able bypass permission checks for it's sub-processes.",
+                    "description": "Syncthing is able to bypass permission checks for file operations",
                     "name": "FOWNER"
                 },
                 {
-                    "description": "Syncthing is able to set user ID for it's sub-processes.",
-                    "name": "SETUID"
-                },
-                {
-                    "description": "Syncthing is able to set group ID for it's sub-processes.",
-                    "name": "SETGID"
-                },
-                {
-                    "description": "Syncthing is able to set process capabilities.",
-                    "name": "SETPCAP"
-                },
-                {
-                    "description": "Syncthing is able to set file capabilities.",
+                    "description": "Syncthing is able to set file capabilities on other files",
                     "name": "SETFCAP"
                 },
                 {
-                    "description": "Syncthing is able to use system administration privileges.",
+                    "description": "Syncthing is able to change group ID of processes",
+                    "name": "SETGID"
+                },
+                {
+                    "description": "Syncthing is able to transfer capabilities between processes",
+                    "name": "SETPCAP"
+                },
+                {
+                    "description": "Syncthing is able to change user ID of processes",
+                    "name": "SETUID"
+                },
+                {
+                    "description": "Syncthing is able to perform system administration operations",
                     "name": "SYS_ADMIN"
                 }
             ],
@@ -882,7 +1082,7 @@
             ],
             "title": "Syncthing",
             "train": "stable",
-            "version": "1.1.19"
+            "version": "1.2.0"
         }
     }
 }
