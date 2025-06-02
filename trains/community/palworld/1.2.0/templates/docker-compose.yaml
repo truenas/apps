@@ -1,0 +1,65 @@
+{% from "macros/setup.sh.jinja" import setup_script %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% for i in values.consts.reserved_keys %}
+  {% for item in values.palworld.ini_keys %}
+    {% if item.key == i %}
+      {% do tpl.funcs.fail("Ini Key [%s] is a reserved key"|format(i)) %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+{% for i in values.consts.reserved_game_params %}
+  {% for param in values.palworld.game_params %}
+    {% if param.startswith(i+"=") %}
+      {% do tpl.funcs.fail("Parameter [%s=] is automatically adjusted from the Server Port field"|format(i)) %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+
+{% set game_params = [
+  "port=%d"|format(values.network.server_port.port_number),
+] + values.palworld.game_params %}
+
+{% set caps = ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID", "SYS_RESOURCE", "KILL", "NET_BIND_SERVICE"] %}
+
+{% set c1 = tpl.add_container(values.consts.palworld_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "image") %}
+
+{% do init.healthcheck.disable() %}
+{% do init.remove_devices() %}
+{% do init.deploy.resources.set_profile("low") %}
+{% do init.restart.set_policy("on-failure", 1) %}
+{% do init.add_caps(caps) %}
+{% do init.configs.add("setup.sh", setup_script(values, tpl), "/setup.sh", "0755") %}
+{% do init.set_entrypoint(["/setup.sh"]) %}
+
+{% do c1.add_caps(caps) %}
+{% do c1.healthcheck.disable() %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+
+{% do c1.environment.add_env("STEAMCMD_DIR", values.consts.steamcmd_path) %}
+{% do c1.environment.add_env("SERVER_DIR", values.consts.server_path) %}
+{% do c1.environment.add_env("SRV_ADMIN_PWD", values.palworld.admin_password) %}
+{% do c1.environment.add_env("GAME_PARAMS", game_params | join(" ")) %}
+{% do c1.environment.add_env("GAME_PARAMS_EXTRA", values.palworld.game_params_extra | join(" ")) %}
+{% do c1.environment.add_env("UPDATE_PUBLIC_IP", values.palworld.update_public_ip) %}
+{% do c1.environment.add_env("VALIDATE", values.palworld.validate) %}
+{% do c1.environment.add_env("USERNAME", values.palworld.username) %}
+{% do c1.environment.add_env("PASSWORD", values.palworld.password) %}
+{% do c1.environment.add_env("BACKUP", tpl.funcs.or_default(values.palworld.backup.enabled, false)) %}
+{% do c1.environment.add_env("BACKUP_INTERVAL", tpl.funcs.or_default(values.palworld.backup.interval, 120)) %}
+{% do c1.environment.add_env("BACKUPS_TO_KEEP", tpl.funcs.or_default(values.palworld.backup.keep, 3)) %}
+{% do c1.environment.add_user_envs(values.palworld.additional_envs) %}
+
+{% do c1.add_port(values.network.server_port, {"protocol": "udp"}) %}
+{% do c1.add_port(values.network.rcon_port) %}
+
+{% do c1.add_storage(values.consts.steamcmd_path, values.storage.steamcmd) %}
+{% do c1.add_storage(values.consts.server_path, values.storage.server) %}
+{% do init.add_storage(values.consts.server_path, values.storage.server) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}

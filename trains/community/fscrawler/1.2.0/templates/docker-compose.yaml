@@ -1,0 +1,43 @@
+{% from "macros/setup.sh" import setup %}
+{% from "macros/config.yaml" import config %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.fscrawler_container_name, values.fscrawler.image_selector) %}
+{% set init = tpl.add_container(values.consts.init_container_name, values.fscrawler.image_selector) %}
+
+{% do init.healthcheck.disable() %}
+{% do init.remove_devices() %}
+{% do init.deploy.resources.set_profile("low") %}
+{% do init.set_network_mode("none") %}
+{% do init.restart.set_policy("on-failure", 1) %}
+{% do init.configs.add("example_config", config(values), values.consts.example_config_path) %}
+{% do init.configs.add("setup.sh", setup(values), "/setup.sh", "0755") %}
+{% do init.set_entrypoint(["/setup.sh"]) %}
+
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+{% do c1.healthcheck.disable() %}
+{% set cmd = namespace(x=[
+  values.fscrawler.job_name,
+  "--loop", values.fscrawler.loop,
+]) %}
+{% if values.fscrawler.restart %}
+  {% do cmd.x.append("--restart") %}
+{% endif %}
+{% if values.network.rest_port.bind_mode %}
+  {% do cmd.x.append("--rest") %}
+{% endif %}
+{% do c1.set_command(cmd.x) %}
+
+{% do c1.environment.add_user_envs(values.fscrawler.additional_envs) %}
+{% if values.network.enable_rest %}
+  {% do c1.add_port(values.network.rest_port) %}
+{% endif %}
+
+{% do c1.add_storage(values.consts.jobs_path, values.storage.jobs) %}
+{% do init.add_storage(values.consts.jobs_path, values.storage.jobs) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
