@@ -1,34 +1,37 @@
 {
-    "1.1.10": {
+    "1.2.0": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/mineos/1.1.10",
-        "last_update": "2025-06-02 08:22:44",
+        "location": "/__w/apps/apps/trains/community/mineos/1.2.0",
+        "last_update": "2025-06-02 13:44:06",
         "required_features": [],
-        "human_version": "latest_1.1.10",
-        "version": "1.1.10",
+        "human_version": "latest_1.2.0",
+        "version": "1.2.0",
         "app_metadata": {
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
             "app_version": "latest",
             "capabilities": [
                 {
-                    "description": "MineOS requires this ability to change ownership of files.",
+                    "description": "MineOS is able to change file ownership arbitrarily",
                     "name": "CHOWN"
                 },
                 {
-                    "description": "MineOS requires this ability to bypass file permissions.",
+                    "description": "MineOS is able to bypass file permission checks",
                     "name": "DAC_OVERRIDE"
                 },
                 {
-                    "description": "MineOS requires this ability to bypass file permissions for it's sub-processes.",
+                    "description": "MineOS is able to bypass permission checks for file operations",
                     "name": "FOWNER"
                 },
                 {
-                    "description": "MineOS requires this ability to switch group for sub-processes.",
+                    "description": "MineOS is able to change group ID of processes",
                     "name": "SETGID"
                 },
                 {
-                    "description": "MineOS requires this ability to switch user for sub-processes.",
+                    "description": "MineOS is able to change user ID of processes",
                     "name": "SETUID"
                 }
             ],
@@ -72,7 +75,7 @@
             ],
             "title": "MineOS",
             "train": "community",
-            "version": "1.1.10"
+            "version": "1.2.0"
         },
         "schema": {
             "groups": [
@@ -222,32 +225,176 @@
                             {
                                 "variable": "web_port",
                                 "label": "WebUI Port",
-                                "description": "The port for MineOS WebUI",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 30052,
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 30052,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
                             {
                                 "variable": "additional_ports",
                                 "label": "Additional Ports",
-                                "description": "Additional ports for MineOS.</br>\nEach port will be mapped to the same port on the host. </br>\nBoth TCP and UDP will be mapped.\n",
                                 "schema": {
                                     "type": "list",
-                                    "default": [],
                                     "items": [
                                         {
                                             "variable": "port",
                                             "label": "Port",
                                             "schema": {
-                                                "type": "int",
-                                                "required": true,
-                                                "$ref": [
-                                                    "definitions/port"
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "bind_mode",
+                                                        "label": "Port Bind Mode",
+                                                        "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "published",
+                                                            "enum": [
+                                                                {
+                                                                    "value": "published",
+                                                                    "description": "Publish port on the host for external access"
+                                                                },
+                                                                {
+                                                                    "value": "exposed",
+                                                                    "description": "Expose port for inter-container communication"
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "port_number",
+                                                        "label": "Port Number",
+                                                        "schema": {
+                                                            "type": "int",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/port"
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "container_port",
+                                                        "label": "Container Port",
+                                                        "schema": {
+                                                            "type": "int",
+                                                            "min": 1,
+                                                            "max": 65535,
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "protocol",
+                                                        "label": "Protocol",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "default": "tcp",
+                                                            "enum": [
+                                                                {
+                                                                    "value": "tcp",
+                                                                    "description": "TCP"
+                                                                },
+                                                                {
+                                                                    "value": "udp",
+                                                                    "description": "UDP"
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "host_ips",
+                                                        "label": "Host IPs",
+                                                        "description": "IPs on the host to bind this port",
+                                                        "schema": {
+                                                            "type": "list",
+                                                            "show_if": [
+                                                                [
+                                                                    "bind_mode",
+                                                                    "=",
+                                                                    "published"
+                                                                ]
+                                                            ],
+                                                            "default": [],
+                                                            "items": [
+                                                                {
+                                                                    "variable": "host_ip",
+                                                                    "label": "Host IP",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true,
+                                                                        "$ref": [
+                                                                            "definitions/node_bind_ip"
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
                                                 ]
                                             }
                                         }
@@ -784,26 +931,29 @@
         "readme": "<h1>MineOS</h1> <p><a href=\"https://github.com/hexparrot/mineos-node\">MineOS</a> is a server front-end to ease managing Minecraft administrative tasks.</p>",
         "changelog": null,
         "chart_metadata": {
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
             "app_version": "latest",
             "capabilities": [
                 {
-                    "description": "MineOS requires this ability to change ownership of files.",
+                    "description": "MineOS is able to change file ownership arbitrarily",
                     "name": "CHOWN"
                 },
                 {
-                    "description": "MineOS requires this ability to bypass file permissions.",
+                    "description": "MineOS is able to bypass file permission checks",
                     "name": "DAC_OVERRIDE"
                 },
                 {
-                    "description": "MineOS requires this ability to bypass file permissions for it's sub-processes.",
+                    "description": "MineOS is able to bypass permission checks for file operations",
                     "name": "FOWNER"
                 },
                 {
-                    "description": "MineOS requires this ability to switch group for sub-processes.",
+                    "description": "MineOS is able to change group ID of processes",
                     "name": "SETGID"
                 },
                 {
-                    "description": "MineOS requires this ability to switch user for sub-processes.",
+                    "description": "MineOS is able to change user ID of processes",
                     "name": "SETUID"
                 }
             ],
@@ -847,7 +997,7 @@
             ],
             "title": "MineOS",
             "train": "community",
-            "version": "1.1.10"
+            "version": "1.2.0"
         }
     }
 }

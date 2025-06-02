@@ -1,34 +1,37 @@
 {
-    "1.1.13": {
+    "1.2.0": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/deluge/1.1.13",
-        "last_update": "2025-06-02 08:22:44",
+        "location": "/__w/apps/apps/trains/community/deluge/1.2.0",
+        "last_update": "2025-06-02 13:44:06",
         "required_features": [],
-        "human_version": "2.2.0_1.1.13",
-        "version": "1.1.13",
+        "human_version": "2.2.0_1.2.0",
+        "version": "1.2.0",
         "app_metadata": {
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
             "app_version": "2.2.0",
             "capabilities": [
                 {
-                    "description": "Deluge is able to chown files.",
+                    "description": "Deluge is able to change file ownership arbitrarily",
                     "name": "CHOWN"
                 },
                 {
-                    "description": "Deluge is able to bypass permission checks.",
+                    "description": "Deluge is able to bypass file permission checks",
                     "name": "DAC_OVERRIDE"
                 },
                 {
-                    "description": "Deluge is able bypass permission checks for it's sub-processes.",
+                    "description": "Deluge is able to bypass permission checks for file operations",
                     "name": "FOWNER"
                 },
                 {
-                    "description": "Deluge is able to set group ID for it's sub-processes.",
+                    "description": "Deluge is able to change group ID of processes",
                     "name": "SETGID"
                 },
                 {
-                    "description": "Deluge is able to set user ID for it's sub-processes.",
+                    "description": "Deluge is able to change user ID of processes",
                     "name": "SETUID"
                 }
             ],
@@ -71,7 +74,7 @@
             ],
             "title": "Deluge",
             "train": "community",
-            "version": "1.1.13"
+            "version": "1.2.0"
         },
         "schema": {
             "groups": [
@@ -213,8 +216,7 @@
                                 "label": "WebUI Port",
                                 "description": "The port for Deluge WebUI\n(The internal port is always 8112)\n",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 30038,
+                                    "type": "dict",
                                     "show_if": [
                                         [
                                             "host_network",
@@ -222,9 +224,78 @@
                                             false
                                         ]
                                     ],
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": 30038,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
@@ -233,27 +304,72 @@
                                 "label": "Torrent Port",
                                 "description": "The port for Deluge Torrent\nApplies to both TCP and UDP\n",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 30039,
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
-                                    ]
-                                }
-                            },
-                            {
-                                "variable": "expose_daemon_port",
-                                "label": "Expose Daemon Port",
-                                "description": "Expose the Daemon Port\n",
-                                "schema": {
-                                    "type": "boolean",
-                                    "default": false,
-                                    "show_if": [
-                                        [
-                                            "hostNetwork",
-                                            "=",
-                                            false
-                                        ]
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "published",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 30039,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             },
@@ -262,18 +378,86 @@
                                 "label": "Daemon Port",
                                 "description": "The port for Deluge Daemon\n(The internal port is always 58846)\n",
                                 "schema": {
-                                    "type": "int",
-                                    "default": 58846,
+                                    "type": "dict",
                                     "show_if": [
                                         [
-                                            "expose_daemon_port",
+                                            "hostNetwork",
                                             "=",
-                                            true
+                                            false
                                         ]
                                     ],
-                                    "required": true,
-                                    "$ref": [
-                                        "definitions/port"
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": 58846,
+                                                "required": true,
+                                                "$ref": [
+                                                    "definitions/port"
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
                                     ]
                                 }
                             }
@@ -925,26 +1109,29 @@
         "readme": "<h1>Deluge</h1> <p><a href=\"https://deluge-torrent.org/\">Deluge</a> is a lightweight, Free Software, cross-platform BitTorrent client.</p>",
         "changelog": null,
         "chart_metadata": {
+            "annotations": {
+                "min_scale_version": "24.10.2.2"
+            },
             "app_version": "2.2.0",
             "capabilities": [
                 {
-                    "description": "Deluge is able to chown files.",
+                    "description": "Deluge is able to change file ownership arbitrarily",
                     "name": "CHOWN"
                 },
                 {
-                    "description": "Deluge is able to bypass permission checks.",
+                    "description": "Deluge is able to bypass file permission checks",
                     "name": "DAC_OVERRIDE"
                 },
                 {
-                    "description": "Deluge is able bypass permission checks for it's sub-processes.",
+                    "description": "Deluge is able to bypass permission checks for file operations",
                     "name": "FOWNER"
                 },
                 {
-                    "description": "Deluge is able to set group ID for it's sub-processes.",
+                    "description": "Deluge is able to change group ID of processes",
                     "name": "SETGID"
                 },
                 {
-                    "description": "Deluge is able to set user ID for it's sub-processes.",
+                    "description": "Deluge is able to change user ID of processes",
                     "name": "SETUID"
                 }
             ],
@@ -987,7 +1174,7 @@
             ],
             "title": "Deluge",
             "train": "community",
-            "version": "1.1.13"
+            "version": "1.2.0"
         }
     }
 }
