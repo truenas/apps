@@ -3,15 +3,15 @@
 {% set c1 = tpl.add_container(values.consts.syncthing_container_name, "image") %}
 {% do c1.remove_security_opt("no-new-privileges") %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID", "SETPCAP", "SETFCAP", "SYS_ADMIN"]) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port, "path": "/rest/noauth/health"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/rest/noauth/health"}) %}
 {% do c1.environment.add_env("STNOUPGRADE", true) %}
-{% do c1.environment.add_env("STGUIADDRESS", "0.0.0.0:%s"|format(values.network.web_port)) %}
+{% do c1.environment.add_env("STGUIADDRESS", "0.0.0.0:%s"|format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_user_envs(values.syncthing.additional_envs) %}
 
 {% if not values.network.host_network %}
-  {% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-  {% do c1.ports.add_port(values.network.tcp_port, 22000) %}
-  {% do c1.ports.add_port(values.network.udp_port, 22000, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.web_port) %}
+  {% do c1.add_port(values.network.tcp_port, {"container_port": 22000}) %}
+  {% do c1.add_port(values.network.udp_port, {"container_port": 22000, "protocol": "udp"}) %}
 {% endif %}
 
 {% do c1.add_storage("/var/syncthing", values.storage.config) %}
@@ -19,6 +19,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}
