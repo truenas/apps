@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING
 
+import copy
+
 if TYPE_CHECKING:
     from render import Render
 
@@ -17,8 +19,8 @@ class Portals:
         self._portals: set[Portal] = set()
 
     def add(self, port: dict, config: dict | None = None):
-        config = (config or {}).copy()
-        port = (port or {}).copy()
+        config = copy.deepcopy((config or {}))
+        port = copy.deepcopy((port or {}))
         name = config.get("name", "Web UI")
         host = config.get("host", None)
 
