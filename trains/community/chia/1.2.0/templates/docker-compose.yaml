@@ -1,0 +1,53 @@
+{% from "macros/init.sh" import init %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.chia_container_name, "image") %}
+{% do c1.healthcheck.set_custom_test("/usr/local/bin/docker-healthcheck.sh") %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.chia_port, {"container_port": 8444}) %}
+  {% do c1.add_port(values.network.farmer_port, {"container_port": 8447}) %}
+{% endif %}
+
+{% set plots_dirs = namespace(x=[values.consts.plots_dir]) %}
+{% for store in values.storage.additional_storage if store.is_plot_dir %}
+  {% do plots_dirs.x.append(store.mount_path) %}
+{% endfor %}
+
+{% do c1.environment.add_env("plots_dir", plots_dirs.x | join(":")) %}
+{% do c1.environment.add_env("keys", "none" if values.chia.service == "harvester" else values.consts.key_file_path) %}
+{% if values.chia.full_node_peer %}
+  {% do c1.environment.add_env("full_node_peer", values.chia.full_node_peer) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.chia.additional_envs) %}
+
+{% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
+{% do c1.add_storage(values.consts.plots_dir, values.storage.plots) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if values.chia.service != "harvester" %}
+  {% set config = tpl.add_container(values.consts.init_container_name, "image") %}
+  {% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+
+  {% do config.add_storage(values.consts.data_dir, values.storage.data) %}
+  {% do config.add_storage(values.consts.plots_dir, values.storage.plots) %}
+  {% for store in values.storage.additional_storage %}
+    {% do config.add_storage(store.mount_path, store) %}
+  {% endfor %}
+
+  {% do config.healthcheck.disable() %}
+  {% do config.remove_devices() %}
+  {% do config.restart.set_policy("on-failure", 1) %}
+  {% do config.configs.add("init.sh", init(values), "/init.sh", "0755") %}
+  {% do config.set_entrypoint(["/init.sh"]) %}
+
+{% else %}
+  {% do c1.environment.add_env("farmer_address", values.chia.farmer_address or tpl.funcs.fail("Expected [chia.farmer_address] to be set when service is set to [harvester]")) %}
+  {% do c1.environment.add_env("farmer_port", values.chia.farmer_port or tpl.funcs.fail("Expected [chia.farmer_port] to be set when service is set to [harvester]")) %}
+  {% do c1.environment.add_env("ca", values.chia.ca or tpl.funcs.fail("Expected [chia.ca] to be set when service is set to [harvester]")) %}
+{% endif %}
+
+{{ tpl.render() | tojson }}

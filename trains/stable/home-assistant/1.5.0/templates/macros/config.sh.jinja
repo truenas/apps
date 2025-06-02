@@ -1,0 +1,42 @@
+{% macro config_script(values, db_url) -%}
+{%- set config_file = "%s/configuration.yaml"|format(values.consts.config_path) %}
+{%- set default_files_path = "/default/init" %}
+{%- set extra_files_to_create = ["automations.yaml", "scripts.yaml", "scenes.yaml"] %}
+#!/bin/sh
+if [ ! -f "{{ config_file }}" ]; then
+  echo "File [{{ config_file }}] does NOT exist. Creating..."
+  cp "{{ default_files_path }}/configuration.default" "{{ config_file }}"
+
+  {%- for file in extra_files_to_create %}
+  if [ ! -f "{{ values.consts.config_path }}/{{ file }}" ]; then
+    echo "File [{{ values.consts.config_path }}/{{ file }}] does NOT exist. Creating..."
+    cp "{{ default_files_path }}/empty.default" "{{ values.consts.config_path }}/{{ file }}"
+  fi
+  {%- endfor %}
+fi
+
+chmod +rw "{{ config_file }}" || echo "Failed to set permissions on [{{ config_file }}]"
+if ! yq --exit-status '.recorder' < "{{ config_file }}" &> /dev/null; then
+  echo "Section [recorder] does NOT exist in [{{ config_file }}]. Appending..."
+  echo "" >> "{{ config_file }}"
+  cat "{{ default_files_path }}/recorder.default" >> "{{ config_file }}"
+fi
+echo "Ensure DB URL is up to date [{{ db_url }}] in [{{ config_file }}]"
+yq -i '.recorder.db_url = "{{ db_url }}"' "{{ config_file }}"
+
+if ! yq --exit-status '.http' < "{{ config_file }}" &> /dev/null; then
+  echo "Section [http] does NOT exist in [{{ config_file }}]. Appending..."
+  yq -i '.http = {}' "{{ config_file }}"
+fi
+
+echo "Matching server port to configured port [{{ values.network.web_port.port_number }}] in [{{ config_file }}]"
+yq -i '.http.server_port = {{ values.network.web_port.port_number }}' "{{ config_file }}"
+
+{%- if values.network.certificate_id %}
+echo "Setting up ssl paths [{{ values.consts.ssl_key_path }}] and [{{ values.consts.ssl_cert_path }}] in [{{ config_file }}]"
+yq -i '.http.ssl_key = "{{ values.consts.ssl_key_path }}"' "{{ config_file }}"
+yq -i '.http.ssl_certificate = "{{ values.consts.ssl_cert_path }}"' "{{ config_file }}"
+{%- endif %}
+
+echo "Done"
+{%- endmacro %}

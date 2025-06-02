@@ -1,0 +1,32 @@
+{% from "rsync_macros/rsyncd.conf" import rsyncd_conf %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.rsyncd_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID", "SYS_CHROOT", "SETFCAP"]) %}
+{% do c1.healthcheck.set_custom_test("pgrep rsync") %}
+{% do c1.environment.add_user_envs(values.rsyncd.additional_envs) %}
+{% do c1.configs.add("rsyncd.conf", rsyncd_conf(values, tpl), values.consts.rsync_conf_path) %}
+
+{% do c1.add_port(values.network.rsync_port) %}
+
+{% for mod in values.rsyncd.rsync_modules if mod.enabled %}
+  {% set mount_path = "%s/%s"|format(values.consts.module_base_path, mod.name) %}
+  {% set store_cfg = {
+    "type": "host_path",
+    "mount_path": mount_path,
+    "host_path_config": {
+      "path": mod.host_path,
+      "create_host_path": mod.get("create_host_path", false),
+    },
+  } %}
+
+  {% do c1.add_storage(mount_path, store_cfg) %}
+{% endfor %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
