@@ -1,0 +1,82 @@
+{% from "webdav_macros/httpd.conf" import httpd_conf %}
+{% from "webdav_macros/webdav_http.conf" import webdav_http %}
+{% from "webdav_macros/webdav_https.conf" import webdav_https %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% if not values.network.http_port.bind_mode and not values.network.https_port.bind_mode %}
+  {% do tpl.funcs.fail("Must enable at least one of http or https ports") %}
+{% endif %}
+
+{% if values.network.https_port.bind_mode and not values.network.certificate_id %}
+  {% do tpl.funcs.fail("Must provide a certificate id if enabling https") %}
+{% endif %}
+
+{% set c1 = tpl.add_container(values.consts.webdav_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.http_port.port_number if values.network.http_port.bind_mode else values.network.https_port.port_number}) %}
+{% do c1.environment.add_user_envs(values.webdav.additional_envs) %}
+
+{% do c1.configs.add("httpd-conf", httpd_conf(values), values.consts.httpd_conf_path) %}
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+{% endif %}
+
+{% if values.webdav.auth_type != "none" %}
+  {% do c1.configs.add("htauth", tpl.funcs.htpasswd(values.webdav.username, values.webdav.password), "%s%s"|format(values.consts.auth_file_base, values.webdav.auth_type)) %}
+{% endif %}
+
+{% if values.network.http_port.bind_mode %}
+  {% do c1.add_port(values.network.http_port) %}
+  {% do c1.configs.add("webdav-http-config", webdav_http(values), values.consts.webdav_http_config_path) %}
+{% endif %}
+
+{% if values.network.https_port.bind_mode %}
+  {% do c1.add_port(values.network.https_port) %}
+  {% do c1.configs.add("webdav-https-config", webdav_https(values), values.consts.webdav_https_config_path) %}
+{% endif %}
+
+{% set tmp_config = {"type": "temporary", "volume_config": {"volume_name": "webdav-tmp"}} %}
+{% do c1.add_storage("/tmp", tmp_config) %}
+{% do perm_container.add_or_skip_action("webdav-tmp", tmp_config, perms_config) %}
+
+{# Stores PID file and DavLockDB file #}
+{% do c1.add_storage(values.consts.pid_base_path, {"type": "tmpfs", "tmpfs_config": {"mode": "0777", "size": 100}}) %}
+
+{% set share_names = namespace(x=[]) %}
+{% for share in values.storage.shares %}
+  {% if not tpl.funcs.match_regex(share.name, "^[a-zA-Z0-9_-]+$") %}
+    {% do tpl.funcs.fail("Share name must consist only of [Letters(a-z, A-Z), Numbers(0-9), Underscores(_), Dashes(-)], but got [%s]"|format(share.name)) %}
+  {% endif %}
+  {% do share_names.x.append(share.name) %}
+
+  {% set store_config = {
+    "type": "host_path",
+    "read_only": share.read_only,
+    "mount_path": "/%s/%s"|format(values.consts.shares_prefix, share.name),
+    "host_path_config": {
+      "auto_permissions": share.fix_permissions,
+      "create_host_path": share.get("create_host_path", False),
+      "path": share.host_path,
+    }
+  } %}
+
+  {% do c1.add_storage(store_config.mount_path, store_config) %}
+  {% do perm_container.add_or_skip_action(share.name, dict(store_config, **{"read_only": False}), perms_config) %}
+{% endfor %}
+
+{% if share_names.x | length != share_names.x | unique | list | length %}
+  {% do tpl.funcs.fail("Share names must be unique, but got [%s]"|format(share_names.x | join(", "))) %}
+{% endif %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{{ tpl.render() | tojson }}

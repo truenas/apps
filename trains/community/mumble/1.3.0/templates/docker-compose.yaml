@@ -1,0 +1,50 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.mumble_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% if values.ci %}
+  {% do c1.healthcheck.set_test("tcp", {"port": values.network.server_port.port_number}) %}
+{% else %}
+  {% do c1.healthcheck.disable() %}
+{% endif %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+
+  {% do c1.environment.add_env("MUMBLE_CONFIG_sslCert", values.consts.ssl_cert_path) %}
+  {% do c1.environment.add_env("MUMBLE_CONFIG_sslKey", values.consts.ssl_key_path) %}
+{% endif %}
+
+{% do c1.environment.add_env("MUMBLE_SUPERUSER_PASSWORD", values.mumble.superuser_password) %}
+{% do c1.environment.add_env("MUMBLE_CONFIG_serverpassword", values.mumble.server_password) %}
+{% do c1.environment.add_env("MUMBLE_CONFIG_icesecretread", values.mumble.ice_secret_read) %}
+{% do c1.environment.add_env("MUMBLE_CONFIG_icesecretwrite", values.mumble.ice_secret_write) %}
+{% do c1.environment.add_env("MUMBLE_CONFIG_port", values.network.server_port.port_number) %}
+{% do c1.environment.add_env("MUMBLE_CONFIG_welcometext", values.mumble.welcome_text) %}
+{% do c1.environment.add_env("MUMBLE_CONFIG_users", values.mumble.users) %}
+{% do c1.environment.add_env("MUMBLE_CONFIG_ice", "tcp -h 127.0.0.1 -p %d"|format(values.network.ice_port.port_number)) %}
+{% do c1.environment.add_user_envs(values.mumble.additional_envs) %}
+
+{% do c1.add_port(values.network.ice_port) %}
+{% do c1.add_port(values.network.server_port) %}
+{% do c1.add_port(values.network.server_port, {"protocol": "udp"}) %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{{ tpl.render() | tojson }}

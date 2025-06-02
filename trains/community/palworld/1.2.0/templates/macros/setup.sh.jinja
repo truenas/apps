@@ -1,0 +1,71 @@
+{% macro setup_script(values, tpl) -%}
+#!/bin/bash
+{%- set cfg = "%s/Pal/Saved/Config/LinuxServer" | format(values.consts.server_path) %}
+{%- set cfg_file = "%s/PalWorldSettings.ini" | format(cfg) %}
+if [ ! -d {{ cfg }} ]; then
+  echo "Config directory not found, creating..."
+  mkdir -p {{ cfg }}
+fi
+
+if [ ! -f {{ cfg_file }} ]; then
+  echo "Config file not found, fetching..."
+  # -- Fetch the config file if it doesn't exist, just like the container does
+  wget -qO {{ cfg_file }} https://github.com/ich777/docker-steamcmd-server/raw/palworld/config/PalWorldSettings.ini || { echo "Failed to fetch config file"; exit 1; }
+fi
+
+set_ini_value() {
+  local key="${1}"
+  local value="${2}"
+  local quote="${3:-false}"
+  local print="${4:-true}"
+  # -- Escape special characters for sed
+  escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')
+  if [ "$quote" = true ]; then
+    escaped_value="\"${escaped_value}\""
+  fi
+
+  echo -n "Setting ${key}..."
+
+  # Check if the key already exists
+  if grep -q "^OptionSettings=\(.*${key}=.*\)$" "{{ cfg_file }}"; then
+      # Key exists, update its value using the original logic
+      sed -i "s|\(${key}=\)[^,]*|\1${escaped_value}|g" "{{ cfg_file }}" || { echo "Failed to update ${key}"; exit 1; }
+  else
+      # Key doesn't exist, append it right after "OptionSettings=("
+      sed -i "s|^\(OptionSettings=(\)|\1${key}=${escaped_value}, |" "{{ cfg_file }}" || { echo "Failed to append ${key}"; exit 1; }
+  fi
+
+  if [ "$print" = true ]; then
+    echo " Set to $(grep -Po "(?<=${key}=)[^,]*" "{{ cfg_file }}")" || { echo "Failed to print ${key}"; exit 1; }
+  else
+    echo " Set, but value is marked as private"
+  fi
+}
+
+set_ini_value "RCONEnabled" True
+set_ini_value "RCONPort" {{ values.network.rcon_port.port_number }}
+set_ini_value "PublicPort" {{ values.network.server_port.port_number }}
+set_ini_value "ServerName" "{{ values.palworld.server.name }}" true
+set_ini_value "ServerDescription" "{{ values.palworld.server.description }}" true
+set_ini_value "ServerPassword" '{{ values.palworld.server.password }}' true false
+set_ini_value "AdminPassword" '{{ values.palworld.admin_password }}' true false
+set_ini_value "AllowConnectPlatform" '{{ values.palworld.allow_platform }}' false
+
+echo "Setting user defined ini keys..."
+{%- for item in values.palworld.ini_keys %}
+  {%- set key = item.key %}
+  {%- set value = item.value|string %}
+
+  {%- if tpl.funcs.is_number(value) %}
+echo "Value of [{{ key }}] is a number, setting without quotes"
+set_ini_value "{{ key }}" {{ value }}
+  {%- elif tpl.funcs.is_boolean(value) %}
+echo "Value of [{{ key }}] is a boolean, setting without quotes"
+set_ini_value "{{ key }}" {{ tpl.funcs.camel_case(value) }}
+  {%- else %}
+echo "Value of [{{ key }}] is a string, setting with quotes"
+set_ini_value "{{ key }}" "{{ value }}" true
+  {%- endif %}
+{%- endfor %}
+
+{%- endmacro %}

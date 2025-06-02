@@ -1,0 +1,41 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.clamav_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+
+{% do c1.environment.add_env("CLAMAV_NO_CLAMD", values.clamav.disable_clamd) %}
+{% do c1.environment.add_env("CLAMAV_NO_FRESHCLAMD", values.clamav.disable_freshclamd) %}
+{% do c1.environment.add_env("CLAMAV_NO_MILTERD", values.clamav.disable_milterd) %}
+{% do c1.environment.add_env("CLAMD_STARTUP_TIMEOUT", values.clamav.clamd_startup_timeout) %}
+{% do c1.environment.add_env("FRESHCLAMD_CHECKS", values.clamav.freshclamd_checks) %}
+
+{% do c1.environment.add_user_envs(values.clamav.additional_envs) %}
+
+{% do c1.add_storage("/var/lib/clamav", values.storage.sigdb) %}
+{% do c1.add_storage("/scandir", values.storage.scandir) %}
+{% do c1.add_storage("/tmp", {"type":"anonymous", "volume_config": {}}) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if values.clamav.disable_clamd %}
+  {% do c1.healthcheck.disable() %}
+{% else %}
+  {% do c1.healthcheck.set_custom_test("clamdcheck.sh") %}
+{% endif %}
+
+{% if not values.network.host_network %}
+  {% if not values.clamav.disable_clamd %}
+    {% do c1.add_port(values.network.clamd_port, {"container_port": 3310}) %}
+  {% endif %}
+  {% if not values.clamav.disable_milterd %}
+    {% do c1.add_port(values.network.milterd_port, {"container_port": 7357}) %}
+  {% endif %}
+{% endif %}
+
+{% if not values.clamav.disable_clamd %}
+  {% do tpl.notes.add_warning(values.consts.clamd_warning) %}
+{% endif %}
+
+{{ tpl.render() | tojson }}

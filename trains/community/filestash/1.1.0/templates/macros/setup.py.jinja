@@ -1,0 +1,34 @@
+{% macro setup_script(values) -%}
+import os
+import json
+
+print("Updating config...")
+path = "{{ values.consts.data_dir }}/config/config.json"
+data = {"general": {"port": {{ values.network.web_port.port_number }}}}
+
+if not os.path.exists(path):
+  os.makedirs(os.path.dirname(path), exist_ok=True)
+  with open(path, "w") as f:
+    f.write(json.dumps(data, indent=4))
+    print("Config created!")
+    exit(0)
+
+try:
+  with open(path, "r") as f:
+    data = json.load(f)
+except Exception as e:
+  print("Failed to load config, exiting...", e)
+  exit(1)
+
+data["general"]["port"] = {{ values.network.web_port.port_number }}
+print("Setting port to", data["general"]["port"])
+
+try:
+  with open(path, "w") as f:
+    json.dump(data, f, indent=4)
+except Exception as e:
+  print("Failed to update config, exiting...", e)
+  exit(1)
+
+print("Config updated!")
+{%- endmacro -%}
