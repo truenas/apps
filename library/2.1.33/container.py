@@ -27,6 +27,7 @@ try:
         valid_ipc_mode_or_raise,
         valid_network_mode_or_raise,
         valid_port_bind_mode_or_raise,
+        valid_port_mode_or_raise,
         valid_pull_policy_or_raise,
     )
     from .security_opts import SecurityOpts
@@ -55,6 +56,7 @@ except ImportError:
         valid_ipc_mode_or_raise,
         valid_network_mode_or_raise,
         valid_port_bind_mode_or_raise,
+        valid_port_mode_or_raise,
         valid_pull_policy_or_raise,
     )
     from security_opts import SecurityOpts
@@ -260,6 +262,7 @@ class Container:
             return
 
         # Collect port config
+        mode = valid_port_mode_or_raise(config.get("mode", "ingress"))
         host_port = config.get("port_number", 0)
         container_port = config.get("container_port", 0) or host_port
         protocol = config.get("protocol", "tcp")
@@ -269,7 +272,9 @@ class Container:
 
         if bind_mode == "published":
             for host_ip in host_ips:
-                self.ports.add_port(host_port, container_port, {"protocol": protocol, "host_ip": host_ip})
+                self.ports._add_port(
+                    host_port, container_port, {"protocol": protocol, "host_ip": host_ip, "mode": mode}
+                )
         elif bind_mode == "exposed":
             self.expose.add_port(container_port, protocol)
 

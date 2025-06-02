@@ -94,20 +94,12 @@ class Ports:
                         f"already bound to [{p['host_ip']}]"
                     )
 
-    def add_port(self, host_port: int, container_port: int, config: dict | None = None):
+    def _add_port(self, host_port: int, container_port: int, config: dict | None = None):
         config = config or {}
         host_port = valid_port_or_raise(host_port)
         container_port = valid_port_or_raise(container_port)
         proto = valid_port_protocol_or_raise(config.get("protocol", "tcp"))
         mode = valid_port_mode_or_raise(config.get("mode", "ingress"))
-
-        # TODO: Once all apps stop using this function directly, (ie using the container.add_port function)
-        # Remove this, and let container.add_port call this for each host_ip
-        host_ip = config.get("host_ip", None)
-        if host_ip is None:
-            self.add_port(host_port, container_port, config | {"host_ip": "0.0.0.0"})
-            self.add_port(host_port, container_port, config | {"host_ip": "::"})
-            return
 
         host_ip = valid_ip_or_raise(config.get("host_ip", ""))
         ip = ipaddress.ip_address(host_ip)

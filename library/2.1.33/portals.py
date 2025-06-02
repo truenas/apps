@@ -46,15 +46,6 @@ class Portals:
             raise RenderError(f"Portal [{name}] already added")
         self._portals.add(Portal(name, config))
 
-    # FIXME: Remove this once all apps stop using it
-    def add_portal(self, config: dict):
-        name = config.get("name", "Web UI")
-
-        if name in [p._name for p in self._portals]:
-            raise RenderError(f"Portal [{name}] already added")
-
-        self._portals.add(Portal(name, config))
-
     def render(self):
         return [p.render() for _, p in sorted([(p._name, p) for p in self._portals])]
 
