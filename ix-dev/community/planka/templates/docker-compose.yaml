@@ -16,12 +16,12 @@
 ) %}
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
 
 {% do c1.environment.add_env("NODE_ENV", "production") %}
 {% do c1.environment.add_env("BASE_URL", values.planka.base_url) %}
 {% do c1.environment.add_env("TRUST_PROXY", "1" if values.planka.trust_proxy else "0") %}
-{% do c1.environment.add_env("PORT", values.network.web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("SECRET_KEY", values.planka.secret_key) %}
 {% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
 {% if values.planka.default_admin_email %}
@@ -32,7 +32,7 @@
 {% endif %}
 
 {% do c1.environment.add_user_envs(values.planka.additional_envs) %}
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 {% do c1.add_storage("/app/public/user-avatars", values.storage.avatars) %}
@@ -55,6 +55,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}

@@ -5,12 +5,12 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.api_port, "scheme": "https" if values.network.certificate_id else "http"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.api_port.port_number, "scheme": "https" if values.network.certificate_id else "http"}) %}
 {% if values.network.certificate_id %}
   {% do c1.set_init(true) %}
 {% endif %}
 
-{% do c1.environment.add_env("REGISTRY_HTTP_ADDR", "0.0.0.0:%d"|format(values.network.api_port)) %}
+{% do c1.environment.add_env("REGISTRY_HTTP_ADDR", "0.0.0.0:%d"|format(values.network.api_port.port_number)) %}
 {% do c1.environment.add_env("REGISTRY_HTTP_SECRET", values.distribution.http_secret) %}
 
 {% if values.storage.use_filesystem_backend %}
@@ -40,7 +40,7 @@
 
 {% do c1.environment.add_user_envs(values.distribution.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.api_port, values.network.api_port) %}
+{% do c1.add_port(values.network.api_port) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}

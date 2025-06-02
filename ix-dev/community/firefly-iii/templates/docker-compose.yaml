@@ -31,9 +31,9 @@
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_test("curl", {"port": 8080, "path": "/healthcheck"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/healthcheck"}) %}
 
-{% do c1.ports.add_port(values.network.web_port, 8080) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 
 {% do c1.environment.add_env("DB_CONNECTION", "pgsql") %}
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
@@ -68,7 +68,7 @@
 {% do cron.environment.add_env("CRON_TOKEN", static_cron_token) %}
 {% do cron.set_entrypoint(["sh", "-c"]) %}
 {% set cmd = [
-  'echo "0 3 * * * wget -qO- http://%s:8080/api/v1/cron/$CRON_TOKEN" | crontab -'|format(values.consts.firefly_iii_container_name),
+  'echo "0 3 * * * wget -qO- http://%s:%d/api/v1/cron/$CRON_TOKEN" | crontab -'|format(values.consts.firefly_iii_container_name, values.consts.internal_web_port),
   '[[ $? -eq 0 ]] || { echo "Failed to set cron job"; exit 1; }',
   "crond -f -L /dev/stdout"
 ]|join("\n") %}
@@ -80,14 +80,14 @@
   {% do importer.x.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
   {% do importer.x.add_caps(["CHOWN", "FOWNER", "SETUID", "SETGID"]) %}
   {% do importer.x.depends.add_dependency(values.consts.firefly_iii_container_name, "service_healthy") %}
-  {% do importer.x.healthcheck.set_test("curl", {"port": 8080, "path": "/healthcheck"}) %}
+  {% do importer.x.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/healthcheck"}) %}
 
-  {% do importer.x.environment.add_env("FIREFLY_III_URL", "http://%s:8080"|format(values.consts.firefly_iii_container_name)) %}
+  {% do importer.x.environment.add_env("FIREFLY_III_URL", "http://%s:%d"|format(values.consts.firefly_iii_container_name, values.consts.internal_web_port)) %}
   {% do importer.x.environment.add_env("EXPECT_SECURE_URL", false) %}
   {% do importer.x.environment.add_env("VANITY_URL", app_url) %}
   {% do importer.x.environment.add_user_envs(values.firefly_iii.additional_importer_envs) %}
 
-  {% do importer.x.ports.add_port(values.network.importer_port, 8080) %}
+  {% do importer.x.add_port(values.network.importer_port, {"container_port": values.consts.internal_web_port}) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
@@ -101,9 +101,9 @@
   {% endif %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 {% if values.firefly_iii.enable_importer %}
-  {% do tpl.portals.add_portal({"name": "Importer", "port": values.network.importer_port}) %}
+  {% do tpl.portals.add_portal({"name": "Importer", "port": values.network.importer_port.port_number}) %}
 {% endif %}
 
 {{ tpl.render() | tojson }}

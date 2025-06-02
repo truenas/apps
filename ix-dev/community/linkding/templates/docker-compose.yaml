@@ -16,7 +16,7 @@
 ) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/health"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do c1.environment.add_env("LD_DB_ENGINE", "postgres") %}
@@ -25,7 +25,7 @@
 {% do c1.environment.add_env("LD_DB_HOST", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("LD_DB_PORT", 5432) %}
 {% do c1.environment.add_env("LD_DB_PASSWORD", values.linkding.db_password) %}
-{% do c1.environment.add_env("LD_SERVER_PORT", values.network.web_port) %}
+{% do c1.environment.add_env("LD_SERVER_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("LD_DISABLE_BACKGROUND_TASKS", "True" if values.linkding.disable_background_tasks else "False") %}
 {% do c1.environment.add_env("LD_DISABLE_URL_VALIDATION", "True" if values.linkding.disable_url_validation else "False") %}
 {% do c1.environment.add_env("LD_ENABLE_AUTH_PROXY", "True" if values.linkding.enable_auth_proxy else "False") %}
@@ -54,7 +54,7 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
@@ -62,6 +62,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 
 {{ tpl.render() | tojson }}

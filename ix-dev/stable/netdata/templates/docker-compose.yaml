@@ -21,14 +21,13 @@
 
 {% do c1.healthcheck.set_custom_test("/usr/sbin/health.sh") %}
 
-{% do c1.environment.add_env("NETDATA_LISTENER_PORT", values.network.web_port) %}
+{% do c1.environment.add_env("NETDATA_LISTENER_PORT", values.network.web_port.port_number) %}
 {% if final_debs %}
   {% do c1.environment.add_env("NETDATA_EXTRA_DEB_PACKAGES", final_debs|join(" ")) %}
 {% endif %}
-
 {% do c1.environment.add_user_envs(values.netdata.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% for dev in values.netdata.devices %}
   {% do c1.devices.add_device(dev.host_device, dev.container_device, "r") %}
@@ -49,6 +48,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "path": "/v3"}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "path": "/v3"}) %}
 
 {{ tpl.render() | tojson }}

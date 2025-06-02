@@ -22,7 +22,7 @@
 {% set proto = "https" if values.network.certificate_id else "http" %}
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port, "path": "/api/healthz", "scheme": proto}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/healthz", "scheme": proto}) %}
 
 {% if values.network.certificate_id %}
   {% do c1.environment.add_env("GITEA__server__CERT_FILE", values.consts.cert_file_path) %}
@@ -38,15 +38,15 @@
 {% do c1.environment.add_env("GITEA__database__HOST", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("GITEA__database__NAME", values.consts.db_name) %}
 {% do c1.environment.add_env("GITEA__database__USER", values.consts.db_user) %}
-{% do c1.environment.add_env("GITEA__server__HTTP_PORT", values.network.web_port) %}
-{% do c1.environment.add_env("GITEA__server__SSH_PORT", tpl.funcs.or_default(values.network.external_ssh_port, values.network.ssh_port)) %}
-{% do c1.environment.add_env("GITEA__server__SSH_LISTEN_PORT", values.network.ssh_port) %}
+{% do c1.environment.add_env("GITEA__server__HTTP_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("GITEA__server__SSH_PORT", tpl.funcs.or_default(values.network.external_ssh_port, values.network.ssh_port.port_number)) %}
+{% do c1.environment.add_env("GITEA__server__SSH_LISTEN_PORT", values.network.ssh_port.port_number) %}
 {% do c1.environment.add_env("GITEA__server__ROOT_URL", values.gitea.root_url) %}
 {% do c1.environment.add_env("GITEA__server__PROTOCOL", proto) %}
 {% do c1.environment.add_user_envs(values.gitea.additional_envs) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
-{% do c1.ports.add_port(values.network.ssh_port, values.network.ssh_port) %}
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.ssh_port) %}
 
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
@@ -71,6 +71,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "scheme": proto}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto}) %}
 
 {{ tpl.render() | tojson }}

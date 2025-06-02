@@ -1,0 +1,51 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    values["network"]["web_https_port"] = {
+        "port_number": values["network"].get("web_https_port", 30073),
+        "bind_mode": "published",
+        "host_ips": [],
+    }
+
+    values["network"]["web_http_port"] = {
+        "port_number": values["network"].get("web_http_port", 30072),
+        "bind_mode": "published" if values["network"]["enable_web_http"] else "",
+        "host_ips": [],
+    }
+    values["network"].pop("enable_web_http", None)
+
+    values["network"]["portal_https_port"] = {
+        "port_number": values["network"].get("portal_https_port", 30074),
+        "bind_mode": "published",
+        "host_ips": [],
+    }
+
+    values["network"]["portal_http_port"] = {
+        "port_number": values["network"].get("portal_http_port", 30075),
+        "bind_mode": "published" if values["network"]["enable_portal_http"] else "",
+        "host_ips": [],
+    }
+    values["network"].pop("enable_portal_http", None)
+
+    values["network"]["throughput_port"] = {
+        "port_number": values["network"].get("throughput_port", 30023),
+        "bind_mode": "published" if values["network"]["enable_throughput"] else "",
+        "host_ips": [],
+    }
+    values["network"].pop("enable_throughput", None)
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

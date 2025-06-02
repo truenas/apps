@@ -21,7 +21,7 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do c1.ports.add_port(values.network.web_port, values.consts.internal_web_port) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 
 {% do c1.environment.add_env("dbhost", values.consts.mariadb_container_name) %}
 {% do c1.environment.add_env("dbport", 3306) %}
@@ -33,13 +33,13 @@
 {% do c1.environment.add_user_envs(values.gaseous.additional_envs) %}
 
 {% do c1.healthcheck.set_test("http", {"port": values.consts.internal_web_port, "path": "/api/v1.1/healthCheck"}) %}
-{% do tpl.portals.add_portal({"port": values.network.web_port}) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do mariadb_container.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number}) %}
 {% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}

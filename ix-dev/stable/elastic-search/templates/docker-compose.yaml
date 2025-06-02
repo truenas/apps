@@ -9,13 +9,13 @@
 {% do c1.set_user(values.consts.user_id, values.consts.group_id) %}
 
 {% do c1.healthcheck.set_test("curl", {
-  "port": values.network.web_port, "path": "/_cluster/health?local=true",
+  "port": values.network.web_port.port_number, "path": "/_cluster/health?local=true",
   "scheme": proto, "headers": [("Authorization", tpl.funcs.basic_auth_header("elastic", values.elastic.password))]
 }) %}
 
 {% do c1.environment.add_env("ES_HEAP_SIZE", values.elastic.heap_size) %}
 {% do c1.environment.add_env("ELASTIC_PASSWORD", values.elastic.password) %}
-{% do c1.environment.add_env("ES_SETTING_HTTP_PORT", values.network.web_port) %}
+{% do c1.environment.add_env("ES_SETTING_HTTP_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("ES_SETTING_NODE_NAME", values.elastic.node_name) %}
 {% do c1.environment.add_env("ES_SETTING_DISCOVERY_TYPE", "single-node") %}
 {% do c1.environment.add_env("ES_SETTING_XPACK_SECURITY_ENABLED", true) %}
@@ -34,7 +34,7 @@
 {% endif %}
 
 {% do c1.environment.add_user_envs(values.elastic.additional_envs) %}
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/usr/share/elasticsearch/config/certs", {"type": "anonymous"}) %}
 
@@ -51,7 +51,7 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "schema": proto}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "scheme": proto}) %}
 {% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}

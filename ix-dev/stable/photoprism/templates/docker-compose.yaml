@@ -9,7 +9,7 @@
 
 {% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "KILL"]) %}
 
-{% do c1.environment.add_env("PHOTOPRISM_HTTP_PORT", values.network.web_port) %}
+{% do c1.environment.add_env("PHOTOPRISM_HTTP_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("PHOTOPRISM_ADMIN_PASSWORD", values.photoprism.admin_password) %}
 {% do c1.environment.add_env("PHOTOPRISM_PUBLIC", values.photoprism.public) %}
 {% do c1.environment.add_env("PHOTOPRISM_UID", values.run_as.user) %}
@@ -48,10 +48,10 @@
 {% do c1.environment.add_user_envs(values.photoprism.additional_envs) %}
 
 {% do c1.healthcheck.set_test("curl", {
-  "port": values.network.web_port, "path": "%s/health"|format(url_path.x)|replace("//", "/"), "scheme": proto,
+  "port": values.network.web_port.port_number, "path": "%s/health"|format(url_path.x)|replace("//", "/"), "scheme": proto,
 }) %}
 
-{% do c1.ports.add_port(values.network.web_port, values.network.web_port) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage(values.consts.import_path, values.storage.import) %}
 {% do perm_container.add_or_skip_action("import", values.storage.import, perms_config) %}
@@ -72,6 +72,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add_portal({"port": values.network.web_port, "path": url_path.x, "scheme": proto}) %}
+{% do tpl.portals.add_portal({"port": values.network.web_port.port_number, "path": url_path.x, "scheme": proto}) %}
 
 {{ tpl.render() | tojson }}
