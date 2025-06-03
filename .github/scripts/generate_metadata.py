@@ -122,7 +122,7 @@ class DockerCapabilityRegistry:
         "dssystem": "DS System",
         "npm": "Nginx Proxy Manager",
         "omada": "Omada Controller",
-        "zigbee2mqtt": "Zigbee2MQTT",
+        "lms": "Lyrion Media Server",
     }
 
     @staticmethod
