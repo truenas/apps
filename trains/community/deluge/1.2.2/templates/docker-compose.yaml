@@ -1,0 +1,38 @@
+{% from "macros/setup.py.jinja" import setup_py %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set config = tpl.add_container(values.consts.init_container_name, "image") %}
+{% do config.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do config.restart.set_policy("on-failure", 1) %}
+{% do config.healthcheck.disable() %}
+{% do config.set_network_mode("none") %}
+{% do config.deploy.resources.set_profile("low") %}
+{% do config.remove_devices() %}
+{% do config.configs.add("setup.py", setup_py(values), "/setup.py", "0755") %}
+{% do config.set_entrypoint(["python", "/setup.py"]) %}
+
+{% set c1 = tpl.add_container(values.consts.deluge_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/"}) %}
+{% do c1.environment.add_user_envs(values.deluge.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+  {% do c1.add_port(values.network.torrent_port) %}
+  {% do c1.add_port(values.network.torrent_port, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.daemon_port, {"container_port": values.consts.internal_daemon_port}) %}
+{% endif %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do config.add_storage("/config", values.storage.config) %}
+
+{% do c1.add_storage("/downloads", values.storage.downloads) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}

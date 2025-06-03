@@ -1,0 +1,55 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.roundcube_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.roundcube.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(
+  values.consts.postgres_container_name,
+  values.roundcube.postgres_image_selector,
+  pg_config, perm_container
+) %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/?ping=ping"}) %}
+
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_TYPE", "pgsql") %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_HOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_PORT", 5432) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_USER", values.consts.db_user) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_NAME", values.consts.db_name) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DB_PASSWORD", values.roundcube.db_password) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_SKIN", values.roundcube.skin) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DEFAULT_HOST", values.roundcube.default_host) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_DEFAULT_PORT", values.roundcube.default_port) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_SMTP_SERVER", values.roundcube.smtp_server) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_SMTP_PORT", values.roundcube.smtp_port) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_PLUGINS", values.roundcube.plugins | join(",")) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_ASPELL_PACKAGES", values.roundcube.aspell_dicts | join(",")) %}
+{% do c1.environment.add_env("ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE", "%dM" | format(values.roundcube.upload_max_size)) %}
+{% do c1.environment.add_user_envs(values.roundcube.additional_envs) %}
+
+{% do c1.add_storage("/var/roundcube/config", values.storage.config) %}
+{% do c1.add_storage("/var/www/html", values.storage.html) %}
+{% do c1.add_storage("/tmp/roundcube-temp", values.storage.temps) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

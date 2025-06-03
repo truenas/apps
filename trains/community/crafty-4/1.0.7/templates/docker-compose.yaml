@@ -1,0 +1,59 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.crafty_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.healthcheck.set_test("tcp", {"port": 8443}) %}
+{% do c1.environment.add_user_envs(values.crafty.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": 8443}) %}
+{% for port in values.network.additional_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{% for port_range in values.network.additional_port_ranges %}
+  {% if port_range.start > port_range.end %}
+    {% do tpl.funcs.fail("Expected [additional_port_ranges.%d.start] to be less than [additional_port_ranges.%d.end], but got [%d] and [%d]" | format(loop.index0, loop.index0, port_range.start, port_range.end)) %}
+  {% endif %}
+
+  {% for port in range(port_range.start, port_range.end+1) %}
+    {% do c1.add_port({
+      "port_number": port,
+      "protocol": port_range.protocol,
+      "bind_mode": port_range.bind_mode,
+      "host_ips": port_range.host_ips,
+    }) %}
+  {% endfor %}
+{% endfor %}
+
+{% do c1.add_storage("/crafty/app/config", values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+
+{% do c1.add_storage("/crafty/servers", values.storage.servers) %}
+{% do perm_container.add_or_skip_action("servers", values.storage.servers, perms_config) %}
+
+{% do c1.add_storage("/crafty/logs", values.storage.logs) %}
+{% do perm_container.add_or_skip_action("logs", values.storage.logs, perms_config) %}
+
+{% do c1.add_storage("/crafty/backups", values.storage.backups) %}
+{% do perm_container.add_or_skip_action("backups", values.storage.backups, perms_config) %}
+
+{% do c1.add_storage("/crafty/import", values.storage.import) %}
+{% do perm_container.add_or_skip_action("import", values.storage.import, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
+{% do tpl.notes.set_body(values.consts.notes) %}
+
+{{ tpl.render() | tojson }}

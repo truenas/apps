@@ -1,0 +1,39 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.wyze_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID"])%}
+
+{% do c1.set_command(["flask", "run", "--host", "0.0.0.0", "--port", values.network.web_port.port_number]) %}
+
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
+
+{% do c1.environment.add_env("ENABLE_AUDIO", values.wyze.enable_audio) %}
+{% do c1.environment.add_env("WB_AUTH", values.wyze.wb_auth) %}
+{% if values.wyze.wb_auth %}
+  {% do c1.environment.add_env("WB_USERNAME", values.wyze.wb_username) %}
+  {% do c1.environment.add_env("WB_PASSWORD", values.wyze.wb_password) %}
+{% endif %}
+
+{% if values.network.enable_webrtc %}
+  {% do c1.environment.add_env("WB_IP", values.network.webrtc_ip) %}
+  {% do c1.add_port(values.network.webrtc_port, {"container_port": values.consts.internal_webrtc_port}) %}
+  {% do c1.add_port(values.network.webrtc_ice_port, {"container_port": values.consts.internal_webrtc_ice_port, "protocol": "udp"}) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.wyze.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.rtmp_port, {"container_port": values.consts.internal_rtmp_port}) %}
+{% do c1.add_port(values.network.rtsp_port, {"container_port": values.consts.internal_rtsp_port}) %}
+{% do c1.add_port(values.network.hls_port, {"container_port": values.consts.internal_hls_port}) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}

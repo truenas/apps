@@ -1,0 +1,120 @@
+{% from "macros/cert-setup.sh.jinja" import cert_setup_script %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set proto = "https" if values.network.certificate_id else "http" %}
+{% set random_cert_pass = tpl.funcs.secure_string(32) %}
+
+{% set config = namespace({
+  "opts": [
+    "--httpPort=%d"|format(-1 if values.network.certificate_id else values.network.web_port.port_number),
+  ],
+  "java_opts": [
+    "-Djenkins.model.Jenkins.slaveAgentPortEnforce=true",
+    "-Djenkins.model.Jenkins.slaveAgentPort=%d"|format(values.network.agent_port.port_number if values.network.agent_port.bind_mode else -1),
+  ]
+}) %}
+
+{% set user_opts = namespace(items=[]) %}
+{% for opt in values.jenkins.additional_opts %}
+  {% set key = opt.split("=")[0] %}
+  {% if key.startswith("--") %}
+    {% do tpl.funcs.fail("Expected [jenkins.additional_opts] to not start with [--] key [%s]. It is added automatically"|format(key)) %}
+  {% endif %}
+  {% if key in values.consts.restricted_opts %}
+    {% do tpl.funcs.fail("Expected [jenkins.additional_opts] to not contain [%s] key"|format(key)) %}
+  {% endif %}
+
+  {% do user_opts.items.append(key) %}
+  {% do config.opts.append("--%s"|format(opt)) %}
+{% endfor %}
+
+{% if user_opts.items|unique|list|length != user_opts.items|length %}
+  {% do tpl.funcs.fail("Expected [jenkins.additional_opts] to not contain duplicate keys [%s]"|format(user_opts.items|join(", "))) %}
+{% endif %}
+
+{% set user_java_opts = namespace(items=[]) %}
+{% for jopt in values.jenkins.additional_java_opts %}
+  {% if jopt.property.startswith("-D") %}
+    {% do tpl.funcs.fail("Expected [jenkins.additional_java_opts] to not start with [-D] key [%s]. It is added automatically"|format(jopt.property)) %}
+  {% endif %}
+  {% if jopt.property in values.consts.restricted_java_opts %}
+    {% do tpl.funcs.fail("Expected [jenkins.additional_java_opts] to not contain [%s] key"|format(jopt.property)) %}
+  {% endif %}
+
+  {% do user_java_opts.items.append(jopt.property) %}
+  {% do config.java_opts.append("-D%s=%s"|format(jopt.property, jopt.value)) %}
+{% endfor %}
+
+{% if user_java_opts.items|unique|list|length != user_java_opts.items|length %}
+  {% do tpl.funcs.fail("Expected [jenkins.additional_java_opts] to not contain duplicate keys [%s]"|format(user_java_opts.items|join(", "))) %}
+{% endif %}
+
+{% set certs = namespace(x=None) %}
+{% set c1 = tpl.add_container(values.consts.jenkins_container_name, "image") %}
+
+{% if values.network.certificate_id %}
+  {% do config.opts.extend([
+    "--httpsPort=%d"|format(values.network.web_port.port_number),
+    "--httpsKeyStore=%s/%s"|format(values.consts.keystore_path, values.consts.keystore_name),
+    "--httpsKeyStorePassword=%s"|format(random_cert_pass),
+  ])%}
+
+  {% set certs.x = tpl.add_container(values.consts.certs_container_name, "image") %}
+  {% do c1.depends.add_dependency(values.consts.certs_container_name, "service_completed_successfully") %}
+
+  {% do certs.x.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+  {% do certs.x.healthcheck.disable() %}
+  {% do certs.x.remove_devices() %}
+  {% do certs.x.restart.set_policy("on-failure", 1) %}
+  {% do certs.x.deploy.resources.set_profile("low") %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do certs.x.configs.add("private", cert.privatekey, "%s/%s"|format(values.consts.temp_certs_path, values.consts.key_name)) %}
+  {% do certs.x.configs.add("public", cert.certificate, "%s/%s"|format(values.consts.temp_certs_path, values.consts.crt_name)) %}
+  {% do certs.x.set_entrypoint(["/bin/sh", "-c", "/cert-setup.sh"]) %}
+
+  {% do certs.x.configs.add("cert-setup.sh", cert_setup_script(values, random_cert_pass), "/cert-setup.sh", "0755") %}
+{% endif %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/login", "scheme": proto}) %}
+{% do c1.environment.add_env("JENKINS_SLAVE_AGENT_PORT", values.network.agent_port.port_number if values.network.agent_port.bind_mode else -1) %}
+{% do c1.environment.add_env("JENKINS_JAVA_OPTS", config.java_opts|join(" ")) %}
+{% do c1.environment.add_env("JENKINS_OPTS", config.opts|join(" ")) %}
+{% do c1.environment.add_user_envs(values.jenkins.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.agent_port) %}
+
+{% do c1.add_storage("/var/jenkins_home", values.storage.home) %}
+{% do perm_container.add_or_skip_action("home", values.storage.home, perm_config) %}
+
+{% if values.network.certificate_id %}
+  {% do certs.x.add_storage("/var/jenkins_home", values.storage.home) %}
+
+  {% set tmp_config = {"type": "temporary", "volume_config": {"volume_name": "jenkins-tmp"}} %}
+  {% do certs.x.add_storage("/tmp", tmp_config) %}
+  {% do perm_container.add_or_skip_action("/tmp", tmp_config, perm_config) %}
+{% endif %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% if values.network.certificate_id %}
+    {% do certs.x.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endif %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": proto}) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}

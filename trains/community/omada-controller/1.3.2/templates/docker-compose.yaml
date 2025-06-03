@@ -1,0 +1,54 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.omada_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_custom_test("/healthcheck.sh") %}
+
+{% do c1.add_storage("/opt/tplink/EAPController/data", values.storage.data) %}
+{% do c1.add_storage("/opt/tplink/EAPController/logs", values.storage.logs) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do c1.environment.add_env("PUSERNAME", "omada") %}
+{% do c1.environment.add_env("PGROUP", "omada") %}
+{% do c1.environment.add_env("MANAGE_HTTP_PORT", values.network.manage_http_port.port_number) %}
+{% do c1.environment.add_env("MANAGE_HTTPS_PORT", values.network.manage_https_port.port_number) %}
+{% do c1.environment.add_env("PORTAL_HTTP_PORT", values.network.portal_http_port.port_number) %}
+{% do c1.environment.add_env("PORTAL_HTTPS_PORT", values.network.portal_https_port.port_number) %}
+{% do c1.environment.add_env("PORT_APP_DISCOVERY", values.network.app_discovery_port.port_number) %}
+{% do c1.environment.add_env("PORT_DISCOVERY", values.network.discovery_port.port_number) %}
+{% do c1.environment.add_env("PORT_MANAGER_V1", values.network.manager_v1_port.port_number) %}
+{% do c1.environment.add_env("PORT_MANAGER_V2", values.network.manager_v2_port.port_number) %}
+{% do c1.environment.add_env("PORT_ADOPT_V1", values.network.adopt_v1_port.port_number) %}
+{% do c1.environment.add_env("PORT_UPGRADE_V1", values.network.upgrade_v1_port.port_number) %}
+{% do c1.environment.add_env("PORT_TRANSFER_V2", values.network.transfer_v2_port.port_number) %}
+{% do c1.environment.add_env("PORT_RTTY", values.network.rtty_port.port_number) %}
+{% do c1.environment.add_user_envs(values.omada.additional_envs) %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, "%s/%s"|format(values.consts.ssl_path, values.consts.ssl_key_name)) %}
+  {% do c1.configs.add("public", cert.certificate, "%s/%s"|format(values.consts.ssl_path, values.consts.ssl_cert_name)) %}
+  {% do c1.environment.add_env("SSL_CERT_NAME", values.consts.ssl_cert_name) %}
+  {% do c1.environment.add_env("SSL_KEY_NAME", values.consts.ssl_key_name) %}
+{% endif %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.manage_http_port) %}
+  {% do c1.add_port(values.network.manage_https_port) %}
+  {% do c1.add_port(values.network.portal_http_port) %}
+  {% do c1.add_port(values.network.portal_https_port) %}
+  {% do c1.add_port(values.network.app_discovery_port, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.discovery_port, {"protocol": "udp"}) %}
+  {% do c1.add_port(values.network.manager_v1_port) %}
+  {% do c1.add_port(values.network.manager_v2_port) %}
+  {% do c1.add_port(values.network.adopt_v1_port) %}
+  {% do c1.add_port(values.network.upgrade_v1_port) %}
+  {% do c1.add_port(values.network.transfer_v2_port) %}
+  {% do c1.add_port(values.network.rtty_port) %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.manage_https_port, {"schema": "https"}) %}
+
+{{ tpl.render() | tojson }}

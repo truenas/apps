@@ -1,0 +1,17 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.it_tools_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "NET_BIND_SERVICE", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_http_port}) %}
+{% do c1.environment.add_user_envs(values.it_tools.additional_envs) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_http_port}) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_http_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}

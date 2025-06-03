@@ -1,0 +1,64 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.nocodb_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.nocodb.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(
+  values.consts.postgres_container_name,
+  values.nocodb.postgres_image_selector,
+  pg_config, perm_container
+) %}
+
+{% set redis_config = {
+  "password": values.nocodb.redis_password,
+  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/v1/health"}) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("NC_AUTH_JWT_SECRET", values.nocodb.jwt_secret) %}
+{% do c1.environment.add_env("NC_INVITE_ONLY_SIGNUP", values.nocodb.invite_only_signup) %}
+{% do c1.environment.add_env("NC_DISABLE_TELE", values.nocodb.disable_telemetry) %}
+{% do c1.environment.add_env("NC_REDIS_URL", redis.get_url("redis")) %}
+{% do c1.environment.add_env("NC_DB", "pg://%s:5432?u=%s&p=%s&d=%s"|format(
+  values.consts.postgres_container_name, values.consts.db_user, tpl.funcs.url_encode(values.nocodb.db_password), values.consts.db_name
+)) %}
+
+{% if values.nocodb.admin_email %}{% do c1.environment.add_env("NC_ADMIN_EMAIL", values.nocodb.admin_email) %}{% endif %}
+{% if values.nocodb.admin_password %}{% do c1.environment.add_env("NC_ADMIN_PASSWORD", values.nocodb.admin_password) %}{% endif %}
+{% if values.nocodb.public_url %}{% do c1.environment.add_env("NC_PUBLIC_URL", values.nocodb.public_url) %}{% endif %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/tmp", {"type": "temporary", "volume_config": {"volume_name": "tmp-nocodb"}}) %}
+{% do perm_container.add_or_skip_action("tmp", values.storage.data, perms_config) %}
+
+{% do c1.add_storage("/usr/app/data", values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

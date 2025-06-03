@@ -1,0 +1,99 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.briefkasten_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.briefkasten.postgres_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(
+  values.consts.pg_container_name,
+  values.briefkasten.postgres_image_selector,
+  pg_config, perm_container
+) %}
+
+{% set envs = namespace(x={
+  "PORT": values.network.web_port.port_number,
+  "NODE_ENV": "production",
+  "DATABASE_URL": postgres.get_url("postgres"),
+  "NEXTAUTH_SECRET": values.briefkasten.nextauth_secret,
+  "NEXTAUTH_URL": values.briefkasten.nextauth_url,
+  "NEXTAUTH_URL_INTERNAL": "http://127.0.0.1:%d"|format(values.network.web_port.port_number),
+}) %}
+
+{% if values.briefkasten.smtp.enabled and envs.x.update({
+  "SMTP_HOST": values.briefkasten.smtp.server,
+  "SMTP_FROM": values.briefkasten.smtp.from
+}) %}{% endif %}
+
+{% if values.briefkasten.github.enabled and envs.x.update({
+  "GITHUB_ID": values.briefkasten.github.id,
+  "GITHUB_SECRET": values.briefkasten.github.secret
+}) %}{% endif %}
+
+{% if values.briefkasten.google.enabled and envs.x.update({
+  "GOOGLE_ID": values.briefkasten.google.id,
+  "GOOGLE_SECRET": values.briefkasten.google.secret
+}) %}{% endif %}
+
+{% if values.briefkasten.keycloak.enabled and envs.x.update({
+  "KEYCLOAK_NAME": values.briefkasten.keycloak.name,
+  "KEYCLOAK_ID": values.briefkasten.keycloak.id,
+  "KEYCLOAK_SECRET": values.briefkasten.keycloak.secret,
+  "KEYCLOAK_ISSUER": values.briefkasten.keycloak.issuer
+}) %}{% endif %}
+
+{% if values.briefkasten.authentik.enabled and envs.x.update({
+  "AUTHENTIK_NAME": values.briefkasten.authentik.name,
+  "AUTHENTIK_ID": values.briefkasten.authentik.id,
+  "AUTHENTIK_SECRET": values.briefkasten.authentik.secret,
+  "AUTHENTIK_ISSUER": values.briefkasten.authentik.issuer
+}) %}{% endif %}
+
+{% do init.set_user(values.consts.run_user, values.consts.run_group) %}
+{% do init.depends.add_dependency(values.consts.pg_container_name, "service_healthy") %}
+{% do init.restart.set_policy("on-failure", 1) %}
+{% do init.deploy.resources.set_profile("low") %}
+{% do init.healthcheck.disable() %}
+{% do init.set_entrypoint(["/bin/sh", "-c"]) %}
+{% do init.set_command([
+  "echo 'Migrating database...'\n"
+  "pnpm db:push || (echo 'DB migration failed...' && exit 1)\n"
+  "echo 'Database migration complete. Application will now start'\n"
+]) %}
+
+{% do c1.set_user(values.consts.run_user, values.consts.run_group) %}
+{% do c1.depends.add_dependency(values.consts.pg_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
+
+{% for key, value in envs.x.items() %}
+  {% do init.environment.add_env(key, value) %}
+  {% do c1.environment.add_env(key, value) %}
+{% endfor %}
+{% do init.environment.add_user_envs(values.briefkasten.additional_envs) %}
+{% do c1.environment.add_user_envs(values.briefkasten.additional_envs) %}
+
+{% set perms_config = {"uid": values.consts.run_user, "gid": values.consts.run_group, "mode": "check"} %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do init.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do init.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
