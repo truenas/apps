@@ -1,0 +1,29 @@
+{% do values.images.image.update({"tag": values.webui.tag}) %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.webui_container_name, "image") %}
+{% do c1.healthcheck.disable() %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID", "NET_BIND_SERVICE"]) %}
+{% do c1.environment.add_user_envs(values.webui.additional_envs) %}
+
+{% if not values.webui.truenas_ip %}
+  {% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
+  {% do c1.environment.add_env("TNIP", "host.docker.internal") %}
+{% else %}
+  {% do c1.environment.add_env("TNIP", values.webui.truenas_ip) %}
+{% endif %}
+
+{% do c1.add_port(values.network.http_port, {"container_port": 80}) %}
+{% do c1.add_port(values.network.https_port, {"container_port": 443}) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.http_port, {"name": "HTTP"}) %}
+{% if values.network.https_port.bind_mode %}
+  {% do tpl.portals.add(values.network.https_port, {"name": "HTTPS"}) %}
+{% endif %}
+
+{{ tpl.render() | tojson }}

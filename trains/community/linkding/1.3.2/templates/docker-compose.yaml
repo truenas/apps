@@ -1,0 +1,67 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.linkding_container_name, values.linkding.image_selector) %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.linkding.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(
+  values.consts.postgres_container_name,
+  values.linkding.postgres_image_selector,
+  pg_config, perm_container
+) %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{% do c1.environment.add_env("LD_DB_ENGINE", "postgres") %}
+{% do c1.environment.add_env("LD_DB_DATABASE", values.consts.db_name) %}
+{% do c1.environment.add_env("LD_DB_USER", values.consts.db_user) %}
+{% do c1.environment.add_env("LD_DB_HOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("LD_DB_PORT", 5432) %}
+{% do c1.environment.add_env("LD_DB_PASSWORD", values.linkding.db_password) %}
+{% do c1.environment.add_env("LD_SERVER_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("LD_DISABLE_BACKGROUND_TASKS", "True" if values.linkding.disable_background_tasks else "False") %}
+{% do c1.environment.add_env("LD_DISABLE_URL_VALIDATION", "True" if values.linkding.disable_url_validation else "False") %}
+{% do c1.environment.add_env("LD_ENABLE_AUTH_PROXY", "True" if values.linkding.enable_auth_proxy else "False") %}
+{% if values.linkding.username and values.linkding.password %}
+  {% do c1.environment.add_env("LD_SUPERUSER_NAME", values.linkding.username) %}
+  {% do c1.environment.add_env("LD_SUPERUSER_PASSWORD", values.linkding.password) %}
+{% endif %}
+{% if values.linkding.csrf_trusted_origins %}
+  {% do c1.environment.add_env("LD_CSRF_TRUSTED_ORIGINS", values.linkding.csrf_trusted_origins|join(",")) %}
+{% endif %}
+{% if values.linkding.enable_auth_proxy %}
+  {% do c1.environment.add_env("LD_AUTH_PROXY_USERNAME_HEADER", values.linkding.auth_proxy_username_header) %}
+{% endif %}
+{% if values.linkding.auth_proxy_logout_url %}
+  {% do c1.environment.add_env("LD_AUTH_PROXY_LOGOUT_URL", values.linkding.auth_proxy_logout_url) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.linkding.additional_envs) %}
+
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+{% do c1.add_storage("/etc/linkding/data", values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

@@ -1,0 +1,44 @@
+{% from "macros/init.sh" import init %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set config = tpl.add_container(values.consts.init_container_name, "image") %}
+
+{% do config.healthcheck.disable() %}
+{% do config.restart.set_policy("on-failure", 1) %}
+{% do config.remove_devices() %}
+{% do config.deploy.resources.set_profile("low") %}
+{% do config.configs.add("init.sh", init(values), "/init.sh", "0755") %}
+{% do config.set_entrypoint(["/init.sh"]) %}
+
+{% set c1 = tpl.add_container(values.consts.dashy_container_name, "image") %}
+
+{% do c1.healthcheck.set_custom_test("yarn health-check") %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+{% do c1.environment.add_env("NODE_ENV", "production") %}
+{% do c1.environment.add_env("IS_DOCKER", true) %}
+
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("SSL_PORT", values.network.web_port.port_number) %}
+  {% do c1.environment.add_env("SSL_PRIV_KEY_PATH", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("SSL_PUB_KEY_PATH", values.consts.ssl_cert_path) %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% else %}
+  {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.dashy.additional_envs) %}
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage(values.consts.dashy_config_path, values.storage.config) %}
+{# We mount the host dir in a different location, so we can pull the default config from the container into the host dir #}
+{% do config.add_storage(values.consts.init_config_path, values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https" if values.network.certificate_id else "http"}) %}
+
+{{ tpl.render() | tojson }}

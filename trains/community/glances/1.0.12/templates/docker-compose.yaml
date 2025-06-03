@@ -1,0 +1,32 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set glances_container = tpl.add_container(values.consts.glances_container_name, "image") %}
+{% do glances_container.set_tty(true) %}
+{% do glances_container.set_stdin(true) %}
+
+{% do glances_container.add_caps(["FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "SYS_PTRACE"]) %}
+{% do glances_container.remove_security_opt("no-new-privileges") %}
+{% do glances_container.add_security_opt("apparmor", "unconfined") %}
+
+{% do glances_container.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/4/status"}) %}
+
+{% do glances_container.environment.add_env("GLANCES_OPT", "--webserver --port %d"|format(values.network.web_port.port_number)) %}
+{% do glances_container.environment.add_user_envs(values.glances.additional_envs) %}
+
+{% do glances_container.add_port(values.network.web_port) %}
+
+{% if values.glances.docker_enable %}
+  {% do glances_container.add_docker_socket(read_only=True) %}
+{% endif %}
+
+{% do glances_container.add_storage("/host/etc/os-release", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/os-release"}}) %}
+{% do glances_container.add_storage("/host/sys", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/sys"}}) %}
+{% do glances_container.add_storage("/host/proc", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/proc"}}) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do glances_container.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

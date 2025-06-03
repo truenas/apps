@@ -1,0 +1,29 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.tvheadend_container_name, "image") %}
+
+{% do c1.healthcheck.set_test("tcp", {"port": values.consts.internal_web_port}) %}
+
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+
+{% if values.tvheadend.dvb_support %}
+  {% do c1.devices.add_device("/dev/dvb", "/dev/dvb") %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.tvheadend.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.htsp_port, {"container_port": values.consts.internal_htsp_port}) %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% endif %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage("/recordings", values.storage.recordings) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}

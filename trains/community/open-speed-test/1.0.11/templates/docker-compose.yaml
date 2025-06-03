@@ -1,0 +1,31 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.speed_test_container_name, "image") %}
+
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.http_port.port_number}) %}
+
+{% do c1.environment.add_user_envs(values.speed_test.additional_envs) %}
+{% do c1.environment.add_env("CHANGE_CONTAINER_PORTS", "True") %}
+{% do c1.environment.add_env("HTTP_PORT", values.network.http_port.port_number) %}
+{% if values.network.https_port.mode != "" %}
+  {% do c1.environment.add_env("HTTPS_PORT", values.network.https_port.port_number) %}
+  {% do tpl.portals.add(values.network.https_port, {"name": "HTTPS", "scheme": "https"}) %}
+  {% do c1.add_port(values.network.https_port) %}
+{% endif %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{% do c1.add_port(values.network.http_port) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.http_port, {"name": "HTTP"}) %}
+
+{{ tpl.render() | tojson }}

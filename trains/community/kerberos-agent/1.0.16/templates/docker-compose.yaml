@@ -1,0 +1,56 @@
+{% from "macros/config.sh" import config_script %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.kerberos_container_name, "image") %}
+{% set config = tpl.add_container(values.consts.config_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do config.healthcheck.disable() %}
+{% do config.remove_devices() %}
+{% do config.restart.set_policy("on-failure", 1) %}
+{% do config.deploy.resources.set_profile("low") %}
+{% do config.configs.add("config.sh", config_script(), "/config.sh", "0755") %}
+{% do config.set_user(values.run_as.user, values.run_as.group) %}
+{% do config.set_entrypoint(["/config.sh"]) %}
+
+{% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.add_caps(["NET_BIND_SERVICE"]) %}
+{% do c1.set_entrypoint([
+  "/home/agent/main",
+  "-action", "run",
+  "-port", values.network.web_port.port_number,
+]) %}
+
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
+
+{% do c1.environment.add_env("AGENT_NAME", values.kerberos.agent_name) %}
+{% do c1.environment.add_env("AGENT_TIMEZONE", values.TZ) %}
+{% do c1.environment.add_env("AGENT_USERNAME", values.kerberos.username) %}
+{% do c1.environment.add_env("AGENT_PASSWORD", values.kerberos.password) %}
+{% do c1.environment.add_user_envs(values.kerberos.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/home/agent/data/recordings", values.storage.recordings) %}
+{% do perm_container.add_or_skip_action("recordings", values.storage.recordings, perms_config) %}
+
+{% do c1.add_storage("/home/agent/data/config", values.storage.config) %}
+{% do config.add_storage("/home/agent/data/config", values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do config.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

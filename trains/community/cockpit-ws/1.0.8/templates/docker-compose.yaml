@@ -1,0 +1,20 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.cockpit_container_name, "image") %}
+
+{% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/ping"}) %}
+{% do c1.set_entrypoint(["/container/label-run"]) %}
+{% do c1.set_command(["--port", values.network.web_port.port_number]) %}
+
+{% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
+{% do c1.environment.add_user_envs(values.cockpit.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
