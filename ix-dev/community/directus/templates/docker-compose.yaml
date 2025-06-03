@@ -2,7 +2,7 @@
 
 {% set c1 = tpl.add_container(values.consts.directus_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
 {# Postgres #}
 {% set pg_config = {
@@ -20,12 +20,12 @@
 {# Redis #}
 {% set redis_config = {
   "password": values.directus.redis_password,
-  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+  "volume": tpl.funcs.temp_config("redis_data")
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
-{% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/admin"}) %}
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/server/ping"}) %}
 
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
@@ -63,6 +63,6 @@
   {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port, {"path": "/admin"}) %}
 
 {{ tpl.render() | tojson }}
