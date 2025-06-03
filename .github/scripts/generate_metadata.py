@@ -547,6 +547,10 @@ class AppMetadataUpdater:
 
         # Update app version if changed
         old_app_version = app_config.get("app_version", "")
+        # If the old app version is a substring of the current version, keep it
+        # Example new version is 1.2.3-debian and app_version is 1.2.3. This is fine.
+        if old_app_version in current_app_version:
+            current_app_version = old_app_version
         if current_app_version != old_app_version:
             needs_version_bump = True
         app_config["app_version"] = current_app_version
