@@ -55,6 +55,52 @@ questions:
               RPC Secret must be a hexadecimal string.</br>
               Allowed characters are [a-f] and [0-9].
             private: true
+        - variable: additional_options
+          label: Additional Options
+          description: |
+            Set any option to the configuration file.</br>
+            The path to the option must be in the format of `.section.subsection.option`.</br>
+            For example, to set the `root_domain` option in the `.s3_api` section, use `.s3_api.root_domain` as the path.</br>
+            See available options here https://garagehq.deuxfleurs.fr/documentation/reference-manual/configuration.</br>
+            You can also edit the configuration file directly in the container at `/var/lib/garage/config/garage.toml`.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: option
+                label: Option
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: The type of the option.
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: string
+                            description: String
+                          - value: int
+                            description: Integer
+                          - value: bool
+                            description: Boolean
+                    - variable: path
+                      label: Path
+                      description: The path to the option in the configuration file.
+                      schema:
+                        type: string
+                        valid_chars: "^\\..+$"
+                        valid_chars_error: |
+                          Path must start with a dot (.) and contain at least one character.</br>
+                          Example: `.s3_api.root_domain`.</br>
+                          See available options here https://garagehq.deuxfleurs.fr/documentation/reference-manual/configuration.
+                        required: true
+                    - variable: value
+                      label: Value
+                      description: The value of the option.
+                      schema:
+                        type: string
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -106,6 +152,9 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
+          description: |
+            This port is used to access a third part Garage WebUI.</br>
+            Set it to "None" to stop the WebUI from being started.
           schema:
             type: dict
             attrs:
@@ -199,7 +248,8 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: s3_port
-          label: S3 Port
+          label: S3 API Port
+          description: This port is used to access the S3 API.
           schema:
             type: dict
             attrs:
@@ -247,6 +297,7 @@ questions:
                           - definitions/node_bind_ip
         - variable: s3_web_port
           label: S3 Web Port
+          description: This port is used when serving websites via S3.
           schema:
             type: dict
             attrs:
@@ -829,6 +880,8 @@ questions:
                         enum:
                           - value: garage
                             description: garage
+                          - value: web
+                            description: web
   - variable: resources
     label: ""
     group: Resources Configuration
