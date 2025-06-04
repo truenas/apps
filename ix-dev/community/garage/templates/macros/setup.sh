@@ -10,9 +10,9 @@ fi
 echo "Updating configuration file at {{ cfg_file }}"
 
 {%- set base_cmd = "dasel put --file %s --type" |format(cfg_file) %}
-{% for item in values.garage.additional_options %}
+{%- for item in values.garage.additional_options %}
 {{ base_cmd }} {{ item.type }} "{{ item.path }}" --value "{{ item.value }}"
-{% endfor %}
+{%- endfor %}
 
 {{ base_cmd }} int ".replication_factor" --value 1
 {{ base_cmd }} string ".metadata_dir" --value "{{ values.consts.metadata_path }}"
