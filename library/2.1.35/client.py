@@ -45,12 +45,12 @@ class Client:
 
     def validate_ip_port_combo(self, ip: str, port: int) -> None:
         try:
-            # During installation check all namespaces, including "app"
-            # During upgrades, don't check "app" namespace, as it will error out as the current app uses the port.
-            # Caveat is that if another app uses the same port, it will not be validated. Docker will error out.
-            whitelist = None if self._is_install else "app"
-            self.client.call("port.validate_port", f"render.{self._app_name}.schema", port, ip, whitelist, True)
+            self.client.call("port.validate_port", f"render.{self._app_name}.schema", port, ip, None, True)
         except ValidationErrors as e:
+            if not self._is_install:
+                if f"Applications ('{self._app_name}' application)" in str(e):
+                    # During upgrade, we want to ignore the error if it is related to the current app
+                    return
             raise RenderError(str(e)) from None
         except Exception:
             pass
