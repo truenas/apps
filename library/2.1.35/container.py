@@ -274,7 +274,6 @@ class Container:
                 self.ports._add_port(
                     host_port, container_port, {"protocol": protocol, "host_ip": host_ip, "mode": mode}
                 )
-                self._render_instance.client.validate_ip_port_combo(host_ip, host_port)
         elif bind_mode == "exposed":
             self.expose.add_port(container_port, protocol)
 
