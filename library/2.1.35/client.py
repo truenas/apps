@@ -45,7 +45,7 @@ class Client:
     def validate_ip_port_combo(self, ip: str, port: int) -> None:
         # Example of an error messages:
         # The port is being used by following services: 1) "0.0.0.0:80" used by WebUI Service
-        # The port is being used by following services: 1) "0.0.0.0:9998" used by Applications ('truenas-webui' application)
+        # The port is being used by following services: 1) "0.0.0.0:9998" used by Applications ('$app_name' application)
         try:
             self.client.call("port.validate_port", f"render.{self._app_name}.schema", port, ip, None, True)
         except ValidationErrors as e:
