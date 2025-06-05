@@ -53,7 +53,10 @@ class Client:
             # If the IP:port combo appears more than once in the error message,
             # means that the port is used by more than one service/app.
             # This shouldn't happen in a well-configured system.
-            if err_str.count(f'"{ip}:{port}"') > 1:
+            # Notice that the ip portion is not included check,
+            # because input might be a specific IP, but another service or app
+            # might be using the same port on a wildcard IP
+            if err_str.count(f':{port}" used by') > 1:
                 raise RenderError(err_str) from None
 
             # If the error complains about the current app, we ignore it
