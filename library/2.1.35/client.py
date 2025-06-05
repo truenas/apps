@@ -47,6 +47,8 @@ class Client:
         try:
             self.client.call("port.validate_port", f"render.{self._app_name}.schema", port, ip, None, True)
         except ValidationErrors as e:
+            # If its an app update or edit, the port validation will fail saying that the ip/port combo
+            # is already in use by the current app, so we ignore it. Alternative is to ignore all apps from validation.
             if not self._is_install:
                 if f"Applications ('{self._app_name}' application)" in str(e):
                     # During upgrade, we want to ignore the error if it is related to the current app
