@@ -41,18 +41,27 @@ class Client:
         self.client = TrueNASClient()
         self._render_instance = render_instance
         self._app_name: str = self._render_instance.values.get("ix_context", {}).get("app_name", "") or "unknown"
-        self._is_install: bool = self._render_instance.values.get("ix_context", {}).get("is_install", False)
 
     def validate_ip_port_combo(self, ip: str, port: int) -> None:
+        # Example of an error messages:
+        # The port is being used by following services: 1) "0.0.0.0:80" used by WebUI Service
+        # The port is being used by following services: 1) "0.0.0.0:9998" used by Applications ('truenas-webui' application)
         try:
             self.client.call("port.validate_port", f"render.{self._app_name}.schema", port, ip, None, True)
         except ValidationErrors as e:
-            # If its an app update or edit, the port validation will fail saying that the ip/port combo
-            # is already in use by the current app, so we ignore it. Alternative is to ignore all apps from validation.
-            if not self._is_install:
-                if f"Applications ('{self._app_name}' application)" in str(e):
-                    # During upgrade, we want to ignore the error if it is related to the current app
-                    return
-            raise RenderError(str(e)) from None
+            err_str = str(e)
+            # If the IP:port combo appears more than once in the error message,
+            # means that the port is used by more than one service/app.
+            # This shouldn't happen in a well-configured system.
+            if err_str.count(f'"{ip}:{port}"') > 1:
+                raise RenderError(err_str) from None
+
+            # If the error complains about the current app, we ignore it
+            # This is to handle cases where the app is being updated or edited
+            if f"Applications ('{self._app_name}' application)" in err_str:
+                # During upgrade, we want to ignore the error if it is related to the current app
+                return
+
+            raise RenderError(err_str) from None
         except Exception:
             pass
