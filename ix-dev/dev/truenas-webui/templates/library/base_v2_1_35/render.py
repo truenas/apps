@@ -1,6 +1,7 @@
 import copy
 
 try:
+    from .client import Client
     from .configs import Configs
     from .container import Container
     from .deps import Deps
@@ -10,6 +11,7 @@ try:
     from .portals import Portals
     from .volumes import Volumes
 except ImportError:
+    from client import Client
     from configs import Configs
     from container import Container
     from deps import Deps
@@ -29,6 +31,8 @@ class Render(object):
         self._original_values: dict = copy.deepcopy(self.values)
 
         self.deps: Deps = Deps(self)
+
+        self.client: Client = Client(render_instance=self)
 
         self.configs = Configs(render_instance=self)
         self.funcs = Functions(render_instance=self).func_map()

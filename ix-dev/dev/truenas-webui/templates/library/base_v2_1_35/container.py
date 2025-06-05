@@ -255,7 +255,6 @@ class Container:
         dev_config = dev_config or {}
         # Merge port_config and dev_config (dev_config has precedence)
         config = port_config | dev_config
-
         bind_mode = valid_port_bind_mode_or_raise(config.get("bind_mode", ""))
         # Skip port if its neither published nor exposed
         if not bind_mode:
@@ -275,6 +274,7 @@ class Container:
                 self.ports._add_port(
                     host_port, container_port, {"protocol": protocol, "host_ip": host_ip, "mode": mode}
                 )
+                self._render_instance.client.validate_ip_port_combo(host_ip, host_port)
         elif bind_mode == "exposed":
             self.expose.add_port(container_port, protocol)
 
