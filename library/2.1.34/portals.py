@@ -19,11 +19,18 @@ class Portals:
         self._portals: set[Portal] = set()
 
     def add(self, port: dict, config: dict | None = None):
+        # If its not published, portal does not make sense
+        if port.get("bind_mode", "") != "published":
+            return
+
         config = copy.deepcopy((config or {}))
         port = copy.deepcopy((port or {}))
         name = config.get("name", "Web UI")
-        host = config.get("host", None)
 
+        if name in [p._name for p in self._portals]:
+            raise RenderError(f"Portal [{name}] already added")
+
+        host = config.get("host", None)
         host_ips = port.get("host_ips", [])
         if not isinstance(host_ips, list):
             raise RenderError("Expected [host_ips] to be a list of strings")
@@ -39,11 +46,9 @@ class Portals:
             host = host_ips[0]
 
         config["host"] = host
-        if config.get("port") is None:
+        if not config.get("port"):
             config["port"] = port.get("port_number", 0)
 
-        if name in [p._name for p in self._portals]:
-            raise RenderError(f"Portal [{name}] already added")
         self._portals.add(Portal(name, config))
 
     def render(self):
