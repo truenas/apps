@@ -19,12 +19,12 @@ class Portals:
         self._portals: set[Portal] = set()
 
     def add(self, port: dict, config: dict | None = None):
+        config = copy.deepcopy((config or {}))
+        port = copy.deepcopy((port or {}))
         # If its not published, portal does not make sense
         if port.get("bind_mode", "") != "published":
             return
 
-        config = copy.deepcopy((config or {}))
-        port = copy.deepcopy((port or {}))
         name = config.get("name", "Web UI")
 
         if name in [p._name for p in self._portals]:

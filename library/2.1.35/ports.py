@@ -115,6 +115,8 @@ class Ports:
 
         key = self._gen_port_key(host_port, host_ip, proto, ip.version)
         self._ports[key] = port_config
+        # After all the local validations, lets validate the port with the TrueNAS API
+        self._render_instance.client.validate_ip_port_combo(host_ip, host_port)
 
     def has_ports(self):
         return len(self._ports) > 0
