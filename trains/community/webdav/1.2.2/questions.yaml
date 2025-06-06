@@ -1,0 +1,363 @@
+groups:
+  - name: WebDAV Configuration
+    description: Configure WebDAV
+  - name: User and Group Configuration
+    description: Configure User and Group for WebDAV
+  - name: Network Configuration
+    description: Configure Network for WebDAV
+  - name: Storage Configuration
+    description: Configure Storage for WebDAV
+  - name: Labels Configuration
+    description: Configure Labels for WebDAV
+  - name: Resources Configuration
+    description: Configure Resources for WebDAV
+
+questions:
+  - variable: webdav
+    label: ""
+    group: WebDAV Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: auth_type
+          label: Authentication Type
+          description: The type of authentication to use for WebDAV.
+          schema:
+            type: string
+            default: "none"
+            required: true
+            enum:
+              - value: "none"
+                description: No authentication
+              - value: "basic"
+                description: Basic authentication
+        - variable: username
+          label: Username
+          description: The username to use for WebDAV.
+          schema:
+            type: string
+            default: ""
+            show_if: [["auth_type", "=", "basic"]]
+            required: true
+        - variable: password
+          label: Password
+          description: The password to use for WebDAV.
+          schema:
+            type: string
+            default: ""
+            show_if: [["auth_type", "=", "basic"]]
+            private: true
+            required: true
+        - variable: additional_browser_matches
+          label: Additional Browser Matches
+          description: |
+            Additional browser matches for WebDAV.</br>
+            This is useful if you want to use WebDAV with a browser
+            that is not supported by the default configuration.</br>
+            Example: "^some-regex" </br>
+            This will create the following line in the configuration file:</br>
+            BrowserMatch "^some-regex" redirect-carefully
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: match
+                label: Match
+                schema:
+                  type: string
+                  required: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that WebDAV files will be owned by.
+          schema:
+            type: int
+            min: 2
+            default: 666
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that WebDAV files will be owned by.
+          schema:
+            type: int
+            min: 2
+            default: 666
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: http_port
+          label: HTTP Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30035
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: https_port
+          label: HTTPS Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30036
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: certificate_id
+          label: Certificate
+          description: The certificate to use for WebDAV.
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - "definitions/certificate"
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: shares
+          label: Shares
+          description: The shares to use for WebDAV.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: share_entry
+                label: Share Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: enabled
+                      label: Enable the share
+                      description: Enable the share.
+                      schema:
+                        type: boolean
+                        default: true
+                    - variable: name
+                      label: Share Name
+                      description: |
+                        The name of the share.</br>
+                        Also serves as the endpoint for the share.</br>
+                        Example: [share1] will be available at [http://<webdav-ip>:<webdav-port>/share1]
+                      schema:
+                        type: string
+                        valid_chars: "^[a-zA-Z0-9_-]+$"
+                        valid_chars_error: "Share name can only consist of [Letters(a-z, A-Z), Numbers(0-9), Underscores(_), Dashes(-)]"
+                        required: true
+                    - variable: description
+                      label: Description
+                      description: Share description. Only used for documentation.
+                      schema:
+                        type: string
+                    - variable: host_path
+                      label: Host Path
+                      description: The host path to use for the share.
+                      schema:
+                        type: hostpath
+                        required: true
+                    - variable: read_only
+                      label: Read Only
+                      description: |
+                        Enable read only access to the share.</br>
+                        This will disable write access to the share.</br>
+                        Data will be mounted as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: max_request_body_size_gb
+                      label: Max Request Body Size (in GB)
+                      description: |
+                        The maximum size of the request body in GB.
+                        If the request body size exceeds this value, the request will fail.
+                        Value of 0 means no limit.
+                      schema:
+                        type: int
+                        default: 1
+                    - variable: fix_permissions
+                      label: Fix Permissions
+                      description: |
+                        Enable permission fix for the share.</br>
+                        This will fix the permissions of the share on startup.</br>
+                        This will change the owner of the share to the user and group specified in [User and Group Configuration].</br>
+                        Note: This will still change permissions even if [Read Only] for the share is enabled.
+                      schema:
+                        type: boolean
+                        default: false
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: webdav
+                            description: webdav
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for WebDAV.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for WebDAV.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
