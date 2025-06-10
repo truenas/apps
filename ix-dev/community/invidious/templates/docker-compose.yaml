@@ -32,6 +32,7 @@
 {% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
 
 {% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.companion_port)%}
 
 {% do db_fetch.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do db_fetch.healthcheck.disable() %}
@@ -74,8 +75,8 @@
 {% if values.invidious.enable_companion %}
   {% do cfg.x.extend([
     {"invidious_companion_key": values.invidious.companion_key},
-    {"invidious_companion[0].private_url": "http://%s:%s"|format(values.consts.companion_container_name, values.consts.internal_companion_port)},
-    {"invidious_companion[0].public_url": "http://%s:%s"|format(values.consts.companion_container_name, values.consts.internal_companion_port)},
+    {"invidious_companion[0].private_url": "http://%s:%s"|format(values.consts.companion_container_name, values.network.companion_port.port_number)},
+    {"invidious_companion[0].public_url": values.invidious.companion_url},
   ]) %}
 {% endif %}
 
@@ -107,7 +108,7 @@
 {% if values.invidious.enable_companion %}
   {% set companion.x = tpl.add_container(values.consts.companion_container_name, "companion_image") %}
   {% do companion.x.set_user(values.consts.inv_companion_run_as_user, values.consts.inv_companion_run_as_group) %}
-  {% do companion.x.environment.add_env("PORT", values.consts.internal_companion_port) %}
+  {% do companion.x.environment.add_env("PORT", values.network.companion_port.port_number) %}
   {% do companion.x.environment.add_env("SERVER_SECRET_KEY", values.invidious.companion_key) %}
   {% do companion.x.set_read_only(true) %}
   {% do companion.x.healthcheck.set_custom_test(["CMD", "/thc"]) %}
