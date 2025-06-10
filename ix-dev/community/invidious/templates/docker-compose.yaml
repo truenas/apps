@@ -2,7 +2,7 @@
 
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set sig_helper = namespace(x=None) %}
+{% set companion = namespace(x=None) %}
 {% set c1 = tpl.add_container(values.consts.invidious_container_name, "image") %}
 {% set db_fetch = tpl.add_container(values.consts.db_seed_fetch_container_name, "git_image") %}
 {% set db_seed = tpl.add_container(values.consts.db_seed_apply_container_name, values.invidious.postgres_image_selector) %}
@@ -71,14 +71,12 @@
   {"captcha_enabled": values.invidious.captcha_enabled},
 ]) %}
 
-{% if values.invidious.enable_inv_sig_helper %}
-  {% do cfg.x.append({"signature_server": "%s:%d" | format(values.consts.sig_helper_container_name, values.consts.internal_sig_helper_port)}) %}
-{% endif %}
-{% if values.invidious.po_token %}
-  {% do cfg.x.append({"po_token": values.invidious.po_token}) %}
-{% endif %}
-{% if values.invidious.visitor_data %}
-  {% do cfg.x.append({"visitor_data": values.invidious.visitor_data}) %}
+{% if values.invidious.enable_companion %}
+  {% do cfg.x.extend([
+    {"invidious_companion_key": values.invidious.companion_key},
+    {"invidious_companion[0].private_url": "http://%s:%s"|format(values.consts.companion_container_name, values.consts.internal_companion_port)},
+    {"invidious_companion[0].public_url": "http://%s:%s"|format(values.consts.companion_container_name, values.consts.internal_companion_port)},
+  ]) %}
 {% endif %}
 
 {% do config.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
@@ -107,15 +105,14 @@
 {% endfor %}
 
 {% if values.invidious.enable_inv_sig_helper %}
-  {% set sig_helper.x = tpl.add_container(values.consts.sig_helper_container_name, "sig_helper_image") %}
-  {% do sig_helper.x.set_user(values.consts.inv_sig_helper_run_as_user, values.consts.inv_sig_helper_run_as_group) %}
-  {% do sig_helper.x.environment.add_env("RUST_LOG", "info") %}
-  {% do sig_helper.x.set_init(true) %}
-  {% do sig_helper.x.set_read_only(true) %}
-  {% do sig_helper.x.healthcheck.disable() %}
-  {% do sig_helper.x.set_command(["--tcp", "0.0.0.0:%d"|format(values.consts.internal_sig_helper_port)]) %}
+  {% set companion.x = tpl.add_container(values.consts.companion_container_name, "companion_image") %}
+  {% do companion.x.set_user(values.consts.inv_companion_run_as_user, values.consts.inv_companion_run_as_group) %}
+  {% do companion.x.environment.add_env("PORT", values.consts.internal_companion_port) %}
+  {% do companion.x.environment.add_env("SERVER_SECRET_KEY", values.invidious.companion_key) %}
+  {% do companion.x.set_read_only(true) %}
+  {% do companion.x.healthcheck.set_custom_test("/thc") %}
 
-  {% do c1.depends.add_dependency(values.consts.sig_helper_container_name, "service_started") %}
+  {% do c1.depends.add_dependency(values.consts.companion_container_name, "service_started") %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
