@@ -1,8 +1,14 @@
 {% macro init_script(values) -%}
 {#- Default API Address https://github.com/ipfs/kubo/blob/master/docs/config.md#addressesapi #}
-{%- set api_addresses = "/ip4/0.0.0.0/tcp/%s"|format(values.network.api_port.port_number) %}
+{%- set api_addresses = [
+  "/ip4/0.0.0.0/tcp/%s"|format(values.network.api_port.port_number),
+  "/ip6/::/tcp/%s"|format(values.network.api_port.port_number),
+] %}
 {#- Default Gateway Address https://github.com/ipfs/kubo/blob/master/docs/config.md#addressesgateway #}
-{%- set gateway_addresses = "/ip4/0.0.0.0/tcp/%s"|format(values.network.gateway_port.port_number) %}
+{%- set gateway_addresses = [
+  "/ip4/0.0.0.0/tcp/%s"|format(values.network.gateway_port.port_number),
+  "/ip6/::/tcp/%s"|format(values.network.gateway_port.port_number),
+] %}
 {#- Default Swarm Addresses https://github.com/ipfs/kubo/blob/master/docs/config.md#addressesswarm #}
 {%- set swarm_addresses = [
   "/ip4/0.0.0.0/tcp/%s"|format(values.network.swarm_port.port_number),
@@ -27,11 +33,11 @@ fi
 
 # Configure the Addresses.API
 echo 'Configuring the Addresses.API to {{ api_addresses }}'
-ipfs config Addresses.API {{ api_addresses }}
+ipfs config Addresses.API --json '{{ api_addresses | tojson }}'
 
 # Configure the Addresses.Gateway
 echo 'Configuring the Addresses.Gateway to {{ gateway_addresses }}'
-ipfs config Addresses.Gateway {{ gateway_addresses }}
+ipfs config Addresses.Gateway --json '{{ gateway_addresses | tojson }}'
 
 # Configure the Addresses.Swarm
 echo 'Configuring the Addresses.Swarm to {{ swarm_addresses | tojson }}'
