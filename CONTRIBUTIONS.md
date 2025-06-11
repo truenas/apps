@@ -109,3 +109,13 @@ Most apps will use a directory like `/opt/tests/**` for storage in test files.
 This is mostly because MacOS whitelists this directory by default. And linux does not have this restriction.
 
 Make sure before running the test, that is not going to mount any directories that you don't want to.
+
+## Notifying Upstream Developers
+
+After your app has been successfully published in the catalog and tested, it is a good idea 
+to politely contact the upstream app developers to let them know that TrueNAS now supports 
+simple deployment of their app. 
+You can provide a quick "how-to" for deploying their app on TrueNAS, to make it easier for their 
+team to share with their users. If the developer has a section on their website listing supported 
+platforms, suggest they add TrueNAS as one of the platforms capable of running their app 
+with easy deployment.
