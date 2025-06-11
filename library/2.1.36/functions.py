@@ -50,7 +50,11 @@ class Functions:
             return lower_str_value == "true"
 
         try:
-            return float(value)
+            float_value = float(value)
+            if float_value.is_integer():
+                return int(float_value)
+            else:
+                return float(value)
         except ValueError:
             pass
 

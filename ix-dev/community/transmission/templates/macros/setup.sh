@@ -1,4 +1,4 @@
-{% macro setup(config) %}
+{% macro setup(tpl, config) %}
 #!/bin/bash
 set -e
 
@@ -18,8 +18,8 @@ fi
 echo -e "\nStarting setup..."
 
 {%- for key, val in config.items() %}
-echo -n -e "\t - Setting [{{ key }}] to [{{ val | tojson }}]..."
-jq '."{{ key }}" = {{ val | tojson }}' "{{ cfg_path }}" > {{ redir_cmd }}
+echo -n -e "\t - Setting [{{ key }}] to [{{ tpl.funcs.auto_cast(val) | tojson }}]..."
+jq '."{{ key }}" = {{ tpl.funcs.auto_cast(val) | tojson }}' "{{ cfg_path }}" > {{ redir_cmd }}
 echo " New value is [$(jq '."{{ key }}"' {{ cfg_path }})]";
 {%- endfor %}
 
