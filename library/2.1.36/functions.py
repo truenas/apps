@@ -58,11 +58,6 @@ class Functions:
         except ValueError:
             pass
 
-        try:
-            return int(value)
-        except ValueError:
-            pass
-
         return value
 
     def _match_regex(self, value, regex):
