@@ -1,3 +1,3 @@
-# Zigbee2mqtt
+# Z-Wave JS UI
 
-[Zigbee 🐝 to MQTT](www.zigbee2mqtt.io) bridge 🌉, get rid of your proprietary Zigbee bridges 🔨
+[Z-Wave JS UI](https://zwave-js.github.io/zwave-js-ui) is a full featured Z-Wave Control Panel UI and MQTT gateway. Built using Nodejs, and Vue/Vuetify
