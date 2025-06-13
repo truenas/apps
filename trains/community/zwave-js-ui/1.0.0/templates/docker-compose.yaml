@@ -1,0 +1,68 @@
+{% from "macros/setup.js" import setup %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.zwave_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% set config = tpl.add_container(values.consts.config_container_name, "image") %}
+{% do config.set_user(values.run_as.user, values.run_as.group) %}
+{% do config.restart.set_policy("on-failure", 1) %}
+{% do config.healthcheck.disable() %}
+{% do config.deploy.resources.set_profile("low") %}
+{% do config.remove_devices() %}
+{% do config.configs.add("setup.js", setup(values), "/setup.js", "0755") %}
+{% do config.set_entrypoint(["node", "/setup.js"]) %}
+
+{% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
+
+{% set proto = "https" if values.network.certificate_id else "http" %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health/", "scheme": proto}) %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("SESSION_SECRET", values.zwave.session_secret) %}
+
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("HTTPS", true) %}
+  {% do c1.environment.add_env("SSL_CERTIFICATE", values.consts.ssl_cert_path) %}
+  {% do c1.environment.add_env("SSL_KEY", values.consts.ssl_key_path) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.zwave.additional_envs) %}
+
+{% if values.zwave.serial_port %}
+  {% if not values.zwave.serial_port.startswith("/dev/serial/by-id/") %}
+    {% do tpl.funcs.fail("Z-Wave serial port must start with [/dev/serial/by-id/]") %}
+  {% endif %}
+
+  {% do c1.add_group(20) %} {# dialout group for usb devices #}
+  {% do c1.add_udev(read_only=True) %}
+  {% do c1.devices.add_device(values.zwave.serial_port, values.consts.zwave_serial_path) %}
+{% endif %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.ws_port) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do config.add_storage(values.consts.data_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do config.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": proto}) %}
+
+{{ tpl.render() | tojson }}
