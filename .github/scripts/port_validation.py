@@ -24,7 +24,7 @@ def item_looks_like_port(item):
         return False
     if schema.get("min", 0) != 1:
         return False
-    if schema.get("max", 65535) != 65535:
+    if schema.get("max", 0) != 65535:
         return False
     if not schema.get("default"):
         return False
