@@ -7,14 +7,46 @@ from collections import defaultdict
 from os import scandir
 
 
+def extract_ports_from_items(items):
+    ports = []
+
+    for item in items:
+        if not item_looks_like_port(item):
+            continue
+        ports.append({"name": item["variable"], "port": item["schema"]["default"]})
+
+    return ports
+
+
+def item_looks_like_port(item):
+    schema = item["schema"]
+    if schema["type"] != "int":
+        return False
+    if schema.get("min", 0) != 1:
+        return False
+    if schema.get("max", 0) != 65535:
+        return False
+    if not schema.get("default"):
+        return False
+    return True
+
+
+def dict_looks_like_port(attrs):
+    for var in attrs:
+        if var["variable"] == "host_ips":
+            return True
+    return False
+
+
 def extract_ports(quests):
     ports = []
     for quest in quests:
         schema = quest["schema"]
-        if schema["type"] == "int" and "definitions/port" in schema.get("$ref", []) and "default" in schema:
-            ports.append({"name": quest["variable"], "port": schema["default"]})
-        elif schema["type"] == "dict":
-            ports.extend(extract_ports(schema["attrs"]))
+        if schema["type"] == "dict":
+            if dict_looks_like_port(schema["attrs"]):
+                ports.extend(extract_ports_from_items(schema["attrs"]))
+            else:
+                ports.extend(extract_ports(schema["attrs"]))
         elif schema["type"] == "list":
             ports.extend(extract_ports(schema["items"]))
 
