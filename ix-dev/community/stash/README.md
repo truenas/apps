@@ -1,3 +1,3 @@
 # Stash
 
-[Stash](https://stashapp.cc) is an organizer for your porn, written in Go.
+[Stash](https://stashapp.cc) is an organizer for your NSFW materials, written in Go.
