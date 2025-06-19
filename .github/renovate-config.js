@@ -296,23 +296,8 @@ module.exports = {
       ["ghcr.io/immich-app/postgres"]
     ),
     customVersioning(
-      // v1.134.0
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["ghcr.io/immich-app/immich-machine-learning"]
-    ),
-    customVersioning(
-      // v1.134.0-cuda
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-cuda$",
-      ["ghcr.io/immich-app/immich-machine-learning"]
-    ),
-    customVersioning(
-      // v1.134.0-rocm
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-rocm$",
-      ["ghcr.io/immich-app/immich-machine-learning"]
-    ),
-    customVersioning(
-      // v1.134.0-openvino
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-openvino$",
+      // v1.134.0(-cuda|rocm|openvino)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>cuda|rocm|openvino))$",
       ["ghcr.io/immich-app/immich-machine-learning"]
     ),
   ],
