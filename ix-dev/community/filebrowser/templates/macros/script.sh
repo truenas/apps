@@ -9,7 +9,7 @@ echo "Migrating FileBrowser configuration files..."
 
 {%- for src, dest in mappings.items() %}
 echo "Checking for file at [{{ src }}]..."
-[ -f {{ src }} ] && { echo "File found at [{{ src }}], renaming to {{ dest }}"; mv "{{ src }}" "{{ dest }}"; }
+[ -f {{ src }} ] && { echo "File found at [{{ src }}], renaming to {{ dest }}"; mv "{{ src }}" "{{ dest }}"; } || echo "File not found at [{{ src }}], no need to migrate."
 {%- endfor %}
 echo "Migration complete."
 {%- endmacro %}
