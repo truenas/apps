@@ -1,7 +1,7 @@
 {% macro init(values) -%}
 #!/bin/sh
 {% set config_file = "%s/minetest.conf"|format(values.consts.config_dir) %}
-{% set games_dir = "%s/games"|format(values.consts.data_dir) %}
+{% set games_dir = "%s/.minetest/games"|format(values.consts.data_dir) %}
 {% set base_url = "https://content.luanti.org/packages/%s/%s" | format(values.luanti.author, values.luanti.map_name) %}
 {% set download_url = namespace(x="") %}
 {% if values.luanti.release %}

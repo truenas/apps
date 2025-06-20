@@ -16,17 +16,14 @@
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
-{% do c1.healthcheck.set_test("tcp", {"port": values.network.game_port.port_number}) %}
+{% do c1.healthcheck.set_test("netcat", {"port": values.network.game_port.port_number, "udp": true}) %}
 {% do c1.set_command([
-  "--config", "/etc/minetest/minetest.conf",
-  "--port", values.network.game_port.port_number,
   "--gameid", values.luanti.map_name,
-  "--world", "%s/%s"|format(values.consts.data_dir, values.luanti.map_name),
+  "--config", "%s/minetest.conf"|format(values.consts.config_dir),
+  "--port", values.network.game_port.port_number,
 ]) %}
 
 {% do c1.environment.add_user_envs(values.luanti.additional_envs) %}
-
-{% do c1.add_port(values.network.game_port) %}
 {% do c1.add_port(values.network.game_port, {"protocol": "udp"}) %}
 
 {% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
