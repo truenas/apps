@@ -16,7 +16,7 @@ if [ ! -f "{{ config_file }}" ]; then
 fi
 
 mkdir -p "{{ games_dir }}/{{ values.luanti.map_name }}"
-if [ -z $(ls -A "{{ games_dir }}/{{ values.luanti.map_name }}") ]; then
+if [ -z "$(ls -A '{{ games_dir }}/{{ values.luanti.map_name }}')" ]; then
     echo "Installing {{ values.luanti.map_name }} from {{ download_url.x }}"
     wget -O /tmp/{{ values.luanti.map_name }}.zip "{{ download_url.x }}" || {
         echo "Failed to download {{ values.luanti.map_name }} from {{ download_url.x }}"; exit 1
