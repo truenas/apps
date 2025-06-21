@@ -297,7 +297,7 @@ module.exports = {
     ),
     customVersioning(
       // v1.134.0(-cuda|rocm|openvino)?
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>cuda|rocm|openvino))$",
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>cuda|rocm|openvino))?$",
       ["ghcr.io/immich-app/immich-machine-learning"]
     ),
   ],
