@@ -79,6 +79,7 @@ module.exports = {
       matchFileNames: ["ix-dev/enterprise/**"],
     },
     // Custom versioning matching
+    // https://docs.renovatebot.com/modules/versioning/regex/#rangesconstraints
     customVersioning(
       // There are tags with date format (24.08.0), but newer versions are semver
       // We still limit major to 1 digit, as we don't want to match "24.08.0" as a major version
@@ -282,7 +283,8 @@ module.exports = {
     ),
     customVersioning(
       // stable-e043ecf
-      "^stable-(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
+      // We need all the groups here because renovate requires them
+      "^stable-(?<major>[Z]?)(?<minor>[Z]?)(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
       ["ghcr.io/toeverything/affine-graphql"]
     ),
     customVersioning(
