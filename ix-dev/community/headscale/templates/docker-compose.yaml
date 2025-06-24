@@ -1,0 +1,60 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.headscale_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "alpine_image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do init.restart.set_policy("on-failure", 1) %}
+{% do init.healthcheck.disable() %}
+{% do init.deploy.resources.set_profile("low") %}
+{% do init.remove_devices() %}
+{% do init.set_entrypoint(["touch", "/etc/headscale/config.yaml"]) %}
+
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{# {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/ping"}) %} #}
+{% do c1.healthcheck.disable() %}
+{% do c1.set_command(["serve"]) %}
+{% do c1.environment.add_env("HEADSCALE_SERVER_URL", values.headscale.server_url) %}
+{% do c1.environment.add_env("HEADSCALE_LISTEN_ADDR", ":%d"|format(values.network.api_port.port_number)) %}
+{% do c1.environment.add_env("HEADSCALE_DATABASE_TYPE", "sqlite") %}
+{% do c1.environment.add_env("HEADSCALE_DATABASE_SQLITE_PATH", "/var/lib/headscale/db.sqlite") %}
+{% do c1.environment.add_env("HEADSCALE_NOISE", true) %}
+{% do c1.environment.add_env("HEADSCALE_NOISE_PRIVATE_KEY_PATH", "/var/lib/headscale/noise_private.key") %}
+{% do c1.environment.add_env("HEADSCALE_UNIX_SOCKET", "/var/run/headscale/headscale.sock") %}
+{% do c1.environment.add_env("HEADSCALE_UNIX_SOCKET_PERMISSION", "0770") %}
+{% do c1.environment.add_env("HEADSCALE_DNS_BASE_DOMAIN", values.headscale.dns_base_domain) %}
+{% do c1.environment.add_env("HEADSCALE_DNS_NAMESERVERS_GLOBAL", values.headscale.dns_nameservers_global | join(" ")) %}
+{% do c1.environment.add_env("HEADSCALE_DERP_URLS", "https://controlplane.tailscale.com/derpmap/default") %}
+{% do c1.environment.add_env("HEADSCALE_PREFIXES_V4", "100.64.0.0/10") %}
+{% do c1.environment.add_env("HEADSCALE_PREFIXES_V6", "fd7a:115c:a1e0::/48") %}
+{# ## Use already defined certificates:
+tls_cert_path: ""
+tls_key_path: "" #}
+{% do c1.environment.add_user_envs(values.headscale.additional_envs) %}
+
+{% do c1.add_port(values.network.api_port) %}
+
+{% do c1.add_storage("/etc/headscale", values.storage.config) %}
+{% do init.add_storage("/etc/headscale", values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+
+{% do c1.add_storage("/var/lib/headscale", values.storage.lib) %}
+{% do perm_container.add_or_skip_action("lib", values.storage.lib, perms_config) %}
+
+{% do c1.add_storage("/var/run/headscale", values.storage.run) %}
+{% do perm_container.add_or_skip_action("run", values.storage.run, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do init.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
