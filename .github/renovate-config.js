@@ -79,6 +79,7 @@ module.exports = {
       matchFileNames: ["ix-dev/enterprise/**"],
     },
     // Custom versioning matching
+    // https://docs.renovatebot.com/modules/versioning/regex/#rangesconstraints
     customVersioning(
       // There are tags with date format (24.08.0), but newer versions are semver
       // We still limit major to 1 digit, as we don't want to match "24.08.0" as a major version
@@ -282,7 +283,8 @@ module.exports = {
     ),
     customVersioning(
       // stable-e043ecf
-      "^stable-(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
+      // We need all the groups here because renovate requires them
+      "^stable-(?<major>[Z]?)(?<minor>[Z]?)(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
       ["ghcr.io/toeverything/affine-graphql"]
     ),
     customVersioning(
@@ -296,8 +298,8 @@ module.exports = {
       ["ghcr.io/immich-app/postgres"]
     ),
     customVersioning(
-      // v1.134.0-cuda|rocm|openvino
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(cuda|rocm|openvino))?",
+      // v1.134.0(-cuda|rocm|openvino)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>cuda|rocm|openvino))?$",
       ["ghcr.io/immich-app/immich-machine-learning"]
     ),
   ],
