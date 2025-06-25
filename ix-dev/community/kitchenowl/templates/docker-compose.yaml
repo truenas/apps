@@ -17,11 +17,9 @@
 ) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{# https://github.com/TomBursch/kitchenowl/blob/814fe85081bab19b3f7de557c8bad86d4e52d7c7/backend/Dockerfile#L44C71-L44C115 #}
-{% do c1.healthcheck.set_custom_test(["CMD", "uwsgi_curl", "127.0.0.1:5000", "/api/health/8M4F88S8ooi4sMbLBfkkV7ctWwgibW6V"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/health/8M4F88S8ooi4sMbLBfkkV7ctWwgibW6V"}) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% do c1.environment.add_env("BASE_HREF", "") %}
 {% do c1.environment.add_env("DB_DRIVER", "postgresql") %}
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("DB_PORT", 5432) %}
@@ -32,7 +30,7 @@
 {% do c1.environment.add_env("JWT_SECRET_KEY", values.kitchenowl.jwt_secret_key) %}
 {% do c1.environment.add_user_envs(values.kitchenowl.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": 8080}) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
