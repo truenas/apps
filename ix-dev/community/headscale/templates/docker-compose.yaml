@@ -5,6 +5,7 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{# FIXME: remove after https://github.com/juanfont/headscale/pull/2656 #}
 {% do init.set_user(values.run_as.user, values.run_as.group) %}
 {% do init.restart.set_policy("on-failure", 1) %}
 {% do init.healthcheck.disable() %}
@@ -14,28 +15,37 @@
 {% do init.set_entrypoint(["touch", "%s/config.yaml"|format(values.consts.config_path)]) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_custom_test(["CMD", "/ko-app/headscale", "configtest"]) %}
+{# FIXME: Uncomment this after https://github.com/juanfont/headscale/pull/2659 #}
+{# {% do c1.healthcheck.set_custom_test(["CMD", "/ko-app/headscale", "health"]) %} #}
+{% do c1.healthcheck.disable() %}
 {% do c1.set_command(["serve"]) %}
 {% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
 
-{% do c1.environment.add_env("HEADSCALE_SERVER_URL", values.headscale.server_url) %}
 {% do c1.environment.add_env("HEADSCALE_LISTEN_ADDR", ":%d"|format(values.network.api_port.port_number)) %}
 {% do c1.environment.add_env("HEADSCALE_DATABASE_TYPE", "sqlite") %}
 {% do c1.environment.add_env("HEADSCALE_DATABASE_SQLITE_PATH", "%s/db.sqlite"|format(values.consts.lib_path)) %}
+{# FIXME: remove after https://github.com/juanfont/headscale/pull/2658 #}
 {% do c1.environment.add_env("HEADSCALE_NOISE", '{}') %}
 {% do c1.environment.add_env("HEADSCALE_NOISE_PRIVATE_KEY_PATH", "%s/noise_private.key"|format(values.consts.lib_path)) %}
 {% do c1.environment.add_env("HEADSCALE_UNIX_SOCKET", "%s/headscale.sock"|format(values.consts.run_path)) %}
 {% do c1.environment.add_env("HEADSCALE_UNIX_SOCKET_PERMISSION", "0770") %}
+{% do c1.environment.add_env("HEADSCALE_DERP_URLS", "https://controlplane.tailscale.com/derpmap/default") %}
+
+{% do c1.environment.add_env("HEADSCALE_SERVER_URL", values.headscale.server_url) %}
 {% do c1.environment.add_env("HEADSCALE_DNS_BASE_DOMAIN", values.headscale.dns.base_domain) %}
 {% do c1.environment.add_env("HEADSCALE_DNS_NAMESERVERS_GLOBAL", values.headscale.dns.nameservers_global | join(" ")) %}
-{% do c1.environment.add_env("HEADSCALE_DERP_URLS", "https://controlplane.tailscale.com/derpmap/default") %}
 {# Those are not really configurable #}
 {% do c1.environment.add_env("HEADSCALE_PREFIXES_V4", "100.64.0.0/10") %}
 {% do c1.environment.add_env("HEADSCALE_PREFIXES_V6", "fd7a:115c:a1e0::/48") %}
 
-{# TODO: ## Use already defined certificates:
-tls_cert_path: ""
-tls_key_path: "" #}
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("HEADSCALE_SSL_KEY_PATH", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("HEADSCALE_SSL_CERT_PATH", values.consts.ssl_cert_path) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
 
 {% do c1.environment.add_user_envs(values.headscale.additional_envs) %}
 
