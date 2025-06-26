@@ -1,20 +1,20 @@
 groups:
-  - name: Minio Console Configuration
-    description: Configure Minio Console
+  - name: MinIO Console Configuration
+    description: Configure MinIO Console
   - name: User and Group Configuration
-    description: Configure User and Group for Minio Console
+    description: Configure User and Group for MinIO Console
   - name: Network Configuration
-    description: Configure Network for Minio Console
+    description: Configure Network for MinIO Console
   - name: Storage Configuration
-    description: Configure Storage for Minio Console
+    description: Configure Storage for MinIO Console
   - name: Labels Configuration
-    description: Configure Labels for Minio Console
+    description: Configure Labels for MinIO Console
   - name: Resources Configuration
-    description: Configure Resources for Minio Console
+    description: Configure Resources for MinIO Console
 
 questions:
   - variable: TZ
-    group: Minio Console Configuration
+    group: MinIO Console Configuration
     label: Timezone
     schema:
       type: string
@@ -24,7 +24,7 @@ questions:
         - definitions/timezone
   - variable: console
     label: ""
-    group: Minio Console Configuration
+    group: MinIO Console Configuration
     schema:
       type: dict
       attrs:
@@ -63,7 +63,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Minio Console files will be owned by.
+          description: The user id that MinIO Console files will be owned by.
           schema:
             type: int
             min: 568
@@ -71,7 +71,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Minio Console files will be owned by.
+          description: The group id that MinIO Console files will be owned by.
           schema:
             type: int
             min: 568
@@ -84,8 +84,8 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
+        - variable: http_port
+          label: HTTP Port
           schema:
             type: dict
             attrs:
@@ -131,6 +131,54 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
+        - variable: https_port
+          label: HTTPS Port
+          schema:
+            type: dict
+            show_if: [["certificate_id", "!=", null]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30213
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: host_network
           label: Host Network
           description: |
@@ -138,6 +186,15 @@ questions:
           schema:
             type: boolean
             default: false
+        - variable: certificate_id
+          label: Certificate
+          description: The certificate to use for MinIO Console.
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - "definitions/certificate"
+
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -146,7 +203,7 @@ questions:
       attrs:
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Minio Console.
+          description: Additional storage for MinIO Console.
           schema:
             type: list
             default: []
@@ -330,14 +387,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Minio Console.
+                description: CPUs limit for MinIO Console.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Minio Console.
+                description: Memory limit for MinIO Console.
                 schema:
                   type: int
                   default: 4096
