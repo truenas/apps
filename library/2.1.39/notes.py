@@ -111,7 +111,7 @@ class Notes:
         if self._security:
             result += "## Security\n\n"
             for c_name, security in self._security.items():
-                if SHORT_LIVED in security and len(security) == 0:
+                if SHORT_LIVED in security and len(security) == 1:
                     continue
                 result += f"### Container: [{c_name}]"
                 if SHORT_LIVED in security:
