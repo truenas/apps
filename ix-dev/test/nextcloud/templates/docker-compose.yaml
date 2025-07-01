@@ -1,4 +1,4 @@
-{% from "macros/nginx.conf" import nginx_conf, nginx_headers %}
+{% from "macros/nginx.conf" import ngiIx_conf, ngiIx_headers %}
 {% from "macros/crontasks" import crontasks %}
 {% from "macros/tune.ini" import php_tune_ini, redis_session, opcache_recommended %}
 {% from "macros/builder.jinja" import builder %}
@@ -154,30 +154,30 @@
 {% endfor %}
 
 {# -- Nginx -- #}
-{% set nginx_container = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
-{% do nginx_container.set_user(values.run_as.user, values.run_as.group) %}
-{% do nginx_container.healthcheck.set_test("curl", {
+{% set ngiIx_container = tpl.add_container(values.consts.ngiIx_container_name, "ngiIx_image") %}
+{% do ngiIx_container.set_user(values.run_as.user, values.run_as.group) %}
+{% do ngiIx_container.healthcheck.set_test("curl", {
   "port": values.network.web_port.port_number, "path": "/status.php",
   "scheme": "https" if values.network.certificate_id else "http",
   "headers": [("Host", "docker.internal.healthcheck")]
 }) %}
-{% do nginx_container.configs.add("nginx.conf", nginx_conf(values), "/etc/nginx/nginx.conf") %}
-{% do nginx_container.configs.add("nginx_headers.conf", nginx_headers(values), "/etc/nginx/nginx-headers.conf") %}
-{% do nginx_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
+{% do ngiIx_container.configs.add("nginx.conf", ngiIx_conf(values), "/etc/nginx/nginx.conf") %}
+{% do ngiIx_container.configs.add("ngiIx_headers.conf", ngiIx_headers(values), "/etc/nginx/nginx-headers.conf") %}
+{% do ngiIx_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do nginx_container.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
-  {% do nginx_container.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+  {% do ngiIx_container.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do ngiIx_container.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
-{% do nginx_container.add_port(values.network.web_port) %}
-{% do nginx_container.add_storage(values.consts.html_path, dict(values.storage.html, **{"read_only": true})) %}
+{% do ngiIx_container.add_port(values.network.web_port) %}
+{% do ngiIx_container.add_storage(values.consts.html_path, dict(values.storage.html, **{"read_only": true})) %}
 
 {# -- Cron -- #}
 {% set cron_container = tpl.add_container(values.consts.cron_container_name, "image") %}
 {% do cron_container.set_user(values.run_as.user, values.run_as.group) %}
 {% do cron_container.healthcheck.disable() %}
 {% do cron_container.set_entrypoint(["/cron.sh"]) %}
-{% do cron_container.depends.add_dependency(values.consts.nginx_container_name, "service_healthy") %}
+{% do cron_container.depends.add_dependency(values.consts.ngiIx_container_name, "service_healthy") %}
 {% do cron_container.configs.add("crontasks", crontasks(values.nextcloud.cron.tasks), "/crontasks") %}
 {% do cron_container.add_storage(values.consts.html_path, values.storage.html) %}
 {% do cron_container.add_storage(values.consts.data_path, values.storage.data) %}
@@ -216,7 +216,7 @@
   }) %}
   {% do notify_push_container.environment.add_env("NEXTCLOUD_URL", "%s://%s:%s" | format(
     "https" if values.network.certificate_id else "http",
-    values.consts.nginx_container_name, values.network.web_port.port_number
+    values.consts.ngiIx_container_name, values.network.web_port.port_number
   )) %}
   {% do notify_push_container.environment.add_env("CONFIG_FILE", "%s/config/config.php" | format(values.consts.html_path)) %}
   {% do notify_push_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
@@ -249,12 +249,12 @@
     {% do talk_container.add_storage(dir, {"type": "tmpfs"}) %}
   {% endfor %}
 
-  {% do nc_container.environment.add_env("NX_TALK_SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
-  {% do nc_container.environment.add_env("NX_TALK_TURN_SECRET", values.nextcloud.talk.turn_secret) %}
-  {% do nc_container.environment.add_env("NX_TALK_SIGNALING_SERVER", ext_host_port.x) %}
-  {% do nc_container.environment.add_env("NX_TALK_SIGNALING_SERVER_VERIFY", true) %}
-  {% do nc_container.environment.add_env("NX_TALK_STUN_SERVER", "%s:%d"|format(values.consts.talk_container_name, values.network.talk_port.port_number)) %}
-  {% do nc_container.environment.add_env("NX_TALK_TURN_SERVER", "%s:%d"|format(values.consts.talk_container_name, values.network.talk_port.port_number)) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
+  {% do nc_container.environment.add_env("IX_TALK_TURN_SECRET", values.nextcloud.talk.turn_secret) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER", ext_host_port.x) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER_VERIFY", true) %}
+  {% do nc_container.environment.add_env("IX_TALK_STUN_SERVER", "%s:%d"|format(values.consts.talk_container_name, values.network.talk_port.port_number)) %}
+  {% do nc_container.environment.add_env("IX_TALK_TURN_SERVER", "%s:%d"|format(values.consts.talk_container_name, values.network.talk_port.port_number)) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
