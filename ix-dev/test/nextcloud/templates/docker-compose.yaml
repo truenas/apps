@@ -225,7 +225,12 @@
 {% endif %}
 
 {# -- Talk -- #}
+{% do nc_container.environment.add_env("IX_TALK", values.nextcloud.talk.enabled) %}
 {% if values.nextcloud.talk.enabled %}
+  {% if values.nextcloud.urls.protocol != "https" %}
+    {% do tpl.funcs.fail("Nextcloud URL Protocol must be set to HTTPS for talk to work") %}
+  {% endif %}
+
   {% set talk_container = tpl.add_container(values.consts.talk_container_name, "talk_image") %}
   {% do talk_container.set_user(values.run_as.user, values.run_as.group) %}
   {% do talk_container.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
@@ -243,6 +248,13 @@
   {% for dir in ["/var/log/supervisord", "/var/run/supervisord", "/opt/eturnal/run", "/conf", "/tmp"] %}
     {% do talk_container.add_storage(dir, {"type": "tmpfs"}) %}
   {% endfor %}
+
+  {% do nc_container.environment.add_env("NX_TALK_SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
+  {% do nc_container.environment.add_env("NX_TALK_TURN_SECRET", values.nextcloud.talk.turn_secret) %}
+  {% do nc_container.environment.add_env("NX_TALK_SIGNALING_SERVER", ext_host_port.x) %}
+  {% do nc_container.environment.add_env("NX_TALK_SIGNALING_SERVER_VERIFY", true) %}
+  {% do nc_container.environment.add_env("NX_TALK_STUN_SERVER", "%s:%d"|format(values.consts.talk_container_name, values.network.talk_port.port_number)) %}
+  {% do nc_container.environment.add_env("NX_TALK_TURN_SERVER", "%s:%d"|format(values.consts.talk_container_name, values.network.talk_port.port_number)) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
