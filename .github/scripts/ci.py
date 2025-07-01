@@ -62,6 +62,11 @@ def parse_args():
         type=bool,
         help="Wait for user input before stopping the app",
     )
+    parser.add_argument(
+        "--run-host",
+        required=False,
+        help="Run the app on the specified docker host",
+    )
     parsed = parser.parse_args()
 
     return {
@@ -72,6 +77,7 @@ def parse_args():
         "render_only_debug": parsed.render_only_debug,
         "project": secrets.token_hex(16),
         "wait": parsed.wait,
+        "run_host": parsed.run_host,
     }
 
 
@@ -84,6 +90,8 @@ def print_info():
     print_stderr(f"  - render-only: [{args['render_only']}]")
     print_stderr(f"  - render-only-debug: [{args['render_only_debug']}]")
     print_stderr(f"  - wait: [{args['wait']}]")
+    if args["run_host"] is not None:
+        print_stderr(f"  - run-host: [{args['run_host']}]")
 
 
 def command_exists(command):
@@ -100,12 +108,15 @@ def check_required_commands():
 
 def get_base_cmd():
     rendered_compose = "templates/rendered/docker-compose.yaml"
-    return " ".join(
+    cmd = " ".join(
         [
             f"docker compose -p {args['project']} -f",
             f"ix-dev/{args['train']}/{args['app']}/{rendered_compose}",
         ]
     )
+    if args["run_host"] is not None:
+        cmd = f"DOCKER_HOST={args['run_host']} {cmd}"
+    return cmd
 
 
 def pull_app_catalog_container():
