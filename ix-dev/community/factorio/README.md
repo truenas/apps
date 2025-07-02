@@ -1,3 +1,3 @@
-# Factorio Server
+# Factorio
 
-[Factorio Server](https://github.com/factoriotools/factorio-docker) is a Dockerized version of the Factorio dedicated server.
+[Factorio](https://github.com/factoriotools/factorio-docker) headless server in a Docker container
