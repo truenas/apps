@@ -1,3 +1,3 @@
 # Factorio
 
-[Factorio](https://github.com/factoriotools/factorio-docker) headless server in a Docker container
+[Factorio](https://factorio.com/) headless server in a Docker container
