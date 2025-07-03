@@ -302,6 +302,11 @@ module.exports = {
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>cuda|rocm|openvino))?$",
       ["ghcr.io/immich-app/immich-machine-learning"]
     ),
+    customVersioning(
+      // stable-2.0.55
+      "^stable-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["factoriotools/factorio"]
+    ),
   ],
 };
 
