@@ -168,6 +168,14 @@ def test_netcat_healthcheck(mock_values):
     assert output["services"]["test_container"]["healthcheck"]["test"] == "nc -z -w 1 127.0.0.1 8080"
 
 
+def test_netcat_udp_healthcheck(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("netcat", {"port": 8080, "udp": True})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == "nc -z -w 1 -u 127.0.0.1 8080"
+
+
 def test_tcp_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
