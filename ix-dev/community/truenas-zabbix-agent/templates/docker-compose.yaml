@@ -1,0 +1,19 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.truenas_zabbix_agent_container_name, "image") %}
+
+{% do c1.healthcheck.set_custom_test("pgrep zabbix_agent2") %}
+{% do c1.environment.add_env("TRUENAS_URL", values.truenas_zabbix_agent.truenas_url) %}
+{% do c1.environment.add_env("TRUENAS_KEY", values.truenas_zabbix_agent.truenas_key) %}
+{% do c1.environment.add_env("ZBX_SERVER_HOST", values.zabbix.server_host) %}
+{% do c1.environment.add_env("ZBX_PASSIVESERVERS", values.zabbix.passive_servers) %}
+{% do c1.environment.add_env("ZBX_TIMEOUT", values.zabbix.timeout) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.agent_port) %}
+{% endif %}
+
+
+{% do c1.add_storage("/etc/zabbix/zabbix_agentd.d", values.storage.config) %}
+
+{{ tpl.render() | tojson }}
