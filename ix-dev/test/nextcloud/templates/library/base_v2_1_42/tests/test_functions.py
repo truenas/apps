@@ -115,7 +115,7 @@ def test_funcs(mock_values):
         {
             "func": "url_to_dict",
             "values": ["[::]:8080", True],
-            "expected": {"host": "[::]", "port": 8080},
+            "expected": {"host": "[::]", "port": 8080, "host_no_brackets": "::"},
         },
     ]
 
