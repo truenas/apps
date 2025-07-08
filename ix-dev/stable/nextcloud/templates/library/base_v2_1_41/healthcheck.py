@@ -180,8 +180,12 @@ def netcat_test(config: dict) -> str:
     config = config or {}
     port = get_key(config, "port", None, True)
     host = get_key(config, "host", "127.0.0.1", False)
-
-    return f"nc -z -w 1 {host} {port}"
+    udp_mode = get_key(config, "udp", False, False)
+    cmd = ["nc", "-z", "-w", "1"]
+    if udp_mode:
+        cmd.append("-u")
+    cmd.extend([host, str(port)])
+    return " ".join(cmd)
 
 
 def tcp_test(config: dict) -> str:

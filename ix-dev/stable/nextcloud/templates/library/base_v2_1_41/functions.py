@@ -50,12 +50,11 @@ class Functions:
             return lower_str_value == "true"
 
         try:
-            return float(value)
-        except ValueError:
-            pass
-
-        try:
-            return int(value)
+            float_value = float(value)
+            if float_value.is_integer():
+                return int(float_value)
+            else:
+                return float(value)
         except ValueError:
             pass
 
@@ -100,6 +99,29 @@ class Functions:
         if not value:
             return default
         return value
+
+    def _url_to_dict(self, url: str, raise_on_error: bool = False):
+        try:
+            # Try parsing as-is first
+            parsed = urllib.parse.urlparse(url)
+
+            # If we didn't get a hostname, try with http:// prefix
+            if not parsed.hostname:
+                parsed = urllib.parse.urlparse(f"http://{url}")
+
+            # Final check that we have a valid result
+            if not parsed.hostname:
+                raise ValueError("Could not extract hostname from URL")
+
+            return {
+                "host": parsed.hostname,
+                "port": parsed.port,
+            }
+
+        except (ValueError, AttributeError) as e:
+            if raise_on_error:
+                raise RenderError(f"Failed to parse URL [{url}]: {e}")
+            return None
 
     def _require_unique(self, values, key, split_char=""):
         new_values = []
@@ -177,4 +199,5 @@ class Functions:
             "require_unique": self._require_unique,
             "require_no_reserved": self._require_no_reserved,
             "url_encode": self._url_encode,
+            "url_to_dict": self._url_to_dict,
         }
