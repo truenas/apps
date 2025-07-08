@@ -100,9 +100,9 @@
 {% set ext_protocol = "https" if values.network.certificate_id else values.nextcloud.urls.protocol %}
 {% set ext_port = values.nextcloud.urls.external_port or values.network.web_port.port_number %}
 
-{% set parsed = tpl.funcs.url_to_dict(values.nextcloud.urls.host) %}
+{% set parsed_url = tpl.funcs.url_to_dict(values.nextcloud.urls.host) %}
 {% if values.nextcloud.urls.host.endswith("/") %}{% do tpl.funcs.fail("Host must not end with a trailing slash.") %}{% endif %}
-{% if parsed.port %}{% do tpl.funcs.fail("Host must not contain a port number") %}{% endif %}
+{% if parsed_url.port %}{% do tpl.funcs.fail("Host must not contain a port number") %}{% endif %}
 
 {% set port_host = "%s:%d" | format(values.nextcloud.urls.host, ext_port) %}
 {% set ext_host_port = namespace(x=port_host) %}
@@ -117,7 +117,7 @@
 {% do nc_container.environment.add_env("IX_TRUSTED_DOMAINS", ([
   "localhost",
   "docker.internal.healthcheck",
-  values.nextcloud.urls.host,
+  parsed_url.host,
 ] + values.nextcloud.urls.trusted_domains) | unique | list | join(" ")) %}
 
 {% do nc_container.environment.add_env("IX_TRUSTED_PROXIES", values.nextcloud.urls.trusted_proxies | join(" ")) %}
