@@ -102,6 +102,16 @@ def test_funcs(mock_values):
             "values": ["7V!@@%%63r@a5#e!2X9!68g4b"],
             "expected": "7V%21%40%40%25%2563r%40a5%23e%212X9%2168g4b",
         },
+        {
+            "func": "url_to_dict",
+            "values": ["192.168.1.1:8080"],
+            "expected": {"host": "192.168.1.1", "port": 8080},
+        },
+        {
+            "func": "url_to_dict",
+            "values": ["[::]:8080"],
+            "expected": {"host": "::", "port": 8080},
+        },
     ]
 
     for test in tests:

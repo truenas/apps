@@ -99,14 +99,17 @@
 
 {% set ext_protocol = "https" if values.network.certificate_id else values.nextcloud.urls.protocol %}
 {% set ext_port = values.nextcloud.urls.external_port or values.network.web_port.port_number %}
-{% if ":" in values.nextcloud.urls.host or values.nextcloud.urls.host.endswith("/") %}
-  {% do tpl.funcs.fail("Host must not contain a port number or a trailing slash.") %}
-{% endif %}
-{% set port_host = "%s:%d"| format(values.nextcloud.urls.host, ext_port) %}
+
+{% set parsed_url = tpl.funcs.url_to_dict(values.nextcloud.urls.host) %}
+{% if values.nextcloud.urls.host.endswith("/") %}{% do tpl.funcs.fail("Host must not end with a trailing slash.") %}{% endif %}
+{% if parsed_url.port %}{% do tpl.funcs.fail("Host must not contain a port number") %}{% endif %}
+
+{% set port_host = "%s:%d" | format(values.nextcloud.urls.host, ext_port) %}
 {% set ext_host_port = namespace(x=port_host) %}
-{% if port_host.endswith(":443") or port_host.endswith(":80") %}
-  {% set ext_host_port.x = port_host | split(":") | first %}
+{% if ext_port == 443 or ext_port == 80 %}
+  {% set ext_host_port.x = tpl.funcs.url_to_dict(port_host).host %}
 {% endif %}
+
 {% do nc_container.environment.add_env("IX_OVERWRITE_PROTOCOL", ext_protocol) %}
 {% do nc_container.environment.add_env("IX_OVERWRITE_HOST", ext_host_port.x) %}
 {% do nc_container.environment.add_env("IX_OVERWRITE_CLI_URL", "%s://%s" | format(ext_protocol, ext_host_port.x)) %}
@@ -114,7 +117,7 @@
 {% do nc_container.environment.add_env("IX_TRUSTED_DOMAINS", ([
   "localhost",
   "docker.internal.healthcheck",
-  values.nextcloud.urls.host,
+  parsed_url.host,
 ] + values.nextcloud.urls.trusted_domains) | unique | list | join(" ")) %}
 
 {% do nc_container.environment.add_env("IX_TRUSTED_PROXIES", values.nextcloud.urls.trusted_proxies | join(" ")) %}
