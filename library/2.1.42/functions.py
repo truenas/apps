@@ -100,7 +100,7 @@ class Functions:
             return default
         return value
 
-    def _url_to_dict(self, url: str, raise_on_error: bool = False):
+    def _url_to_dict(self, url: str, v6_brackets: bool = False):
         try:
             # Try parsing as-is first
             parsed = urllib.parse.urlparse(url)
@@ -111,17 +111,24 @@ class Functions:
 
             # Final check that we have a valid result
             if not parsed.hostname:
-                raise ValueError("Could not extract hostname from URL")
+                raise RenderError(
+                    f"Failed to parse URL [{url}]. Ensure it is a valid URL with a hostname and optional port."
+                )
 
-            return {
+            result = {
                 "host": parsed.hostname,
                 "port": parsed.port,
             }
+            if v6_brackets and parsed.hostname and ":" in parsed.hostname:
+                result["host"] = f"[{parsed.hostname}]"
+                result["host_no_brackets"] = parsed.hostname
 
-        except (ValueError, AttributeError) as e:
-            if raise_on_error:
-                raise RenderError(f"Failed to parse URL [{url}]: {e}")
-            return None
+            return result
+
+        except Exception:
+            raise RenderError(
+                f"Failed to parse URL [{url}]. Ensure it is a valid URL with a hostname and optional port."
+            )
 
     def _require_unique(self, values, key, split_char=""):
         new_values = []
