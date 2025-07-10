@@ -1,0 +1,162 @@
+groups:
+  - name: portracker Configuration
+    description: Optional environment variables
+  - name: Storage Configuration
+    description: Choose where portracker stores its SQLite database
+  - name: Labels Configuration
+    description: Optional Docker labels to apply
+  - name: Resources Configuration
+    description: CPU and RAM limits
+
+questions:
+  - variable: portracker
+    label: ""
+    group: portracker Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: Web Interface Port
+          description: Port for the portracker web interface
+          schema:
+            type: int
+            default: 4999
+            min: 1024
+            max: 65535
+            required: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: portracker Data Storage
+          description: SQLite DB and configuration files
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  **ixVolume** – TrueNAS creates and manages a dataset automatically  
+                  **Host Path** – Use an existing path on the system
+                schema:
+                  type: string
+                  required: true
+                  immutable: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (existing path)
+                    - value: "ix_volume"
+                      description: ixVolume (auto dataset)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref: ["normalize/ix_volume"]
+                  attrs:
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        immutable: true
+                        default: "data"
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: portracker
+                            description: portracker
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPU limit for portracker
+                schema:
+                  type: int
+                  default: 1
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: RAM limit for portracker
+                schema:
+                  type: int
+                  default: 1024
+                  required: true
