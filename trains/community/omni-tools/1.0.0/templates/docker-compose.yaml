@@ -1,0 +1,17 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.omni_tools_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/robots.txt"}) %}
+{% do c1.environment.add_user_envs(values.omni_tools.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
