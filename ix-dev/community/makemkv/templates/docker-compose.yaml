@@ -1,0 +1,54 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.scrutiny_container_name, "image") %}
+
+{% do c1.set_user(0,0) %}
+{% do c1.set_privileged(true) %}
+{% do c1.add_caps([
+  "CHOWN",
+  "DAC_OVERRIDE",
+  "FSETID",
+  "FOWNER",
+  "MKNOD",
+  "NET_RAW",
+  "SETGID",
+  "SETUID",
+  "SETFCAP",
+  "SETPCAP",
+  "NET_BIND_SERVICE",
+  "SYS_CHROOT",
+  "KILL",
+  "AUDIT_WRITE",
+]) %}
+
+{% do c1.add_storage("/run/udev", {"type": "host_path", "read_only": True, "host_path_config": {"path": "/run/udev"}}) %}
+{% do c1.add_storage("/dev", {"type": "host_path", "read_only": True, "host_path_config": {"path": "/dev"}}) %}
+{% do c1.add_storage(values.consts.config_dir, values.storage.config) %}
+{% do c1.add_storage("/opt/scrutiny/influxdb", values.storage.influxdb) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+  {% do c1.add_port(values.network.influxdb_port, {"container_port": values.consts.internal_influxdb_port}) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.scrutiny.additional_envs) %}
+{% do c1.environment.add_env("SCRUTINY_WEB_LISTEN_HOST", "0.0.0.0") %}
+{# Collector has an init script that has hardcoded 8080 port, so we cannot change that #}
+{% do c1.environment.add_env("SCRUTINY_WEB_LISTEN_PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("SCRUTINY_WEB_INFLUXDB_HOST", "127.0.0.1") %}
+{% do c1.environment.add_env("SCRUTINY_WEB_INFLUXDB_PORT", values.consts.internal_influxdb_port) %}
+{% do c1.environment.add_env("SCRUTINY_WEB_DATABASE_LOCATION", "%s/scrutiny.db"|format(values.consts.config_dir)) %}
+{% do c1.environment.add_env("COLLECTOR_API_ENDPOINT", "http://127.0.0.1:%d"|format(values.consts.internal_web_port)) %}
+
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/health"}) %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+{% do tpl.portals.add(values.network.influxdb_port, {"name": "InfluxDB", "port": values.consts.internal_influxdb_port if values.network.host_network else None}) %}
+
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
