@@ -1,5 +1,5 @@
-# Scrutiny
+# MakeMKV
 
-[Scrutiny](https://github.com/AnalogJ/scrutiny) - Hard Drive S.M.A.R.T Monitoring, Historical Trends & Real World Failure Thresholds
+[MakeMKV](https://www.makemkv.com/) - MakeMKV is your one-click solution to convert video that you own into free and patents-unencumbered format that can be played everywhere
 
-Scrutiny is tool for Hard Drive S.M.A.R.T Monitoring, Historical Trends & Real World Failure Thresholds
+MakeMKV is your one-click solution to convert video that you own into free and patents-unencumbered format that can be played everywhere
