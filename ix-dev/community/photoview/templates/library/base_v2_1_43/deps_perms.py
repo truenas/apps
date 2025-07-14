@@ -190,7 +190,7 @@ def print_chmod_diff(curr_stat, mode):
 
 def perform_action(action):
     if action["read_only"]:
-        print(f"Action [{action['identifier']}] is read-only, skipping...")
+        print(f"Path for action [{action['identifier']}] is read-only, skipping...")
         return
 
     start_time = time.time()
