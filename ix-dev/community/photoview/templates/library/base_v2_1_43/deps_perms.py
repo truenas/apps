@@ -43,6 +43,7 @@ class PermsContainer:
         chmod = action_config.get("chmod", None)
         recursive = action_config.get("recursive", False)
         mount_path = pathlib.Path("/mnt/permission", identifier).as_posix()
+        read_only = volume_config.get("read_only", False)
         is_temporary = False
 
         vol_type = volume_config.get("type", "")
@@ -86,6 +87,7 @@ class PermsContainer:
             "mount_path": mount_path,
             "volume_config": volume_config,
             "action_data": {
+                "read_only": read_only,
                 "mount_path": mount_path,
                 "is_temporary": is_temporary,
                 "identifier": identifier,
@@ -130,7 +132,8 @@ class PermsContainer:
 
         actions_data: list[dict] = []
         for parsed in self.parsed_configs:
-            c.add_storage(parsed["mount_path"], parsed["volume_config"])
+            if not parsed["action_data"]["read_only"]:
+                c.add_storage(parsed["mount_path"], parsed["volume_config"])
             actions_data.append(parsed["action_data"])
 
         actions_data_json = json.dumps(actions_data)
@@ -186,6 +189,10 @@ def print_chmod_diff(curr_stat, mode):
     print(f"Permissions: wanted [{mode}], got [{oct(curr_stat.st_mode)[3:]}].")
 
 def perform_action(action):
+    if action["read_only"]:
+        print(f"Action [{action['identifier']}] is read-only, skipping...")
+        return
+
     start_time = time.time()
     print(f"=== Applying configuration on volume with identifier [{action['identifier']}] ===")
 
