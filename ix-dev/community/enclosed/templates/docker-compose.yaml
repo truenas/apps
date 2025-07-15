@@ -4,11 +4,21 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% set scheme = "https" if values.network.certificate_id else "http" %}
+
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/ping"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/ping", "scheme": scheme}) %}
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("STORAGE_DRIVER_FS_LITE_PATH", values.consts.data_path) %}
 {% do c1.environment.add_env("PUBLIC_BASE_API_URL", "/") %}
+
+{% do c1.environment.add_env("SERVER_USE_HTTPS", scheme == "https") %}
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.environment.add_env("SERVER_HTTPS_KEY", cert.privatekey) %}
+  {% do c1.environment.add_env("SERVER_HTTPS_CERT", cert.certificate) %}
+  {% do c1.environment.add_env("SERVER_HTTPS_CA", cert.certificate) %}
+{% endif %}
 
 {% do c1.environment.add_user_envs(values.enclosed.additional_envs) %}
 
@@ -27,6 +37,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": scheme}) %}
 
 {{ tpl.render() | tojson }}
