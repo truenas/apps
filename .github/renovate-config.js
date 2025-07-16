@@ -282,12 +282,6 @@ module.exports = {
       ["postgis/postgis"]
     ),
     customVersioning(
-      // stable-e043ecf
-      // We need all the groups here because renovate requires them
-      "^stable-(?<major>[Z]?)(?<minor>[Z]?)(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
-      ["ghcr.io/toeverything/affine-graphql"]
-    ),
-    customVersioning(
       // 2.4-dev
       "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
       ["wger/server"]
