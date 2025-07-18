@@ -147,8 +147,8 @@ module.exports = {
       ["storjlabs/storagenode"]
     ),
     customVersioning(
-      // 1.2.3.4, but not 1.2.0.4 (3rd digit 0 equals beta)
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>[1-9]\\d*)\\.(?<build>\\d+)$",
+      // 1.2.3.0, but not 1.2.0.0 (3rd digit 0 equals beta) nor 1.2.0.4 (4th digit non-zero equals beta too)
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>[1-9]\\d*)\\.0$",
       ["emby/embyserver"]
     ),
     customVersioning(
