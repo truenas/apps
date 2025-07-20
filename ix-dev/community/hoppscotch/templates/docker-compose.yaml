@@ -18,15 +18,21 @@
 
 {% set c_migrate = tpl.add_container(values.consts.migrate_container_name, "hoppscotch_backend") %}
 {% do c_migrate.healthcheck.disable() %}
+{% do c_migrate.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c_migrate.set_command(["sh", "-c", "pnpx prisma migrate deploy"]) %}
 
 {% set c_backend = tpl.add_container(values.consts.backend_container_name, "hoppscotch_backend") %}
 {% do c_backend.healthcheck.disable() %}
+{% do c_backend.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c_backend.depends.add_dependency(values.consts.migrate_container_name, "service_completed_successfully") %}
 
 {% set c_frontend = tpl.add_container(values.consts.frontend_container_name, "hoppscotch_frontend") %}
 {% do c_frontend.healthcheck.disable() %}
+{% do c_frontend.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
 
 {% set c_admin = tpl.add_container(values.consts.admin_container_name, "hoppscotch_admin") %}
 {% do c_admin.healthcheck.disable() %}
+{% do c_admin.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
 
 
 {{ tpl.render() | tojson }}
