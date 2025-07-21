@@ -4,3 +4,4 @@
     - redirect url
     - jwt related
     - use of http
+- do oauth providers need https? or secure cookies?
