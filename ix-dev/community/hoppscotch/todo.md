@@ -1,2 +1,6 @@
 - add additional storage?
 - expose redirect url
+- more descriptions for questions
+- assert at least one auth provider is specified
+- assert data encryption key is exactly 32 chars long
+- assert data encryption key characters used?
