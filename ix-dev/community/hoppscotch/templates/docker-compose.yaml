@@ -46,6 +46,8 @@
   "VITE_ALLOWED_AUTH_PROVIDERS": ", ".join(auth_providers),
 }) %}
 
+{% set internal_web_port = 443 %}
+
 {% set c_migrate = tpl.add_container(values.consts.migrate_container_name, "hoppscotch_backend") %}
 {% do c_migrate.healthcheck.disable() %}
 {% do c_migrate.restart.set_policy("on-failure", 1) %}
@@ -53,22 +55,22 @@
 {% do c_migrate.set_command(["sh", "-c", "pnpx prisma migrate deploy"]) %}
 
 {% set c_backend = tpl.add_container(values.consts.backend_container_name, "hoppscotch_backend") %}
-{% do c_backend.healthcheck.disable() %}
+{% do c_backend.healthcheck.set_test("tcp", {"port": values.network.backend_web_port.port_number}) %}
 {% do c_backend.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c_backend.depends.add_dependency(values.consts.migrate_container_name, "service_completed_successfully") %}
 {% do c_backend.add_storage(values.consts.backend_node_volume_path, values.consts.backend_node_volume) %}
+{% do c_backend.add_port(values.network.backend_web_port, {"container_port": internal_web_port}) %}
 
-{#
 {% set c_frontend = tpl.add_container(values.consts.frontend_container_name, "hoppscotch_frontend") %}
-{% do c_frontend.healthcheck.disable() %}
+{% do c_frontend.healthcheck.set_test("tcp", {"port": values.network.frontend_web_port.port_number}) %}
 {% do c_frontend.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
-#}
+{% do c_frontend.add_port(values.network.frontend_web_port, {"container_port": internal_web_port}) %}
+{% do c_frontend.add_port(values.network.app_bundle_port, {"container_port": 3200}) %}
 
-{#
 {% set c_admin = tpl.add_container(values.consts.admin_container_name, "hoppscotch_admin") %}
-{% do c_admin.healthcheck.disable() %}
+{% do c_admin.healthcheck.set_test("tcp", {"port": values.network.admin_web_port.port_number}) %}
 {% do c_admin.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
-#}
+{% do c_admin.add_port(values.network.admin_web_port, {"container_port": internal_web_port}) %}
 
 {% for key, value in envs.x.items() %}
   {% do c_migrate.environment.add_env(key, value) %}
@@ -77,5 +79,7 @@
   {% do c_admin.environment.add_env(key, value) %}
 {% endfor %}
 
+
+{% do tpl.portals.add(values.network.admin_web_port) %}
 
 {{ tpl.render() | tojson }}
