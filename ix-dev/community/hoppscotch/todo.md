@@ -1,5 +1,2 @@
-- test healthchecks
 - add additional storage?
-- expose configs:
-    - redirect url
-- do oauth providers need https? or secure cookies?
+- expose redirect url
