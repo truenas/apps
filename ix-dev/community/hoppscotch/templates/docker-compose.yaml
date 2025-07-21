@@ -98,8 +98,6 @@
   "VITE_BACKEND_API_URL": values.hoppscotch.domains.backend + "/v1",
 }) %}
 
-{% set internal_web_port = 80 %}
-
 {% set c_migrate = tpl.add_container(values.consts.migrate_container_name, "hoppscotch_backend") %}
 {% do c_migrate.healthcheck.disable() %}
 {% do c_migrate.restart.set_policy("on-failure", 1) %}
@@ -111,18 +109,18 @@
 {% do c_backend.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c_backend.depends.add_dependency(values.consts.migrate_container_name, "service_completed_successfully") %}
 {% do c_backend.add_storage(values.consts.backend_node_volume_path, values.consts.backend_node_volume) %}
-{% do c_backend.add_port(values.network.backend_web_port, {"container_port": internal_web_port}) %}
+{% do c_backend.add_port(values.network.backend_web_port, {"container_port": 80}) %}
 
 {% set c_frontend = tpl.add_container(values.consts.frontend_container_name, "hoppscotch_frontend") %}
 {% do c_frontend.healthcheck.set_test("tcp", {"port": values.network.frontend_web_port.port_number}) %}
 {% do c_frontend.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
-{% do c_frontend.add_port(values.network.frontend_web_port, {"container_port": internal_web_port}) %}
+{% do c_frontend.add_port(values.network.frontend_web_port, {"container_port": 80}) %}
 {% do c_frontend.add_port(values.network.app_bundle_port, {"container_port": 3200}) %}
 
 {% set c_admin = tpl.add_container(values.consts.admin_container_name, "hoppscotch_admin") %}
 {% do c_admin.healthcheck.set_test("tcp", {"port": values.network.admin_web_port.port_number}) %}
 {% do c_admin.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
-{% do c_admin.add_port(values.network.admin_web_port, {"container_port": internal_web_port}) %}
+{% do c_admin.add_port(values.network.admin_web_port, {"container_port": 80}) %}
 
 {% for key, value in envs.x.items() %}
   {% do c_migrate.environment.add_env(key, value) %}
