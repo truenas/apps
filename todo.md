@@ -1,2 +1,6 @@
 - add healthchecks
 - add additional storage?
+- expose configs:
+    - redirect url
+    - jwt related
+    - use of http
