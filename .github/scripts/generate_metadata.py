@@ -464,6 +464,7 @@ class AppQuestionsValidator:
             "storageEntry",
             "publicIpDnsProviderEntry",
             "jenkinsJavaOpt",
+            "jenkinsOption",
             "aspellDict",
             "trustedProxy",
             "extraParam",
