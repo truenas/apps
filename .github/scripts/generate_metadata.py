@@ -7,6 +7,7 @@ their metadata with capability requirements extracted from rendered templates.
 """
 
 import os
+import re
 import sys
 import yaml
 import logging
@@ -21,6 +22,8 @@ from dataclasses import dataclass
 class Config:
     CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
     PLATFORM = "linux/amd64"
+
+    RE_VAR_NAME = r"^[a-z0-9_]+$"
 
     # Directory structure
     APPS_ROOT_DIR = "ix-dev"
@@ -448,6 +451,49 @@ class AppQuestionsValidator:
     def __init__(self, file_cache: FileSystemCache):
         self.file_cache = file_cache
 
+    def validate_question(self, question: Dict) -> None:
+        """Validate a single question configuration."""
+        if "variable" not in question:
+            raise ValueError("Question missing variable field")
+
+        variable_name = question["variable"]
+        if variable_name == "TZ":
+            return
+
+        if variable_name not in [
+            "storageEntry",
+            "publicIpDnsProviderEntry",
+            "jenkinsJavaOpt",
+            "jenkinsOption",
+            "aspellDict",
+            "trustedProxy",
+            "extraParam",
+        ]:
+            if not re.match(Config.RE_VAR_NAME, variable_name):
+                raise ValueError(f"Invalid variable name: {variable_name}")
+
+        schema = question["schema"]
+        schema_type = schema["type"]
+        if schema_type == "dict":
+            for attr in schema["attrs"]:
+                self.validate_question(attr)
+        elif schema_type == "list":
+            for item in schema["items"]:
+                self.validate_question(item)
+
+    def validate_variable_names(self, app_manifest: AppManifest) -> None:
+        """Validate that variable names in questions match service names."""
+        questions_path = app_manifest.path / Config.QUESTIONS_FILE
+        if not questions_path.exists():
+            raise FileNotFoundError(f"Questions file not found: {questions_path}")
+
+        questions_config = self.file_cache.read_yaml_file(questions_path)
+        if not isinstance(questions_config, dict):
+            raise ValueError(f"Invalid questions config in {questions_path}")
+
+        for question in questions_config.get("questions", []):
+            self.validate_question(question)
+
     def validate_container_labels_section(self, app_manifest: AppManifest, service_names: List[str]) -> None:
         """Validate that container labels section matches actual service names."""
         questions_path = app_manifest.path / Config.QUESTIONS_FILE
@@ -684,6 +730,9 @@ class TrueNASAppCapabilityManager:
         try:
             # Analyze the app
             analysis_result = self.analyze_single_app(app_manifest)
+
+            # Validate variable names in questions
+            self.questions_validator.validate_variable_names(app_manifest)
 
             # Validate questions configuration
             self.questions_validator.validate_container_labels_section(app_manifest, analysis_result.service_names)
