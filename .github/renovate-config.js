@@ -301,6 +301,11 @@ module.exports = {
       "^stable-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["factoriotools/factorio"]
     ),
+    customVersioning(
+      // 5.15.24.18
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["mbentley/omada-controller"]
+    ),
   ],
 };
 
