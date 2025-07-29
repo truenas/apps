@@ -5,28 +5,15 @@
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["NET_RAW"]) %}
 
-{% if not values.network.host_network %}
-  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-{% else %}
-  {% do c1.set_network_mode("host") %}
-{% endif %}
-
-{% do c1.healthcheck.set_test("curl", {"port": values.portracker.web_port, "path": "/api/health"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
 
 {% do c1.add_storage("/data", values.storage.data) %}
 {% do c1.add_docker_socket() %}
 
 {% do c1.environment.add_env("DATABASE_PATH", "/data/portracker.db") %}
-{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_user_envs(values.portracker.additional_envs) %}
 
-{% for label in values.labels if "portracker" in label.containers %}
-  {% do c1.add_label(label.key, label.value) %}
-{% endfor %}
-
-{% do tpl.portals.add(
-     values.network.web_port,
-     {"port": values.consts.internal_web_port if not values.network.host_network else None}
-   ) %}
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
