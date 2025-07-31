@@ -79,6 +79,7 @@ module.exports = {
       matchFileNames: ["ix-dev/enterprise/**"],
     },
     // Custom versioning matching
+    // https://docs.renovatebot.com/modules/versioning/regex/#rangesconstraints
     customVersioning(
       // There are tags with date format (24.08.0), but newer versions are semver
       // We still limit major to 1 digit, as we don't want to match "24.08.0" as a major version
@@ -281,11 +282,6 @@ module.exports = {
       ["postgis/postgis"]
     ),
     customVersioning(
-      // stable-e043ecf
-      "^stable-(?<patch>[Z]?)(?<build>[a-z0-9]{7})$",
-      ["ghcr.io/toeverything/affine-graphql"]
-    ),
-    customVersioning(
       // 2.4-dev
       "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
       ["wger/server"]
@@ -296,9 +292,19 @@ module.exports = {
       ["ghcr.io/immich-app/postgres"]
     ),
     customVersioning(
-      // v1.134.0-cuda|rocm|openvino
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(cuda|rocm|openvino))?",
+      // v1.134.0(-cuda|rocm|openvino)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>cuda|rocm|openvino))?$",
       ["ghcr.io/immich-app/immich-machine-learning"]
+    ),
+    customVersioning(
+      // stable-2.0.55
+      "^stable-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["factoriotools/factorio"]
+    ),
+    customVersioning(
+      // 5.15.24.18
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["mbentley/omada-controller"]
     ),
   ],
 };
