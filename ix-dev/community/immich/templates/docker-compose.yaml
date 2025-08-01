@@ -27,31 +27,30 @@
 {% do server_container.depends.add_dependency(values.consts.pgvecto_container_name, "service_healthy") %}
 {% do server_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
-{% set base_path = "/usr/src/app/upload" %}
 {% if values.storage.use_old_storage_config %}
   {% set is_install = values.get("ix_context", {}).get("is_install", False) %}
   {% if is_install %}{% do tpl.funcs.fail("Old storage configuration is not supported in new installations.") %}{% endif %}
   {% do tpl.notes.add_deprecation(values.consts.old_storage_warning) %}
 
-  {% do server_container.add_storage("%s/upload"|format(base_path), values.storage.uploads) %}
+  {% do server_container.add_storage("%s/upload"|format(values.consts.base_path), values.storage.uploads) %}
   {% do perm_container.add_or_skip_action("uploads", values.storage.uploads, perms_config) %}
 
-  {% do server_container.add_storage("%s/thumbs"|format(base_path), values.storage.thumbs) %}
+  {% do server_container.add_storage("%s/thumbs"|format(values.consts.base_path), values.storage.thumbs) %}
   {% do perm_container.add_or_skip_action("thumbs", values.storage.thumbs, perms_config) %}
 
-  {% do server_container.add_storage("%s/library"|format(base_path), values.storage.library) %}
+  {% do server_container.add_storage("%s/library"|format(values.consts.base_path), values.storage.library) %}
   {% do perm_container.add_or_skip_action("library", values.storage.library, perms_config) %}
 
-  {% do server_container.add_storage("%s/profile"|format(base_path), values.storage.profile) %}
+  {% do server_container.add_storage("%s/profile"|format(values.consts.base_path), values.storage.profile) %}
   {% do perm_container.add_or_skip_action("profile", values.storage.profile, perms_config) %}
 
-  {% do server_container.add_storage("%s/backups"|format(base_path), values.storage.backups) %}
+  {% do server_container.add_storage("%s/backups"|format(values.consts.base_path), values.storage.backups) %}
   {% do perm_container.add_or_skip_action("backups", values.storage.backups, perms_config) %}
 
-  {% do server_container.add_storage("%s/encoded-video"|format(base_path), values.storage.video) %}
+  {% do server_container.add_storage("%s/encoded-video"|format(values.consts.base_path), values.storage.video) %}
   {% do perm_container.add_or_skip_action("video", values.storage.video, perms_config) %}
 {% else %}
-  {% do server_container.add_storage(base_path, values.storage.data) %}
+  {% do server_container.add_storage(values.consts.base_path, values.storage.data) %}
   {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 {% endif %}
 
@@ -74,6 +73,7 @@
 {% do server_container.environment.add_env("REDIS_PASSWORD", values.immich.redis_password) %}
 {% do server_container.environment.add_env("REDIS_PORT", "6379") %}
 {% do server_container.environment.add_env("REDIS_DBINDEX", "0") %}
+{% do server_container.environment.add_env("IMMICH_MEDIA_LOCATION", values.consts.base_path) %}
 {% do server_container.environment.add_user_envs(values.immich.additional_envs) %}
 
 {% if values.immich.enable_ml %}
