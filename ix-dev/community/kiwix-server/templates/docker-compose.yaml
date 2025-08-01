@@ -1,0 +1,32 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.kiwix_container_name, "image") %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+
+{% if values.kiwix.load_specific_zim_files %}
+  {% for file in values.kiwix.load_specific_zim_files %}
+    {% if "/" in file %}
+      {% do tpl.funcs.fail("Only specify the ZIM file name, not the path. File: %s"|format(file)) %}
+    {% endif %}
+  {% endfor %}
+
+  {% do c1.set_command(values.kiwix.load_zim_files) %}
+{% else %}
+  {% do c1.set_command(["*.zim"]) %}
+{% endif %}
+
+{% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port.port_number}) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_user_envs(values.kiwix.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
