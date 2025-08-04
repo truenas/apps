@@ -98,26 +98,26 @@
   "VITE_BACKEND_API_URL": values.hoppscotch.urls.backend + "/v1",
 }) %}
 
-{% set c_migrate = tpl.add_container(values.consts.migrate_container_name, "hoppscotch_backend") %}
+{% set c_migrate = tpl.add_container(values.consts.migrate_container_name, "image") %}
 {% do c_migrate.healthcheck.disable() %}
 {% do c_migrate.restart.set_policy("on-failure", 1) %}
 {% do c_migrate.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c_migrate.set_command(["sh", "-c", "pnpx prisma migrate deploy"]) %}
 
-{% set c_backend = tpl.add_container(values.consts.backend_container_name, "hoppscotch_backend") %}
+{% set c_backend = tpl.add_container(values.consts.backend_container_name, "image") %}
 {% do c_backend.healthcheck.set_test("tcp", {"port": values.network.backend_web_port.port_number}) %}
 {% do c_backend.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c_backend.depends.add_dependency(values.consts.migrate_container_name, "service_completed_successfully") %}
 {% do c_backend.add_storage(values.consts.backend_node_volume_path, values.consts.backend_node_volume) %}
 {% do c_backend.add_port(values.network.backend_web_port, {"container_port": 80}) %}
 
-{% set c_frontend = tpl.add_container(values.consts.frontend_container_name, "hoppscotch_frontend") %}
+{% set c_frontend = tpl.add_container(values.consts.frontend_container_name, "frontend_image") %}
 {% do c_frontend.healthcheck.set_test("tcp", {"port": values.network.frontend_web_port.port_number}) %}
 {% do c_frontend.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
 {% do c_frontend.add_port(values.network.frontend_web_port, {"container_port": 80}) %}
 {% do c_frontend.add_port(values.network.app_bundle_port, {"container_port": 3200}) %}
 
-{% set c_admin = tpl.add_container(values.consts.admin_container_name, "hoppscotch_admin") %}
+{% set c_admin = tpl.add_container(values.consts.admin_container_name, "admin_image") %}
 {% do c_admin.healthcheck.set_test("tcp", {"port": values.network.admin_web_port.port_number}) %}
 {% do c_admin.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
 {% do c_admin.add_port(values.network.admin_web_port, {"container_port": 80}) %}
