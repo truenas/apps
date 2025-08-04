@@ -6,6 +6,13 @@ This script analyzes Docker Compose configurations for TrueNAS apps and updates
 their metadata with capability requirements extracted from rendered templates.
 """
 
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "pyyaml",
+# ]
+# ///
+
 import os
 import re
 import sys
@@ -464,6 +471,7 @@ class AppQuestionsValidator:
             "storageEntry",
             "publicIpDnsProviderEntry",
             "jenkinsJavaOpt",
+            "jenkinsOption",
             "aspellDict",
             "trustedProxy",
             "extraParam",
