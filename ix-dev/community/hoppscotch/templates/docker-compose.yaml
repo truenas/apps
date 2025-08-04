@@ -1,6 +1,10 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set migrations = tpl.add_container(values.consts.migrations_container_name, "image") %}
+{% set backend = tpl.add_container(values.consts.backend_container_name, "image") %}
+{% set frontend = tpl.add_container(values.consts.frontend_container_name, "frontend_image") %}
+{% set admin = tpl.add_container(values.consts.admin_container_name, "admin_image") %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -8,144 +12,112 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.hoppscotch.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.hoppscotch.postgres_image_selector,pg_config, perm_container) %}
 
-{% set envs = namespace(x={
-  "JWT_SECRET": values.hoppscotch.jwt.jwt_secret,
-  "SESSION_SECRET": values.hoppscotch.jwt.session_secret,
-  "TOKEN_SALT_COMPLEXITY": values.consts.jwt.token_salt_complexity,
-  "MAGIC_LINK_TOKEN_VALIDITY": values.consts.jwt.magic_link_token_validity,
-  "REFRESH_TOKEN_VALIDITY": values.consts.jwt.refresh_token_validity,
-  "ACCESS_TOKEN_VALIDITY": values.consts.jwt.access_token_validity,
-  "SECURE_COOKIES": values.hoppscotch.urls.frontend.startswith("https"),
+{% set containers = [migrations, backend, frontend, admin] %}
+{% for c in containers %}
+  {% set auth_providers = namespace(x=[]) %}
 
-  "DATABASE_URL": postgres.get_url("postgres"),
-  "DATA_ENCRYPTION_KEY": values.hoppscotch.data_encryption_key,
-  "MAILER_SMTP_ENABLE": false,
-  "REDIRECT_URL": "http://hoppscotch-failed-redirect.example.com",
-  "RATE_LIMIT_TTL": values.hoppscotch.rate_limit.ttl,
-  "RATE_LIMIT_MAX": values.hoppscotch.rate_limit.max,
-  "VITE_APP_TOS_LINK": values.hoppscotch.links.tos,
-  "VITE_APP_PRIVACY_POLICY_LINK": values.hoppscotch.links.privacy_policy,
-}) %}
-
-{% set auth_providers = [] %}
-{% if values.hoppscotch.oauth.email.enabled %}
-  {% do auth_providers.append("EMAIL") %}
-  {% do envs.x.update({
-    "MAILER_SMTP_ENABLE": true,
-    "MAILER_USE_CUSTOM_CONFIGS": true,
-    "MAILER_ADDRESS_FROM": values.hoppscotch.oauth.email.address_from,
-    "MAILER_SMTP_SECURE": values.hoppscotch.oauth.email.secure,
-    "MAILER_SMTP_HOST": values.hoppscotch.oauth.email.host,
-    "MAILER_SMTP_PORT": values.hoppscotch.oauth.email.port,
-    "MAILER_SMTP_USER": values.hoppscotch.oauth.email.user,
-    "MAILER_SMTP_PASSWORD": values.hoppscotch.oauth.email.password,
-    "MAILER_TLS_REJECT_UNAUTHORIZED": values.hoppscotch.oauth.email.tls_reject_unauthorized,
-  }) %}
-{% endif %}
-
-{% if values.hoppscotch.oauth.google.enabled %}
-  {% do auth_providers.append("GOOGLE") %}
-  {% do envs.x.update({
-    "GOOGLE_CLIENT_ID": values.hoppscotch.oauth.google.client_id,
-    "GOOGLE_CLIENT_SECRET": values.hoppscotch.oauth.google.client_secret,
-    "GOOGLE_CALLBACK_URL": values.hoppscotch.urls.backend + "/v1/auth/google/callback",
-    "GOOGLE_SCOPE": values.hoppscotch.oauth.google.scope,
-  }) %}
-{% endif %}
-
-{% if values.hoppscotch.oauth.github.enabled %}
-  {% do auth_providers.append("GITHUB") %}
-  {% do envs.x.update({
-    "GITHUB_CLIENT_ID": values.hoppscotch.oauth.github.client_id,
-    "GITHUB_CLIENT_SECRET": values.hoppscotch.oauth.github.client_secret,
-    "GITHUB_CALLBACK_URL": values.hoppscotch.urls.backend + "/v1/auth/github/callback",
-    "GITHUB_SCOPE": values.hoppscotch.oauth.github.scope,
-  }) %}
-{% endif %}
-
-{% if values.hoppscotch.oauth.microsoft.enabled %}
-  {% do auth_providers.append("MICROSOFT") %}
-  {% do envs.x.update({
-    "MICROSOFT_CLIENT_ID": values.hoppscotch.oauth.microsoft.client_id,
-    "MICROSOFT_CLIENT_SECRET": values.hoppscotch.oauth.microsoft.client_secret,
-    "MICROSOFT_CALLBACK_URL": values.hoppscotch.urls.backend + "/v1/auth/microsoft/callback",
-    "MICROSOFT_SCOPE": values.hoppscotch.oauth.microsoft.scope,
-    "MICROSOFT_TENANT": values.hoppscotch.oauth.microsoft.tenant,
-  }) %}
-{% endif %}
-
-{% do envs.x.update({
-  "VITE_ALLOWED_AUTH_PROVIDERS": ", ".join(auth_providers),
-}) %}
-
-{% do envs.x.update({
-  "WHITELISTED_ORIGINS": ",".join([
+  {% do c.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+  {% do c.environment.add_env("DATA_ENCRYPTION_KEY", values.hoppscotch.data_encryption_key) %}
+  {% do c.environment.add_env("VITE_BACKEND_GQL_URL", "%s/graphql" | format(values.hoppscotch.urls.backend)) %}
+  {% do c.environment.add_env("VITE_BACKEND_WS_URL", "ws:%s/graphql" | format(values.hoppscotch.urls.backend)) %}
+  {% do c.environment.add_env("VITE_BACKEND_API_URL", "%s/v1" | format(values.hoppscotch.urls.backend)) %}
+  {% do c.environment.add_env("JWT_SECRET", values.hoppscotch.jwt_secret) %}
+  {% do c.environment.add_env("SESSION_SECRET", values.hoppscotch.session_secret) %}
+  {% do c.environment.add_env("VITE_BASE_URL", values.hoppscotch.urls.frontend)%}
+  {% do c.environment.add_env("VITE_SHORTCODE_BASE_URL", values.hoppscotch.urls.frontend)%}
+  {% do c.environment.add_env("VITE_ADMIN_URL", values.hoppscotch.urls.admin)%}
+  {% do c.environment.add_env("WHITELISTED_ORIGINS", ",".join([
     values.hoppscotch.urls.backend,
     values.hoppscotch.urls.frontend,
     values.hoppscotch.urls.admin,
     values.hoppscotch.urls.app_bundle,
-  ]),
-  "VITE_BASE_URL": values.hoppscotch.urls.frontend,
-  "VITE_ADMIN_URL": values.hoppscotch.urls.admin,
-  "VITE_BACKEND_GQL_URL": values.hoppscotch.urls.backend + "/graphql",
-  "VITE_BACKEND_WS_URL": "ws:" + values.hoppscotch.urls.backend.partition(":")[2] + "/graphql",
-  "VITE_BACKEND_API_URL": values.hoppscotch.urls.backend + "/v1",
-}) %}
+  ]) )%}
 
-{% set c_migrate = tpl.add_container(values.consts.migrate_container_name, "image") %}
-{% do c_migrate.healthcheck.disable() %}
-{% do c_migrate.restart.set_policy("on-failure", 1) %}
-{% do c_migrate.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c_migrate.set_command(["sh", "-c", "pnpx prisma migrate deploy"]) %}
+  {% if values.hoppscotch.oauth.email.enabled %}
+    {% do auth_providers.x.append("EMAIL") %}
+    {% do c.environment.add_env("MAILER_SMTP_ENABLE", true) %}
+    {% do c.environment.add_env("MAILER_USE_CUSTOM_CONFIGS", true) %}
+    {% do c.environment.add_env("MAILER_ADDRESS_FROM", values.hoppscotch.oauth.email.address_from) %}
+    {% do c.environment.add_env("MAILER_SMTP_SECURE", values.hoppscotch.oauth.email.secure) %}
+    {% do c.environment.add_env("MAILER_SMTP_HOST", values.hoppscotch.oauth.email.host) %}
+    {% do c.environment.add_env("MAILER_SMTP_PORT", values.hoppscotch.oauth.email.port) %}
+    {% do c.environment.add_env("MAILER_SMTP_USER", values.hoppscotch.oauth.email.user) %}
+    {% do c.environment.add_env("MAILER_SMTP_PASSWORD", values.hoppscotch.oauth.email.password) %}
+    {% do c.environment.add_env("MAILER_TLS_REJECT_UNAUTHORIZED", values.hoppscotch.oauth.email.tls_reject_unauthorized) %}
+  {% endif %}
 
-{% set c_backend = tpl.add_container(values.consts.backend_container_name, "image") %}
-{% do c_backend.healthcheck.set_test("tcp", {"port": values.network.backend_web_port.port_number}) %}
-{% do c_backend.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c_backend.depends.add_dependency(values.consts.migrate_container_name, "service_completed_successfully") %}
-{% do c_backend.add_storage(values.consts.backend_node_volume_path, values.consts.backend_node_volume) %}
-{% do c_backend.add_port(values.network.backend_web_port, {"container_port": 80}) %}
+  {% if values.hoppscotch.oauth.google.enabled %}
+    {% do auth_providers.x.append("GOOGLE") %}
+    {% do c.environment.add("GOOGLE_CLIENT_ID", values.hoppscotch.oauth.google.client_id)%}
+    {% do c.environment.add("GOOGLE_CLIENT_SECRET", values.hoppscotch.oauth.google.client_secret)%}
+    {% do c.environment.add("GOOGLE_CALLBACK_URL", values.hoppscotch.urls.backend + "/v1/auth/google/callback")%}
+    {% do c.environment.add("GOOGLE_SCOPE", "email,profile")%}
+  {% endif %}
 
-{% set c_frontend = tpl.add_container(values.consts.frontend_container_name, "frontend_image") %}
-{% do c_frontend.healthcheck.set_test("tcp", {"port": values.network.frontend_web_port.port_number}) %}
-{% do c_frontend.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
-{% do c_frontend.add_port(values.network.frontend_web_port, {"container_port": 80}) %}
-{% do c_frontend.add_port(values.network.app_bundle_port, {"container_port": 3200}) %}
+  {% if values.hoppscotch.oauth.github.enabled %}
+    {% do auth_providers.x.append("GITHUB") %}
+    {% do c.environment.add("GITHUB_CLIENT_ID", values.hoppscotch.oauth.github.client_id)%}
+    {% do c.environment.add("GITHUB_CLIENT_SECRET", values.hoppscotch.oauth.github.client_secret)%}
+    {% do c.environment.add("GITHUB_CALLBACK_URL", values.hoppscotch.urls.backend + "/v1/auth/github/callback")%}
+    {% do c.environment.add("GITHUB_SCOPE", "user:email")%}
+  {% endif %}
 
-{% set c_admin = tpl.add_container(values.consts.admin_container_name, "admin_image") %}
-{% do c_admin.healthcheck.set_test("tcp", {"port": values.network.admin_web_port.port_number}) %}
-{% do c_admin.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
-{% do c_admin.add_port(values.network.admin_web_port, {"container_port": 80}) %}
+  {% if values.hoppscotch.oauth.microsoft.enabled %}
+    {% do auth_providers.x.append("MICROSOFT") %}
+    {% do c.environment.add("MICROSOFT_CLIENT_ID", values.hoppscotch.oauth.microsoft.client_id)%}
+    {% do c.environment.add("MICROSOFT_CLIENT_SECRET", values.hoppscotch.oauth.microsoft.client_secret)%}
+    {% do c.environment.add("MICROSOFT_CALLBACK_URL", values.hoppscotch.urls.backend + "/v1/auth/microsoft/callback")%}
+    {% do c.environment.add("MICROSOFT_SCOPE", "user.read")%}
+    {% do c.environment.add("MICROSOFT_TENANT", "common")%}
+  {% endif %}
 
-{% for key, value in envs.x.items() %}
-  {% do c_migrate.environment.add_env(key, value) %}
-  {% do c_backend.environment.add_env(key, value) %}
-  {% do c_frontend.environment.add_env(key, value) %}
-  {% do c_admin.environment.add_env(key, value) %}
+  {% if not auth_providers.x %}
+    {% do tpl.funcs.fail("No OAuth providers are enabled. Please enable at least one.") %}
+  {% endif %}
+
+  {% do c.environment.add_env("VITE_ALLOWED_AUTH_PROVIDERS", ",".join(auth_providers.x)) %}
+
+  {% do c.environment.add_user_envs(values.hoppscotch.additional_envs) %}
+
+  {% for store in values.storage.additional_storage %}
+    {% do c.add_storage(store.mount_path, store) %}
+  {% endfor %}
 {% endfor %}
-{% do c_migrate.environment.add_user_envs(values.hoppscotch.additional_envs) %}
-{% do c_backend.environment.add_user_envs(values.hoppscotch.additional_envs) %}
-{% do c_frontend.environment.add_user_envs(values.hoppscotch.additional_envs) %}
-{% do c_admin.environment.add_user_envs(values.hoppscotch.additional_envs) %}
 
-{% for store in values.storage.additional_storage %}
-  {% do c_backend %}
-{% endfor %}
+{% do migrations.healthcheck.disable() %}
+{% do migrations.restart.set_policy("on-failure", 1) %}
+{% do migrations.deploy.resources.set_profile("low") %}
+{% do migrations.remove_devices() %}
+{% do migrations.set_command(["sh", "-c", "pnpx prisma migrate deploy"]) %}
+{% do migrations.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{% do backend.healthcheck.set_test("curl", {"port": 80, "path": "/ping"}) %}
+{% do backend.depends.add_dependency(values.consts.migrations_container_name, "service_completed_successfully") %}
+{% do backend.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do backend.add_port(values.network.backend_web_port, {"container_port": 80}) %}
+{% do backend.add_storage("/usr/src/app/node_modules", {"type": "anonymous"}) %}
+
+{% do frontend.healthcheck.set_test("curl", {"port": 80, "path": "/ping"}) %}
+{% do frontend.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
+{% do frontend.add_port(values.network.frontend_web_port, {"container_port": 80}) %}
+{% do frontend.add_port(values.network.app_bundle_port, {"container_port": 3200}) %}
+
+{% do admin.healthcheck.set_test("curl", {"port": 80, "path": "/ping"}) %}
+{% do admin.depends.add_dependency(values.consts.backend_container_name, "service_started") %}
+{% do admin.add_port(values.network.admin_web_port, {"container_port": 80}) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
+  {% do migrations.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do backend.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do frontend.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do admin.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do c_migrate.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do c_backend.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do c_frontend.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do c_admin.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.admin_web_port) %}
+{% do tpl.portals.add(values.network.frontend_web_port) %}
+{% do tpl.portals.add(values.network.admin_web_port, {"name": "Admin"}) %}
 
 {{ tpl.render() | tojson }}
