@@ -306,6 +306,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
       ["mbentley/omada-controller"]
     ),
+    customVersioning(
+      // apache-2.37.0
+      "^apache-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["kimai/kimai2"]
+    ),
   ],
 };
 
