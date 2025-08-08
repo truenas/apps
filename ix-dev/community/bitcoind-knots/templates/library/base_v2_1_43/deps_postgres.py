@@ -67,7 +67,14 @@ class PostgresContainer:
         )
 
         repo = self._get_repo(
-            image, ("postgres", "tensorchord/pgvecto-rs", "postgis/postgis", "ghcr.io/immich-app/postgres")
+            image,
+            (
+                "postgres",
+                "postgis/postgis",
+                "pgvector/pgvector",
+                "tensorchord/pgvecto-rs",
+                "ghcr.io/immich-app/postgres",
+            ),
         )
         # eg we don't want to handle upgrades of pg_vector at the moment
         if repo == "postgres":
