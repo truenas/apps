@@ -12,14 +12,15 @@
 
 {% set postgres = tpl.deps.postgres(
   values.consts.postgres_container_name,
-  values.home_assistant.postgres_image_selector,
+  values.wiki_js.postgres_image_selector,
   pg_config, perm_container
 ) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/manifest.json", "scheme": proto, "spider": false}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/health"}) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% do c1.environment.add_user_envs(values.wiki_js.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
@@ -27,8 +28,7 @@
   {% do c1.add_port(port) %}
 {% endfor %}
 
-{% do c1.add_storage("/var/lib/postgresql/data", values.storage.postgres_data) %}
-{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% do postgres.add_storage("/var/lib/postgresql/data", values.storage.postgres_data) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
