@@ -169,6 +169,7 @@ some other info.
     c1.set_privileged(True)
     c1.set_user(0, 0)
     c1.set_ipc_mode("host")
+    c1.set_pid_mode("host")
     c1.set_cgroup("host")
     c1.set_tty(True)
     c1.remove_security_opt("no-new-privileges")
@@ -209,6 +210,7 @@ some other info.
 - Is running as root user
 - Is running as root group
 - Is running with host IPC namespace
+- Is running with host PID namespace
 - Is running with host cgroup namespace
 - Is running without [no-new-privileges] security option
 

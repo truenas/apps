@@ -169,6 +169,7 @@ some other info.
     c1.set_privileged(True)
     c1.set_user(0, 0)
     c1.set_ipc_mode("host")
+    c1.set_pid_mode("host")
     c1.set_cgroup("host")
     c1.set_tty(True)
     c1.remove_security_opt("no-new-privileges")
@@ -177,6 +178,11 @@ some other info.
     c2 = render.add_container("test_container2", "test_image")
     c2.healthcheck.disable()
     c2.set_user(568, 568)
+
+    c3 = render.add_container("test_container3", "test_image")
+    c3.healthcheck.disable()
+    c3.restart.set_policy("on-failure", 1)
+    c3.set_user(568, 568)
 
     output = render.render()
     assert (
@@ -204,6 +210,7 @@ some other info.
 - Is running as root user
 - Is running as root group
 - Is running with host IPC namespace
+- Is running with host PID namespace
 - Is running with host cgroup namespace
 - Is running without [no-new-privileges] security option
 
