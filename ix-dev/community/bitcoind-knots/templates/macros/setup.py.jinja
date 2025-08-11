@@ -3,34 +3,35 @@ import os
 import hmac
 import secrets
 
-print("Updating config...")
+print('Updating bitcoin.conf...')
 
 username = '{{ values.bitcoin.rpc_user }}'
 password = '{{ values.bitcoin.rpc_password }}'
 salt = secrets.token_hex(16)
 password_hmac = hmac.new(salt.encode('utf-8'), password.encode('utf-8'), 'SHA256').hexdigest()
-conf_content = f'rpcauth={username}:{salt}${password_hmac}'
+rpc_auth_line = f'rpcauth={username}:{salt}${password_hmac}'
 conf_path = '{{ values.consts.bitcoin_dir }}/bitcoin.conf'
 
-if not os.path.exists(conf_path):
-    os.makedirs(os.path.dirname(conf_path), exist_ok=True)
-    with open(conf_path, 'w') as f:
-        f.write(conf_content + '\n')
-        print('Config created!')
-else:
+os.makedirs(os.path.dirname(conf_path), exist_ok=True)
+
+try:
     with open(conf_path, 'r') as f:
-        lines = f.readlines()
-    with open(conf_path, 'w') as f:
-        replaced = False
+        content = f.read()
+except FileNotFoundError:
+    content = ''
+
+
+with open(conf_path, 'w') as f:
+    if 'rpcauth=' not in content:
+        print('Adding rpcauth to config...')
+        f.write(rpc_auth_line + '\n' + content)
+    else:
+        lines = content.split('\n')
         for line in lines:
             if line.startswith('rpcauth='):
-                f.write(conf_content + '\n')
-                replaced = True
-            else:
-                f.write(line)
-        if not replaced:
-            f.write(conf_content + '\n')
-        print('Config updated!')
+                line = rpc_auth_line
+            f.write(line + '\n')
+    print('Config updated!')
 
 exit(0)
 {%- endmacro -%}
