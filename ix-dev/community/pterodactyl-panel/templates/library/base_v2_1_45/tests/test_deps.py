@@ -156,7 +156,7 @@ def test_add_redis_with_password_with_spaces(mock_values):
 
 
 def test_add_redis(mock_values):
-    mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
+    mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -181,7 +181,7 @@ def test_add_redis(mock_values):
         output["services"]["test_container"]["environment"]["REDIS_URL"]
         == "redis://default:test%26password%40@redis_container:6379"
     )
-    assert output["services"]["redis_container"]["image"] == "redis:latest"
+    assert output["services"]["redis_container"]["image"] == "valkey/valkey:latest"
     assert output["services"]["redis_container"]["user"] == "1001:0"
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
@@ -315,7 +315,7 @@ def test_add_perms_container(mock_values):
         "test_dataset3": "/mnt/test/3",
     }
     mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "17"}
-    mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
+    mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
     mock_values["images"]["mariadb_image"] = {"repository": "mariadb", "tag": "latest"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
