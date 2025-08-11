@@ -78,6 +78,8 @@ class Notes:
 
             if c._ipc_mode == "host":
                 self._security[name].append("Is running with host IPC namespace")
+            if c._pid_mode == "host":
+                self._security[name].append("Is running with host PID namespace")
             if c._cgroup == "host":
                 self._security[name].append("Is running with host cgroup namespace")
             if "no-new-privileges=true" not in c._security_opt.render():
@@ -111,7 +113,7 @@ class Notes:
         if self._security:
             result += "## Security\n\n"
             for c_name, security in self._security.items():
-                if SHORT_LIVED in security and len(security) == 0:
+                if SHORT_LIVED in security and len(security) == 1:
                     continue
                 result += f"### Container: [{c_name}]"
                 if SHORT_LIVED in security:

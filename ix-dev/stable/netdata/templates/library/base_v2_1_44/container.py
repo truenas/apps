@@ -26,6 +26,7 @@ try:
         valid_cgroup_or_raise,
         valid_ipc_mode_or_raise,
         valid_network_mode_or_raise,
+        valid_pid_mode_or_raise,
         valid_port_bind_mode_or_raise,
         valid_port_mode_or_raise,
         valid_pull_policy_or_raise,
@@ -55,6 +56,7 @@ except ImportError:
         valid_cgroup_or_raise,
         valid_ipc_mode_or_raise,
         valid_network_mode_or_raise,
+        valid_pid_mode_or_raise,
         valid_port_bind_mode_or_raise,
         valid_port_mode_or_raise,
         valid_pull_policy_or_raise,
@@ -92,6 +94,7 @@ class Container:
         self._storage: Storage = Storage(self._render_instance, self)
         self._tmpfs: Tmpfs = Tmpfs(self._render_instance, self)
         self._ipc_mode: str | None = None
+        self._pid_mode: str | None = None
         self._cgroup: str | None = None
         self._device_cgroup_rules: DeviceCGroupRules = DeviceCGroupRules(self._render_instance)
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)
@@ -207,6 +210,9 @@ class Container:
 
     def set_ipc_mode(self, ipc_mode: str):
         self._ipc_mode = valid_ipc_mode_or_raise(ipc_mode, self._render_instance.container_names())
+
+    def set_pid_mode(self, mode: str = ""):
+        self._pid_mode = valid_pid_mode_or_raise(mode, self._render_instance.container_names())
 
     def add_device_cgroup_rule(self, dev_grp_rule: str):
         self._device_cgroup_rules.add_rule(dev_grp_rule)
@@ -346,6 +352,9 @@ class Container:
 
         if self._ipc_mode is not None:
             result["ipc"] = self._ipc_mode
+
+        if self._pid_mode is not None:
+            result["pid"] = self._pid_mode
 
         if self._device_cgroup_rules.has_rules():
             result["device_cgroup_rules"] = self._device_cgroup_rules.render()
