@@ -36,7 +36,7 @@ class RedisContainer:
         valid_redis_password_or_raise(config["password"])
 
         port = valid_port_or_raise(self._get_port())
-        repo = self._get_repo(image, ("redis", "valkey/valkey"))
+        self._get_repo(image, ("redis", "valkey/valkey"))
 
         user, group = 568, 568
         run_as = render_instance.values.get("run_as")

@@ -157,6 +157,7 @@ def test_add_redis_with_password_with_spaces(mock_values):
 
 def test_add_redis(mock_values):
     mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
+    mock_values["run_as"] = {"user": 0, "group": 0}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
