@@ -47,14 +47,11 @@ class RedisContainer:
         c.set_user(user, group)
         c.remove_devices()
         c.healthcheck.set_test("redis")
+
         cmd = []
-        if repo == "redis":
-            cmd.append("redis-server")
-        elif repo == "valkey":
-            cmd.append("valkey-server")
         cmd.extend(["--port", str(port)])
-        c.environment.add_env("REDIS_PASSWORD", config["password"])
         cmd.extend(["--requirepass", config["password"]])
+        c.environment.add_env("REDIS_PASSWORD", config["password"])
         c.set_command(cmd)
 
         c.add_storage("/data", config["volume"])
