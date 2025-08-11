@@ -197,7 +197,7 @@ def test_add_redis(mock_values):
         {
             "type": "volume",
             "source": "test_volume",
-            "target": "/bitnami/redis/data",
+            "target": "/data",
             "read_only": False,
             "volume": {"nocopy": False},
         }
@@ -207,9 +207,7 @@ def test_add_redis(mock_values):
         "UMASK": "002",
         "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
-        "ALLOW_EMPTY_PASSWORD": "no",
         "REDIS_PASSWORD": "test&password@",
-        "REDIS_PORT_NUMBER": "6379",
     }
     assert output["services"]["redis_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
