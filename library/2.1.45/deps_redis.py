@@ -36,21 +36,31 @@ class RedisContainer:
         valid_redis_password_or_raise(config["password"])
 
         port = valid_port_or_raise(self._get_port())
-        self._get_repo(image, ("bitnami/redis"))
+        repo = self._get_repo(image, ("redis", "valkey/valkey"))
 
+        user, group = 568, 568
+        run_as = render_instance.values.get("run_as")
+        if run_as:
+            user = run_as["user"]
+            group = run_as["group"]
         c = self._render_instance.add_container(name, image)
-        c.set_user(1001, 0)
-        c.healthcheck.set_test("redis")
+        c.set_user(user, group)
         c.remove_devices()
-
-        c.add_storage("/bitnami/redis/data", config["volume"])
-        perms_instance.add_or_skip_action(
-            f"{self._name}_redis_data", config["volume"], {"uid": 1001, "gid": 0, "mode": "check"}
-        )
-
-        c.environment.add_env("ALLOW_EMPTY_PASSWORD", "no")
+        c.healthcheck.set_test("redis")
+        cmd = []
+        if repo == "redis":
+            cmd.append("redis-server")
+        elif repo == "valkey":
+            cmd.append("valkey-server")
+        cmd.extend(["--port", str(port)])
         c.environment.add_env("REDIS_PASSWORD", config["password"])
-        c.environment.add_env("REDIS_PORT_NUMBER", port)
+        cmd.extend(["--requirepass", config["password"]])
+        c.set_command(cmd)
+
+        c.add_storage("/data", config["volume"])
+        perms_instance.add_or_skip_action(
+            f"{self._name}_redis_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
+        )
 
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
