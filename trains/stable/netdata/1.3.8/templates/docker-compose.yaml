@@ -1,0 +1,55 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.netdata_container_name, "image") %}
+
+{% set caps = namespace(x=["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "SYS_PTRACE"]) %}
+{% set debs = namespace(x=[]) %}
+{% do debs.x.extend(values.netdata.additional_deb_packages) %}
+
+{% if values.netdata.enable_smart %}
+  {% do caps.x.append("SYS_RAWIO") %}
+  {% do debs.x.append("smartmontools") %}
+{% endif %}
+{% if values.netdata.enable_intel_gpu %}
+  {% do debs.x.append("intel-gpu-tools") %}
+{% endif %}
+{% set final_debs = debs.x|unique|list %}
+
+{% do c1.add_caps(caps.x) %}
+{% do c1.set_pid_mode("host") %}
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.add_security_opt("apparmor", "unconfined") %}
+
+{% do c1.healthcheck.set_custom_test("/usr/sbin/health.sh") %}
+
+{% do c1.environment.add_env("NETDATA_LISTENER_PORT", values.network.web_port.port_number) %}
+{% if final_debs %}
+  {% do c1.environment.add_env("NETDATA_EXTRA_DEB_PACKAGES", final_debs|join(" ")) %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.netdata.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% for dev in values.netdata.devices %}
+  {% do c1.devices.add_device(dev.host_device, dev.container_device, "r") %}
+{% endfor %}
+
+{% do c1.add_docker_socket() %}
+{% do c1.add_storage("/host/etc/os-release", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/os-release"}}) %}
+{% do c1.add_storage("/host/sys", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/sys"}}) %}
+{% do c1.add_storage("/host/proc", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/proc"}}) %}
+{% do c1.add_storage("/host/etc/passwd", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/passwd"}}) %}
+{% do c1.add_storage("/host/etc/group", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/group"}}) %}
+{% do c1.add_storage("/host/etc/hostname", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/etc/hostname"}}) %}
+
+{% do c1.add_storage("/etc/netdata", values.storage.config) %}
+{% do c1.add_storage("/var/cache/netdata", values.storage.cache) %}
+{% do c1.add_storage("/var/lib/netdata", values.storage.lib) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"path": "/v3"}) %}
+
+{{ tpl.render() | tojson }}
