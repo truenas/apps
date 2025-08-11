@@ -22,7 +22,7 @@
 {% do setup.configs.add("config_setup", setup_script(values), "/setup.py", "0777") %}
 {% do setup.restart.set_policy("on-failure", 1) %}
 {% do setup.set_entrypoint(["python3", "/setup.py"]) %}
-{% do setup.add_storage("/bitcoin/.bitcoin", values.storage.bitcoin) %}
+{% do setup.add_storage(values.consts.bitcoin_dir, values.storage.bitcoin) %}
 
 {% set bitcoind = tpl.add_container(values.consts.bitcoind_container_name, "image") %}
 {% do bitcoind.set_user(values.run_as.user, values.run_as.group) %}
@@ -109,6 +109,12 @@
 
 {% do bitcoind.set_command(commands.x) %}
 
+{% if not values.network.host_network %}
+  {% do bitcoind.add_port(values.network.rpc_port) %}
+  {% do bitcoind.add_port(values.network.p2p_clearnet_port) %}
+  {% do bitcoind.add_port(values.network.p2p_tor_port) %}
+{% endif %}
+
 {% do bitcoind.add_storage(values.consts.bitcoin_dir, values.storage.bitcoin) %}
 {% do perm_container.add_or_skip_action("bitcoin", values.storage.bitcoin, perm_config) %}
 
@@ -116,12 +122,6 @@
   {% do bitcoind.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
 {% endfor %}
-
-{% if not values.network.host_network %}
-  {% do bitcoind.add_port(values.network.rpc_port) %}
-  {% do bitcoind.add_port(values.network.p2p_clearnet_port) %}
-  {% do bitcoind.add_port(values.network.p2p_tor_port) %}
-{% endif %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
