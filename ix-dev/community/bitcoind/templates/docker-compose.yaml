@@ -27,14 +27,10 @@
 {% set bitcoind = tpl.add_container(values.consts.bitcoind_container_name, "image") %}
 {% do bitcoind.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do bitcoind.healthcheck.set_test("tcp", {"port": values.network.rpc_port.port_number}) %}
+{% do bitcoind.depends.add_dependency(values.consts.setup_container_name, "service_completed_successfully") %}
 
-{% for flag in values.bitcoin.additional_flags %}
-  {% for reserved_flag in values.consts.reserved_flags %}
-    {% if flag.startswith(reserved_flag) %}
-      {% do tpl.funcs.fail("Flag [%s] is reserved and cannot be set." | format(flag)) %}
-    {% endif %}
-  {% endfor %}
-{% endfor %}
+{% do tpl.funcs.require_unique(values.bitcoin.additional_args, "Additional args") %}
+{% do tpl.funcs.require_no_reserved(values.bitcoin.additional_args, "Additional args", values.consts.reserved_args, starts_with=true) %}
 
 {% set GB_TO_MIB = 953.674 %}
 {% set MB_TO_MIB = 0.953674 %}
@@ -62,10 +58,10 @@
   {% do commands.x.append("-proxy=%s:%d" | format(values.bitcoin.tor_ip, values.bitcoin.tor_port)) %}
 {% endif %}
 
-{% do commands.x.append("-listenonion=%d" | format(1 if values.bitcoin.tor_incoming_enabled else 0)) %}
+{% do commands.x.append("-listenonion=%d" | format(values.bitcoin.tor_incoming_enabled | int)) %}
 
 {% if values.bitcoin.tor_incoming_enabled %}
-  {% do commands.x.append("-externalip=%s" | format (values.bitcoin.tor_incoming_address))%}
+  {% do commands.x.append("-externalip=%s" | format(values.bitcoin.tor_incoming_address)) %}
 {% endif %}
 
 {% if values.bitcoin.tor_outgoing_enabled or values.bitcoin.tor_incoming_enabled %}
@@ -77,14 +73,14 @@
   {% do commands.x.append("-onlynet=i2p") %}
 {% endif %}
 
-{% do commands.x.append("-i2pacceptincoming=%d" | format(1 if values.bitcoin.i2p_incoming_enabled else 0)) %}
+{% do commands.x.append("-i2pacceptincoming=%d" | format(values.bitcoin.i2p_incoming_enabled | int)) %}
 
 {% if values.bitcoin.i2p_outgoing_enabled or values.bitcoin.i2p_incoming_enabled %}
   {% do commands.x.append("-i2psam=%s:%d" | format(values.bitcoin.i2p_ip, values.bitcoin.i2p_port)) %}
 {% endif %}
 
 {# REST #}
-{% do commands.x.append("-rest=%d" | format(1 if values.bitcoin.public_rest_api_enabled else 0)) %}
+{% do commands.x.append("-rest=%d" | format(values.bitcoin.public_rest_api_enabled | int)) %}
 
 {# RPC #}
 {% do commands.x.append("-rpcbind=0.0.0.0:%d" | format(values.network.rpc_port.port_number)) %}
@@ -93,9 +89,9 @@
 {% do commands.x.append("-rpcworkqueue=%d" | format(values.bitcoin.rpc_work_queue_size)) %}
 
 {# Filters #}
-{% do commands.x.append("-peerblockfilters=%d" | format(1 if values.bitcoin.peer_block_filters_enabled else 0)) %}
-{% do commands.x.append("-blockfilterindex=%d" | format(1 if values.bitcoin.block_filter_index_enabled else 0)) %}
-{% do commands.x.append("-peerbloomfilters=%d" | format(1 if values.bitcoin.peer_bloom_filters_enabled else 0)) %}
+{% do commands.x.append("-peerblockfilters=%d" | format(values.bitcoin.peer_block_filters_enabled | int)) %}
+{% do commands.x.append("-blockfilterindex=%d" | format(values.bitcoin.block_filter_index_enabled | int)) %}
+{% do commands.x.append("-peerbloomfilters=%d" | format(values.bitcoin.peer_bloom_filters_enabled | int)) %}
 
 {# Connections #}
 {% do commands.x.append("-bantime=%d" | format(values.bitcoin.peer_ban_time)) %}
@@ -109,13 +105,13 @@
 {# Others #}
 {% do commands.x.append("-dbcache=%d" | format(values.bitcoin.cache_size * MB_TO_MIB)) %}
 {% do commands.x.append("-prune=%d" | format(values.bitcoin.prune_size * GB_TO_MIB)) %}
-{% do commands.x.append("-txindex=%d" | format(0 if values.bitcoin.prune_size else 1)) %}
-{% do commands.x.append("-datacarrier=%d" | format(1 if values.bitcoin.op_return_txs_relay_enabled else 0)) %}
+{% do commands.x.append("-txindex=%d" | format(values.bitcoin.prune_size | int)) %}
+{% do commands.x.append("-datacarrier=%d" | format(values.bitcoin.op_return_txs_relay_enabled | int)) %}
 {% do commands.x.append("-datacarriersize=%d" | format(values.bitcoin.max_op_return_size)) %}
-{% do commands.x.append("-permitbaremultisig=%d" | format(1 if values.bitcoin.bare_multisig_txs_relay_enabled else 0)) %}
+{% do commands.x.append("-permitbaremultisig=%d" | format(values.bitcoin.bare_multisig_txs_relay_enabled | int)) %}
 {% do commands.x.append("-maxmempool=%d" | format(values.bitcoin.max_mempool_size)) %}
 {% do commands.x.append("-mempoolexpiry=%d" | format(values.bitcoin.mempool_expiry)) %}
-{% do commands.x.append("-persistmempool=%d" | format(1 if values.bitcoin.mempool_persist_enabled else 0)) %}
+{% do commands.x.append("-persistmempool=%d" | format(values.bitcoin.mempool_persist_enabled | int)) %}
 {% do commands.x.append("-maxorphantx=%d" | format(values.bitcoin.max_orphan_txs)) %}
 
 {% for flag in values.bitcoin.additional_flags %}
