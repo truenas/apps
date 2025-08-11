@@ -3,9 +3,20 @@
 {% set c1 = tpl.add_container(values.consts.anything_llm_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+{% set scheme = "https" if values.network.certificate_id else "http" %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/v1/api/health"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/v1/api/health", "scheme": scheme}) %}
+
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("ENABLE_HTTPS", "true") %}
+  {% do c1.environment.add_env("HTTPS_KEY_PATH", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("HTTPS_CERT_PATH", values.consts.ssl_cert_path) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
 
 {% do c1.environment.add_env("JWT_SECRET", values.anything_llm.jwt_secret) %}
 {% do c1.environment.add_env("SIG_KEY", values.anything_llm.sig_key) %}
@@ -29,10 +40,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": scheme}) %}
 
 {{ tpl.render() | tojson }}
-
-{# #ENABLE_HTTPS="true"
-#HTTPS_CERT_PATH="sslcert/cert.pem"
-#HTTPS_KEY_PATH="sslcert/key.pem" #}
