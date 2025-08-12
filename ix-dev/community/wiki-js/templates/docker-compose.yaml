@@ -2,6 +2,7 @@
 
 {% set c1 = tpl.add_container(values.consts.wiki_js_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.wiki_js_db_user,
@@ -19,9 +20,9 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/health"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-{% do c1.environment.add_env("DB_TYPE", "postgres") %}
+{% do c1.environment.add_env("DB_TYPE", values.consts.wiki_js_db_type) %}
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("DB_PORT", values.consts.wiki_js_db_port) %}
 {% do c1.environment.add_env("DB_USER", values.consts.wiki_js_db_user) %}
