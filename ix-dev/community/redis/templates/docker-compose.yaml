@@ -4,16 +4,27 @@
 
 {% set c1 = tpl.add_container(values.consts.redis_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_custom_test(
   "redis-cli -p %s %s ping | grep -q PONG" | format(values.network.tcp_port.port_number, "" if values.redis.allow_empty_password else '-a "$REDIS_PASSWORD"')
 ) %}
 
-{% do c1.environment.add_env("REDIS_PORT_NUMBER", values.network.tcp_port.port_number) %}
-{% do c1.environment.add_env("ALLOW_EMPTY_PASSWORD", "yes" if values.redis.allow_empty_password else "no") %}
-{% do c1.environment.add_env("REDIS_PASSWORD", "" if values.redis.allow_empty_password else values.redis.password) %}
+{% if (not values.redis.allow_empty_password) and (not values.redis.password) %}
+  {% do tpl.funcs.fail("redis.password or redis.allow_empty_password must be set") %}
+{% endif %}
+
+{% set cmd = namespace(x=[
+  "redis-server",
+  "--port", values.network.tcp_port.port_number,
+]) %}
+{% if not values.redis.allow_empty_password %}
+  {% do cmd.x.extend(["--requirepass", values.redis.password]) %}
+{% endif %}
+{% do c1.set_command(cmd.x) %}
+
+{% do c1.environment.add_env("REDIS_PASSWORD", values.redis.password) %}
 {% do c1.environment.add_user_envs(values.redis.additional_envs) %}
 
 {% do c1.add_port(values.network.tcp_port) %}
