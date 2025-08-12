@@ -1,0 +1,132 @@
+{% from "macros/setup.py.jinja" import setup_script %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% if values.bitcoin.tor_outgoing_enabled or values.bitcoin.tor_incoming_enabled or values.bitcoin.clearnet_outgoing_via_tor_enabled %}
+  {% if not values.bitcoin.tor_ip %}{% do tpl.funcs.fail("Tor IP is required with the given configuration.") %}{% endif %}
+  {% if not values.bitcoin.tor_port %}{% do tpl.funcs.fail("Tor Port is required with the given configuration.") %}{% endif %}
+{% endif %}
+
+{% if values.bitcoin.i2p_outgoing_enabled or values.bitcoin.i2p_incoming_enabled %}
+  {% if not values.bitcoin.i2p_ip %}{% do tpl.funcs.fail("I2P IP is required with the given configuration.") %}{% endif %}
+  {% if not values.bitcoin.i2p_port %}{% do tpl.funcs.fail("I2P Port is required with the given configuration.") %}{% endif %}
+{% endif %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+
+{% set setup = tpl.add_container(values.consts.setup_container_name, "python_image") %}
+{% do setup.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do setup.deploy.resources.set_profile("low") %}
+{% do setup.remove_devices() %}
+{% do setup.healthcheck.disable() %}
+{% do setup.configs.add("config_setup", setup_script(values), "/setup.py", "0777") %}
+{% do setup.restart.set_policy("on-failure", 1) %}
+{% do setup.set_entrypoint(["python3", "/setup.py"]) %}
+{% do setup.add_storage(values.consts.bitcoin_dir, values.storage.bitcoin) %}
+
+{% set bitcoind = tpl.add_container(values.consts.bitcoind_container_name, "image") %}
+{% do bitcoind.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do bitcoind.healthcheck.set_test("tcp", {"port": values.network.rpc_port.port_number}) %}
+{% do bitcoind.depends.add_dependency(values.consts.setup_container_name, "service_completed_successfully") %}
+
+{% do tpl.funcs.require_unique(values.bitcoin.additional_args, "Additional args") %}
+{% do tpl.funcs.require_no_reserved(values.bitcoin.additional_args, "Additional args", values.consts.reserved_args, starts_with=true) %}
+
+{% set GB_TO_MIB = 953.674 %}
+{% set MB_TO_MIB = 0.953674 %}
+
+{% do bitcoind.set_entrypoint(["bitcoind"]) %}
+{% set commands = namespace(x=[
+  "-server=1",
+  "-listenonion=%d" | format(values.bitcoin.tor_incoming_enabled | int),
+  "-i2pacceptincoming=%d" | format(values.bitcoin.i2p_incoming_enabled | int),
+  "-rest=%d" | format(values.bitcoin.public_rest_api_enabled | int),
+  "-rpcbind=0.0.0.0:%d" | format(values.network.rpc_port.port_number),
+  "-rpcallowip=0.0.0.0/0",
+  "-rpcworkqueue=%d" | format(values.bitcoin.rpc_work_queue_size),
+  "-peerblockfilters=%d" | format(values.bitcoin.peer_block_filters_enabled | int),
+  "-blockfilterindex=%d" | format(values.bitcoin.block_filter_index_enabled | int),
+  "-peerbloomfilters=%d" | format(values.bitcoin.peer_bloom_filters_enabled | int),
+  "-bantime=%d" | format(values.bitcoin.peer_ban_time),
+  "-maxconnections=%d" | format(values.bitcoin.max_peer_connections),
+  "-maxreceivebuffer=%d" | format(values.bitcoin.max_receive_buffer),
+  "-maxsendbuffer=%d" | format(values.bitcoin.max_send_buffer),
+  "-peertimeout=%d" | format(values.bitcoin.peer_timeout),
+  "-timeout=%d" | format(values.bitcoin.connection_timeout),
+  "-maxuploadtarget=%d" | format(values.bitcoin.max_upload_target),
+  "-dbcache=%d" | format(values.bitcoin.cache_size * MB_TO_MIB),
+  "-prune=%d" | format(values.bitcoin.prune_size * GB_TO_MIB),
+  "-txindex=%d" | format(values.bitcoin.prune_size == 0 | int),
+  "-datacarrier=%d" | format(values.bitcoin.op_return_txs_relay_enabled | int),
+  "-datacarriersize=%d" | format(values.bitcoin.max_op_return_size),
+  "-permitbaremultisig=%d" | format(values.bitcoin.bare_multisig_txs_relay_enabled | int),
+  "-maxmempool=%d" | format(values.bitcoin.max_mempool_size),
+  "-mempoolexpiry=%d" | format(values.bitcoin.mempool_expiry),
+  "-persistmempool=%d" | format(values.bitcoin.mempool_persist_enabled | int),
+  "-maxorphantx=%d" | format(values.bitcoin.max_orphan_txs),
+]) %}
+
+{# Clearnet #}
+{% if values.bitcoin.clearnet_outgoing_enabled %}
+  {% do commands.x.append("-onlynet=ipv4") %}
+  {% do commands.x.append("-onlynet=ipv6") %}
+{% endif %}
+
+{% if values.network.p2p_clearnet_port.bind_mode and values.bitcoin.clearnet_incoming_enabled %}
+  {% do commands.x.append("-listen=1") %}
+  {% do commands.x.append("-port=%d" | format(values.network.p2p_clearnet_port.port_number)) %}
+{% endif %}
+
+{# Tor #}
+{% if values.bitcoin.tor_outgoing_enabled %}
+  {% do commands.x.append("-onlynet=onion") %}
+{% endif %}
+
+{% if values.bitcoin.clearnet_outgoing_via_tor_enabled %}
+  {% do commands.x.append("-proxy=%s:%d" | format(values.bitcoin.tor_ip, values.bitcoin.tor_port)) %}
+{% endif %}
+
+{% if values.bitcoin.tor_incoming_enabled %}
+  {% do commands.x.append("-externalip=%s" | format(values.bitcoin.tor_incoming_address)) %}
+{% endif %}
+
+{% if values.bitcoin.tor_outgoing_enabled or values.bitcoin.tor_incoming_enabled %}
+  {% do commands.x.append("-onion=%s:%d" | format(values.bitcoin.tor_ip, values.bitcoin.tor_port)) %}
+{% endif %}
+
+{# I2P #}
+{% if values.bitcoin.i2p_outgoing_enabled %}
+  {% do commands.x.append("-onlynet=i2p") %}
+{% endif %}
+
+{% if values.bitcoin.i2p_outgoing_enabled or values.bitcoin.i2p_incoming_enabled %}
+  {% do commands.x.append("-i2psam=%s:%d" | format(values.bitcoin.i2p_ip, values.bitcoin.i2p_port)) %}
+{% endif %}
+
+{% for flag in values.bitcoin.additional_flags %}
+  {% do commands.x.append(flag) %}
+{% endfor %}
+
+{% do bitcoind.set_command(commands.x) %}
+
+{% if not values.network.host_network %}
+  {% do bitcoind.add_port(values.network.rpc_port) %}
+  {% do bitcoind.add_port(values.network.p2p_clearnet_port) %}
+  {% do bitcoind.add_port(values.network.p2p_tor_port) %}
+{% endif %}
+
+{% do bitcoind.add_storage(values.consts.bitcoin_dir, values.storage.bitcoin) %}
+{% do perm_container.add_or_skip_action("bitcoin", values.storage.bitcoin, perm_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do bitcoind.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do bitcoind.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do setup.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
