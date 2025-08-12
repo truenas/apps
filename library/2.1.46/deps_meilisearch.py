@@ -36,7 +36,7 @@ class MeilisearchContainer:
         c = self._render_instance.add_container(name, image)
 
         user, group = 568, 568
-        run_as = render_instance.values.get("run_as")
+        run_as = self._render_instance.values.get("run_as")
         if run_as:
             user = run_as["user"] or user  # Avoids running as root
             group = run_as["group"] or group  # Avoids running as root
