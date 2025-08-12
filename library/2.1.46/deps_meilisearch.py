@@ -47,7 +47,6 @@ class MeilisearchContainer:
         c.add_storage(self._data_dir, config["volume"])
 
         c.environment.add_env("MEILI_HTTP_ADDR", f"0.0.0.0:{self._get_port()}")
-        c.environment.add_env("MEILI_ENV", "production")
         c.environment.add_env("MEILI_NO_ANALYTICS", True)
         c.environment.add_env("MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE", True)
         c.environment.add_env("MEILI_MASTER_KEY", config["master_key"])
