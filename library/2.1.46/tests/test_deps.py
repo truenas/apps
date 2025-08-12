@@ -668,7 +668,6 @@ def test_add_meilisearch(mock_values):
         "MEILI_HTTP_ADDR": "0.0.0.0:7700",
         "MEILI_NO_ANALYTICS": "true",
         "MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE": "true",
-        "MEILI_ENV": "production",
     }
     assert output["services"]["meili_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
