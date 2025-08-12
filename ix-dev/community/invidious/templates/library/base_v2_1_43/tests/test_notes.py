@@ -178,6 +178,11 @@ some other info.
     c2.healthcheck.disable()
     c2.set_user(568, 568)
 
+    c3 = render.add_container("test_container3", "test_image")
+    c3.healthcheck.disable()
+    c3.restart.set_policy("on-failure", 1)
+    c3.set_user(568, 568)
+
     output = render.render()
     assert (
         output["x-notes"]
