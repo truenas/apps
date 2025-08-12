@@ -16,11 +16,10 @@
   pg_config, perm_container
 ) %}
 
-{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/healthz"}) %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% do c1.environment.add_env("DB_TYPE", values.consts.wiki_js_db_type) %}
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("DB_PORT", values.consts.wiki_js_db_port) %}
@@ -29,6 +28,7 @@
 {% do c1.environment.add_env("DB_NAME", values.consts.wiki_js_db_name) %}
 {% do c1.environment.add_user_envs(values.wiki_js.additional_envs) %}
 
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% for port in values.network.additional_ports %}
   {% do c1.add_port(port) %}
 {% endfor %}
