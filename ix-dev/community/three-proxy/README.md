@@ -1,3 +1,3 @@
 # 3proxy
 
-[ArchiSteamFarm](https://github.com/JustArchiNET/ArchiSteamFarm) is a powerful and lightweight HTTP/SOCKS proxy server.
+[3proxy](https://3proxy.org/) is a powerful and lightweight HTTP/SOCKS proxy server.
