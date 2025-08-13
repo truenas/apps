@@ -4,37 +4,31 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set pg_config = {
-  "user": values.consts.wiki_js_db_user,
+  "user": values.consts.db_user,
   "password": values.wiki_js.db_password,
-  "database": values.consts.wiki_js_db_name,
+  "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
 
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.wiki_js.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.wiki_js.postgres_image_selector, pg_config, perm_container) %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/healthz"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/healthz"}) %}
 
-{% do c1.environment.add_env("DB_TYPE", values.consts.wiki_js_db_type) %}
+{% do c1.environment.add_env("DB_TYPE", "postgres") %}
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
-{% do c1.environment.add_env("DB_PORT", values.consts.wiki_js_db_port) %}
-{% do c1.environment.add_env("DB_USER", values.consts.wiki_js_db_user) %}
+{% do c1.environment.add_env("DB_PORT", 5432) %}
+{% do c1.environment.add_env("DB_USER", values.consts.db_user) %}
 {% do c1.environment.add_env("DB_PASS", values.wiki_js.db_password) %}
-{% do c1.environment.add_env("DB_NAME", values.consts.wiki_js_db_name) %}
+{% do c1.environment.add_env("DB_NAME", values.consts.db_name) %}
 {% do c1.environment.add_user_envs(values.wiki_js.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-{% for port in values.network.additional_ports %}
-  {% do c1.add_port(port) %}
-{% endfor %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
