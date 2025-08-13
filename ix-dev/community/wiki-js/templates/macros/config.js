@@ -24,7 +24,7 @@ data["db"]["pass"] = "{{ values.wiki_js.db_password }}";
 data["db"]["db"] = "{{ values.consts.db_name }}";
 
 if (!data["ssl"]) data["ssl"] = {};
-data["ssl"]["enabled"] = {{ values.network.certificate_id != null }};
+data["ssl"]["enabled"] = {{ "true" if values.network.certificate_id else "false" }};
 
 {% if values.network.certificate_id %}
 data["ssl"]["provider"] = "custom";
