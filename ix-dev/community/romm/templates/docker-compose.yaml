@@ -30,6 +30,7 @@
 {% do init.remove_devices() %}
 {% do init.configs.add("ix-init", values.consts.init_script, "/ix-init.sh", "0755") %}
 {% do init.set_entrypoint(["/ix-init.sh"]) %}
+{% do init.add_storage("%s/config"|format(values.consts.base_path), values.storage.config) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/heartbeat"}) %}
@@ -77,6 +78,7 @@
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do init.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
