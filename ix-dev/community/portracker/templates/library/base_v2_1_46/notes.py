@@ -78,6 +78,8 @@ class Notes:
 
             if c._ipc_mode == "host":
                 self._security[name].append("Is running with host IPC namespace")
+            if c._pid_mode == "host":
+                self._security[name].append("Is running with host PID namespace")
             if c._cgroup == "host":
                 self._security[name].append("Is running with host cgroup namespace")
             if "no-new-privileges=true" not in c._security_opt.render():
