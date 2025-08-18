@@ -59,6 +59,17 @@ def valid_ipc_mode_or_raise(ipc_mode: str, containers: list[str]):
     raise RenderError(f"IPC mode [{ipc_mode}] is not valid. Valid options are: [{', '.join(valid_modes)}]")
 
 
+def valid_pid_mode_or_raise(ipc_mode: str, containers: list[str]):
+    valid_modes = ("", "host")
+    if ipc_mode in valid_modes:
+        return ipc_mode
+    if ipc_mode.startswith("container:"):
+        if ipc_mode[10:] not in containers:
+            raise RenderError(f"PID mode [{ipc_mode}] is not valid. Container [{ipc_mode[10:]}] does not exist")
+        return ipc_mode
+    raise RenderError(f"PID mode [{ipc_mode}] is not valid. Valid options are: [{', '.join(valid_modes)}]")
+
+
 def valid_sysctl_or_raise(sysctl: str, host_network: bool):
     if not sysctl:
         raise RenderError("Sysctl cannot be empty")
