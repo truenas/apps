@@ -1,0 +1,55 @@
+{% from "macros/setup.sh" import setup %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set c1 = tpl.add_container(values.consts.transmission_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port.port_number}) %}
+
+{% set config = namespace(x={
+  "rpc-enabled": true,
+  "rpc-bind-address": "0.0.0.0",
+  "rpc-port": values.network.web_port.port_number,
+  "peer-port": values.network.peer_port.port_number,
+  "download-dir": values.storage.downloads_complete.mount_path,
+  "incomplete-dir-enabled": values.storage.enable_incomplete_dir,
+}) %}
+
+{% if values.storage.enable_incomplete_dir %}
+  {% if (not values.storage.mount_incomplete_as_separate_storage) and (not values.storage.incomplete_dir_path.startswith(values.storage.downloads_complete.mount_path)) %}
+    {% do tpl.funcs.fail("Incomplete Directory Path [%s] must be inside Downloads Complete Path [%s], when 'Mount Incomplete Directory as Separate Storage' is disabled." | format(values.storage.incomplete_dir_path, values.storage.downloads_complete.mount_path)) %}
+  {% endif %}
+
+  {% do config.x.update({"incomplete-dir": values.storage.incomplete_dir_path}) %}
+{% endif %}
+
+{% for item in values.transmission.additional_config %}
+  {% if item.key in values.consts.reserved_keys %}
+    {% do tpl.funcs.fail("Reserved key [%s] cannot be used in additional_config. Use the corresponding field" | format(item.key)) %}
+  {% endif %}
+  {% do config.x.update({item.key: tpl.funcs.auto_cast(item.value)}) %}
+{% endfor %}
+
+{% do c1.configs.add("setup.sh", setup(tpl, config.x), "/custom-cont-init.d/setup.sh", "0755") %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.peer_port) %}
+{% do c1.add_port(values.network.peer_port, {"protocol": "udp"}) %}
+
+{% do c1.environment.add_user_envs(values.transmission.additional_envs) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage(values.storage.downloads_complete.mount_path, values.storage.downloads_complete) %}
+{% if values.storage.enable_incomplete_dir and values.storage.mount_incomplete_as_separate_storage %}
+  {% do c1.add_storage(values.storage.incomplete_dir_path, values.storage.downloads_incomplete) %}
+{% endif %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"path": "/transmission/web"}) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
