@@ -1,9 +1,15 @@
+{% from "macros/healthcheck.sh" import healthcheck %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.syncthing_container_name, "image") %}
 {% do c1.remove_security_opt("no-new-privileges") %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID", "SETPCAP", "SETFCAP", "SYS_ADMIN"]) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/rest/noauth/health"}) %}
+
+{% do c1.configs.add("ix-healthcheck.sh", healthcheck(values), "/ix-healthcheck.sh", "0755") %}
+{% do c1.healthcheck.set_custom_test("/ix-healthcheck.sh") %}
+{# TODO: After some time, remove the above "hack" and revert back to normal healthcheck #}
+{# {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/rest/noauth/health"}) %} #}
+
 {% do c1.environment.add_env("STNOUPGRADE", true) %}
 {% do c1.environment.add_env("STGUIADDRESS", "0.0.0.0:%s"|format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_user_envs(values.syncthing.additional_envs) %}
