@@ -1,0 +1,90 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.romm_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.romm.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(
+  values.consts.postgres_container_name,
+  values.romm.postgres_image_selector,
+  pg_config, perm_container
+) %}
+
+{% set redis_config = {
+  "password": values.romm.redis_password,
+  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+
+{% do init.set_user(values.run_as.user, values.run_as.group) %}
+{% do init.healthcheck.disable() %}
+{% do init.restart.set_policy("on-failure", 1) %}
+{% do init.deploy.resources.set_profile("low") %}
+{% do init.remove_devices() %}
+{% do init.configs.add("ix-init", values.consts.init_script, "/ix-init.sh", "0755") %}
+{% do init.set_entrypoint(["/ix-init.sh"]) %}
+{% do init.add_storage("%s/config"|format(values.consts.base_path), values.storage.config) %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/heartbeat"}) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+
+{% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("DB_PORT", 5432) %}
+{% do c1.environment.add_env("DB_NAME", values.consts.db_name) %}
+{% do c1.environment.add_env("DB_USER", values.consts.db_user) %}
+{% do c1.environment.add_env("DB_PASSWD", values.romm.db_password) %}
+{% do c1.environment.add_env("ROMM_DB_DRIVER", "postgresql") %}
+{% do c1.environment.add_env("REDIS_HOST", values.consts.redis_container_name) %}
+{% do c1.environment.add_env("REDIS_PORT", 6379) %}
+{% do c1.environment.add_env("REDIS_PASSWORD", values.romm.redis_password) %}
+{% do c1.environment.add_env("ROMM_AUTH_SECRET_KEY", values.romm.auth_secret_key) %}
+{% do c1.environment.add_env("ROMM_BASE_PATH", values.consts.base_path) %}
+{% do c1.environment.add_env("IGDB_CLIENT_ID", values.romm.igdb_client_id) %}
+{% do c1.environment.add_env("IGDB_CLIENT_SECRET", values.romm.igdb_client_secret) %}
+{% do c1.environment.add_env("MOBYGAMES_API_KEY", values.romm.mobygames_api_key) %}
+{% do c1.environment.add_env("STEAMGRIDDB_API_KEY", values.romm.steamgriddb_api_key) %}
+
+{% do c1.environment.add_user_envs(values.romm.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do c1.add_storage("%s/library"|format(values.consts.base_path), values.storage.library) %}
+{% do perm_container.add_or_skip_action("library", values.storage.library, perms_config) %}
+
+{% do c1.add_storage("%s/resources"|format(values.consts.base_path), values.storage.resources) %}
+{% do perm_container.add_or_skip_action("resources", values.storage.resources, perms_config) %}
+
+{% do c1.add_storage("%s/config"|format(values.consts.base_path), values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+
+{% do c1.add_storage("%s/assets"|format(values.consts.base_path), values.storage.assets) %}
+{% do perm_container.add_or_skip_action("assets", values.storage.assets, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do init.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
