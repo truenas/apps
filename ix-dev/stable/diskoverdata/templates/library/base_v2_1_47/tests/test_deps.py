@@ -156,7 +156,8 @@ def test_add_redis_with_password_with_spaces(mock_values):
 
 
 def test_add_redis(mock_values):
-    mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
+    mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
+    mock_values["run_as"] = {"user": 0, "group": 0}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -181,8 +182,8 @@ def test_add_redis(mock_values):
         output["services"]["test_container"]["environment"]["REDIS_URL"]
         == "redis://default:test%26password%40@redis_container:6379"
     )
-    assert output["services"]["redis_container"]["image"] == "redis:latest"
-    assert output["services"]["redis_container"]["user"] == "1001:0"
+    assert output["services"]["redis_container"]["image"] == "valkey/valkey:latest"
+    assert output["services"]["redis_container"]["user"] == "568:568"
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["redis_container"]["healthcheck"] == {
@@ -197,7 +198,7 @@ def test_add_redis(mock_values):
         {
             "type": "volume",
             "source": "test_volume",
-            "target": "/bitnami/redis/data",
+            "target": "/data",
             "read_only": False,
             "volume": {"nocopy": False},
         }
@@ -207,9 +208,7 @@ def test_add_redis(mock_values):
         "UMASK": "002",
         "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
-        "ALLOW_EMPTY_PASSWORD": "no",
         "REDIS_PASSWORD": "test&password@",
-        "REDIS_PORT_NUMBER": "6379",
     }
     assert output["services"]["redis_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
@@ -315,7 +314,7 @@ def test_add_perms_container(mock_values):
         "test_dataset3": "/mnt/test/3",
     }
     mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "17"}
-    mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
+    mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
     mock_values["images"]["mariadb_image"] = {"repository": "mariadb", "tag": "latest"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
@@ -331,6 +330,7 @@ def test_add_perms_container(mock_values):
     ix_volume_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset2", "auto_permissions": True}} # noqa
     ix_volume_acl_perms = {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset3", "acl_enable": True, "auto_permissions": True}} # noqa
     temp_volume = {"type": "temporary", "volume_config": {"volume_name": "test_temp_volume"}}
+    read_only_volume = {"type": "volume", "read_only": True, "volume_config": {"volume_name": "test_read_only_volume", "auto_permissions": True}} # noqa
     # fmt: on
 
     c1.add_storage("/some/path1", volume_perms)
@@ -342,6 +342,7 @@ def test_add_perms_container(mock_values):
     c1.add_storage("/some/path7", ix_volume_perms)
     c1.add_storage("/some/path8", ix_volume_acl_perms)
     c1.add_storage("/some/path9", temp_volume)
+    c1.add_storage("/some/path10", read_only_volume)
 
     perms_container = render.deps.perms("test_perms_container")
     perms_container.add_or_skip_action("data", volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
@@ -353,7 +354,7 @@ def test_add_perms_container(mock_values):
     perms_container.add_or_skip_action("data7", ix_volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
     perms_container.add_or_skip_action("data8", ix_volume_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
     perms_container.add_or_skip_action("data9", temp_volume, {"uid": 1000, "gid": 1000, "mode": "check"})
-
+    perms_container.add_or_skip_action("data10", read_only_volume, {"uid": 1000, "gid": 1000, "mode": "check"})
     postgres = render.deps.postgres(
         "postgres_container",
         "postgres_image",
@@ -400,14 +401,15 @@ def test_add_perms_container(mock_values):
     assert output["configs"]["permissions_run_script"]["content"] != ""
     # fmt: off
     content = [
-        {"mount_path": "/mnt/permission/data", "is_temporary": False, "identifier": "data", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data3", "is_temporary": False, "identifier": "data3", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data6", "is_temporary": False, "identifier": "data6", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data7", "is_temporary": False, "identifier": "data7", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/data9", "is_temporary": True, "identifier": "data9", "recursive": True, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/postgres_container_postgres_data", "is_temporary": False, "identifier": "postgres_container_postgres_data", "recursive": False, "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/redis_container_redis_data", "is_temporary": False, "identifier": "redis_container_redis_data", "recursive": False, "mode": "check", "uid": 1001, "gid": 0, "chmod": None}, # noqa
-        {"mount_path": "/mnt/permission/mariadb_container_mariadb_data", "is_temporary": False, "identifier": "mariadb_container_mariadb_data", "recursive": False, "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
+        {"read_only": False, "mount_path": "/mnt/permission/data", "is_temporary": False, "identifier": "data", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"read_only": False, "mount_path": "/mnt/permission/data3", "is_temporary": False, "identifier": "data3", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"read_only": False, "mount_path": "/mnt/permission/data6", "is_temporary": False, "identifier": "data6", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"read_only": False, "mount_path": "/mnt/permission/data7", "is_temporary": False, "identifier": "data7", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"read_only": False, "mount_path": "/mnt/permission/data9", "is_temporary": True, "identifier": "data9", "recursive": True, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"read_only": True, "mount_path": "/mnt/permission/data10", "is_temporary": False, "identifier": "data10", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
+        {"read_only": False, "mount_path": "/mnt/permission/postgres_container_postgres_data", "is_temporary": False, "identifier": "postgres_container_postgres_data", "recursive": False, "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
+        {"read_only": False, "mount_path": "/mnt/permission/redis_container_redis_data", "is_temporary": False, "identifier": "redis_container_redis_data", "recursive": False, "mode": "check", "uid": 568, "gid": 568, "chmod": None}, # noqa
+        {"read_only": False, "mount_path": "/mnt/permission/mariadb_container_mariadb_data", "is_temporary": False, "identifier": "mariadb_container_mariadb_data", "recursive": False, "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
     ]
     # fmt: on
     assert output["configs"]["permissions_actions_data"]["content"] == json.dumps(content)
@@ -609,6 +611,165 @@ def test_add_mongodb_unsupported_repo(mock_values):
                 "user": "test_user",
                 "password": "test_@password",
                 "database": "test_database",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
+        )
+
+
+def test_add_meilisearch(mock_values):
+    mock_values["images"]["meili_image"] = {"repository": "getmeili/meilisearch", "tag": "v1.17.0"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    m = render.deps.meilisearch(
+        "meili_container",
+        "meili_image",
+        {
+            "master_key": "test_master_key",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+    output = render.render()
+    assert "devices" not in output["services"]["meili_container"]
+    assert "reservations" not in output["services"]["meili_container"]["deploy"]["resources"]
+    assert output["services"]["meili_container"]["image"] == "getmeili/meilisearch:v1.17.0"
+    assert output["services"]["meili_container"]["user"] == "568:568"
+    assert output["services"]["meili_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["meili_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert output["services"]["meili_container"]["healthcheck"] == {
+        "test": "curl --request GET --silent --output /dev/null --show-error --fail http://127.0.0.1:7700/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
+    }
+    assert output["services"]["meili_container"]["volumes"] == [
+        {
+            "type": "volume",
+            "source": "test_volume",
+            "target": "/meili_data",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
+    ]
+    assert output["services"]["meili_container"]["environment"] == {
+        "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+        "MEILI_MASTER_KEY": "test_master_key",
+        "MEILI_HTTP_ADDR": "0.0.0.0:7700",
+        "MEILI_NO_ANALYTICS": "true",
+        "MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE": "true",
+    }
+    assert output["services"]["meili_container"]["depends_on"] == {
+        "perms_container": {"condition": "service_completed_successfully"}
+    }
+
+
+def test_add_meilisearch_unsupported_repo(mock_values):
+    mock_values["images"]["meili_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.meilisearch(
+            "meili_container",
+            "meili_image",
+            {
+                "master_key": "test_master_key",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
+        )
+
+
+def test_add_elasticsearch(mock_values):
+    mock_values["images"]["elastic_image"] = {
+        "repository": "docker.elastic.co/elasticsearch/elasticsearch",
+        "tag": "9.1.2",
+    }
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    m = render.deps.elasticsearch(
+        "elastic_container",
+        "elastic_image",
+        {
+            "password": "test_password",
+            "node_name": "some_test_node",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+    output = render.render()
+    assert "devices" not in output["services"]["elastic_container"]
+    assert "reservations" not in output["services"]["elastic_container"]["deploy"]["resources"]
+    assert output["services"]["elastic_container"]["image"] == "docker.elastic.co/elasticsearch/elasticsearch:9.1.2"
+    assert output["services"]["elastic_container"]["user"] == "568:568"
+    assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert output["services"]["elastic_container"]["healthcheck"] == {
+        "test": 'curl --request GET --silent --output /dev/null --show-error --fail --header "Authorization: Basic ZWxhc3RpYzp0ZXN0X3Bhc3N3b3Jk" http://127.0.0.1:9200/_cluster/health?local=true',  # noqa
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
+    }
+    assert output["services"]["elastic_container"]["volumes"] == [
+        {
+            "type": "volume",
+            "source": "test_volume",
+            "target": "/usr/share/elasticsearch/data",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
+    ]
+    assert output["services"]["elastic_container"]["environment"] == {
+        "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+        "ELASTIC_PASSWORD": "test_password",
+        "http.port": "9200",
+        "path.data": "/usr/share/elasticsearch/data",
+        "path.repo": "/usr/share/elasticsearch/data/snapshots",
+        "node.name": "some_test_node",
+        "discovery.type": "single-node",
+        "xpack.security.enabled": "true",
+        "xpack.security.transport.ssl.enabled": "false",
+    }
+    assert output["services"]["elastic_container"]["depends_on"] == {
+        "perms_container": {"condition": "service_completed_successfully"}
+    }
+
+
+def test_add_elasticsearch_unsupported_repo(mock_values):
+    mock_values["images"]["elastic_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.elasticsearch(
+            "elastic_container",
+            "elastic_image",
+            {
+                "password": "test_password",
+                "node_name": "some_test_node",
                 "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
             },
             perms_container,
