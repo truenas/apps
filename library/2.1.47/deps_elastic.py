@@ -14,24 +14,25 @@ except ImportError:
     from deps_perms import PermsContainer
 
 
-class MeiliConfig(TypedDict):
-    master_key: str
+class ElasticConfig(TypedDict):
+    password: str
+    node_name: str
     port: NotRequired[int]
     volume: "IxStorage"
 
 
-class MeilisearchContainer:
+class ElasticSearchContainer:
     def __init__(
-        self, render_instance: "Render", name: str, image: str, config: MeiliConfig, perms_instance: PermsContainer
+        self, render_instance: "Render", name: str, image: str, config: ElasticConfig, perms_instance: PermsContainer
     ):
         self._render_instance = render_instance
         self._name = name
         self._config = config
-        self._data_dir = "/meili_data"
+        self._data_dir = "/usr/share/elasticsearch/data"
 
-        for key in ("master_key", "volume"):
+        for key in ("password", "node_name", "volume"):
             if key not in config:
-                raise RenderError(f"Expected [{key}] to be set for meilisearch")
+                raise RenderError(f"Expected [{key}] to be set for ElasticSearch")
 
         c = self._render_instance.add_container(name, image)
 
@@ -42,20 +43,32 @@ class MeilisearchContainer:
             group = run_as["group"] or group  # Avoids running as root
 
         c.set_user(user, group)
-        c.healthcheck.set_test("curl", {"port": self._get_port(), "path": "/health"})
+        basic_auth_header = self._render_instance.funcs["basic_auth_header"]("elastic", config["password"])
+        c.healthcheck.set_test(
+            "curl",
+            {
+                "port": self.get_port(),
+                "path": "/_cluster/health?local=true",
+                "headers": [("Authorization", basic_auth_header)],
+            },
+        )
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
 
-        c.environment.add_env("MEILI_HTTP_ADDR", f"0.0.0.0:{self._get_port()}")
-        c.environment.add_env("MEILI_NO_ANALYTICS", True)
-        c.environment.add_env("MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE", True)
-        c.environment.add_env("MEILI_MASTER_KEY", config["master_key"])
+        c.environment.add_env("ELASTIC_PASSWORD", config["password"])
+        c.environment.add_env("http.port", self.get_port())
+        c.environment.add_env("path.data", self._data_dir)
+        c.environment.add_env("path.repo", f"{self._data_dir}/snapshots")
+        c.environment.add_env("node.name", config["node_name"])
+        c.environment.add_env("discovery.type", "single-node")
+        c.environment.add_env("xpack.security.enabled", True)
+        c.environment.add_env("xpack.security.transport.ssl.enabled", False)
 
         perms_instance.add_or_skip_action(
-            f"{self._name}_meili_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
+            f"{self._name}_elastic_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
         )
 
-        self._get_repo(image, ("getmeili/meilisearch",))
+        self._get_repo(image, ("docker.elastic.co/elasticsearch/elasticsearch"))
 
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
@@ -64,9 +77,6 @@ class MeilisearchContainer:
     @property
     def container(self):
         return self._container
-
-    def _get_port(self):
-        return self._config.get("port") or 7700
 
     def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
@@ -77,9 +87,12 @@ class MeilisearchContainer:
             raise RenderError("Could not determine repo")
         if repo not in supported_repos:
             raise RenderError(
-                f"Unsupported repo [{repo}] for meilisearch. Supported repos: {', '.join(supported_repos)}"
+                f"Unsupported repo [{repo}] for elastic search. Supported repos: {', '.join(supported_repos)}"
             )
         return repo
 
+    def get_port(self):
+        return self._config.get("port") or 9200
+
     def get_url(self):
-        return f"http://{self._name}:{self._get_port()}"
+        return f"http://{self._name}:{self.get_port()}"

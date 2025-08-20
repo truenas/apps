@@ -35,7 +35,7 @@ class RedisContainer:
 
         valid_redis_password_or_raise(config["password"])
 
-        port = valid_port_or_raise(self._get_port())
+        port = valid_port_or_raise(self.get_port())
         self._get_repo(image, ("redis", "valkey/valkey"))
 
         user, group = 568, 568
@@ -63,9 +63,6 @@ class RedisContainer:
         # For example: c.depends.add_dependency("other_container", "service_started")
         self._container = c
 
-    def _get_port(self):
-        return self._config.get("port") or 6379
-
     def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
         if image not in images:
@@ -77,8 +74,11 @@ class RedisContainer:
             raise RenderError(f"Unsupported repo [{repo}] for redis. Supported repos: {', '.join(supported_repos)}")
         return repo
 
+    def get_port(self):
+        return self._config.get("port") or 6379
+
     def get_url(self, variant: str):
-        addr = f"{self._name}:{self._get_port()}"
+        addr = f"{self._name}:{self.get_port()}"
         password = urllib.parse.quote_plus(self._config["password"])
 
         match variant:
