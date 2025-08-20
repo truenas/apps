@@ -3,6 +3,10 @@
 
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% if not tpl.funcs.url_to_dict(values.storj.domain_address).port %}
+  {% do tpl.funcs.fail("Domain address must include a port, but got [%s]"|format(values.storj.domain_address)) %}
+{% endif %}
+
 {% if values.storj.wallets | length != values.storj.wallets | unique | list | length %}
   {% do tpl.funcs.fail("Wallets must be unique, but got [%s]"|format(values.storj.wallets | join(","))) %}
 {% endif %}
@@ -30,7 +34,7 @@
 {% set envs = {
   "EMAIL": values.storj.email,
   "STORAGE": "%dGB" | format(values.storj.storage_size_gb),
-  "ADDRESS": "%s:%s"|format(values.storj.domain_address, values.consts.container_p2p_port if values.network.host_network else values.network.p2p_port.port_number),
+  "ADDRESS": values.storj.domain_address,
   "WALLET": values.storj.wallet_address|string,
 } %}
 

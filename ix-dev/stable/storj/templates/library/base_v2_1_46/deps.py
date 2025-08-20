@@ -4,17 +4,19 @@ if TYPE_CHECKING:
     from render import Render
 
 try:
-    from .deps_postgres import PostgresContainer, PostgresConfig
-    from .deps_redis import RedisContainer, RedisConfig
     from .deps_mariadb import MariadbContainer, MariadbConfig
+    from .deps_meilisearch import MeilisearchContainer, MeiliConfig
     from .deps_mongodb import MongoDBContainer, MongoDBConfig
     from .deps_perms import PermsContainer
+    from .deps_postgres import PostgresContainer, PostgresConfig
+    from .deps_redis import RedisContainer, RedisConfig
 except ImportError:
-    from deps_postgres import PostgresContainer, PostgresConfig
-    from deps_redis import RedisContainer, RedisConfig
     from deps_mariadb import MariadbContainer, MariadbConfig
+    from deps_meilisearch import MeilisearchContainer, MeiliConfig
     from deps_mongodb import MongoDBContainer, MongoDBConfig
     from deps_perms import PermsContainer
+    from deps_postgres import PostgresContainer, PostgresConfig
+    from deps_redis import RedisContainer, RedisConfig
 
 
 class Deps:
@@ -35,3 +37,6 @@ class Deps:
 
     def mongodb(self, name: str, image: str, config: MongoDBConfig, perms_instance: PermsContainer):
         return MongoDBContainer(self._render_instance, name, image, config, perms_instance)
+
+    def meilisearch(self, name: str, image: str, config: MeiliConfig, perms_instance: PermsContainer):
+        return MeilisearchContainer(self._render_instance, name, image, config, perms_instance)
