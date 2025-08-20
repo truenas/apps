@@ -36,13 +36,7 @@ class ElasticSearchContainer:
 
         c = self._render_instance.add_container(name, image)
 
-        user, group = 568, 568
-        run_as = self._render_instance.values.get("run_as")
-        if run_as:
-            user = run_as["user"] or user  # Avoids running as root
-            group = run_as["group"] or group  # Avoids running as root
-
-        c.set_user(user, group)
+        c.set_user(1000, 1000)
         basic_auth_header = self._render_instance.funcs["basic_auth_header"]("elastic", config["password"])
         c.healthcheck.set_test(
             "curl",
