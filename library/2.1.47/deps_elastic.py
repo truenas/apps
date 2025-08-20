@@ -59,7 +59,7 @@ class ElasticSearchContainer:
         c.environment.add_env("xpack.security.transport.ssl.enabled", False)
 
         perms_instance.add_or_skip_action(
-            f"{self._name}_elastic_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
+            f"{self._name}_elastic_data", config["volume"], {"uid": 1000, "gid": 1000, "mode": "check"}
         )
 
         self._get_repo(image, ("docker.elastic.co/elasticsearch/elasticsearch"))
