@@ -718,7 +718,7 @@ def test_add_elasticsearch(mock_values):
     assert "devices" not in output["services"]["elastic_container"]
     assert "reservations" not in output["services"]["elastic_container"]["deploy"]["resources"]
     assert output["services"]["elastic_container"]["image"] == "docker.elastic.co/elasticsearch/elasticsearch:9.1.2"
-    assert output["services"]["elastic_container"]["user"] == "568:568"
+    assert output["services"]["elastic_container"]["user"] == "1000:1000"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["elastic_container"]["healthcheck"] == {

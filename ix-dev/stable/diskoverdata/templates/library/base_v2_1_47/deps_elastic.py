@@ -36,13 +36,7 @@ class ElasticSearchContainer:
 
         c = self._render_instance.add_container(name, image)
 
-        user, group = 568, 568
-        run_as = self._render_instance.values.get("run_as")
-        if run_as:
-            user = run_as["user"] or user  # Avoids running as root
-            group = run_as["group"] or group  # Avoids running as root
-
-        c.set_user(user, group)
+        c.set_user(1000, 1000)
         basic_auth_header = self._render_instance.funcs["basic_auth_header"]("elastic", config["password"])
         c.healthcheck.set_test(
             "curl",
@@ -65,7 +59,7 @@ class ElasticSearchContainer:
         c.environment.add_env("xpack.security.transport.ssl.enabled", False)
 
         perms_instance.add_or_skip_action(
-            f"{self._name}_elastic_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
+            f"{self._name}_elastic_data", config["volume"], {"uid": 1000, "gid": 1000, "mode": "check"}
         )
 
         self._get_repo(image, ("docker.elastic.co/elasticsearch/elasticsearch"))
