@@ -52,7 +52,7 @@ class ElasticSearchContainer:
         c.environment.add_env("ELASTIC_PASSWORD", config["password"])
         c.environment.add_env("http.port", self.get_port())
         c.environment.add_env("path.data", self._data_dir)
-        c.environment.add_env("path.repo", f"{self._data_dir}/snapshots")
+        c.environment.add_env("path.repo", f"{self._data_dir}/snapshot")
         c.environment.add_env("node.name", config["node_name"])
         c.environment.add_env("discovery.type", "single-node")
         c.environment.add_env("xpack.security.enabled", True)
