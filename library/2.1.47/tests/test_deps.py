@@ -690,3 +690,87 @@ def test_add_meilisearch_unsupported_repo(mock_values):
             },
             perms_container,
         )
+
+
+def test_add_elasticsearch(mock_values):
+    mock_values["images"]["elastic_image"] = {
+        "repository": "docker.elastic.co/elasticsearch/elasticsearch",
+        "tag": "9.1.2",
+    }
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    m = render.deps.elasticsearch(
+        "elastic_container",
+        "elastic_image",
+        {
+            "password": "test_password",
+            "node_name": "some_test_node",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+    output = render.render()
+    assert "devices" not in output["services"]["elastic_container"]
+    assert "reservations" not in output["services"]["elastic_container"]["deploy"]["resources"]
+    assert output["services"]["elastic_container"]["image"] == "docker.elastic.co/elasticsearch/elasticsearch:9.1.2"
+    assert output["services"]["elastic_container"]["user"] == "1000:1000"
+    assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert output["services"]["elastic_container"]["healthcheck"] == {
+        "test": 'curl --request GET --silent --output /dev/null --show-error --fail --header "Authorization: Basic ZWxhc3RpYzp0ZXN0X3Bhc3N3b3Jk" http://127.0.0.1:9200/_cluster/health?local=true',  # noqa
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
+    }
+    assert output["services"]["elastic_container"]["volumes"] == [
+        {
+            "type": "volume",
+            "source": "test_volume",
+            "target": "/usr/share/elasticsearch/data",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
+    ]
+    assert output["services"]["elastic_container"]["environment"] == {
+        "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+        "ELASTIC_PASSWORD": "test_password",
+        "http.port": "9200",
+        "path.data": "/usr/share/elasticsearch/data",
+        "path.repo": "/usr/share/elasticsearch/data/snapshots",
+        "node.name": "some_test_node",
+        "discovery.type": "single-node",
+        "xpack.security.enabled": "true",
+        "xpack.security.transport.ssl.enabled": "false",
+    }
+    assert output["services"]["elastic_container"]["depends_on"] == {
+        "perms_container": {"condition": "service_completed_successfully"}
+    }
+
+
+def test_add_elasticsearch_unsupported_repo(mock_values):
+    mock_values["images"]["elastic_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.elasticsearch(
+            "elastic_container",
+            "elastic_image",
+            {
+                "password": "test_password",
+                "node_name": "some_test_node",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
+        )
