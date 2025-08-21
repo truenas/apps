@@ -4,6 +4,7 @@ if TYPE_CHECKING:
     from render import Render
 
 try:
+    from .deps_elastic import ElasticSearchContainer, ElasticConfig
     from .deps_mariadb import MariadbContainer, MariadbConfig
     from .deps_meilisearch import MeilisearchContainer, MeiliConfig
     from .deps_mongodb import MongoDBContainer, MongoDBConfig
@@ -11,6 +12,7 @@ try:
     from .deps_postgres import PostgresContainer, PostgresConfig
     from .deps_redis import RedisContainer, RedisConfig
 except ImportError:
+    from deps_elastic import ElasticSearchContainer, ElasticConfig
     from deps_mariadb import MariadbContainer, MariadbConfig
     from deps_meilisearch import MeilisearchContainer, MeiliConfig
     from deps_mongodb import MongoDBContainer, MongoDBConfig
@@ -40,3 +42,6 @@ class Deps:
 
     def meilisearch(self, name: str, image: str, config: MeiliConfig, perms_instance: PermsContainer):
         return MeilisearchContainer(self._render_instance, name, image, config, perms_instance)
+
+    def elasticsearch(self, name: str, image: str, config: ElasticConfig, perms_instance: PermsContainer):
+        return ElasticSearchContainer(self._render_instance, name, image, config, perms_instance)

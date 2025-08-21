@@ -43,7 +43,7 @@ class PostgresContainer:
             if key not in config:
                 raise RenderError(f"Expected [{key}] to be set for postgres")
 
-        port = valid_port_or_raise(self._get_port())
+        port = valid_port_or_raise(self.get_port())
 
         c = self._render_instance.add_container(name, image)
 
@@ -109,9 +109,6 @@ class PostgresContainer:
         if self._upgrade_container:
             self._upgrade_container.depends.add_dependency(container_name, condition)
 
-    def _get_port(self):
-        return self._config.get("port") or 5432
-
     def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
         if image not in images:
@@ -141,11 +138,14 @@ class PostgresContainer:
 
         return target_major_version
 
+    def get_port(self):
+        return self._config.get("port") or 5432
+
     def get_url(self, variant: str):
         user = urllib.parse.quote_plus(self._config["user"])
         password = urllib.parse.quote_plus(self._config["password"])
         creds = f"{user}:{password}"
-        addr = f"{self._name}:{self._get_port()}"
+        addr = f"{self._name}:{self.get_port()}"
         db = self._config["database"]
 
         urls = {

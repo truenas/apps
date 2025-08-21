@@ -42,11 +42,11 @@ class MeilisearchContainer:
             group = run_as["group"] or group  # Avoids running as root
 
         c.set_user(user, group)
-        c.healthcheck.set_test("curl", {"port": self._get_port(), "path": "/health"})
+        c.healthcheck.set_test("curl", {"port": self.get_port(), "path": "/health"})
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
 
-        c.environment.add_env("MEILI_HTTP_ADDR", f"0.0.0.0:{self._get_port()}")
+        c.environment.add_env("MEILI_HTTP_ADDR", f"0.0.0.0:{self.get_port()}")
         c.environment.add_env("MEILI_NO_ANALYTICS", True)
         c.environment.add_env("MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE", True)
         c.environment.add_env("MEILI_MASTER_KEY", config["master_key"])
@@ -65,9 +65,6 @@ class MeilisearchContainer:
     def container(self):
         return self._container
 
-    def _get_port(self):
-        return self._config.get("port") or 7700
-
     def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
         if image not in images:
@@ -81,5 +78,8 @@ class MeilisearchContainer:
             )
         return repo
 
+    def get_port(self):
+        return self._config.get("port") or 7700
+
     def get_url(self):
-        return f"http://{self._name}:{self._get_port()}"
+        return f"http://{self._name}:{self.get_port()}"
