@@ -7,31 +7,44 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
-{% do c1.healthcheck.set_test("netcat", {"port": values.consts.internal_web_port}) %}
+{% do c1.healthcheck.disable() %}
 
-{% set options_list = [] %}
+{% set options_list = ["--listen :" ~ values.network.web_port.port_number] %}
 
 {% if values.network.certificate_id %}
   {% set _ = options_list.append("--tls --tls-key " ~ values.consts.ssl_key_path ~ " --tls-cert " ~ values.consts.ssl_cert_path) %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do c1.configs.add("p_flagsrivate", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
 
-{% if values.rest_server_flags.append_only %}
+{% if values.rest_server.append_only %}
   {% set _ = options_list.append("--append-only") %}
 {% endif %}
-{% if values.rest_server_flags.group_accessible_repos %}
-  {% set _ = options_list.append("--group-accessible-repos") %}
-{% endif %}
-{% if values.rest_server_flags.no_auth %}
+
+{% if values.rest_server.users | length > 0 %}
+  {% set users = namespace(x=[]) %}
+  {% for user in values.rest_server.users %}
+    {% do users.x.append(tpl.funcs.htpasswd(user.username, user.password)) %}
+  {% endfor %}
+  {% do c1.configs.add("htpasswd", users.x | join("\n"), values.consts.htpasswd_path) %}
+  {% do c1.environment.add_env("PASSWORD_FILE", values.consts.htpasswd_path) %}
+{% elif values.rest_server.proxy_auth_username %}
+  {% set _ = options_list.append("--proxy-auth-username " ~ values.rest_server.proxy_auth_username) %}
+{% else %}
   {% set _ = options_list.append("--no-auth") %}
 {% endif %}
-{% if values.rest_server_flags.proxy_auth_username %}
-  {% set _ = options_list.append("--proxy-auth-username " ~ values.rest_server_flags.proxy_auth_username) %}
+
+{% if values.rest_server.group_accessible_repos %}
+  {% set _ = options_list.append("--group-accessible-repos") %}
 {% endif %}
-{% if values.rest_server_flags.private_repos %}
+
+{% if values.rest_server.private_repos %}
   {% set _ = options_list.append("--private-repos") %}
+{% endif %}
+
+{% if values.rest_server.extra_options %}
+  {% set _ = options_list.append(values.rest_server.extra_options) %}
 {% endif %}
 
 {% set options_env = options_list | join(" ") %}
