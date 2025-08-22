@@ -413,7 +413,7 @@ class Config:
                     f"Expected [provider] to be one of [{', '.join(valid)}], got [{item['provider']}] for [{category}]"
                 )
 
-    def get_public_ip_providers(self, category: str, items: List[Dict[str, Any]] = None) -> str:
+    def get_public_ip_providers(self, category: str, items: List[Dict[str, Any]]) -> str:
         items = items or []
         result = []
 
@@ -444,7 +444,7 @@ class Config:
 
         return ",".join(result)
 
-    def get_providers_config(self, items: List[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def get_providers_config(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
         items = items or []
         result = []
 
