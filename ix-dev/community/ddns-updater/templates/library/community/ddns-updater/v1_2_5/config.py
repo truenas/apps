@@ -3,52 +3,39 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional, Callable, Union
 
 
-valid_ip_dns_providers = [
-    "all",
-    "cloudflare",
-    "opendns",
-]
-valid_ip_http_providers = [
-    "all",
-    "custom",
-    "ipify",
-    "ifconfig",
-    "ipinfo",
-    "spdyn",
-    "ipleak",
-    "icanhazip",
-    "ident",
-    "nnev",
-    "wtfismyip",
-    "seeip",
-    "changeip",
-]
-valid_ipv4_http_providers = [
-    "all",
-    "ipleak",
-    "ipify",
-    "icanhazip",
-    "ident",
-    "nnev",
-    "wtfismyip",
-    "seeip",
-]
-valid_ipv6_http_providers = [
-    "all",
-    "ipleak",
-    "ipify",
-    "icanhazip",
-    "ident",
-    "nnev",
-    "wtfismyip",
-    "seeip",
-]
-valid_ip_fetchers = [
-    "all",
-    "http",
-    "dns",
-]
-valid_ip_versions = ["", "ipv4", "ipv6"]
+# Keep the original constants but with better organization
+class PublicIPProviders:
+    """Centralized definition of all public IP provider configurations"""
+
+    DNS = ["all", "cloudflare", "opendns"]
+    IPV4_HTTP = ["all", "ipleak", "ipify", "icanhazip", "ident", "nnev", "wtfismyip", "seeip"]
+    IPV6_HTTP = ["all", "ipleak", "ipify", "icanhazip", "ident", "nnev", "wtfismyip", "seeip"]
+    FETCHERS = ["all", "http", "dns"]
+    HTTP = [
+        "all",
+        "custom",
+        "ipify",
+        "ifconfig",
+        "ipinfo",
+        "spdyn",
+        "ipleak",
+        "icanhazip",
+        "ident",
+        "nnev",
+        "wtfismyip",
+        "seeip",
+        "changeip",
+    ]
+
+
+class IPVersions:
+    """Valid IP version specifications"""
+
+    UNSPECIFIED = ""
+    IPV4 = "ipv4"
+    IPV6 = "ipv6"
+
+    ALL = [UNSPECIFIED, IPV4, IPV6]
 
 
 class FieldType:
@@ -419,22 +406,24 @@ class Config:
 
         if category == "PUBLICIP_DNS_PROVIDERS":
             self.validate_public_ip_providers(
-                items, valid_ip_dns_providers, "Public IP DNS Providers", allow_custom=True
+                items, PublicIPProviders.DNS, "Public IP DNS Providers", allow_custom=True
             )
         elif category == "PUBLICIP_HTTP_PROVIDERS":
             self.validate_public_ip_providers(
-                items, valid_ip_http_providers, "Public IP HTTP Providers", allow_custom=True
+                items, PublicIPProviders.HTTP, "Public IP HTTP Providers", allow_custom=True
             )
         elif category == "PUBLICIPV4_HTTP_PROVIDERS":
             self.validate_public_ip_providers(
-                items, valid_ipv4_http_providers, "Public IPv4 HTTP Providers", allow_custom=True
+                items, PublicIPProviders.IPV4_HTTP, "Public IPv4 HTTP Providers", allow_custom=True
             )
         elif category == "PUBLICIPV6_HTTP_PROVIDERS":
             self.validate_public_ip_providers(
-                items, valid_ipv6_http_providers, "Public IPv6 HTTP Providers", allow_custom=True
+                items, PublicIPProviders.IPV6_HTTP, "Public IPv6 HTTP Providers", allow_custom=True
             )
         elif category == "PUBLICIP_FETCHERS":
-            self.validate_public_ip_providers(items, valid_ip_fetchers, "Public IP Fetchers", allow_custom=True)
+            self.validate_public_ip_providers(
+                items, PublicIPProviders.FETCHERS, "Public IP Fetchers", allow_custom=True
+            )
 
         for item in items:
             if item["provider"] == "custom":
@@ -462,9 +451,9 @@ class Config:
                     f"Provider [{item['provider']}] has deprecated [host] field set, with value [{item['host']}]."
                 )
 
-            if not item.get("ip_version", "") in valid_ip_versions:
+            if not item.get("ip_version", "") in IPVersions.ALL:
                 self.fail(
-                    f"Expected [ip_version] to be one of [{', '.join(valid_ip_versions)}], got [{item['ip_version']}]"
+                    f"Expected [ip_version] to be one of [{', '.join(IPVersions.ALL)}], got [{item['ip_version']}]"
                 )
 
             result.append(
