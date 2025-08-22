@@ -88,6 +88,12 @@ providers_schema: Dict[str, ProviderSchema] = {
             ProviderField("password", "allinkl_password"),
         ],
     ),
+    "changeip": ProviderSchema(
+        required=[
+            ProviderField("username", "changeip_username"),
+            ProviderField("password", "changeip_password"),
+        ],
+    ),
     "cloudflare": ProviderSchema(
         required=[
             ProviderField("zone_identifier", "cloudflare_zone_id"),
