@@ -114,7 +114,7 @@ providers_schema: Dict[str, ProviderSchema] = {
             ProviderField("password", "ddnss_password"),
         ],
         optional=[
-            ProviderField("dual_stack", "ddnss_dual_stack", default=False),
+            ProviderField("dual_stack", "ddnss_dual_stack", FieldType.BOOLEAN, default=False),
         ],
     ),
     "desec": ProviderSchema(
