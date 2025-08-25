@@ -1,20 +1,20 @@
 groups:
-  - name: Restic rest-server Configuration
-    description: Configure Restic rest-server
+  - name: Restic REST Server Configuration
+    description: Configure Restic REST Server
   - name: User and Group Configuration
-    description: Configure User and Group for Restic rest-server
+    description: Configure User and Group for Restic REST Server
   - name: Network Configuration
-    description: Configure Network for Restic rest-server
+    description: Configure Network for Restic REST Server
   - name: Storage Configuration
-    description: Configure Storage for Restic rest-server
+    description: Configure Storage for Restic REST Server
   - name: Labels Configuration
-    description: Configure Labels for Restic rest-server
+    description: Configure Labels for Restic REST Server
   - name: Resources Configuration
-    description: Configure Resources for Restic rest-server
+    description: Configure Resources for Restic REST Server
 
 questions:
   - variable: TZ
-    group: Restic rest-Server Configuration
+    group: Restic REST Server Configuration
     label: Timezone
     schema:
       type: string
@@ -24,7 +24,7 @@ questions:
         - definitions/timezone
   - variable: rest_server
     label: ""
-    group: Restic rest-server Configuration
+    group: Restic REST Server Configuration
     schema:
       type: dict
       immutable: false
@@ -32,7 +32,7 @@ questions:
       attrs:
         - variable: append_only
           label: Append Only
-          group: Restic rest-server Configuration
+          group: Restic REST Server Configuration
           description: |
             Enable append-only mode. In this mode, no existing snapshots can be deleted or modified.
           schema:
@@ -40,17 +40,43 @@ questions:
             default: false
         - variable: group_accessible_repos
           label: Group Accessible Repositories
-          group: Restic rest-server Configuration
+          group: Restic REST Server Configuration
           description: |
             Enable group accessible repositories. In this mode, repositories can be accessed by users in the same group.
           schema:
             type: boolean
             default: false
+        - variable: private_repos
+          label: Private Repositories
+          group: Restic REST Server Configuration
+          description: |
+            Enable private repositories. In this mode, repositories can only be accessed by authenticated users.
+          schema:
+            type: boolean
+            default: false
+        - variable: no_auth
+          label: No Authentication
+          group: Restic REST Server Configuration
+          description: |
+            Disable authentication. In this mode, no authentication is required to access the repositories.
+          schema:
+            type: boolean
+            default: false
+        - variable: proxy_auth_username
+          label: Proxy Authentication Username
+          group: Restic REST Server Configuration
+          description: |
+            Specifies the HTTP header containing the username for proxy-based authentication
+          schema:
+            type: string
+            show_if: [["no_auth", "=", false]]
+            default: ""
         - variable: users
           label: Basic Auth Users
           description: The list of basic auth users.
           schema:
             type: list
+            show_if: [["no_auth", "=", false]]
             default: []
             items:
               - variable: user_entry
@@ -69,38 +95,43 @@ questions:
                         type: string
                         required: true
                         private: true
-        - variable: no_auth
-          label: No Authentication
-          group: Restic rest-server Configuration
-          description: |
-            Disable authentication. In this mode, no authentication is required to access the repositories.
-          schema:
-            type: boolean
-            default: false
-        - variable: proxy_auth_username
-          label: Proxy Authentication Username
-          group: Restic rest-server Configuration
-          description: |
-            Specifies the HTTP header containing the username for proxy-based authentication
-          schema:
-            type: string
-            default: ""
-        - variable: private_repos
-          label: Private Repositories
-          group: Restic rest-server Configuration
-          description: |
-            Enable private repositories. In this mode, repositories can only be accessed by authenticated users.
-          schema:
-            type: boolean
-            default: false
         - variable: extra_options
           label: Extra Options
-          group: Restic rest-server Configuration
+          group: Restic REST Server Configuration
           description: |
-            Additional options to pass to the Restic rest-server.
+            Additional options to pass to the Restic REST Server.
+            Example: --some-option=value
           schema:
-            type: string
-            default: ""
+            type: list
+            default: []
+            items:
+              - variable: option
+                label: Option
+                schema:
+                  type: string
+                  required: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: Configure additional environment variables for Restic REST Server.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -109,7 +140,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Restic rest-server files will be owned by.
+          description: The user id that Restic REST Server files will be owned by.
           schema:
             type: int
             min: 568
@@ -117,12 +148,13 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Restic rest-server files will be owned by.
+          description: The group id that Restic REST Server files will be owned by.
           schema:
             type: int
             min: 568
             default: 568
             required: true
+
   - variable: network
     label: ""
     group: Network Configuration
@@ -133,7 +165,6 @@ questions:
           label: WebUI Port
           schema:
             type: dict
-            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -158,8 +189,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 8000
+                  default: 30248
                   min: 1
                   max: 65535
                   required: true
@@ -185,24 +215,9 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: dns_opts
-          label: DNS Options
-          description: |
-            DNS options for the container.</br>
-            Format: key:value</br>
-            Example: attempts:3
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: option
-                label: Option
-                schema:
-                  type: string
-                  required: true
         - variable: certificate_id
           label: Certificate
-          description: The certificate to use for Restic rest-servers.
+          description: The certificate to use for Restic REST Servers.
           schema:
             type: int
             "null": true
@@ -215,8 +230,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Restic rest-server Data Storage
-          description: The path to store Restic rest-server Data.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -421,8 +435,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: Restic rest-server
-                            description: Restic rest-server
+                          - value: restic-server
+                            description: restic-server
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -436,14 +450,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Restic rest-server.
+                description: CPUs limit for Restic REST Server.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Restic rest-server.
+                description: Memory limit for Restic REST Server.
                 schema:
                   type: int
                   default: 4096
