@@ -1,3 +1,3 @@
-# Restic rest-server
+# Restic REST Server
 
-[Restic rest-server](https://github.com/restic/rest-server) Rest Server is a high performance HTTP server that implements restic's REST backend API. It provides secure and efficient way to backup data remotely, using restic backup client via the rest: URL.
+[Restic REST Server](https://github.com/restic/rest-server) Rest Server is a high performance HTTP server that implements restic's REST backend API.
