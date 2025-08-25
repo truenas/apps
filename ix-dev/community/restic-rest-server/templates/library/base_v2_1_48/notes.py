@@ -75,6 +75,8 @@ class Notes:
                 self._security[name].append(f"Is running as {'root' if run_as[0] == '0' else 'unknown'} user")
             if run_as[1] in ["0", -1]:
                 self._security[name].append(f"Is running as {'root' if run_as[1] == '0' else 'unknown'} group")
+            if any(x in c._group_add for x in ("root", 0)):
+                self._security[name].append("Is running with supplementary root group")
 
             if c._ipc_mode == "host":
                 self._security[name].append("Is running with host IPC namespace")
