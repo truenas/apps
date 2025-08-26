@@ -10,6 +10,7 @@
 {# TODO: After some time, remove the above "hack" and revert back to normal healthcheck #}
 {# {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/rest/noauth/health"}) %} #}
 
+{% do c1.environment.add_env("PCAP", ["cap_sys_admin", "cap_chown", "cap_dac_override", "cap_fowner"]|join(",") + "+ep") %}
 {% do c1.environment.add_env("STNOUPGRADE", true) %}
 {% do c1.environment.add_env("STGUIADDRESS", "0.0.0.0:%s"|format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_user_envs(values.syncthing.additional_envs) %}
@@ -20,11 +21,17 @@
   {% do c1.add_port(values.network.udp_port, {"container_port": 22000, "protocol": "udp"}) %}
 {% endif %}
 
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
 {% do c1.add_storage("/var/syncthing", values.storage.config) %}
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https" if values.network.certificate_id else "http"}) %}
 
 {{ tpl.render() | tojson }}
