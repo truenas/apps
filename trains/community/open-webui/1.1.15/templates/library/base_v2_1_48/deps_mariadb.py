@@ -36,7 +36,7 @@ class MariadbContainer:
             if key not in config:
                 raise RenderError(f"Expected [{key}] to be set for mariadb")
 
-        port = valid_port_or_raise(self._get_port())
+        port = valid_port_or_raise(self.get_port())
         root_password = config.get("root_password") or config["password"]
         auto_upgrade = config.get("auto_upgrade", True)
 
@@ -62,9 +62,6 @@ class MariadbContainer:
         # For example: c.depends.add_dependency("other_container", "service_started")
         self._container = c
 
-    def _get_port(self):
-        return self._config.get("port") or 3306
-
     def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
         if image not in images:
@@ -75,6 +72,9 @@ class MariadbContainer:
         if repo not in supported_repos:
             raise RenderError(f"Unsupported repo [{repo}] for mariadb. Supported repos: {', '.join(supported_repos)}")
         return repo
+
+    def get_port(self):
+        return self._config.get("port") or 3306
 
     @property
     def container(self):

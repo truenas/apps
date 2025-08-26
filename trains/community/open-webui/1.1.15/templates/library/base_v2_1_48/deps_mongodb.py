@@ -60,9 +60,6 @@ class MongoDBContainer:
     def container(self):
         return self._container
 
-    def _get_port(self):
-        return self._config.get("port") or 27017
-
     def _get_repo(self, image, supported_repos):
         images = self._render_instance.values["images"]
         if image not in images:
@@ -74,11 +71,14 @@ class MongoDBContainer:
             raise RenderError(f"Unsupported repo [{repo}] for mongodb. Supported repos: {', '.join(supported_repos)}")
         return repo
 
+    def get_port(self):
+        return self._config.get("port") or 27017
+
     def get_url(self, variant: str):
         user = urllib.parse.quote_plus(self._config["user"])
         password = urllib.parse.quote_plus(self._config["password"])
         creds = f"{user}:{password}"
-        addr = f"{self._name}:{self._get_port()}"
+        addr = f"{self._name}:{self.get_port()}"
         db = self._config["database"]
 
         urls = {
