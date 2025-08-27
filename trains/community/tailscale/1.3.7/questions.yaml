@@ -1,0 +1,452 @@
+groups:
+  - name: Tailscale Configuration
+    description: Configure Tailscale
+  - name: Network Configuration
+    description: Configure Network for Tailscale
+  - name: Storage Configuration
+    description: Configure Storage for Tailscale
+  - name: Labels Configuration
+    description: Configure Labels for Tailscale
+  - name: Resources Configuration
+    description: Configure Resources for Tailscale
+
+questions:
+  - variable: TZ
+    label: Timezone
+    description: Timezone
+    group: Tailscale Configuration
+    schema:
+      type: string
+      default: Etc/UTC
+      $ref:
+        - "definitions/timezone"
+
+  - variable: tailscale
+    label: ""
+    group: Tailscale Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: hostname
+          label: Hostname
+          description: |
+            The hostname for Tailscale Node.</br>
+            Only lowercase letters, numbers, and hyphens are allowed.</br>
+            Same as `--hostname` flag.
+          schema:
+            type: string
+            default: "truenas-scale"
+            valid_chars: "^[a-z0-9-]+$"
+            valid_chars_error: |
+              Only lowercase letters, numbers, and hyphens are allowed.
+            required: true
+        - variable: auth_key
+          label: Auth Key
+          description: |
+            The auth key for Tailscale Node.</br>
+            Same as `--authkey` flag.</br>
+            To generate one: https://login.tailscale.com/admin/settings/keys
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: auth_once
+          label: Auth Once
+          description: Attempt to log in only if not already logged in.
+          schema:
+            type: boolean
+            default: true
+        - variable: reset
+          label: Reset
+          description: |
+            Reset unspecified settings to default values.</br>
+            Same as `--reset` flag.
+          schema:
+            type: boolean
+            default: false
+        - variable: accept_dns
+          label: Accept DNS
+          description: |
+            Accept DNS</br>
+            Same as `--accept-dns` flag.
+          schema:
+            type: boolean
+            default: false
+        - variable: userspace
+          label: Userspace
+          description: |
+            Run Tailscale in userspace</br>
+            Same as `--userspace` flag.
+          schema:
+            type: boolean
+            default: false
+        - variable: advertise_exit_node
+          label: Advertise Exit Node
+          description: |
+            Advertise exit node</br>
+            Same as `--advertise-exit-node` flag.</br>
+            Needs enabled IP forwarding on the host via System > Advanced Settings > Sysctls.</br>
+            Please make sure you read and understand the warnings displayed when adding Sysctls</br>
+            See also https://tailscale.com/kb/1019/subnets?tab=linux#enable-ip-forwarding
+          schema:
+            type: boolean
+            default: false
+        - variable: advertise_routes
+          label: Advertise Routes
+          description: |
+            Advertise routes</br>
+            Same as `--advertise-routes` flag.</br>
+            Needs enabled IP forwarding on the host via System > Advanced Settings > Sysctls.</br>
+            Please make sure you read and understand the warnings displayed when adding Sysctls</br>
+            See also https://tailscale.com/kb/1019/subnets?tab=linux#enable-ip-forwarding
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: route
+                label: Route
+                schema:
+                  type: string
+                  required: true
+        - variable: extra_args
+          label: Extra Arguments
+          description: |
+            Extra arguments</br>
+            Flags to pass to tailscale CLI in a tailscale set command.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: arg
+                label: Argument
+                schema:
+                  type: string
+                  required: true
+        - variable: tailscaled_args
+          label: Tailscale Daemon Arguments
+          description: |
+            Tailscaled arguments</br>
+            Flags to pass to the tailscaled daemon.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: arg
+                label: Argument
+                schema:
+                  type: string
+                  required: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network.</br>
+            Needed in most cases in order to communicate with the host.
+          schema:
+            type: boolean
+            default: true
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: state
+          label: Tailscale State Storage
+          description: The path to store Tailscale State.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "state"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: tailscale
+                            description: tailscale
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for Tailscale.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for Tailscale.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
