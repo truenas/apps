@@ -1,0 +1,688 @@
+groups:
+  - name: General
+    description: General Configuration
+  - name: Image Configuration
+    description: Configure the image
+  - name: Container Configuration
+    description: Configure the container
+  - name: Security Context Configuration
+    description: Configure Security Context for the container
+  - name: Network Configuration
+    description: Configure Network for the container
+  - name: Portal Configuration
+    description: Configure Portals
+  - name: Storage Configuration
+    description: Configure Storage for the container
+  - name: Labels Configuration
+    description: Configure Labels for the container
+  - name: Resources Configuration
+    description: Configure Resources for the container
+
+questions:
+  - variable: notes
+    label: Notes
+    group: General
+    description: |
+      Notes about the application, this will be shown in the Notes card. </br>
+      You can use markdown here. This have no effect on the application.
+    schema:
+      type: text
+
+  # Image Configuration
+  - variable: image
+    label: Image
+    group: Image Configuration
+    description: The image to use for the container.
+    schema:
+      type: dict
+      attrs:
+        - variable: repository
+          label: Repository
+          description: The repository of the image.
+          schema:
+            type: string
+            required: true
+        - variable: tag
+          label: Tag
+          description: The tag of the image.
+          schema:
+            type: string
+            default: latest
+        - variable: pull_policy
+          label: Pull Policy
+          description: The pull policy for the image.
+          schema:
+            type: string
+            default: missing
+            required: true
+            enum:
+              - value: missing
+                description: Pull the image if it is not already present on the host.
+              - value: always
+                description: Always pull an image even if it is present on the host.
+              - value: never
+                description: Never pull an image even if it is not present on the host.
+
+  # Container Configuration
+  - variable: hostname
+    label: Hostname
+    group: Container Configuration
+    description: The hostname to use for the container.
+    schema:
+      type: string
+      default: ""
+
+  - variable: entrypoint
+    label: Entrypoint
+    group: Container Configuration
+    description: |
+      Entrypoint to use for the container. </br>
+      Overrides the default ENTRYPOINT of the image.
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: entrypoint_item
+          label: ""
+          schema:
+            type: string
+            required: true
+
+  - variable: command
+    label: Command
+    group: Container Configuration
+    description: |
+      Command to use for the container. </br>
+      Overrides the default CMD of the image.
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: command_item
+          label: ""
+          schema:
+            type: string
+            required: true
+
+  - variable: TZ
+    label: Timezone
+    group: Container Configuration
+    description: Timezone setting for the container.
+    schema:
+      type: string
+      default: "Etc/UTC"
+      required: true
+      $ref:
+        - "definitions/timezone"
+
+  - variable: envs
+    label: Environment Variables
+    group: Container Configuration
+    description: Configure environment variables.
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: env
+          label: Environment Variable
+          schema:
+            type: dict
+            attrs:
+              - variable: name
+                label: Name
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+
+  - variable: restart_policy
+    label: Restart Policy
+    group: Container Configuration
+    description: The restart policy to use for the container.
+    schema:
+      type: string
+      default: "no"
+      required: true
+      enum:
+        - value: "no"
+          description: No - Does not restart the container under any circumstances.
+        - value: unless-stopped
+          description: Unless Stopped - Restarts the container irrespective of the exit code but stops restarting when the service is stopped or removed.
+        - value: on-failure
+          description: On Failure - Restarts the container if the exit code indicates an error.
+        - value: always
+          description: Always - Restarts the container until its removal.
+
+  - variable: max_retry_count
+    label: Maximum Retry Count
+    group: Container Configuration
+    description: |
+      Maximum number of retries allowed for a container to exit with a code indicating an error. </br>
+      Setting this to zero, will keep restarting the container if it exits with a code indicating an error.
+    schema:
+      type: int
+      required: true
+      default: 0
+      show_if: [["restart_policy", "=", "on-failure"]]
+
+  - variable: disable_builtin_healthcheck
+    label: Disable Builtin Healthcheck
+    group: Container Configuration
+    description: |
+      Disable the built-in HEALTHCHECK defined in the image.
+    schema:
+      type: boolean
+      default: false
+
+  - variable: tty
+    label: TTY
+    group: Container Configuration
+    description: |
+      Allocate a pseudo-TTY.</br>
+      Note, that due to a bug in the underlying library</br>
+      using this option will cause the logs to not display properly</br>
+      on the TrueNAS WebUI.</br>
+      You can still view logs using 'docker logs ...'.</br>
+      Bug: https://github.com/docker/docker-py/issues/1394
+    schema:
+      type: boolean
+      default: false
+
+  - variable: stdin
+    label: Stdin
+    group: Container Configuration
+    description: Keep stdin open on the container.
+    schema:
+      type: boolean
+      default: false
+
+  - variable: devices
+    label: Devices
+    group: Container Configuration
+    description: |
+      Devices to use for the container. </br>
+      Eg: Host Device: /dev/ttyUSB0, Container Device: /dev/ttyACM0
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: device
+          label: Device
+          schema:
+            type: dict
+            attrs:
+              - variable: host_device
+                label: Host Device
+                schema:
+                  type: string
+                  required: true
+              - variable: container_device
+                label: Container Device
+                schema:
+                  type: string
+                  required: true
+
+  # Security Context Configuration
+  - variable: privileged
+    label: Privileged
+    group: Security Context Configuration
+    description: Run the container in privileged mode.
+    schema:
+      type: boolean
+      default: false
+
+  - variable: capabilities
+    label: Capabilities
+    group: Security Context Configuration
+    description: Add Linux capabilities to the container.
+    schema:
+      type: dict
+      attrs:
+        - variable: add
+          label: Add
+          schema:
+            type: list
+            items:
+              - variable: capability
+                label: Capability
+                schema:
+                  type: string
+                  required: true
+
+  - variable: run_as_custom_user
+    label: Custom User
+    group: Security Context Configuration
+    description: Run the container as a custom user.
+    schema:
+      type: boolean
+      default: false
+
+  - variable: run_as
+    label: ""
+    group: Security Context Configuration
+    schema:
+      type: dict
+      show_if: [["run_as_custom_user", "=", true]]
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that container will run as.
+          schema:
+            type: int
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that container will run as.
+          schema:
+            type: int
+            default: 568
+            required: true
+
+  # Network Configuration
+  - variable: host_network
+    label: Host Network
+    group: Network Configuration
+    description: Bind to the host network.
+    schema:
+      type: boolean
+      default: false
+
+  - variable: ports
+    label: Ports
+    group: Network Configuration
+    description: Configure ports for the container.
+    schema:
+      type: list
+      show_if: [["host_network", "=", false]]
+      default: []
+      items:
+        - variable: port
+          label: Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+              - variable: port_number
+                label: Host Port
+                schema:
+                  type: int
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: container_port
+                label: Container Port
+                schema:
+                  type: int
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: protocol
+                label: Protocol
+                schema:
+                  type: string
+                  required: true
+                  default: "tcp"
+                  enum:
+                    - value: "tcp"
+                      description: TCP
+                    - value: "udp"
+                      description: UDP
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+  - variable: dns_config
+    label: Custom DNS Setup
+    group: Network Configuration
+    description: |
+      Configure custom DNS settings for the container.
+    schema:
+      type: dict
+      attrs:
+        - variable: nameservers
+          label: Nameservers
+          description: The DNS nameservers to use.
+          schema:
+            type: list
+            items:
+              - variable: nameserver
+                label: Nameserver
+                schema:
+                  type: string
+                  required: true
+        - variable: searches
+          label: Search Domains
+          description: The DNS search domains to use.
+          schema:
+            type: list
+            items:
+              - variable: search
+                label: Search Domain
+                schema:
+                  type: string
+                  required: true
+        - variable: options
+          label: DNS Options
+          description: The DNS options to use.
+          schema:
+            type: list
+            items:
+              - variable: option
+                label: Option
+                schema:
+                  type: string
+                  required: true
+
+  # Portal Configuration
+  - variable: portals
+    label: ""
+    group: Portal Configuration
+    schema:
+      type: list
+      items:
+        - variable: portal
+          label: Portal
+          schema:
+            type: dict
+            attrs:
+              - variable: name
+                label: Name
+                description: The name of the portal
+                schema:
+                  type: string
+                  default: "Web UI"
+                  required: true
+              - variable: scheme
+                label: Protocol
+                description: The protocol for the portal
+                schema:
+                  type: string
+                  default: "http"
+                  required: true
+                  enum:
+                    - value: "http"
+                      description: HTTP
+                    - value: "https"
+                      description: HTTPS
+              - variable: use_node_ip
+                label: Use Node IP
+                # This will set host as 0.0.0.0 if true.
+                description: Use the node IP for the portal
+                schema:
+                  type: boolean
+                  default: true
+                  required: true
+              - variable: host
+                label: Host
+                description: The host for the portal
+                schema:
+                  type: string
+                  default: ""
+                  show_if: [["use_node_ip", "=", false]]
+                  required: true
+              - variable: port
+                label: Port
+                description: The port for the portal
+                schema:
+                  type: int
+                  default: 15000
+                  required: true
+              - variable: path
+                label: Path
+                description: The path for the portal
+                schema:
+                  type: string
+                  default: "/"
+                  required: true
+
+  # Storage Configuration
+  - variable: storage
+    label: Storage
+    group: Storage Configuration
+    description: Storage for the container.
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: storageEntry
+          label: Storage Entry
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.</br>
+                  SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                  tmpfs: Is a temporary directory that will be created on the RAM.</br>
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+                    - value: "cifs"
+                      description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                    - value: "tmpfs"
+                      description: Tmpfs (Temporary directory created on the RAM)
+              - variable: read_only
+                label: Read Only
+                description: Mount the volume as read only.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: mount_path
+                label: Mount Path
+                description: The path inside the container to mount the storage.
+                schema:
+                  type: path
+                  required: true
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        default: "storage_entry"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+              - variable: cifs_config
+                label: SMB Configuration
+                description: The configuration for the SMB dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "cifs"]]
+                  attrs:
+                    - variable: server
+                      label: Server
+                      description: The server to mount the SMB share.
+                      schema:
+                        type: string
+                        required: true
+                    - variable: path
+                      label: Path
+                      description: The path to mount the SMB share.
+                      schema:
+                        type: string
+                        required: true
+                    - variable: username
+                      label: Username
+                      description: The username to use for the SMB share.
+                      schema:
+                        type: string
+                        required: true
+                    - variable: password
+                      label: Password
+                      description: The password to use for the SMB share.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: domain
+                      label: Domain
+                      description: The domain to use for the SMB share.
+                      schema:
+                        type: string
+              - variable: tmpfs_config
+                label: Tmpfs Configuration
+                description: The configuration for the tmpfs dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "tmpfs"]]
+                  attrs:
+                    - variable: size
+                      label: Tmpfs Size Limit (in Mi)
+                      description: |
+                        The maximum size (in Mi) of the temporary directory.</br>
+                        For example: 500
+                      schema:
+                        type: int
+                        default: 500
+                        required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enable_resource_limits
+          label: Enable Resource Limits
+          group: Resources Configuration
+          description: Enable resource limits for the container.
+          schema:
+            type: boolean
+            default: false
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            show_if: [["enable_resource_limits", "=", true]]
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for the container.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for the container.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
+        - variable: gpus
+          group: Resources Configuration
+          label: GPU Configuration
+          schema:
+            type: dict
+            $ref:
+              - "definitions/gpu_configuration"
+            attrs: []

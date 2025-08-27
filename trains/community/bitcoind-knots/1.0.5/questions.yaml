@@ -1,0 +1,870 @@
+groups:
+  - name: Bitcoin Knots Configuration
+    description: Configure Bitcoin Knots
+  - name: User and Group Configuration
+    description: Configure User and Group for Bitcoin Knots
+  - name: Network Configuration
+    description: Configure Network for Bitcoin Knots
+  - name: Storage Configuration
+    description: Configure Storage for Bitcoin Knots
+  - name: Labels Configuration
+    description: Configure Labels for Bitcoin Knots
+  - name: Resources Configuration
+    description: Configure Resources for Bitcoin Knots
+
+questions:
+  - variable: TZ
+    label: Timezone
+    group: Bitcoin Knots Configuration
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: bitcoin
+    label: ""
+    group: Bitcoin Knots Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: rpc_user
+          label: RPC User
+          description: The username for RPC auth.
+          schema:
+            type: string
+            required: true
+            default: truenas
+        - variable: rpc_password
+          label: RPC Password
+          description: The password for RPC auth.
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: rpc_work_queue_size
+          label: RPC Work Queue Size
+          description: |
+            Set the maximum number of queued Remote Procedure Call (RPC) requests your node can
+            handle (e.g., from connected wallets or other apps), helping you strike a balance
+            between performance and resource usage. Higher values can improve processing speed at
+            the cost of increased system resources.
+          schema:
+            type: int
+            required: true
+            default: 128
+            min: 0
+        - variable: clearnet_outgoing_enabled
+          label: Clearnet Outgoing Connections
+          description: Connect to peers available on the clearnet (publicly accessible internet).
+          schema:
+            type: boolean
+            default: true
+        - variable: clearnet_incoming_enabled
+          label: Clearnet Incoming Connections
+          description: |
+            Broadcast your node to the Bitcoin network to help other clearnet nodes access the
+            blockchain. You may need to set up port forwarding on your router.
+          schema:
+            type: boolean
+            default: false
+        - variable: tor_outgoing_enabled
+          label: Tor Outgoing Connections
+          description: Connect to peers available on the Tor network.
+          schema:
+            type: boolean
+            default: false
+        - variable: clearnet_outgoing_via_tor_enabled
+          label: Route Clearnet Outgoing Connections Via Tor
+          description: |
+            Connect to peers available on the clearnet via Tor to preserve your anonymity at the
+            cost of slightly less security.
+          schema:
+            type: boolean
+            default: false
+        - variable: tor_incoming_enabled
+          label: Tor Incoming Connections
+          description: |
+            Broadcast your node to the Bitcoin network to help other Tor nodes access the
+            blockchain.
+          schema:
+            type: boolean
+            default: false
+        - variable: tor_incoming_address
+          label: Incoming Onion Address
+          description: Enter the local IP of this machine if you are running the Arti TrueNAS App.
+          schema:
+            type: string
+            required: true
+            valid_chars: "^[a-zA-Z0-9]+\\.onion$"
+            valid_chars_error: Invalid onion address.
+            show_if: [["tor_incoming_enabled", "=", true]]
+        - variable: tor_ip
+          label: Tor IP
+          description: |
+            Enter the local IP of this machine if you are running the Arti TrueNAS App.</br>
+            Required if any of the following is enabled:
+            - Tor Outgoing Connections
+            - Tor Incoming Connections
+            - Clearnet Outgoing Connections via Tor
+          schema:
+            type: ipaddr
+        - variable: tor_port
+          label: Tor port
+          description: |
+            Required if any of the following is enabled:
+            - Tor Outgoing Connections
+            - Tor Incoming Connections
+            - Clearnet Outgoing Connections via Tor
+          schema:
+            type: int
+            min: 1
+            max: 65535
+        - variable: i2p_outgoing_enabled
+          label: I2P Outgoing Connections
+          description: Connect to peers available on the I2P network.
+          schema:
+            type: boolean
+            default: false
+        - variable: i2p_incoming_enabled
+          label: I2P Incoming Connections
+          description: |
+            Broadcast your node to the Bitcoin network to help other I2P nodes access the
+            blockchain. Your I2P router has to have SAM bridge enabled.
+          schema:
+            type: boolean
+            default: false
+        - variable: i2p_ip
+          label: I2P IP
+          description: |
+            Enter the local IP of this machine if you are running the Arti TrueNAS App.</br>
+            Required if any of the following is enabled:
+            - I2P Outgoing Connections
+            - I2P Incoming Connections
+          schema:
+            type: ipaddr
+        - variable: i2p_port
+          label: I2P SAM port
+          description: |
+            Required if any of the following is enabled:
+            - I2P Outgoing Connections
+            - I2P Incoming Connections
+          schema:
+            type: int
+            min: 1
+            max: 65535
+        - variable: public_rest_api_enabled
+          label: Public REST API
+          description: |
+            Enabling the public REST API can help you connect certain wallets and apps to your node.
+            However, because the REST API access is unauthenticated, it can lead to unauthorized
+            access, privacy degradation, and denial-of-service (DoS) attacks.
+          schema:
+            type: boolean
+            default: false
+        - variable: peer_block_filters_enabled
+          label: Peer Block Filters
+          description: |
+            Share compact block filter data with connected light clients (like wallets) connected
+            to your node, allowing them to get only the transaction information they are interested
+            in from your node without having to download the entire blockchain.</br>
+
+            Note: If you disable Peer Block Filters, you will need to also manually toggle off
+            Block Filter Index if you want to stop storing block filter data.
+          schema:
+            type: boolean
+            default: true
+        - variable: block_filter_index_enabled
+          label: Block Filter Index
+          description: |
+            Store an index of compact block filters which allows faster wallet re-scanning. In
+            order to serve compact block filters to peers, you must also enable Peer Block Filters
+            above.</br>
+
+            Note: To use 'Block Filter Index' with a pruned node, you must enable it when you start
+            the 'Prune Old Blocks' process under the Optimization category. If your node is already
+            pruned and 'Block Filter Index' is off, enabling it will prevent your node from
+            starting. To fix this while keeping 'Block Filter Index' on, you will need to either
+            reindex your node or turn off 'Prune Old Blocks'.
+          schema:
+            type: boolean
+            default: true
+        - variable: peer_bloom_filters_enabled
+          label: Peer Bloom Filters
+          description: |
+            Enable support for BIP37, a feature used by older light clients (like wallets) to get
+            only the transaction information they are interested in from your node without having
+            to download the entire blockchain.</br>
+
+            Note: Bloom filters can have privacy and denial-of-service (DoS) risks, especially if
+            your node is publicly reachable; its use is discouraged in favour of the more modern
+            compact block filters.
+          schema:
+            type: boolean
+            default: true
+        - variable: peer_ban_time
+          label: Peer Ban Time (seconds)
+          description: |
+            Set the duration (in seconds) that a peer will be banned from connecting to your node
+            if they violate protocol rules or exhibit suspicious behavior. By adjusting ban time,
+            you can maintain your node's security and network integrity, while preventing repeat
+            offenders from causing disruptions. A longer ban time increases the ban period,
+            discouraging misbehavior, while a shorter ban time allows for quicker re-connections but
+            may require more frequent manual monitoring of peer activity.
+          schema:
+            type: int
+            required: true
+            default: 86400
+            min: 0
+        - variable: max_peer_connections
+          label: Max Peer Connections
+          description: |
+            Set the maximum number of peers your node can connect to simultaneously. By managing
+            this, you can optimize your node's network usage and system resources based on your
+            device's capacity. A higher value enables your node to maintain more connections,
+            potentially improving network stability and data sharing. A lower value conserves
+            system resources and bandwidth, which may be beneficial for devices with limited
+            capabilities.
+          schema:
+            type: int
+            required: true
+            default: 125
+            min: 0
+        - variable: max_receive_buffer
+          label: Max Receive Buffer (KB)
+          description: |
+            Set the maximum amount of memory (in kilobytes) allocated for storing incoming data from
+            other nodes in the network. A larger buffer size allows your node to handle more
+            incoming data simultaneously, while a smaller size reduces memory consumption but may
+            limit the amount of data your node can process at once.
+          schema:
+            type: int
+            required: true
+            default: 5000
+            min: 0
+        - variable: max_send_buffer
+          label: Max Send Buffer (KB)
+          description: |
+            Set the maximum memory (in kilobytes) dedicated to storing outgoing data sent to other
+            nodes in the network. A larger buffer size enables your node to send more data
+            simultaneously, while a smaller size conserves memory but may restrict the volume of
+            data your node can transmit at once.
+          schema:
+            type: int
+            required: true
+            default: 1000
+            min: 0
+        - variable: peer_timeout
+          label: Peer Timeout (seconds)
+          description: |
+            Set the maximum time (in seconds) that your node will wait for a response from a
+            connected peer before considering it unresponsive and disconnecting. Adjusting
+            peer timeout helps you maintain stable connections with responsive peers while ensuring
+            your node doesn't waste resources on unresponsive ones. A shorter timeout value allows
+            for quicker disconnection from unresponsive peers, while a longer timeout provides more
+            time for slow-responding peers to maintain a connection.
+          schema:
+            type: int
+            required: true
+            default: 60
+            min: 0
+        - variable: connection_timeout
+          label: Connection Timeout (milliseconds)
+          description: |
+            Set the maximum time (in milliseconds) that your node will wait for a response from a
+            newly connecting peer during the initial handshake process before considering it
+            unresponsive and disconnecting. Fine-tuning it helps you ensure your node establishes
+            stable connections with responsive peers while avoiding unresponsive ones. A shorter
+            timeout value leads to faster disconnection from unresponsive peers, while a longer
+            timeout allows more time for slow-responding peers to complete the handshake.
+          schema:
+            type: int
+            required: true
+            default: 5000
+            min: 0
+        - variable: max_upload_target
+          label: Max Upload Target (MB/24h)
+          description: |
+            Limit the maximum amount of data (in MB) your node will upload to other peers in the
+            network within a 24-hour period. Setting this to 0 (default) means that there is no
+            limit. By adjusting it, you can optimize your node's bandwidth usage and maintain a
+            balance between sharing data with the network and conserving your internet resources.
+            A higher upload target allows your node to contribute more data to the network, while a
+            lower target helps you save bandwidth for other uses.
+          schema:
+            type: int
+            required: true
+            default: 0
+            min: 0
+        - variable: cache_size
+          label: Cache Size (MB)
+          description: |
+            Choose the size of the UTXO set to store in RAM. A larger cache can speed up the initial
+            synchronization of your Bitcoin Knots, but after the initial sync is complete, a larger
+            cache value does not significantly improve performance and may use more RAM than needed.
+          schema:
+            type: int
+            required: true
+            default: 300
+            min: 1
+        - variable: prune_size
+          label: Prune Old Blocks (GB)
+          description: |
+            Save storage space by pruning (deleting) old blocks and keeping only a limited copy of
+            the blockchain. It may take some time for your node to be online after you turn on
+            pruning. If you turn off pruning after turning it on, you'll need to download the entire
+            blockchain.<br />
+
+            Note: A value of 0 disables pruning.
+          schema:
+            type: int
+            required: true
+            default: 0
+            min: 0
+        - variable: op_return_txs_relay_enabled
+          label: Relay Transactions Containing Arbitrary Data
+          description: Relay transactions with OP_RETURN outputs.
+          schema:
+            type: boolean
+            default: true
+        - variable: max_op_return_size
+          label: Max Allowed Size of Arbitrary Data in Transactions (bytes)
+          description: Set the maximum size of the data in OP_RETURN outputs that your node will relay.
+          schema:
+            type: int
+            required: true
+            default: 42
+            min: 0
+            show_if: [["op_return_txs_relay_enabled", "=", true]]
+        - variable: bare_multisig_txs_relay_enabled
+          label: Relay Bare Multisig Transactions
+          description: Relay non-P2SH multisig transactions.
+          schema:
+            type: boolean
+            default: false
+        - variable: max_mempool_size
+          label: Maximum Mempool Size (MB)
+          description: |
+            Set the maximum size that your node will allocate (in RAM) for storing unconfirmed
+            transactions before they are included in a block. By adjusting maxmempool, you can
+            optimize your node's performance and balance memory usage based on your device's
+            capabilities. A larger maxmempool allows your node to store more unconfirmed
+            transactions, providing more accurate statistics on explorer apps like Mempool.
+          schema:
+            type: int
+            required: true
+            default: 1024
+            min: 1
+        - variable: mempool_expiry
+          label: Mempool Expiration (hours)
+          description: |
+            Set the time threshold for unconfirmed transactions to remain in your node's mempool
+            before being removed. By adjusting it, you can manage your node's memory usage and
+            ensure outdated, unconfirmed transactions are discarded. A shorter expiry time helps
+            keep your mempool up-to-date and reduces memory usage, while a longer expiry time allows
+            transactions to remain in the pool for an extended period in case of network congestion
+            or delayed confirmations.
+          schema:
+            type: int
+            required: true
+            default: 336
+            min: 0
+        - variable: mempool_persist_enabled
+          label: Persist Mempool
+          description: |
+            Saves unconfirmed transactions in your node's mempool when it's shutting down and
+            reloads them upon startup. Enabling this setting helps maintain a consistent mempool and
+            prevents the loss of unconfirmed transactions during a restart. Disabling this setting
+            will clear the mempool upon restart, which may reduce startup time but requires your
+            node to rebuild its mempool from scratch.
+          schema:
+            type: boolean
+            default: true
+        - variable: max_orphan_txs
+          label: Max Orphan Transactions
+          description: |
+            Set the maximum number of orphan transactions (transactions missing one or more of their
+            inputs) that your node will keep in memory. By fine-tuning it, you can optimize your
+            node's memory usage and manage its performance based on your device's capabilities. A
+            larger limit allows your node to store more orphan transactions, potentially increasing
+            the chances of finding missing inputs. A smaller limit conserves memory but will result
+            in your node evicting some orphan transactions from memory when the limit is reached.
+          schema:
+            type: int
+            required: true
+            default: 100
+            min: 0
+        - variable: additional_flags
+          label: Additional flags
+          description: |
+            Additional bitcoind commands can be provided here.
+            If you are unsure, leave this blank.
+          schema:
+            type: list
+            items:
+              - variable: flag
+                label: Flag
+                schema:
+                  type: string
+                  required: true
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Bitcoin Knots files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Bitcoin Knots files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: rpc_port
+          label: RPC Port
+          description: This is the RPC port which is useful for other apps like Electrs to communicate with.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30240
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: p2p_clearnet_port
+          label: P2P Clearnet Port
+          description: |
+            The port used for your node to communicate blockchain data with other clearnet nodes.
+            This should be published for external access in most scenarios.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30241
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: p2p_tor_port
+          label: P2P Tor Port
+          description: |
+            The port used for your node to communicate blockchain data with other Tor nodes.
+            This should be published for external access in most scenarios.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30242
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: bitcoin
+          label: Bitcoin Storage Location
+          description: |
+            Use SSDs for reasonable performance.
+            You will have a very bad time trying to sync a Bitcoin Knots on HDDs.</br>
+            We recommend at least 800GB of free space if pruning is disabled.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "bitcoin"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: bitcoind
+                            description: bitcoind
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for Bitcoin Knots.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for Bitcoin Knots.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true

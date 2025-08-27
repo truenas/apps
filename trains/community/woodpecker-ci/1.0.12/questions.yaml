@@ -1,0 +1,868 @@
+groups:
+  - name: Woodpecker CI Configuration
+    description: Configure Woodpecker CI
+  - name: User and Group Configuration
+    description: Configure User and Group for Woodpecker CI
+  - name: Network Configuration
+    description: Configure Network for Woodpecker CI
+  - name: Storage Configuration
+    description: Configure Storage for Woodpecker CI
+  - name: Labels Configuration
+    description: Configure Labels for Woodpecker CI
+  - name: Resources Configuration
+    description: Configure Resources for Woodpecker CI
+
+questions:
+  - variable: TZ
+    group: Woodpecker CI Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+  - variable: woodpecker
+    label: ""
+    group: Woodpecker CI Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
+          schema:
+            type: string
+            default: postgres_17_image
+            required: true
+            enum:
+              - value: postgres_17_image
+                description: Postgres 17
+        - variable: db_password
+          label: Database Password
+          description: The password for Woodpecker CI Database.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: external_url
+          label: External URL
+          description: |
+            The URL that Woodpecker will be accessible from.</br>
+            Example: </br>
+            - http://server.ip:30166</br>
+            - https://server.ip:30168</br>
+            - https://woodpecker.example.com
+          schema:
+            type: uri
+            default: ""
+            required: true
+        - variable: agent_secret
+          label: Agent Secret
+          description: The secret that the built-in agent will use to authenticate with the server.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: allow_registration
+          label: Allow Registration
+          description: |
+            This will allow users from one of the Forges to be able to login for the first time.</br>
+            Woodpecker does NOT have a built-in user management system.</br>
+            See https://woodpecker-ci.org/docs/next/administration/configuration/server#forge-and-user-configuration
+          schema:
+            type: boolean
+            default: false
+        - variable: forge
+          label: Forge Configuration
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  enum:
+                    - value: "github"
+                      description: GitHub
+                    - value: "gitea"
+                      description: Gitea
+                    - value: "forgejo"
+                      description: Forgejo
+                    - value: "bitbucket"
+                      description: Bitbucket
+                    - value: "gitlab"
+                      description: GitLab
+              - variable: github
+                label: GitHub Configuration
+                description: See https://woodpecker-ci.org/docs/next/administration/configuration/forges/github
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "github"]]
+                  attrs:
+                    - variable: client_id
+                      label: Client ID
+                      description: The client ID for the GitHub application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: client_secret
+                      label: Client Secret
+                      description: The client secret for the GitHub application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+              - variable: gitea
+                label: Gitea Configuration
+                description: See https://woodpecker-ci.org/docs/next/administration/configuration/forges/gitea
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "gitea"]]
+                  attrs:
+                    - variable: url
+                      label: URL
+                      description: The URL of the Gitea server.
+                      schema:
+                        type: string
+                        required: true
+                    - variable: client_id
+                      label: Client ID
+                      description: The client ID for the Gitea application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: client_secret
+                      label: Client Secret
+                      description: The client secret for the Gitea application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: skip_tls_verify
+                      label: Skip TLS Verify
+                      description: Skip TLS verification.
+                      schema:
+                        type: boolean
+                        default: false
+              - variable: forgejo
+                label: Forgejo Configuration
+                description: See https://woodpecker-ci.org/docs/next/administration/configuration/forges/forgejo
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "forgejo"]]
+                  attrs:
+                    - variable: url
+                      label: URL
+                      description: The URL of the Forgejo server.
+                      schema:
+                        type: string
+                        required: true
+                    - variable: client_id
+                      label: Client ID
+                      description: The client ID for the Forgejo application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: client_secret
+                      label: Client Secret
+                      description: The client secret for the Forgejo application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: skip_tls_verify
+                      label: Skip TLS Verify
+                      description: Skip TLS verification.
+                      schema:
+                        type: boolean
+                        default: false
+              - variable: bitbucket
+                label: Bitbucket Configuration
+                description: See https://woodpecker-ci.org/docs/next/administration/configuration/forges/bitbucket
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "bitbucket"]]
+                  attrs:
+                    - variable: client_id
+                      label: Client ID
+                      description: The client ID for the Bitbucket application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: client_secret
+                      label: Client Secret
+                      description: The client secret for the Bitbucket application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+              - variable: gitlab
+                label: GitLab Configuration
+                description: See https://woodpecker-ci.org/docs/next/administration/configuration/forges/gitlab
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "gitlab"]]
+                  attrs:
+                    - variable: url
+                      label: URL
+                      description: The URL of the GitLab server.
+                      schema:
+                        type: string
+                        required: true
+                    - variable: client_id
+                      label: Client ID
+                      description: The client ID for the GitLab application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: client_secret
+                      label: Client Secret
+                      description: The client secret for the GitLab application.
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: skip_tls_verify
+                      label: Skip TLS Verify
+                      description: Skip TLS verification.
+                      schema:
+                        type: boolean
+                        default: false
+        - variable: agent
+          label: Agent Configuration
+          schema:
+            type: dict
+            attrs:
+              - variable: max_workflows
+                label: Max Workflows
+                description: The maximum number of workflows that the built-in agent can be run at the same time.
+                schema:
+                  type: int
+                  default: 1
+                  min: 1
+                  required: true
+              - variable: labels
+                label: Agent Labels
+                description: The labels that the built-in agent will be have.
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: label
+                      label: Label
+                      schema:
+                        type: dict
+                        attrs:
+                          - variable: key
+                            label: Key
+                            schema:
+                              type: string
+                              required: true
+                          - variable: value
+                            label: Value
+                            schema:
+                              type: string
+                              required: true
+        - variable: server_additional_envs
+          label: Additional Environment Variables for Server Container
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+        - variable: agent_additional_envs
+          label: Additional Environment Variables for Agent Container
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Woodpecker CI files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Woodpecker CI files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: http_port
+          label: HTTP Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30166
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: grpc_port
+          label: GRPC Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30167
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: https_port
+          label: HTTPS Port
+          schema:
+            type: dict
+            show_if: [["certificate_id", "!=", null]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30168
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: certificate_id
+          label: Certificate
+          description: The certificate to use for Concourse.
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - "definitions/certificate"
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: agent_config
+          label: Woodpecker CI Agent Configuration Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "agent_config"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: postgres_data
+          label: Postgres Data Storage
+          description: The path to store Postgres Data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "pg_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: server
+                            description: server
+                          - value: agent
+                            description: agent
+                          - value: postgres
+                            description: postgres
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for Woodpecker CI.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for Woodpecker CI.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true

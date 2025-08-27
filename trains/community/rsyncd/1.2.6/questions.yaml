@@ -1,0 +1,469 @@
+groups:
+  - name: Rsync Daemon Configuration
+    description: Configure Rsync Daemon
+  - name: Network Configuration
+    description: Configure Network for Rsync Daemon
+  - name: Storage Configuration
+    description: Configure Storage for Rsync Daemon
+  - name: Labels Configuration
+    description: Configure Labels for Rsync Daemon
+  - name: Resources Configuration
+    description: Configure Resources for Rsync Daemon
+
+questions:
+  - variable: rsyncd
+    label: ""
+    group: Rsync Daemon Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: max_connections
+          label: Max Connections
+          description: The maximum number of simultaneous connections.
+          schema:
+            type: int
+            default: 4
+            required: true
+        - variable: aux_params
+          label: Auxillary Parameters
+          description: Configure auxillary parameters for Rsync.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: aux_entry
+                label: Auxillary Parameter Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: param
+                      label: Parameter
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+                        required: true
+        - variable: rsync_modules
+          label: Rsync Modules
+          description: Configure modules for Rsync.
+          schema:
+            type: list
+            default: []
+            min: 1
+            required: true
+            items:
+              - variable: module
+                label: Module
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Module Name
+                      description: |
+                        Module name that matches the name requested by the rsync client.
+                      schema:
+                        type: string
+                        valid_chars: "^[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)+$"
+                        valid_chars_error: |
+                          Module Name, can include [Letters (a-z, A-Z), Numbers (0,9), Underscore (_), Dash (-)],</br>
+                          but cannot start or end with [Underscore (_), Dash (-), Dot (.)]
+                        required: true
+                    - variable: enabled
+                      label: Enable Module
+                      schema:
+                        type: boolean
+                        default: true
+                    - variable: comment
+                      label: Comment
+                      description: Describe the module.
+                      schema:
+                        type: string
+                        show_if: [["enabled", "=", true]]
+                    - variable: host_path
+                      label: Host Path
+                      description: The host path to use for the module.
+                      schema:
+                        type: hostpath
+                        show_if: [["enabled", "=", true]]
+                        required: true
+                    - variable: access_mode
+                      label: Access Mode
+                      description: The access mode for the module.
+                      schema:
+                        type: string
+                        show_if: [["enabled", "=", true]]
+                        default: RO
+                        required: true
+                        enum:
+                          - value: RO
+                            description: Read Only
+                          - value: RW
+                            description: Read Write
+                          - value: WO
+                            description: Write Only
+                    - variable: max_connections
+                      label: Max Connections
+                      description: The maximum number of simultaneous connections.
+                      schema:
+                        type: int
+                        show_if: [["enabled", "=", true]]
+                        default: 0
+                        min: 0
+                        max: 1000
+                        required: true
+                    - variable: uid
+                      label: UID
+                      description: The UID to use for the module.
+                      schema:
+                        type: int
+                        show_if: [["enabled", "=", true]]
+                        default: 0
+                        min: 0
+                        max: 4294967295
+                        required: true
+                    - variable: gid
+                      label: GID
+                      description: The GID to use for the module.
+                      schema:
+                        type: int
+                        show_if: [["enabled", "=", true]]
+                        default: 0
+                        min: 0
+                        max: 4294967295
+                        required: true
+                    - variable: hosts_allow
+                      label: Hosts Allow
+                      description: The hosts allowed to access the module.
+                      schema:
+                        type: list
+                        show_if: [["enabled", "=", true]]
+                        default: []
+                        items:
+                          - variable: host
+                            label: Host
+                            schema:
+                              type: string
+                              required: true
+                    - variable: hosts_deny
+                      label: Hosts Deny
+                      description: The hosts denied to access the module.
+                      schema:
+                        type: list
+                        show_if: [["enabled", "=", true]]
+                        default: []
+                        items:
+                          - variable: host
+                            label: Host
+                            schema:
+                              type: string
+                              required: true
+                    - variable: aux_params
+                      label: Auxillary Parameters
+                      description: Configure auxillary parameters for Rsync.
+                      schema:
+                        type: list
+                        show_if: [["enabled", "=", true]]
+                        default: []
+                        items:
+                          - variable: aux_entry
+                            label: Auxillary Parameter Entry
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: param
+                                  label: Parameter
+                                  schema:
+                                    type: string
+                                    required: true
+                                - variable: value
+                                  label: Value
+                                  schema:
+                                    type: string
+                                    required: true
+
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: rsync_port
+          label: Rsync Port
+          description: The port for Rsync Daemon
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30026
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: true
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: rsyncd
+                            description: rsyncd
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for Rsync Daemon.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for Rsync Daemon.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true

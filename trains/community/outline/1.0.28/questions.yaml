@@ -1,0 +1,832 @@
+groups:
+  - name: Outline Configuration
+    description: Configure Outline
+  - name: Network Configuration
+    description: Configure Network for Outline
+  - name: Storage Configuration
+    description: Configure Storage for Outline
+  - name: Labels Configuration
+    description: Configure Labels for Outline
+  - name: Resources Configuration
+    description: Configure Resources for Outline
+
+questions:
+  - variable: TZ
+    group: Outline Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+  - variable: outline
+    label: ""
+    group: Outline Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
+          schema:
+            type: string
+            default: postgres_17_image
+            required: true
+            enum:
+              - value: postgres_17_image
+                description: Postgres 17
+        - variable: db_password
+          label: Database Password
+          description: The password for Outline.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: redis_password
+          label: Redis Password
+          description: The password for Redis.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: secret_key
+          label: Secret Key
+          description: The secret key for Outline.
+          schema:
+            type: string
+            default: ""
+            min_length: 64
+            max_length: 64
+            valid_chars: "^[a-f0-9]+$"
+            valid_chars_error: |
+              Secret must be a hexadecimal string.</br>
+              Allowed characters are [a-f] and [0-9].
+            required: true
+            private: true
+        - variable: utils_secret
+          label: Utils Secret
+          description: The utils secret for Outline.
+          schema:
+            type: string
+            default: ""
+            min_length: 64
+            max_length: 64
+            valid_chars: "^[a-f0-9]+$"
+            valid_chars_error: |
+              RPC Secret must be a hexadecimal string.</br>
+              Allowed characters are [a-f] and [0-9].
+            required: true
+            private: true
+        - variable: app_url
+          label: App URL
+          description: |
+            The base URL for Outline.</br>
+            Examples:</br>
+            https://outline.example.com </br>
+            http://192.168.1.100:30064
+          schema:
+            type: uri
+            default: ""
+            required: true
+        - variable: force_https
+          label: Force HTTPS
+          description: |
+            Force HTTPS for Outline. </br>
+            Auto-redirects HTTP to HTTPS.
+          schema:
+            type: boolean
+            default: false
+        - variable: oidc_auth
+          label: OIDC Authentication
+          description: OIDC Authentication for Outline.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable OIDC Authentication for Outline.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: client_id
+                label: Client ID
+                description: The client ID for OIDC Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: client_secret
+                label: Client Secret
+                description: The client secret for OIDC Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: auth_uri
+                label: Auth URI
+                description: The auth URI for OIDC Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: token_uri
+                label: Token URI
+                description: The token URI for OIDC Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: userinfo_uri
+                label: Userinfo URI
+                description: The userinfo URI for OIDC Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: logout_uri
+                label: Logout URI
+                description: The logout URI for OIDC Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: username_claim
+                label: Username Claim
+                description: The username claim for OIDC Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: display_name
+                label: Display Name
+                description: The display name for OIDC Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: scopes
+                label: Scopes
+                description: The scopes for OIDC Authentication.
+                schema:
+                  type: list
+                  show_if: [["enabled", "=", true]]
+                  items:
+                    - variable: scope
+                      label: Scope
+                      schema:
+                        type: string
+                        required: true
+        - variable: slack_auth
+          label: Slack Authentication
+          description: Slack Authentication for Outline.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable Slack Authentication for Outline.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: client_id
+                label: Client ID
+                description: The client ID for Slack Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: client_secret
+                label: Client Secret
+                description: The client secret for Slack Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+        - variable: google_auth
+          label: Google Authentication
+          description: Google Authentication for Outline.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable Google Authentication for Outline.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: client_id
+                label: Client ID
+                description: The client ID for Google Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: client_secret
+                label: Client Secret
+                description: The client secret for Google Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+        - variable: azure_auth
+          label: Azure Authentication
+          description: Azure Authentication for Outline.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable Azure Authentication for Outline.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: client_id
+                label: Client ID
+                description: The client ID for Azure Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: client_secret
+                label: Client Secret
+                description: The client secret for Azure Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: resource_app_id
+                label: Resource App ID
+                description: The resource app ID for Azure Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+        - variable: github_auth
+          label: GitHub Authentication
+          description: GitHub Authentication for Outline.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable GitHub Authentication for Outline.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: client_id
+                label: Client ID
+                description: The client ID for GitHub Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: client_secret
+                label: Client Secret
+                description: The client secret for GitHub Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: app_name
+                label: App Name
+                description: The app name for GitHub Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: app_id
+                label: App ID
+                description: The app ID for GitHub Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: app_private_key
+                label: App Private Key
+                description: The app private key for GitHub Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  max_length: 4096
+                  required: true
+                  private: true
+        - variable: discord_auth
+          label: Discord Authentication
+          description: Discord Authentication for Outline.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable Discord Authentication for Outline.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: client_id
+                label: Client ID
+                description: The client ID for Discord Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: client_secret
+                label: Client Secret
+                description: The client secret for Discord Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  private: true
+              - variable: server_id
+                label: Server ID
+                description: The server ID for Discord Authentication.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: server_roles
+                label: Server Roles
+                description: The server roles for Discord Authentication.
+                schema:
+                  type: list
+                  show_if: [["enabled", "=", true]]
+                  items:
+                    - variable: role
+                      label: Role
+                      schema:
+                        type: string
+                        required: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30144
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        - variable: certificate_id
+          label: Certificate
+          description: The certificate to use for Outline.
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - definitions/certificate
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Outline Data Storage
+          description: The path to store Outline Data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: postgres_data
+          label: Postgres Data Storage
+          description: The path to store Postgres Data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "pg_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: outline
+                            description: outline
+                          - value: redis
+                            description: redis
+                          - value: postgres
+                            description: postgres
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for Outline.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for Outline.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
