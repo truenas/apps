@@ -303,14 +303,10 @@ def test_mariadb_healthcheck(mock_values):
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
         "mariadb-admin",
-        "--user",
-        "root",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "3306",
-        "--password",
-        "$$MARIADB_ROOT_PASSWORD",
+        "--user=root",
+        "--host=127.0.0.1",
+        "--port=3306",
+        "--password=$$MARIADB_ROOT_PASSWORD",
         "ping",
     ]
 

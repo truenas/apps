@@ -84,7 +84,7 @@ class Healthcheck:
         }
 
 
-def test_mapping(variant: str, config: dict | None = None) -> str:
+def test_mapping(variant: str, config: dict | None = None) -> list[str]:
     config = config or {}
     tests = {
         "curl": curl_test,
@@ -218,14 +218,10 @@ def mariadb_test(config: dict) -> list[str]:
     return [
         "CMD",
         "mariadb-admin",
-        "--user",
-        "root",
-        "--host",
-        host,
-        "--port",
-        str(port),
-        "--password",
-        "$MARIADB_ROOT_PASSWORD",
+        "--user=root",
+        f"--host={host}",
+        f"--port={port}",
+        "--password=$MARIADB_ROOT_PASSWORD",
         "ping",
     ]
 
