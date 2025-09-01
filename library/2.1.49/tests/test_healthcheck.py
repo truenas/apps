@@ -108,10 +108,10 @@ def test_http_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("http", {"port": 8080})
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == """/bin/bash -c 'exec {hc_fd}<>/dev/tcp/127.0.0.1/8080 && echo -e "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&$${hc_fd} && cat <&$${hc_fd} | grep "HTTP" | grep -q "200"'"""  # noqa
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD-SHELL",
+        """/bin/bash -c 'exec {hc_fd}<>/dev/tcp/127.0.0.1/8080 && echo -e "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&$${hc_fd} && cat <&$${hc_fd} | grep "HTTP" | grep -q "200"'""",  # noqa
+    ]
 
 
 def test_curl_healthcheck_as_CMD(mock_values):

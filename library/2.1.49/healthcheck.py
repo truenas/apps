@@ -166,13 +166,16 @@ def wget_test(config: dict) -> list[str]:
     return cmd
 
 
-def http_test(config: dict) -> str:
+def http_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = valid_http_path_or_raise(get_key(config, "path", "/", False))
     host = get_key(config, "host", "127.0.0.1", False)
 
-    return f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"'"""  # noqa
+    return [
+        "CMD-SHELL",
+        f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"'""",  # noqa
+    ]
 
 
 def netcat_test(config: dict) -> list[str]:
