@@ -172,8 +172,10 @@ def http_test(config: dict) -> list[str]:
     host = get_key(config, "host", "127.0.0.1", False)
 
     return [
-        "CMD-SHELL",
-        f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"'""",  # noqa
+        "CMD",
+        "/bin/bash",
+        "-c",
+        f'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"',  # noqa
     ]
 
 
