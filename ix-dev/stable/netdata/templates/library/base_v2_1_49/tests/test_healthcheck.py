@@ -49,10 +49,10 @@ def test_set_custom_test(mock_values):
 def test_set_custom_test_array(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_custom_test(["CMD", "echo", "$1"])
+    c1.healthcheck.set_custom_test(["CMD", "echo", "1"])
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"] == {
-        "test": ["CMD", "echo", "$$1"],
+        "test": ["CMD", "echo", "1"],
         "interval": "30s",
         "timeout": "5s",
         "retries": 5,
@@ -61,10 +61,17 @@ def test_set_custom_test_array(mock_values):
     }
 
 
+def test_CMD_with_var_should_fail(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.healthcheck.set_custom_test(["CMD", "echo", "$1"])
+
+
 def test_set_options(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_custom_test(["CMD", "echo", "$1"])
+    c1.healthcheck.set_custom_test(["CMD", "echo", "1"])
     c1.healthcheck.set_interval(9)
     c1.healthcheck.set_timeout(8)
     c1.healthcheck.set_retries(7)
@@ -72,7 +79,7 @@ def test_set_options(mock_values):
     c1.healthcheck.set_start_interval(5)
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"] == {
-        "test": ["CMD", "echo", "$$1"],
+        "test": ["CMD", "echo", "1"],
         "interval": "9s",
         "timeout": "8s",
         "retries": 7,
@@ -109,10 +116,8 @@ def test_http_healthcheck(mock_values):
     c1.healthcheck.set_test("http", {"port": 8080})
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
-        "CMD",
-        "/bin/bash",
-        "-c",
-        f'exec {{hc_fd}}<>/dev/tcp/127.0.0.1/8080 && echo -e "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&$${{hc_fd}} && cat <&$${{hc_fd}} | grep "HTTP" | grep -q "200"',  # noqa
+        "CMD-SHELL",
+        f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/127.0.0.1/8080 && echo -e "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&$${{hc_fd}} && cat <&$${{hc_fd}} | grep "HTTP" | grep -q "200"'""",  # noqa
     ]
 
 
@@ -162,7 +167,7 @@ def test_curl_healthcheck_with_headers_and_method_and_data(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test(
-        "curl", {"port": 8080, "path": "/health", "method": "POST", "headers": [("X-Test", "$test")], "data": {}}
+        "curl", {"port": 8080, "path": "/health", "method": "POST", "headers": [("X-Test", "some-value")], "data": {}}
     )
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
@@ -176,7 +181,7 @@ def test_curl_healthcheck_with_headers_and_method_and_data(mock_values):
         "--show-error",
         "--fail",
         "--header",
-        "X-Test: $$test",
+        "X-Test: some-value",
         "--data",
         "{}",
         "http://127.0.0.1:8080/health",
@@ -263,7 +268,7 @@ def test_tcp_healthcheck(mock_values):
 def test_redis_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_test("redis")
+    c1.healthcheck.set_test("redis", {"password": "test"})
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
@@ -273,7 +278,23 @@ def test_redis_healthcheck(mock_values):
         "-p",
         "6379",
         "-a",
-        "$$REDIS_PASSWORD",
+        "test",
+        "ping",
+    ]
+
+
+def test_redis_healthcheck_no_password(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("redis", {"password": ""})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "redis-cli",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "6379",
         "ping",
     ]
 
@@ -281,7 +302,7 @@ def test_redis_healthcheck(mock_values):
 def test_postgres_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_test("postgres")
+    c1.healthcheck.set_test("postgres", {"user": "test-user", "db": "test-db"})
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
@@ -291,16 +312,16 @@ def test_postgres_healthcheck(mock_values):
         "-p",
         "5432",
         "-U",
-        "$$POSTGRES_USER",
+        "test-user",
         "-d",
-        "$$POSTGRES_DB",
+        "test-db",
     ]
 
 
 def test_mariadb_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_test("mariadb")
+    c1.healthcheck.set_test("mariadb", {"password": "test-pass"})
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
@@ -308,7 +329,7 @@ def test_mariadb_healthcheck(mock_values):
         "--user=root",
         "--host=127.0.0.1",
         "--port=3306",
-        "--password=$$MARIADB_ROOT_PASSWORD",
+        "--password=test-pass",
         "ping",
     ]
 
@@ -316,7 +337,7 @@ def test_mariadb_healthcheck(mock_values):
 def test_mongodb_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_test("mongodb")
+    c1.healthcheck.set_test("mongodb", {"db": "test-db"})
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
@@ -325,7 +346,7 @@ def test_mongodb_healthcheck(mock_values):
         "127.0.0.1",
         "--port",
         "27017",
-        "$$MONGO_INITDB_DATABASE",
+        "test-db",
         "--eval",
         'db.adminCommand("ping")',
         "--quiet",

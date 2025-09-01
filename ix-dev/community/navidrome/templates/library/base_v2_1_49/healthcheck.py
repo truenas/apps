@@ -38,6 +38,9 @@ class Healthcheck:
         self._use_built_in = True
 
     def set_custom_test(self, test: str | list[str]):
+        if isinstance(test, list):
+            if test[0] == "CMD" and "$" in "".join(test):
+                raise RenderError("Healthcheck with 'CMD' cannot contain shell variables")
         if self._disabled:
             raise RenderError("Cannot set custom test when healthcheck is disabled")
         self._test = test
@@ -131,6 +134,7 @@ def curl_test(config: dict) -> list[str]:
         if not header[0] or not header[1]:
             raise RenderError("Expected [header] to be a list of two items for curl test")
         cmd.extend(["--header", f"{header[0]}: {header[1]}"])
+
     if data is not None:
         cmd.extend(["--data", json.dumps(data)])
 
@@ -148,6 +152,7 @@ def wget_test(config: dict) -> list[str]:
     spider = get_key(config, "spider", True, False)
 
     cmd = ["CMD", "wget", "--quiet"]
+
     if spider:
         cmd.append("--spider")
     else:
@@ -162,6 +167,7 @@ def wget_test(config: dict) -> list[str]:
         cmd.extend(["--header", f"{header[0]}: {header[1]}"])
 
     cmd.append(f"{scheme}://{host}:{port}{path}")
+
     return cmd
 
 
@@ -172,10 +178,8 @@ def http_test(config: dict) -> list[str]:
     host = get_key(config, "host", "127.0.0.1", False)
 
     return [
-        "CMD",
-        "/bin/bash",
-        "-c",
-        f'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"',  # noqa
+        "CMD-SHELL",
+        f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"'""",  # noqa
     ]
 
 
@@ -185,9 +189,12 @@ def netcat_test(config: dict) -> list[str]:
     host = get_key(config, "host", "127.0.0.1", False)
     udp_mode = get_key(config, "udp", False, False)
     cmd = ["CMD", "nc", "-z", "-w", "1"]
+
     if udp_mode:
         cmd.append("-u")
+
     cmd.extend([host, str(port)])
+
     return cmd
 
 
@@ -203,27 +210,40 @@ def redis_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 6379, False)
     host = get_key(config, "host", "127.0.0.1", False)
-    return ["CMD", "redis-cli", "-h", host, "-p", str(port), "-a", "$REDIS_PASSWORD", "ping"]
+    password = get_key(config, "password", "", False)
+    cmd = ["CMD", "redis-cli", "-h", host, "-p", str(port)]
+
+    if password:
+        cmd.extend(["-a", password])
+
+    cmd.append("ping")
+
+    return cmd
 
 
 def postgres_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 5432, False)
     host = get_key(config, "host", "127.0.0.1", False)
-    return ["CMD", "pg_isready", "-h", host, "-p", str(port), "-U", "$POSTGRES_USER", "-d", "$POSTGRES_DB"]
+    user = get_key(config, "user", "", True)
+    db = get_key(config, "db", "", True)
+
+    return ["CMD", "pg_isready", "-h", host, "-p", str(port), "-U", user, "-d", db]
 
 
 def mariadb_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 3306, False)
     host = get_key(config, "host", "127.0.0.1", False)
+    password = get_key(config, "password", "", True)
+
     return [
         "CMD",
         "mariadb-admin",
         "--user=root",
         f"--host={host}",
         f"--port={port}",
-        "--password=$MARIADB_ROOT_PASSWORD",
+        f"--password={password}",
         "ping",
     ]
 
@@ -232,6 +252,7 @@ def mongodb_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 27017, False)
     host = get_key(config, "host", "127.0.0.1", False)
+    db = get_key(config, "db", "", True)
 
     return [
         "CMD",
@@ -240,7 +261,7 @@ def mongodb_test(config: dict) -> list[str]:
         host,
         "--port",
         str(port),
-        "$MONGO_INITDB_DATABASE",
+        db,
         "--eval",
         'db.adminCommand("ping")',
         "--quiet",

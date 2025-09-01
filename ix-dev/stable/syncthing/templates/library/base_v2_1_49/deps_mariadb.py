@@ -43,7 +43,7 @@ class MariadbContainer:
         self._get_repo(image, ("mariadb"))
         c = self._render_instance.add_container(name, image)
         c.set_user(999, 999)
-        c.healthcheck.set_test("mariadb")
+        c.healthcheck.set_test("mariadb", {"password": root_password})
         c.remove_devices()
 
         c.add_storage("/var/lib/mysql", config["volume"])
