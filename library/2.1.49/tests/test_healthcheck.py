@@ -109,8 +109,10 @@ def test_http_healthcheck(mock_values):
     c1.healthcheck.set_test("http", {"port": 8080})
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
-        "CMD-SHELL",
-        """/bin/bash -c 'exec {hc_fd}<>/dev/tcp/127.0.0.1/8080 && echo -e "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&$${hc_fd} && cat <&$${hc_fd} | grep "HTTP" | grep -q "200"'""",  # noqa
+        "CMD",
+        "/bin/bash",
+        "-c",
+        f'exec {{hc_fd}}<>/dev/tcp/127.0.0.1/8080 && echo -e "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&$${{hc_fd}} && cat <&$${{hc_fd}} | grep "HTTP" | grep -q "200"',  # noqa
     ]
 
 
@@ -303,14 +305,10 @@ def test_mariadb_healthcheck(mock_values):
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
         "mariadb-admin",
-        "--user",
-        "root",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "3306",
-        "--password",
-        "$$MARIADB_ROOT_PASSWORD",
+        "--user=root",
+        "--host=127.0.0.1",
+        "--port=3306",
+        "--password=$$MARIADB_ROOT_PASSWORD",
         "ping",
     ]
 
