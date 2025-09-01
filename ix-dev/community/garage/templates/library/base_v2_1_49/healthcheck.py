@@ -84,7 +84,7 @@ class Healthcheck:
         }
 
 
-def test_mapping(variant: str, config: dict | None = None) -> str:
+def test_mapping(variant: str, config: dict | None = None) -> list[str]:
     config = config or {}
     tests = {
         "curl": curl_test,
@@ -172,8 +172,10 @@ def http_test(config: dict) -> list[str]:
     host = get_key(config, "host", "127.0.0.1", False)
 
     return [
-        "CMD-SHELL",
-        f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"'""",  # noqa
+        "CMD",
+        "/bin/bash",
+        "-c",
+        f'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"',  # noqa
     ]
 
 
@@ -218,14 +220,10 @@ def mariadb_test(config: dict) -> list[str]:
     return [
         "CMD",
         "mariadb-admin",
-        "--user",
-        "root",
-        "--host",
-        host,
-        "--port",
-        str(port),
-        "--password",
-        "$MARIADB_ROOT_PASSWORD",
+        "--user=root",
+        f"--host={host}",
+        f"--port={port}",
+        "--password=$MARIADB_ROOT_PASSWORD",
         "ping",
     ]
 
