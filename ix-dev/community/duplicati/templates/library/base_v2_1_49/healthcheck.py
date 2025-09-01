@@ -210,7 +210,7 @@ def redis_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 6379, False)
     host = get_key(config, "host", "127.0.0.1", False)
-    password = get_key(config, "password", "", False)
+    password = get_key(config, "password", None, False)
     cmd = ["CMD", "redis-cli", "-h", host, "-p", str(port)]
 
     if password:
@@ -225,8 +225,8 @@ def postgres_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 5432, False)
     host = get_key(config, "host", "127.0.0.1", False)
-    user = get_key(config, "user", "", True)
-    db = get_key(config, "db", "", True)
+    user = get_key(config, "user", None, True)
+    db = get_key(config, "db", None, True)
 
     return ["CMD", "pg_isready", "-h", host, "-p", str(port), "-U", user, "-d", db]
 
@@ -235,7 +235,7 @@ def mariadb_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 3306, False)
     host = get_key(config, "host", "127.0.0.1", False)
-    password = get_key(config, "password", "", True)
+    password = get_key(config, "password", None, True)
 
     return [
         "CMD",
@@ -252,7 +252,7 @@ def mongodb_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 27017, False)
     host = get_key(config, "host", "127.0.0.1", False)
-    db = get_key(config, "db", "", True)
+    db = get_key(config, "db", None, True)
 
     return [
         "CMD",
