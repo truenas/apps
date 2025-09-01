@@ -108,10 +108,31 @@ def test_http_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("http", {"port": 8080})
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == """/bin/bash -c 'exec {hc_fd}<>/dev/tcp/127.0.0.1/8080 && echo -e "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&$${hc_fd} && cat <&$${hc_fd} | grep "HTTP" | grep -q "200"'"""  # noqa
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD-SHELL",
+        """/bin/bash -c 'exec {hc_fd}<>/dev/tcp/127.0.0.1/8080 && echo -e "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&$${hc_fd} && cat <&$${hc_fd} | grep "HTTP" | grep -q "200"'""",  # noqa
+    ]
+
+
+def test_curl_healthcheck_as_CMD(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("curl", {"port": 8080, "path": "/health", "data": {"test": "val"}, "exec_type": "CMD"})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "curl",
+        "--request",
+        "GET",
+        "--silent",
+        "--output",
+        "/dev/null",
+        "--show-error",
+        "--fail",
+        "--data",
+        '{"test": "val"}',
+        "http://127.0.0.1:8080/health",
+    ]
 
 
 def test_curl_healthcheck(mock_values):
@@ -119,10 +140,20 @@ def test_curl_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("curl", {"port": 8080, "path": "/health", "data": {"test": "val"}})
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == 'curl --request GET --silent --output /dev/null --show-error --fail --data \'{"test": "val"}\' http://127.0.0.1:8080/health'  # noqa
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "curl",
+        "--request",
+        "GET",
+        "--silent",
+        "--output",
+        "/dev/null",
+        "--show-error",
+        "--fail",
+        "--data",
+        '{"test": "val"}',
+        "http://127.0.0.1:8080/health",
+    ]
 
 
 def test_curl_healthcheck_with_headers_and_method_and_data(mock_values):
@@ -132,10 +163,22 @@ def test_curl_healthcheck_with_headers_and_method_and_data(mock_values):
         "curl", {"port": 8080, "path": "/health", "method": "POST", "headers": [("X-Test", "$test")], "data": {}}
     )
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == "curl --request POST --silent --output /dev/null --show-error --fail --header \"X-Test: $$test\" --data '{}' http://127.0.0.1:8080/health"  # noqa
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "curl",
+        "--request",
+        "POST",
+        "--silent",
+        "--output",
+        "/dev/null",
+        "--show-error",
+        "--fail",
+        "--header",
+        "X-Test: $$test",
+        "--data",
+        "{}",
+        "http://127.0.0.1:8080/health",
+    ]
 
 
 def test_wget_healthcheck(mock_values):
@@ -143,10 +186,13 @@ def test_wget_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("wget", {"port": 8080, "path": "/health"})
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == "wget --quiet --spider http://127.0.0.1:8080/health"
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "wget",
+        "--quiet",
+        "--spider",
+        "http://127.0.0.1:8080/health",
+    ]
 
 
 def test_wget_healthcheck_no_spider(mock_values):
@@ -154,10 +200,14 @@ def test_wget_healthcheck_no_spider(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("wget", {"port": 8080, "path": "/health", "spider": False})
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == "wget --quiet -O /dev/null http://127.0.0.1:8080/health"
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "wget",
+        "--quiet",
+        "-O",
+        "/dev/null",
+        "http://127.0.0.1:8080/health",
+    ]
 
 
 def test_netcat_healthcheck(mock_values):
@@ -165,7 +215,15 @@ def test_netcat_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("netcat", {"port": 8080})
     output = render.render()
-    assert output["services"]["test_container"]["healthcheck"]["test"] == "nc -z -w 1 127.0.0.1 8080"
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "nc",
+        "-z",
+        "-w",
+        "1",
+        "127.0.0.1",
+        "8080",
+    ]
 
 
 def test_netcat_udp_healthcheck(mock_values):
@@ -173,7 +231,16 @@ def test_netcat_udp_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("netcat", {"port": 8080, "udp": True})
     output = render.render()
-    assert output["services"]["test_container"]["healthcheck"]["test"] == "nc -z -w 1 -u 127.0.0.1 8080"
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "nc",
+        "-z",
+        "-w",
+        "1",
+        "-u",
+        "127.0.0.1",
+        "8080",
+    ]
 
 
 def test_tcp_healthcheck(mock_values):
@@ -181,10 +248,14 @@ def test_tcp_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("tcp", {"port": 8080})
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == "timeout 1 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/8080'"
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "timeout",
+        "1",
+        "bash",
+        "-c",
+        "cat < /dev/null > /dev/tcp/127.0.0.1/8080",
+    ]
 
 
 def test_redis_healthcheck(mock_values):
@@ -192,10 +263,17 @@ def test_redis_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("redis")
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == "redis-cli -h 127.0.0.1 -p 6379 -a $$REDIS_PASSWORD ping | grep -q PONG"
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "redis-cli",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "6379",
+        "-a",
+        "$$REDIS_PASSWORD",
+        "ping",
+    ]
 
 
 def test_postgres_healthcheck(mock_values):
@@ -203,10 +281,18 @@ def test_postgres_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("postgres")
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB"
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "pg_isready",
+        "-h",
+        "127.0.0.1",
+        "-p",
+        "5432",
+        "-U",
+        "$$POSTGRES_USER",
+        "-d",
+        "$$POSTGRES_DB",
+    ]
 
 
 def test_mariadb_healthcheck(mock_values):
@@ -214,10 +300,19 @@ def test_mariadb_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("mariadb")
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == "mariadb-admin --user=root --host=127.0.0.1 --port=3306 --password=$$MARIADB_ROOT_PASSWORD ping"
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "mariadb-admin",
+        "--user",
+        "root",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "3306",
+        "--password",
+        "$$MARIADB_ROOT_PASSWORD",
+        "ping",
+    ]
 
 
 def test_mongodb_healthcheck(mock_values):
@@ -225,7 +320,15 @@ def test_mongodb_healthcheck(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("mongodb")
     output = render.render()
-    assert (
-        output["services"]["test_container"]["healthcheck"]["test"]
-        == "mongosh --host 127.0.0.1 --port 27017 $$MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")' --quiet"
-    )
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "mongosh",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "27017",
+        "$$MONGO_INITDB_DATABASE",
+        "--eval",
+        'db.adminCommand("ping")',
+        "--quiet",
+    ]

@@ -29,8 +29,8 @@ class Healthcheck:
     def _get_test(self):
         if isinstance(self._test, str):
             return escape_dollar(self._test)
-
-        return [escape_dollar(t) for t in self._test]
+        else:
+            return [escape_dollar(t) for t in self._test]
 
     def disable(self):
         self._disabled = True
@@ -113,7 +113,7 @@ def get_key(config: dict, key: str, default: Any, required: bool):
     return config[key]
 
 
-def curl_test(config: dict) -> str:
+def curl_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = valid_http_path_or_raise(get_key(config, "path", "/", False))
@@ -123,25 +123,23 @@ def curl_test(config: dict) -> str:
     method = get_key(config, "method", "GET", False)
     data = get_key(config, "data", None, False)
 
-    opts = []
+    cmd = ["CMD", "curl", "--request", method, "--silent", "--output", "/dev/null", "--show-error", "--fail"]
+
     if scheme == "https":
-        opts.append("--insecure")
+        cmd.append("--insecure")
 
     for header in headers:
         if not header[0] or not header[1]:
             raise RenderError("Expected [header] to be a list of two items for curl test")
-        opts.append(f'--header "{header[0]}: {header[1]}"')
+        cmd.extend(["--header", f"{header[0]}: {header[1]}"])
     if data is not None:
-        opts.append(f"--data '{json.dumps(data)}'")
+        cmd.extend(["--data", json.dumps(data)])
 
-    cmd = f"curl --request {method} --silent --output /dev/null --show-error --fail"
-    if opts:
-        cmd += f" {' '.join(opts)}"
-    cmd += f" {scheme}://{host}:{port}{path}"
+    cmd.append(f"{scheme}://{host}:{port}{path}")
     return cmd
 
 
-def wget_test(config: dict) -> str:
+def wget_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = valid_http_path_or_raise(get_key(config, "path", "/", False))
@@ -150,79 +148,103 @@ def wget_test(config: dict) -> str:
     headers = get_key(config, "headers", [], False)
     spider = get_key(config, "spider", True, False)
 
-    opts = []
+    cmd = ["CMD", "wget", "--quiet"]
+    if spider:
+        cmd.append("--spider")
+    else:
+        cmd.extend(["-O", "/dev/null"])
+
     if scheme == "https":
-        opts.append("--no-check-certificate")
+        cmd.append("--no-check-certificate")
 
     for header in headers:
         if not header[0] or not header[1]:
             raise RenderError("Expected [header] to be a list of two items for wget test")
-        opts.append(f'--header "{header[0]}: {header[1]}"')
+        cmd.extend(["--header", f"{header[0]}: {header[1]}"])
 
-    cmd = f"wget --quiet {'--spider' if spider else '-O /dev/null'}"
-
-    if opts:
-        cmd += f" {' '.join(opts)}"
-    cmd += f" {scheme}://{host}:{port}{path}"
+    cmd.append(f"{scheme}://{host}:{port}{path}")
     return cmd
 
 
-def http_test(config: dict) -> str:
+def http_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = valid_http_path_or_raise(get_key(config, "path", "/", False))
     host = get_key(config, "host", "127.0.0.1", False)
 
-    return f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"'"""  # noqa
+    return [
+        "CMD-SHELL",
+        f"""/bin/bash -c 'exec {{hc_fd}}<>/dev/tcp/{host}/{port} && echo -e "GET {path} HTTP/1.1\\r\\nHost: {host}\\r\\nConnection: close\\r\\n\\r\\n" >&${{hc_fd}} && cat <&${{hc_fd}} | grep "HTTP" | grep -q "200"'""",  # noqa
+    ]
 
 
-def netcat_test(config: dict) -> str:
+def netcat_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", None, True)
     host = get_key(config, "host", "127.0.0.1", False)
     udp_mode = get_key(config, "udp", False, False)
-    cmd = ["nc", "-z", "-w", "1"]
+    cmd = ["CMD", "nc", "-z", "-w", "1"]
     if udp_mode:
         cmd.append("-u")
     cmd.extend([host, str(port)])
-    return " ".join(cmd)
+    return cmd
 
 
-def tcp_test(config: dict) -> str:
+def tcp_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", None, True)
     host = get_key(config, "host", "127.0.0.1", False)
 
-    return f"timeout 1 bash -c 'cat < /dev/null > /dev/tcp/{host}/{port}'"
+    return ["CMD", "timeout", "1", "bash", "-c", f"cat < /dev/null > /dev/tcp/{host}/{port}"]
 
 
-def redis_test(config: dict) -> str:
+def redis_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 6379, False)
     host = get_key(config, "host", "127.0.0.1", False)
+    return ["CMD", "redis-cli", "-h", host, "-p", str(port), "-a", "$REDIS_PASSWORD", "ping"]
 
-    return f"redis-cli -h {host} -p {port} -a $REDIS_PASSWORD ping | grep -q PONG"
 
-
-def postgres_test(config: dict) -> str:
+def postgres_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 5432, False)
     host = get_key(config, "host", "127.0.0.1", False)
+    return ["CMD", "pg_isready", "-h", host, "-p", str(port), "-U", "$POSTGRES_USER", "-d", "$POSTGRES_DB"]
 
-    return f"pg_isready -h {host} -p {port} -U $POSTGRES_USER -d $POSTGRES_DB"
 
-
-def mariadb_test(config: dict) -> str:
+def mariadb_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 3306, False)
     host = get_key(config, "host", "127.0.0.1", False)
+    return [
+        "CMD",
+        "mariadb-admin",
+        "--user",
+        "root",
+        "--host",
+        host,
+        "--port",
+        str(port),
+        "--password",
+        "$MARIADB_ROOT_PASSWORD",
+        "ping",
+    ]
 
-    return f"mariadb-admin --user=root --host={host} --port={port} --password=$MARIADB_ROOT_PASSWORD ping"
 
-
-def mongodb_test(config: dict) -> str:
+def mongodb_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 27017, False)
     host = get_key(config, "host", "127.0.0.1", False)
 
-    return f"mongosh --host {host} --port {port} $MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")' --quiet"
+    return [
+        "CMD",
+        "mongosh",
+        "--host",
+        host,
+        "--port",
+        str(port),
+        "$MONGO_INITDB_DATABASE",
+        "--eval",
+        'db.adminCommand("ping")',
+        "--quiet",
+    ]
