@@ -29,8 +29,7 @@ class Healthcheck:
     def _get_test(self):
         if isinstance(self._test, str):
             return escape_dollar(self._test)
-        else:
-            return [escape_dollar(t) for t in self._test]
+        return [escape_dollar(t) for t in self._test]
 
     def disable(self):
         self._disabled = True
