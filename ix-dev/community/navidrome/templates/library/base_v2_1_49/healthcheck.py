@@ -39,8 +39,8 @@ class Healthcheck:
 
     def set_custom_test(self, test: str | list[str]):
         if isinstance(test, list):
-            if test[0] == "CMD" and "$" in "".join(test):
-                raise RenderError("Healthcheck with 'CMD' cannot contain shell variables")
+            if test[0] == "CMD" and any(t.startswith("$") for t in test):
+                raise RenderError(f"Healthcheck with 'CMD' cannot contain shell variables '{test}'")
         if self._disabled:
             raise RenderError("Cannot set custom test when healthcheck is disabled")
         self._test = test

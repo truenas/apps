@@ -71,7 +71,7 @@ def test_CMD_with_var_should_fail(mock_values):
 def test_set_options(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_custom_test(["CMD", "echo", "1"])
+    c1.healthcheck.set_custom_test(["CMD", "echo", "123$567"])
     c1.healthcheck.set_interval(9)
     c1.healthcheck.set_timeout(8)
     c1.healthcheck.set_retries(7)
@@ -79,7 +79,7 @@ def test_set_options(mock_values):
     c1.healthcheck.set_start_interval(5)
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"] == {
-        "test": ["CMD", "echo", "1"],
+        "test": ["CMD", "echo", "123$$567"],
         "interval": "9s",
         "timeout": "8s",
         "retries": 7,
