@@ -79,7 +79,18 @@ def test_add_postgres(mock_values):
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["pg_container"]["healthcheck"] == {
-        "test": "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB",
+        "test": [
+            "CMD",
+            "pg_isready",
+            "-h",
+            "127.0.0.1",
+            "-p",
+            "5432",
+            "-U",
+            "test_user",
+            "-d",
+            "test_database",
+        ],
         "interval": "30s",
         "timeout": "5s",
         "retries": 5,
@@ -187,7 +198,17 @@ def test_add_redis(mock_values):
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["redis_container"]["healthcheck"] == {
-        "test": "redis-cli -h 127.0.0.1 -p 6379 -a $$REDIS_PASSWORD ping | grep -q PONG",
+        "test": [
+            "CMD",
+            "redis-cli",
+            "-h",
+            "127.0.0.1",
+            "-p",
+            "6379",
+            "-a",
+            "test&password@",
+            "ping",
+        ],
         "interval": "30s",
         "timeout": "5s",
         "retries": 5,
@@ -275,7 +296,15 @@ def test_add_mariadb(mock_values):
     assert output["services"]["mariadb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["mariadb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["mariadb_container"]["healthcheck"] == {
-        "test": "mariadb-admin --user=root --host=127.0.0.1 --port=3306 --password=$$MARIADB_ROOT_PASSWORD ping",
+        "test": [
+            "CMD",
+            "mariadb-admin",
+            "--user=root",
+            "--host=127.0.0.1",
+            "--port=3306",
+            "--password=test_password",
+            "ping",
+        ],
         "interval": "30s",
         "timeout": "5s",
         "retries": 5,
@@ -567,7 +596,18 @@ def test_add_mongodb(mock_values):
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["mongodb_container"]["healthcheck"] == {
-        "test": "mongosh --host 127.0.0.1 --port 27017 $$MONGO_INITDB_DATABASE --eval 'db.adminCommand(\"ping\")' --quiet",  # noqa
+        "test": [
+            "CMD",
+            "mongosh",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "27017",
+            "test_database",
+            "--eval",
+            'db.adminCommand("ping")',
+            "--quiet",
+        ],
         "interval": "30s",
         "timeout": "5s",
         "retries": 5,
@@ -643,7 +683,18 @@ def test_add_meilisearch(mock_values):
     assert output["services"]["meili_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["meili_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["meili_container"]["healthcheck"] == {
-        "test": "curl --request GET --silent --output /dev/null --show-error --fail http://127.0.0.1:7700/health",
+        "test": [
+            "CMD",
+            "curl",
+            "--request",
+            "GET",
+            "--silent",
+            "--output",
+            "/dev/null",
+            "--show-error",
+            "--fail",
+            "http://127.0.0.1:7700/health",
+        ],
         "interval": "30s",
         "timeout": "5s",
         "retries": 5,
@@ -722,7 +773,20 @@ def test_add_elasticsearch(mock_values):
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["elastic_container"]["healthcheck"] == {
-        "test": 'curl --request GET --silent --output /dev/null --show-error --fail --header "Authorization: Basic ZWxhc3RpYzp0ZXN0X3Bhc3N3b3Jk" http://127.0.0.1:9200/_cluster/health?local=true',  # noqa
+        "test": [
+            "CMD",
+            "curl",
+            "--request",
+            "GET",
+            "--silent",
+            "--output",
+            "/dev/null",
+            "--show-error",
+            "--fail",
+            "--header",
+            "Authorization: Basic ZWxhc3RpYzp0ZXN0X3Bhc3N3b3Jk",
+            "http://127.0.0.1:9200/_cluster/health?local=true",
+        ],  # noqa
         "interval": "30s",
         "timeout": "5s",
         "retries": 5,

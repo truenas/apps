@@ -48,7 +48,7 @@ class PostgresContainer:
         c = self._render_instance.add_container(name, image)
 
         c.set_user(999, 999)
-        c.healthcheck.set_test("postgres")
+        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"]})
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
 

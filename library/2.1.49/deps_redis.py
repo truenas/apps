@@ -46,7 +46,7 @@ class RedisContainer:
         c = self._render_instance.add_container(name, image)
         c.set_user(user, group)
         c.remove_devices()
-        c.healthcheck.set_test("redis")
+        c.healthcheck.set_test("redis", {"password": config["password"]})
 
         cmd = []
         cmd.extend(["--port", str(port)])
