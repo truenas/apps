@@ -22,7 +22,7 @@ questions:
     schema:
       type: dict
       attrs:
-        # Set Webui Subvariable
+        # Set Webui Subvariable, this variable sets up access to the dashboard
         # How to refer from Docker-Compose template: values.network.web_port
         - variable: web_port
           label: WebUI Port
@@ -78,7 +78,7 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
 
-        # Set HTTP enable Subvariable, this variable 
+        # Set HTTP enable Subvariable, this variable toggles http proxying
         # How to refer from Docker-Compose template: values.network.http_enable
         - variable: http_enable
           label: Enable HTTP Proxying
@@ -130,7 +130,7 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
 
-        # Set HTTPS enable Subvariable, this variable 
+        # Set HTTPS enable Subvariable, this variable toggles HTTPS proxying
         # How to refer from Docker-Compose template: values.network.https_enable
         - variable: https_enable
           label: Enable HTTPS Proxying
@@ -196,15 +196,98 @@ questions:
 # Set network variable
   - variable: storage
     label: ""
-    group: Network & Proxy Configuration
+    group: Storage Configuration
     schema:
       type: dict
       attrs:
-        # Set HTTP enable Subvariable, this variable 
-        # How to refer from Docker-Compose template: values.network.http_enable
+        # Set Mounting the Docker Socket as a Subvariable, this variable allows Traefik to connect to docker and read info from other docker containers, allowing the app to actually function
+        # How to refer from Docker-Compose template: values.storage.enable_docker_socket
         - variable: enable_docker_socket
           label: Mount Docker Socket (reccommended)
           description: This allows Traefik to actually function
           schema:
             type: boolean
             default: true
+        # Set mount path for letsencrypt certificates.
+        # How to refer from Docker-Compose template: values.storage.letsencrypt
+        - variable: letsencrypt
+          label: Letsencrypt Certificate Storage
+          schema:
+            type: dict
+            attrs:
+              # This subvariable defines whether the letsencrypt folder gets mounted to an impersistand ix-volume or a persistant host path
+              # How to refer from Docker-Compose template: values.storage.letsencrypt.type
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              # This variable allows for further configuration when choosing an ix-volume
+              # How to refer from Docker-Compose template: values.storage.letsencrypt.ix_volume_config
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              # This variable lets you configure the host path (when host path was chosen) to map the letsencrypt folder to.
+              # How to refer from Docker-Compose template: values.storage.letsencrypt.host_path_config
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
