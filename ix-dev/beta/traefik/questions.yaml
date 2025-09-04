@@ -1,89 +1,36 @@
+# Define groups to seperate and organize the configuration
 groups:
-  - name: Traefik Configuration
-    description: Configure Traefik
-  - name: User and Group Configuration
-    description: Configure User and Group for Traefik
-  - name: Network Configuration
-    description: Configure Network for Traefik
+  - name: Network & Proxy Configuration
+    description: Configure Network, Ports and Proxy
+  - name: Domain and Certificate configuration
+    description: Setup your domain and certificate provider
   - name: Storage Configuration
-    description: Configure Storage for Traefik
+    description: Configure Storage
   - name: Labels Configuration
-    description: Configure Labels for Traefik
+    description: Configure Labels
   - name: Resources Configuration
-    description: Configure Resources for Traefik
+    description: Configure Resources
 
+# Start creating variables that will be used by the docker-compose.yaml template
 questions:
-  - variable: TZ
-    group: Traefik Configuration
-    label: Timezone
-    schema:
-      type: string
-      default: Etc/UTC
-      required: true
-      $ref:
-        - definitions/timezone
 
-  - variable: traefik
-    label: ""
-    group: Traefik Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: additional_envs
-          label: Additional Environment Variables
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: env
-                label: Environment Variable
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: name
-                      label: Name
-                      schema:
-                        type: string
-                        required: true
-                    - variable: value
-                      label: Value
-                      schema:
-                        type: string
-  - variable: run_as
-    label: ""
-    group: User and Group Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: user
-          label: User ID
-          description: The user id that Traefik files will be owned by.
-          schema:
-            type: int
-            min: 0
-            default: 568
-            required: true
-        - variable: group
-          label: Group ID
-          description: The group id that Traefik files will be owned by.
-          schema:
-            type: int
-            min: 0
-            default: 568
-            required: true
-
+# Group Network Configuration
+# Set network variable
   - variable: network
     label: ""
-    group: Network Configuration
+    group: Network & Proxy Configuration
     schema:
       type: dict
       attrs:
+        # Set Webui Subvariable
+        # How to refer from Docker-Compose template: values.network.web_port
         - variable: web_port
           label: WebUI Port
-          description: The port for Traefik WebUI
           schema:
             type: dict
             attrs:
+              # Set variable for port binding mode, this wil configure accessibility of the webui to none, inter-container communication and publicly accessible
+              # How to refer from Docker-Compose template: values.network.web_port.bind_mode
               - variable: bind_mode
                 label: Port Bind Mode
                 description: |
@@ -103,15 +50,18 @@ questions:
                       description: Expose port for inter-container communication
                     - value: ""
                       description: None
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.web_port.port_number
               - variable: port_number
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 30020
-                  min: 1
+                  default: 60000
+                  min: 20000
                   max: 65535
                   required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.web_port.host_ips
               - variable: host_ips
                 label: Host IPs
                 description: IPs on the host to bind this port
@@ -127,40 +77,43 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
+
+        # Set HTTP enable Subvariable, this variable 
+        # How to refer from Docker-Compose template: values.network.http_enable
+        - variable: http_enable
+          label: Enable HTTP Proxying
+          description: Enable HTTP Proxying. This allows proxied domains to be accessible over http
+          schema:
+            type: boolean
+            default: false
+        # Set HTTP Subvariable
+        # How to refer from Docker-Compose template: values.network.http_port
         - variable: http_port
           label: HTTP Port
-          description: The port for Traefik HTTP
           schema:
             type: dict
+            show_if: [["http_enable", "=", true]]
             attrs:
+              # Set variable for port binding mode, this wil configure accessibility of the webui to none, inter-container communication and publicly accessible
+              # How to refer from Docker-Compose template: values.network.http_port.bind_mode
               - variable: bind_mode
                 label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
+                  hidden: true
                   default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.http_port.port_number
               - variable: port_number
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 30021
-                  min: 1
+                  default: 8080
+                  min: 0
                   max: 65535
                   required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.http_port.host_ips
               - variable: host_ips
                 label: Host IPs
                 description: IPs on the host to bind this port
@@ -176,40 +129,43 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
+
+        # Set HTTPS enable Subvariable, this variable 
+        # How to refer from Docker-Compose template: values.network.https_enable
+        - variable: https_enable
+          label: Enable HTTPS Proxying
+          description: Enable HTTPS Proxying. This allows proxied domains to be accessible over https
+          schema:
+            type: boolean
+            default: true
+        # Set HTTPS Subvariable
+        # How to refer from Docker-Compose template: values.network.https_port
         - variable: https_port
           label: HTTPS Port
-          description: The port for Traefik HTTPS
           schema:
             type: dict
+            show_if: [["https_enable", "=", true]]
             attrs:
+              # Set variable for port binding mode, this wil configure accessibility of the webui to none, inter-container communication and publicly accessible
+              # How to refer from Docker-Compose template: values.network.https_port.bind_mode
               - variable: bind_mode
                 label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
+                  hidden: true
                   default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.https_port.port_number
               - variable: port_number
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 30022
-                  min: 1
+                  default: 4433
+                  min: 0
                   max: 65535
                   required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.https_port.host_ips
               - variable: host_ips
                 label: Host IPs
                 description: IPs on the host to bind this port
@@ -226,418 +182,11 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
 
-        - variable: additional_ports
-          label: Additional Ports
+        # Set HTTPS-redirect enable Subvariable, this variable redirects incoming http traffic to https when enabled
+        # How to refer from Docker-Compose template: values.network.https_enable
+        - variable: https_redirect
+          label: Redirect all http traffic to https
+          description: Any incomin traffic over http will be automatically moved to https when enabled
           schema:
-            type: list
-            items:
-              - variable: port
-                label: Port
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: bind_mode
-                      label: Port Bind Mode
-                      description: |
-                        The port bind mode.</br>
-                        - Publish: The port will be published on the host for external access.</br>
-                        - Expose: The port will be exposed for inter-container communication.</br>
-                      schema:
-                        type: string
-                        default: "published"
-                        enum:
-                          - value: "published"
-                            description: Publish port on the host for external access
-                          - value: "exposed"
-                            description: Expose port for inter-container communication
-                    - variable: port_number
-                      label: Port Number
-                      schema:
-                        type: int
-                        min: 1
-                        max: 65535
-                        required: true
-                    - variable: container_port
-                      label: Container Port
-                      schema:
-                        type: int
-                        min: 1
-                        max: 65535
-                        required: true
-                    - variable: protocol
-                      label: Protocol
-                      schema:
-                        type: string
-                        required: true
-                        default: "tcp"
-                        enum:
-                          - value: "tcp"
-                            description: TCP
-                          - value: "udp"
-                            description: UDP
-                    - variable: host_ips
-                      label: Host IPs
-                      description: IPs on the host to bind this port
-                      schema:
-                        type: list
-                        show_if: [["bind_mode", "=", "published"]]
-                        default: []
-                        items:
-                          - variable: host_ip
-                            label: Host IP
-                            schema:
-                              type: string
-                              required: true
-                              $ref:
-                                - definitions/node_bind_ip
-  - variable: storage
-    label: ""
-    group: Storage Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: data
-          label: Data Storage
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: certs
-          label: Certs Storage
-          description: Stores the let's encrypt certificates.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "certs"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: additional_storage
-          label: Additional Storage
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: storageEntry
-                label: Storage Entry
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: type
-                      label: Type
-                      description: |
-                        ixVolume: Is dataset created automatically by the system.</br>
-                        Host Path: Is a path that already exists on the system.</br>
-                        SMB Share: Is a SMB share that is mounted to as a volume.
-                      schema:
-                        type: string
-                        required: true
-                        default: "ix_volume"
-                        enum:
-                          - value: "host_path"
-                            description: Host Path (Path that already exists on the system)
-                          - value: "ix_volume"
-                            description: ixVolume (Dataset created automatically by the system)
-                          - value: "cifs"
-                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
-                    - variable: read_only
-                      label: Read Only
-                      description: Mount the volume as read only.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: mount_path
-                      label: Mount Path
-                      description: The path inside the container to mount the storage.
-                      schema:
-                        type: path
-                        required: true
-                    - variable: host_path_config
-                      label: Host Path Configuration
-                      schema:
-                        type: dict
-                        show_if: [["type", "=", "host_path"]]
-                        attrs:
-                          - variable: acl_enable
-                            label: Enable ACL
-                            description: Enable ACL for the storage.
-                            schema:
-                              type: boolean
-                              default: false
-                          - variable: acl
-                            label: ACL Configuration
-                            schema:
-                              type: dict
-                              show_if: [["acl_enable", "=", true]]
-                              attrs: []
-                              $ref:
-                                - "normalize/acl"
-                          - variable: path
-                            label: Host Path
-                            description: The host path to use for storage.
-                            schema:
-                              type: hostpath
-                              show_if: [["acl_enable", "=", false]]
-                              required: true
-                    - variable: ix_volume_config
-                      label: ixVolume Configuration
-                      description: The configuration for the ixVolume dataset.
-                      schema:
-                        type: dict
-                        show_if: [["type", "=", "ix_volume"]]
-                        $ref:
-                          - "normalize/ix_volume"
-                        attrs:
-                          - variable: acl_enable
-                            label: Enable ACL
-                            description: Enable ACL for the storage.
-                            schema:
-                              type: boolean
-                              default: false
-                          - variable: dataset_name
-                            label: Dataset Name
-                            description: The name of the dataset to use for storage.
-                            schema:
-                              type: string
-                              required: true
-                              default: "storage_entry"
-                          - variable: acl_entries
-                            label: ACL Configuration
-                            schema:
-                              type: dict
-                              show_if: [["acl_enable", "=", true]]
-                              attrs: []
-                    - variable: cifs_config
-                      label: SMB Configuration
-                      description: The configuration for the SMB dataset.
-                      schema:
-                        type: dict
-                        show_if: [["type", "=", "cifs"]]
-                        attrs:
-                          - variable: server
-                            label: Server
-                            description: The server to mount the SMB share.
-                            schema:
-                              type: string
-                              required: true
-                          - variable: path
-                            label: Path
-                            description: The path to mount the SMB share.
-                            schema:
-                              type: string
-                              required: true
-                          - variable: username
-                            label: Username
-                            description: The username to use for the SMB share.
-                            schema:
-                              type: string
-                              required: true
-                          - variable: password
-                            label: Password
-                            description: The password to use for the SMB share.
-                            schema:
-                              type: string
-                              required: true
-                              private: true
-                          - variable: domain
-                            label: Domain
-                            description: The domain to use for the SMB share.
-                            schema:
-                              type: string
-  - variable: labels
-    label: ""
-    group: Labels Configuration
-    schema:
-      type: list
-      default: []
-      items:
-        - variable: label
-          label: Label
-          schema:
-            type: dict
-            attrs:
-              - variable: key
-                label: Key
-                schema:
-                  type: string
-                  required: true
-              - variable: value
-                label: Value
-                schema:
-                  type: string
-                  required: true
-              - variable: containers
-                label: Containers
-                description: Containers where the label should be applied
-                schema:
-                  type: list
-                  items:
-                    - variable: container
-                      label: Container
-                      schema:
-                        type: string
-                        required: true
-                        enum:
-                          - value: npm
-                            description: npm
-
-  - variable: resources
-    label: ""
-    group: Resources Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: limits
-          label: Limits
-          schema:
-            type: dict
-            attrs:
-              - variable: cpus
-                label: CPUs
-                description: CPUs limit for Traefik.
-                schema:
-                  type: int
-                  default: 2
-                  required: true
-              - variable: memory
-                label: Memory (in MB)
-                description: Memory limit for Traefik.
-                schema:
-                  type: int
-                  default: 4096
-                  required: true
+            type: boolean
+            default: false
