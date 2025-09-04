@@ -13,19 +13,31 @@
 {% do traefik.set_command([]) %}
 {% do traefik.set_command([]) %}
 {% do traefik.set_command([]) %}
-{% do traefik.set_command([]) %}
-{% do traefik.set_command([]) %}
-{% do traefik.set_command([]) %}
-{% do traefik.set_command([]) %}
 
 # Add conditional commands
 # EntryPoints
-{% if values. %}
-  {% do traefik.set_command(["--port", values.network.web_port.port_number]) %}
+#Check if http proxying is enabled and add entrypoint when nessecary
+{% if values.network.http_enable %}
+  {% do traefik.set_command(["--entryPoints.web.address", values.network.http_port.port_number]) %}
 {% endif %}
+#Check if https proxying is enabled and add entrypoint when nessecary
+{% if values.network.https_enable %}
+  {% do traefik.set_command(["--entryPoints.websecure.address", values.network.https_port.port_number]) %}
+{% endif %}
+#Check if https redirection is enabled and add enable https redirection if it is
+{% if values.network.https_redirect %}
+  {% do traefik.set_command(["--entrypoints.web.http.redirections.entrypoint.to=websecure"]) %}
+  {% do traefik.set_command(["--entrypoints.web.http.redirections.entrypoint.scheme=https"]) %}
+  {% do traefik.set_command(["--entrypoints.web.http.redirections.entrypoint.permanent=true"]) %}
+{% endif %}
+
+
+
 
 # Add Ports
 {% do traefik.add_port(values.network.web_port) %}
+
+# Add conditional ports
 
 
 #ENVIRONMENT VARIABLES DO NOT YET SEEM ESSENTIAL, NEED TO WORK ON LATER
