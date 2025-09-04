@@ -6,32 +6,33 @@
 # Get container image & tag from ix_values.yaml
 {% set traefik = tpl.add_container(values.consts.traefik_container_name, "image") %}
 
-# Add Commands
-{% do traefik.set_command(["--api.insecure", values.consts.commands.api.insecure]) %}
-{% do traefik.set_command(["--providers.docker", values.consts.commands.providers.docker]) %}
-{% do traefik.set_command(["--providers.docker.exposedbydefault", values.consts.commands.docker.exposed]) %}
-{% do traefik.set_command([]) %}
-{% do traefik.set_command([]) %}
-{% do traefik.set_command([]) %}
-
+# Add Commands to a variable as the set.command argument can only be used one time.
+{% set commands = namespace(x=[
+  "--api=%s" | format(values.consts.commands.api),
+  "--api.dashboard=%s" | format(values.consts.commands.api.dashboard),
+  "--api.insecure=%s" | format(values.consts.commands.api.insecure),
+  "--providers.docker=%s" | format(values.consts.commands.providers.docker),
+  "--providers.docker.exposedbydefault=%s" | format(values.consts.commands.docker.exposed),
+]) %}
 # Add conditional commands
 # EntryPoints
 #Check if http proxying is enabled and add entrypoint when nessecary
 {% if values.network.http_enable %}
-  {% do traefik.set_command(["--entryPoints.web.address", values.network.http_port.port_number]) %}
+  {% do commands.x.append("--entryPoints.web.address=%s" | format(values.network.http_port.port_number)) %}
 {% endif %}
 #Check if https proxying is enabled and add entrypoint when nessecary
 {% if values.network.https_enable %}
-  {% do traefik.set_command(["--entryPoints.websecure.address", values.network.https_port.port_number]) %}
+  {% do commands.x.append("--entryPoints.websecure.address" | format(values.network.https_port.port_number)) %}
 {% endif %}
 #Check if https redirection is enabled and add enable https redirection if it is
-{% if values.network.https_redirect %}
-  {% do traefik.set_command(["--entrypoints.web.http.redirections.entrypoint.to=websecure"]) %}
-  {% do traefik.set_command(["--entrypoints.web.http.redirections.entrypoint.scheme=https"]) %}
-  {% do traefik.set_command(["--entrypoints.web.http.redirections.entrypoint.permanent=true"]) %}
+{% if values.network.http_enable and values.network.https_enable and values.network.https_redirect %}
+  {% do commands.x.append("--entrypoints.web.http.redirections.entrypoint.to=websecure") %}
+  {% do commands.x.append("--entrypoints.web.http.redirections.entrypoint.scheme=https") %}
+  {% do commands.x.append("--entrypoints.web.http.redirections.entrypoint.permanent=true") %}
 {% endif %}
 
-
+# Add all commands
+{% do traefik.set_command(commands.x) %}
 
 
 # Add Ports
