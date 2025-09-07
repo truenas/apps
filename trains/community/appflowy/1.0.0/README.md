@@ -1,8 +1,7 @@
 # AppFlowy
 
-AppFlowy is an open-source alternative to Notion. You are in charge of your data and customizations.
-
-AppFlowy is a privacy-first, flexible, and extensible workspace for you to achieve more.
+AppFlowy is a self-hosted collaborative workspace for creating documents, wikis, tasks, and simple databases in one place.
+It is open-source, extensible, and keeps you in control of your data.
 
 ## Features
 
