@@ -25,6 +25,7 @@
 
 {# Redis container #}
 {% set redis = tpl.add_container(values.consts.redis_container_name, "redis_image") %}
+{% do redis.set_user(values.run_as.user, values.run_as.group) %}
 {% do redis.healthcheck.set_test("redis", {"password": ""}) %}
 
 {# MinIO container (only when not using external S3) #}
@@ -34,7 +35,7 @@
   {% do minio.environment.add_env("MINIO_BROWSER_REDIRECT_URL", base_url ~ "/minio") %}
   {% do minio.environment.add_env("MINIO_ROOT_USER", values.s3.access_key) %}
   {% do minio.environment.add_env("MINIO_ROOT_PASSWORD", values.s3.secret_key) %}
-  {% do minio.healthcheck.set_test("wget", {"port": 9000, "path": "/minio/health/ready"}) %}
+  {% do minio.healthcheck.disable() %}
 
   {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
   {% do minio.add_storage("/data", values.storage.minio_data) %}
@@ -46,7 +47,7 @@
 {% do gotrue.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do gotrue.healthcheck.set_test("curl", {"port": 9999, "path": "/health"}) %}
 
-{% set gotrue_db_url = "postgres://" ~ values.consts.db_user ~ ":" ~ values.database.postgres_password ~ "@" ~ values.consts.postgres_container_name ~ ":5432/" ~ values.consts.db_name %}
+{% set gotrue_db_url = "postgres://" ~ values.consts.db_user ~ ":" ~ values.database.postgres_password ~ "@" ~ values.consts.postgres_container_name ~ ":5432/" ~ values.consts.db_name ~ "?search_path=auth,public" %}
 
 {% do gotrue.environment.add_env("GOTRUE_ADMIN_EMAIL", values.auth.gotrue_admin_email) %}
 {% do gotrue.environment.add_env("GOTRUE_ADMIN_PASSWORD", values.auth.gotrue_admin_password) %}
@@ -57,6 +58,7 @@
 {% do gotrue.environment.add_env("GOTRUE_JWT_EXP", values.auth.gotrue_jwt_exp) %}
 {% do gotrue.environment.add_env("GOTRUE_JWT_ADMIN_GROUP_NAME", "supabase_admin") %}
 {% do gotrue.environment.add_env("GOTRUE_DB_DRIVER", "postgres") %}
+{% do gotrue.environment.add_env("GOTRUE_DB_NAMESPACE", "auth") %}
 {% do gotrue.environment.add_env("API_EXTERNAL_URL", base_url) %}
 {% do gotrue.environment.add_env("DATABASE_URL", gotrue_db_url) %}
 {% do gotrue.environment.add_env("PORT", 9999) %}
@@ -144,7 +146,7 @@
   {% set ai = tpl.add_container(values.consts.appflowy_ai_container_name, "appflowy_ai_image") %}
   {% do ai.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
   {% do ai.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
-  {% do ai.healthcheck.set_test("curl", {"port": 5001, "path": "/health"}) %}
+  {% do ai.healthcheck.set_test("tcp", {"port": 5001}) %}
 
   {% do ai.environment.add_env("AI_SERVER_PORT", "5001") %}
   {% do ai.environment.add_env("OPENAI_API_KEY", values.ai.openai_api_key) %}
@@ -203,7 +205,8 @@
 {# Web container #}
 {% set web = tpl.add_container(values.consts.appflowy_web_container_name, "appflowy_web_image") %}
 {% do web.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
-{% do web.healthcheck.set_test("tcp", {"port": 80}) %}
+{% do web.healthcheck.disable() %}
+{% do web.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 
 {% set ws_base_url = "ws" ~ (proto | replace("http", "")) ~ "://" ~ values.appflowy.web_host %}
 {% do web.environment.add_env("APPFLOWY_BASE_URL", base_url) %}
@@ -215,6 +218,7 @@
 {% do nginx.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
 {% do nginx.depends.add_dependency(values.consts.gotrue_container_name, "service_healthy") %}
 {% do nginx.healthcheck.set_test("tcp", {"port": 80}) %}
+{% do nginx.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 
 {# Create simple nginx configuration #}
 {% set nginx_config %}

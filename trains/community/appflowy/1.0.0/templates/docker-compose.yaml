@@ -43,7 +43,7 @@
 {% do gotrue.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do gotrue.healthcheck.set_test("curl", {"port": 9999, "path": "/health"}) %}
 
-{% set gotrue_db_url = "postgres://" ~ values.consts.db_user ~ ":" ~ values.database.postgres_password ~ "@" ~ values.consts.postgres_container_name ~ ":5432/" ~ values.consts.db_name %}
+{% set gotrue_db_url = "postgres://" ~ values.consts.db_user ~ ":" ~ values.database.postgres_password ~ "@" ~ values.consts.postgres_container_name ~ ":5432/" ~ values.consts.db_name ~ "?search_path=auth,public" %}
 
 {% do gotrue.environment.add_env("GOTRUE_ADMIN_EMAIL", values.auth.gotrue_admin_email) %}
 {% do gotrue.environment.add_env("GOTRUE_ADMIN_PASSWORD", values.auth.gotrue_admin_password) %}
@@ -125,7 +125,7 @@
   {% set ai = tpl.add_container(values.consts.appflowy_ai_container_name, "appflowy_ai_image") %}
   {% do ai.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
   {% do ai.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
-  {% do ai.healthcheck.set_test("curl", {"port": 5001, "path": "/health"}) %}
+  {% do ai.healthcheck.set_test("tcp", {"port": 5001}) %}
 
   {% do ai.environment.add_env("AI_SERVER_PORT", "5001") %}
   {% do ai.environment.add_env("OPENAI_API_KEY", values.ai.openai_api_key) %}
@@ -175,6 +175,7 @@
 {# Web container #}
 {% set web = tpl.add_container(values.consts.appflowy_web_container_name, "appflowy_web_image") %}
 {% do web.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
+{% do web.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 
 {% set ws_base_url = "ws" ~ (proto | replace("http", "")) ~ "://" ~ values.appflowy.web_host %}
 {% do web.environment.add_env("APPFLOWY_BASE_URL", base_url) %}
@@ -185,6 +186,7 @@
 {% set nginx = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
 {% do nginx.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
 {% do nginx.depends.add_dependency(values.consts.gotrue_container_name, "service_healthy") %}
+{% do nginx.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 
 {# Create nginx configuration #}
 {% set nginx_config = """
