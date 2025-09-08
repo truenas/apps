@@ -7,6 +7,20 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/healthcheck"}) %}
 
+{% if values.network.opds_port.bind_mode %}
+  {% set c2 = tpl.add_container(values.consts.opds_container_name, "opds_image") %}
+
+  {% do c2.set_user(values.run_as.user, values.run_as.group) %}
+  {% do c2.healthcheck.set_test("netcat", {"port": values.network.opds_port.port_number}) %}
+
+  {% do c2.environment.add_env("PORT", values.network.opds_port.port_number) %}
+  {% do c2.environment.add_env("USE_PROXY", true) %}
+  {% do c2.environment.add_env("ABS_URL", "http://" ~ values.consts.audiobookshelf_container_name ~ ":" ~ values.network.web_port.port_number) %}
+
+  {% do c2.add_port(values.network.opds_port) %}
+  {% do c2.depends.add_dependency(values.consts.audiobookshelf_container_name, "service_healthy") %}
+{% endif %}
+
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("CONFIG_PATH", values.consts.config_path) %}
 {% do c1.environment.add_env("METADATA_PATH", values.consts.metadata_path) %}
