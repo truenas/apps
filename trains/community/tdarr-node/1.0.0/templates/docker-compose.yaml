@@ -1,0 +1,25 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.tdarr_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "pgrep", "Tdarr_Node"]) %}
+
+{% do c1.environment.add_env("inContainer", true) %}
+{% do c1.environment.add_env("nodeName", values.tdarr.node_name) %}
+{% do c1.environment.add_env("apiKey", values.tdarr.api_key) %}
+{% do c1.environment.add_env("nodeType", values.tdarr.node_type) %}
+{% do c1.environment.add_env("serverPort", values.tdarr.server_port) %}
+{% do c1.environment.add_env("serverIP", values.tdarr.server_ip) %}
+
+{% do c1.environment.add_user_envs(values.tdarr.additional_envs) %}
+
+{% do c1.add_storage("/app/configs", values.storage.configs) %}
+{% do c1.add_storage("/app/logs", values.storage.logs) %}
+{% do c1.add_storage("/temp", values.storage.transcodes) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
