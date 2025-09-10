@@ -29,22 +29,45 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: internal_node
-          label: Internal Node
-          description: |
-            If disabled, Tdarr will run only the server and webUI.</br>
-            If enabled, Tdarr will also start an internal node in the same container.
-          schema:
-            type: boolean
-            default: true
         - variable: node_name
           label: Node Name
-          description: The name of the internal Tdarr node.
+          description: The name of the Tdarr node.
           schema:
             type: string
-            default: "Tdarr"
-            show_if: [["internal_node", "=", true]]
+            default: "Tdarr Node"
             required: true
+        - variable: node_type
+          label: Node Type
+          description: See https://docs.tdarr.io/docs/nodes/nodes#node-types for more information.
+          schema:
+            type: string
+            default: "mapped"
+            enum:
+              - value: "mapped"
+                description: Mapped Node
+              - value: "unmapped"
+                description: Unmapped Node
+        - variable: server_ip
+          label: Server IP
+          description: The IP address of the Tdarr server.
+          schema:
+            type: ipaddr
+            default: ""
+            required: true
+        - variable: server_port
+          label: Server Port
+          description: The port number of the Tdarr server.
+          schema:
+            type: int
+            required: true
+            min: 1
+            max: 65535
+        - variable: api_key
+          label: API Key (Optionals)
+          description: The API key for the Tdarr server.
+          schema:
+            type: string
+            private: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -94,100 +117,6 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
-          schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 30088
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: server_port
-          label: Server Port
-          schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 30029
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
         - variable: host_network
           label: Host Network
           description: |
@@ -201,82 +130,6 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: server
-          label: Tdarr Server Storage
-          description: The path to store Tdarr Server.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "server"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
         - variable: configs
           label: Tdarr Configs Storage
           description: The path to store Tdarr Configs.
@@ -695,8 +548,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: tdarr
-                            description: tdarr
+                          - value: tdarr-node
+                            description: tdarr-node
 
   - variable: resources
     label: ""
