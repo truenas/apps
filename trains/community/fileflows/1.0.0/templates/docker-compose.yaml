@@ -1,0 +1,23 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.fileflows_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.server_port.port_number, "path": "/frasier"}) %}
+
+{% do c1.environment.add_env("FFPORT", values.network.server_port.port_number) %}
+{% do c1.environment.add_user_envs(values.fileflows.additional_envs) %}
+
+{% do c1.add_port(values.network.server_port) %}
+
+{% do c1.add_storage("/app/Data", values.storage.data) %}
+{% do c1.add_storage("/app/Logs", values.storage.logs) %}
+{% do c1.add_storage("/temp", values.storage.temp) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.server_port) %}
+
+{{ tpl.render() | tojson }}
