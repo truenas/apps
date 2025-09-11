@@ -6,20 +6,42 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz", "scheme": "https"}) %}
-{% do c1.set_entrypoint(["/bin/sh", "-c"]) %}
-{% do c1.set_command(["opencloud init || true; opencloud server"]) %}
+{% do c1.configs.add("entrypoint", values.consts.entrypoint_script, "/ix-entrypoint.sh", "0755") %}
+{% do c1.set_entrypoint(["/ix-entrypoint.sh"]) %}
 
-{% do c1.environment.add_env("PROXY_HTTP_ADDR", "0.0.0.0:%d"|format(values.network.web_port.port_number)) %}
+{% set extra_services = namespace(x=["notifications"]) %}
+
+{# Networking #}
+{% do c1.environment.add_env("PROXY_HTTP_ADDR", ":%d"|format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_env("OC_URL", values.opencloud.app_url) %}
-{% do c1.environment.add_env("OC_INSECURE", true) %}
+{% do c1.environment.add_env("OC_INSECURE", values.opencloud.insecure_access) %}
+
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("PROXY_TRANSPORT_TLS_KEY", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("PROXY_TRANSPORT_TLS_CERT", values.consts.ssl_cert_path) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{# Storage #}
 {% do c1.environment.add_env("STORAGE_USERS_DRIVER", "posix") %}
+{% do c1.environment.add_env("STORAGE_USERS_ID_CACHE_STORE", "nats-js-kv") %}
+{% do c1.environment.add_env("OC_BASE_DATA_PATH", values.consts.data_path) %}
+{% do c1.environment.add_env("OC_CONFIG_DIR", values.consts.config_path) %}
+
+{% do c1.environment.add_env("OC_ADD_RUN_SERVICES", extra_services.x | join(",")) %}
+{# FIXME: this is required for notifications. expose #}
+{% do c1.environment.add_env("NOTIFICATIONS_SMTP_SENDER", "ab@example.com") %}
 {% do c1.environment.add_user_envs(values.opencloud.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/etc/opencloud", values.storage.config) %}
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
-{% do c1.add_storage("/var/lib/opencloud", values.storage.data) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
@@ -32,6 +54,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
 
 {{ tpl.render() | tojson }}
