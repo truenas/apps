@@ -157,6 +157,8 @@ def test_notes_all(mock_values):
     render.notes.add_warning("that is not properly configured. fix it later!")
     render.notes.add_deprecation("this is will be removed later. fix it now!")
     render.notes.add_deprecation("that is will be removed later. fix it later!")
+    render.notes.add_info("some info")
+    render.notes.add_info("some other info")
     render.notes.set_body(
         """## Additional info
 
@@ -200,6 +202,11 @@ some other info.
 
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
+
+## Info
+
+- some info
+- some other info
 
 ## Security
 
