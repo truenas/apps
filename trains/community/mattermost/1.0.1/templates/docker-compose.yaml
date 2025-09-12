@@ -1,0 +1,79 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.mattermost_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+{% set scheme = "https" if values.network.certificate_id else "http" %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.mattermost.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.mattermost.postgres_image_selector, pg_config, perm_container) %}
+
+{#
+  https://github.com/mattermost/mmctl/issues/313
+  https://github.com/mattermost/docker/issues/172
+  (Also any other mmctl commands fail)
+#}
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/mattermost/bin/mmctl", "system", "status", "--local"]) %}
+
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{% do c1.environment.add_env("MM_CONFIG", "") %}
+{% do c1.environment.add_env("MM_FILESETTINGS_DRIVERNAME", "local") %}
+{% do c1.environment.add_env("MM_CACHESETTINGS_CACHETYPE", "lru") %}
+{% do c1.environment.add_env("MM_CLUSTERSETTINGS_ENABLE", false) %}
+{% do c1.environment.add_env("MM_SERVICESETTINGS_LISTENADDRESS", ":%d"|format(values.network.web_port.port_number)) %}
+{% do c1.environment.add_env("MM_CALLS_TCP_SERVER_PORT", ":%d"|format(values.network.calls_port.port_number)) %}
+{% do c1.environment.add_env("MM_CALLS_UDP_SERVER_PORT", ":%d"|format(values.network.calls_port.port_number)) %}
+{% do c1.environment.add_env("MM_SQLSETTINGS_DRIVERNAME", "postgres") %}
+{% do c1.environment.add_env("MM_SQLSETTINGS_DATASOURCE", postgres.get_url("postgres")) %}
+{% do c1.environment.add_env("MM_SERVICESETTINGS_SITEURL", values.mattermost.site_url) %}
+
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("MM_SERVICESETTINGS_CONNECTIONSECURITY", "TLS") %}
+  {% do c1.environment.add_env("MM_SERVICESETTINGS_TLSKEYFILE", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("MM_SERVICESETTINGS_TLSCERTFILE", values.consts.ssl_cert_path) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.mattermost.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.call_port) %}
+{% do c1.add_port(values.network.call_port, {"protocol": "udp"}) %}
+
+{% do c1.add_storage("/mattermost/config", values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+{% do c1.add_storage("/mattermost/data", values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+{% do c1.add_storage("/mattermost/logs", values.storage.logs) %}
+{% do perm_container.add_or_skip_action("logs", values.storage.logs, perms_config) %}
+{% do c1.add_storage("/mattermost/plugins", values.storage.plugins) %}
+{% do perm_container.add_or_skip_action("plugins", values.storage.plugins, perms_config) %}
+{% do c1.add_storage("/mattermost/client/plugins", values.storage.client_plugins) %}
+{% do perm_container.add_or_skip_action("client-plugins", values.storage.client_plugins, perms_config) %}
+{% do c1.add_storage("/mattermost/bleve-indexes", values.storage.bleve_indexes) %}
+{% do perm_container.add_or_skip_action("bleve-indexes", values.storage.bleve_indexes, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": scheme}) %}
+
+{{ tpl.render() | tojson }}
