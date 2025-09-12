@@ -1,0 +1,59 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set backend = tpl.add_container(values.consts.backend_container_name, "image") %}
+{% set frontend = tpl.add_container(values.consts.frontend_container_name, "frontend_image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+
+{# Postgis #}
+{% set pg_config = {"user": values.consts.db_user, "password": values.adventurelog.db_password, "database": values.consts.db_name, "volume": values.storage.postgres_data} %}
+{% set postgis = tpl.deps.postgres(values.consts.postgis_container_name, "postgis_image", pg_config, perm_container) %}
+
+{# Frontend #}
+{% do frontend.set_user(1000, 1000) %}
+{% do frontend.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
+{% do frontend.healthcheck.set_test("wget", {"port": values.consts.frontend_port, "path": "/"}) %}
+
+{# Must always point to internal backend server #}
+{% do frontend.environment.add_env("PUBLIC_SERVER_URL", "http://%s:8000"|format(values.consts.backend_container_name)) %}
+{% do frontend.environment.add_env("ORIGIN", values.adventurelog.frontend_url) %}
+{% do frontend.environment.add_user_envs(values.adventurelog.additional_envs) %}
+
+{% do frontend.add_port(values.network.frontend_port, {"container_port": values.consts.frontend_port}) %}
+
+{# Backend #}
+{% do backend.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID"]) %}
+{% do backend.depends.add_dependency(values.consts.postgis_container_name, "service_healthy") %}
+{% do backend.healthcheck.set_test("http", {"port": values.consts.backend_port, "path": "/auth/is-registration-disabled/?format=json"}) %}
+
+{% do backend.environment.add_env("FRONTEND_URL", values.adventurelog.frontend_url) %}
+{% do backend.environment.add_env("PUBLIC_URL", values.adventurelog.backend_url) %}
+{% do backend.environment.add_env("CSRF_TRUSTED_ORIGINS", [values.adventurelog.frontend_url, values.adventurelog.backend_url]|join(",")) %}
+
+{% do backend.environment.add_env("SECRET_KEY", values.adventurelog.secret_key) %}
+{% do backend.environment.add_env("DJANGO_ADMIN_USERNAME", values.adventurelog.admin_username) %}
+{% do backend.environment.add_env("DJANGO_ADMIN_PASSWORD", values.adventurelog.admin_password) %}
+{% do backend.environment.add_env("DJANGO_ADMIN_EMAIL", values.adventurelog.admin_email) %}
+
+{% do backend.environment.add_env("PGHOST", values.consts.postgis_container_name) %}
+{% do backend.environment.add_env("PGUSER", values.consts.db_user) %}
+{% do backend.environment.add_env("PGPASSWORD", values.adventurelog.db_password) %}
+{% do backend.environment.add_env("PGDATABASE", values.consts.db_name) %}
+{% do backend.environment.add_user_envs(values.adventurelog.additional_envs) %}
+
+{% do backend.add_port(values.network.backend_port, {"container_port": values.consts.backend_port}) %}
+
+{% do backend.add_storage("/code/media", values.storage.media) %}
+{% for store in values.storage.additional_storage %}
+  {% do backend.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do postgis.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.frontend_port) %}
+{% do tpl.portals.add(values.network.backend_port, {"name": "Admin"}) %}
+
+{{ tpl.render() | tojson }}

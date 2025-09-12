@@ -1,0 +1,38 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.zoraxy_container_name, "image") %}
+{% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
+{% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port.port_number}) %}
+{% do c1.add_docker_socket(read_only=True) %}
+
+{% set caps = namespace(x=["NET_BIND_SERVICE"]) %}
+{% if values.zoraxy.enable_zerotier %}
+  {% do c1.add_tun_device() %}
+  {% do caps.x.append("NET_ADMIN") %}
+{% endif %}
+{% do c1.add_caps(caps.x) %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("DOCKER", true) %}
+{% do c1.environment.add_env("DB", "auto") %}
+{% do c1.environment.add_env("CFGUPGRADE", true) %}
+{% do c1.environment.add_env("FASTGEOIP", values.zoraxy.enable_fastgeoip) %}
+{% do c1.environment.add_env("ZEROTIER", values.zoraxy.enable_zerotier) %}
+
+{% do c1.environment.add_user_envs(values.zoraxy.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% for port in values.network.additional_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{% do c1.add_storage("/opt/zoraxy/config", values.storage.config) %}
+{% do c1.add_storage("/opt/zoraxy/plugin", values.storage.plugin) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
