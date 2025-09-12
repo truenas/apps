@@ -1,8 +1,37 @@
+{% from "macros/app_init.sh" import app_init %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.opencloud_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{# Apps Init #}
+{% set app_containers = namespace(x=[]) %}
+{% for app_name, enabled in values.opencloud.apps.items() %}
+{% set target_path = "%s/web/assets/apps"|format(values.consts.data_path) %}
+
+  {% set app_config = values.consts.app_map[app_name] %}
+  {% set app = tpl.add_container(app_config.container_name, app_config.image) %}
+  {% do app_containers.x.append(app) %}
+
+  {% do c1.depends.add_dependency(app_config.container_name, "service_completed_successfully") %}
+
+  {% do app.set_user(0, 0) %}
+  {% do app.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+  {% do app.restart.set_policy("on-failure", 1) %}
+  {% do app.healthcheck.disable() %}
+  {% do app.deploy.resources.set_profile("low") %}
+  {% do app.remove_devices() %}
+  {% do app.add_storage(values.consts.data_path, values.storage.data) %}
+  {% do app.configs.add("%s_entrypoint"|format(app_config.container_name), app_init(tpl, {
+    "enabled": enabled,
+    "target_path": target_path,
+    "app_id": app_config.id,
+    "source_path": app_config.source,
+    "run_as": {"uid": values.run_as.user, "gid": values.run_as.group},
+  }), "/ix-entrypoint.sh", "0755") %}
+  {% do app.set_entrypoint(["/ix-entrypoint.sh"]) %}
+{% endfor %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz", "scheme": "https"}) %}
@@ -31,9 +60,21 @@
 {% do c1.environment.add_env("OC_BASE_DATA_PATH", values.consts.data_path) %}
 {% do c1.environment.add_env("OC_CONFIG_DIR", values.consts.config_path) %}
 
+{% do c1.environment.add_env("NOTIFICATIONS_SMTP_SENDER", values.opencloud.smtp.sender or "OpenCloud notifications <notifications@cloud.opencloud.test>") %}
+{% if values.opencloud.smtp.enabled %}
+  {% do c1.environment.add_env("NOTIFICATIONS_SMTP_HOST", values.opencloud.smtp.host) %}
+  {% do c1.environment.add_env("NOTIFICATIONS_SMTP_PORT", values.opencloud.smtp.port) %}
+  {% do c1.environment.add_env("NOTIFICATIONS_SMTP_INSECURE", values.opencloud.smtp.insecure) %}
+  {% do c1.environment.add_env("NOTIFICATIONS_SMTP_ENCRYPTION", values.opencloud.smtp.encryption) %}
+  {% if values.opencloud.smtp.username %}
+    {% do c1.environment.add_env("NOTIFICATIONS_SMTP_USERNAME", values.opencloud.smtp.username) %}
+  {% endif %}
+  {% if values.opencloud.smtp.password %}
+    {% do c1.environment.add_env("NOTIFICATIONS_SMTP_PASSWORD", values.opencloud.smtp.password) %}
+  {% endif %}
+{% endif %}
+
 {% do c1.environment.add_env("OC_ADD_RUN_SERVICES", extra_services.x | join(",")) %}
-{# FIXME: this is required for notifications. expose #}
-{% do c1.environment.add_env("NOTIFICATIONS_SMTP_SENDER", "ab@example.com") %}
 {% do c1.environment.add_user_envs(values.opencloud.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
@@ -52,6 +93,9 @@
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% for c in app_containers.x %}
+    {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endfor %}
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
