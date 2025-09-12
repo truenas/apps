@@ -456,19 +456,3 @@ def test_set_cgroup_invalid(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.set_cgroup("invalid")
-<<<<<<< HEAD
-
-
-def test_setup_as_helper(mock_values):
-    mock_values["resources"] = {"gpus": {"use_all_gpus": True}}
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.setup_as_helper()
-    output = render.render()
-    assert output["services"]["test_container"]["restart"] == "on-failure:1"
-    assert output["services"]["test_container"]["healthcheck"]["disable"] is True
-    assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["cpus"] == "1"
-    assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["memory"] == "512M"
-    assert "devices" not in output["services"]["test_container"]
-=======
->>>>>>> c35efb3c18 (add some notes)

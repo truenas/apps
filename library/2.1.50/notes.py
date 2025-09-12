@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 from dataclasses import dataclass
+=======
+>>>>>>> c35efb3c18 (add some notes)
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -7,12 +10,15 @@ if TYPE_CHECKING:
 SHORT_LIVED = "short-lived"
 
 
+<<<<<<< HEAD
 @dataclass
 class Security:
     header: str
     items: list[str]
 
 
+=======
+>>>>>>> c35efb3c18 (add some notes)
 class Notes:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
@@ -21,7 +27,11 @@ class Notes:
         self._info: list[str] = []
         self._warnings: list[str] = []
         self._deprecations: list[str] = []
+<<<<<<< HEAD
         self._security: dict[str, list[Security]] = {}
+=======
+        self._security: dict[str, list[str]] = {}
+>>>>>>> c35efb3c18 (add some notes)
         self._header: str = ""
         self._body: str = ""
         self._footer: str = ""
@@ -52,7 +62,11 @@ class Notes:
             url = "https://ixsystems.atlassian.net"
         footer = "## Bug Reports and Feature Requests\n\n"
         footer += "If you find a bug in this app or have an idea for a new feature, please file an issue at\n"
+<<<<<<< HEAD
         footer += f"{url}\n"
+=======
+        footer += f"{url}\n\n"
+>>>>>>> c35efb3c18 (add some notes)
         self._footer = footer
 
     def add_info(self, info: str):
@@ -70,6 +84,7 @@ class Notes:
     def set_body(self, body: str):
         self._body = body
 
+<<<<<<< HEAD
     def get_pretty_host_mount(self, hm: str) -> tuple[str, bool]:
         hm = hm.rstrip("/")
         mapping = {
@@ -110,12 +125,15 @@ class Notes:
             return mapping[group_id]
         return str(group_id)
 
+=======
+>>>>>>> c35efb3c18 (add some notes)
     def scan_containers(self):
         for name, c in self._render_instance._containers.items():
             if self._security.get(name) is None:
                 self._security[name] = []
 
             if c.restart._policy == "on-failure":
+<<<<<<< HEAD
                 self._security[name].append(Security(header=SHORT_LIVED, items=[]))
 
             if c._privileged:
@@ -209,6 +227,36 @@ class Notes:
                     "Logs do not appear correctly in the UI due to an [upstream bug]"
                     "(https://github.com/docker/docker-py/issues/1394)"
                 )
+=======
+                self._security[name].append(SHORT_LIVED)
+
+            if c._privileged:
+                self._security[name].append("Is running with privileged mode enabled")
+
+            run_as = c._user.split(":") if c._user else [-1, -1]
+            if run_as[0] in ["0", -1]:
+                self._security[name].append(f"Is running as {'root' if run_as[0] == '0' else 'unknown'} user")
+            if run_as[1] in ["0", -1]:
+                self._security[name].append(f"Is running as {'root' if run_as[1] == '0' else 'unknown'} group")
+            if any(x in c._group_add for x in ("root", 0)):
+                self._security[name].append("Is running with supplementary root group")
+
+            if c._ipc_mode == "host":
+                self._security[name].append("Is running with host IPC namespace")
+            if c._pid_mode == "host":
+                self._security[name].append("Is running with host PID namespace")
+            if c._cgroup == "host":
+                self._security[name].append("Is running with host cgroup namespace")
+            if "no-new-privileges=true" not in c._security_opt.render():
+                self._security[name].append("Is running without [no-new-privileges] security option")
+            if c._tty:
+                self._prepend_warning(
+                    f"Container [{name}] is running with a TTY, "
+                    "Logs will not appear correctly in the UI due to an [upstream bug]"
+                    "(https://github.com/docker/docker-py/issues/1394)"
+                )
+
+>>>>>>> c35efb3c18 (add some notes)
         self._security = {k: v for k, v in self._security.items() if v}
 
     def render(self):
@@ -236,6 +284,7 @@ class Notes:
 
         if self._security:
             result += "## Security\n\n"
+<<<<<<< HEAD
             result += "**Read the following security precautions to ensure"
             result += " that you wish to continue using this application.**\n\n"
 
@@ -271,6 +320,18 @@ class Notes:
                 # If its the last container, add a final ---
                 if idx == len(joined_sec_list) - 1:
                     result += "---\n\n"
+=======
+            for c_name, security in self._security.items():
+                if SHORT_LIVED in security and len(security) == 1:
+                    continue
+                result += f"### Container: [{c_name}]"
+                if SHORT_LIVED in security:
+                    result += "\n\n**This container is short-lived.**"
+                result += "\n\n"
+                for s in [s for s in security if s != "short-lived"]:
+                    result += f"- {s}\n"
+                result += "\n"
+>>>>>>> c35efb3c18 (add some notes)
 
         if self._body:
             result += self._body.strip() + "\n\n"

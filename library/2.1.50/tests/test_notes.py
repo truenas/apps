@@ -34,6 +34,7 @@ def test_notes(mock_values):
 
 ## Security
 
+<<<<<<< HEAD
 **Read the following security precautions to ensure that you wish to continue using this application.**
 
 ---
@@ -47,11 +48,21 @@ def test_notes(mock_values):
 - Supplementary Groups: apps
 
 ---
+=======
+### Container: [test_container]
+
+- Is running as unknown user
+- Is running as unknown group
+>>>>>>> c35efb3c18 (add some notes)
 
 ## Bug Reports and Feature Requests
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
+<<<<<<< HEAD
+=======
+
+>>>>>>> c35efb3c18 (add some notes)
 """
     )
 
@@ -67,6 +78,7 @@ def test_notes_on_non_enterprise_train(mock_values):
         output["x-notes"]
         == """# Test App
 
+<<<<<<< HEAD
 ## Security
 
 **Read the following security precautions to ensure that you wish to continue using this application.**
@@ -83,10 +95,16 @@ def test_notes_on_non_enterprise_train(mock_values):
 
 ---
 
+=======
+>>>>>>> c35efb3c18 (add some notes)
 ## Bug Reports and Feature Requests
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://github.com/truenas/apps
+<<<<<<< HEAD
+=======
+
+>>>>>>> c35efb3c18 (add some notes)
 """
     )
 
@@ -108,6 +126,7 @@ def test_notes_with_warnings(mock_values):
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
 
+<<<<<<< HEAD
 ## Security
 
 **Read the following security precautions to ensure that you wish to continue using this application.**
@@ -124,10 +143,16 @@ def test_notes_with_warnings(mock_values):
 
 ---
 
+=======
+>>>>>>> c35efb3c18 (add some notes)
 ## Bug Reports and Feature Requests
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
+<<<<<<< HEAD
+=======
+
+>>>>>>> c35efb3c18 (add some notes)
 """
     )
 
@@ -149,6 +174,7 @@ def test_notes_with_deprecations(mock_values):
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
 
+<<<<<<< HEAD
 ## Security
 
 **Read the following security precautions to ensure that you wish to continue using this application.**
@@ -165,10 +191,16 @@ def test_notes_with_deprecations(mock_values):
 
 ---
 
+=======
+>>>>>>> c35efb3c18 (add some notes)
 ## Bug Reports and Feature Requests
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
+<<<<<<< HEAD
+=======
+
+>>>>>>> c35efb3c18 (add some notes)
 """
     )
 
@@ -190,6 +222,7 @@ some other info.
         output["x-notes"]
         == """# Test App
 
+<<<<<<< HEAD
 ## Security
 
 **Read the following security precautions to ensure that you wish to continue using this application.**
@@ -206,6 +239,8 @@ some other info.
 
 ---
 
+=======
+>>>>>>> c35efb3c18 (add some notes)
 ## Additional info
 
 Some info
@@ -215,6 +250,10 @@ some other info.
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
+<<<<<<< HEAD
+=======
+
+>>>>>>> c35efb3c18 (add some notes)
 """
     )
 
@@ -244,12 +283,15 @@ some other info.
     c1.set_cgroup("host")
     c1.set_tty(True)
     c1.remove_security_opt("no-new-privileges")
+<<<<<<< HEAD
     c1.add_docker_socket()
     c1.add_tun_device()
     c1.add_usb_bus()
     c1.add_snd_device()
     c1.devices.add_device("/dev/null", "/dev/null", "rwm")
     c1.add_storage("/etc/os-release", {"type": "host_path", "host_path_config": {"path": "/etc/os-release"}})
+=======
+>>>>>>> c35efb3c18 (add some notes)
     c1.restart.set_policy("on-failure", 1)
 
     c2 = render.add_container("test_container2", "test_image")
@@ -268,7 +310,11 @@ some other info.
 
 ## Warnings
 
+<<<<<<< HEAD
 - Container [test_container] is running with a TTY, Logs do not appear correctly in the UI due to an [upstream bug](https://github.com/docker/docker-py/issues/1394)
+=======
+- Container [test_container] is running with a TTY, Logs will not appear correctly in the UI due to an [upstream bug](https://github.com/docker/docker-py/issues/1394)
+>>>>>>> c35efb3c18 (add some notes)
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
 
@@ -284,6 +330,7 @@ some other info.
 
 ## Security
 
+<<<<<<< HEAD
 **Read the following security precautions to ensure that you wish to continue using this application.**
 
 ---
@@ -298,10 +345,13 @@ some other info.
 
 ---
 
+=======
+>>>>>>> c35efb3c18 (add some notes)
 ### Container: [test_container]
 
 **This container is short-lived.**
 
+<<<<<<< HEAD
 #### Privileged mode is enabled
 
 - Has the same level of control as a system administrator
@@ -355,6 +405,16 @@ some other info.
 - Supplementary Groups: apps
 
 ---
+=======
+- Is running with privileged mode enabled
+- Is running as root user
+- Is running as root group
+- Is running with supplementary root group
+- Is running with host IPC namespace
+- Is running with host PID namespace
+- Is running with host cgroup namespace
+- Is running without [no-new-privileges] security option
+>>>>>>> c35efb3c18 (add some notes)
 
 ## Additional info
 
@@ -365,5 +425,9 @@ some other info.
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
+<<<<<<< HEAD
+=======
+
+>>>>>>> c35efb3c18 (add some notes)
 """  # noqa
     )
