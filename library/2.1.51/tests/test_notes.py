@@ -34,7 +34,7 @@ def test_notes(mock_values):
 
 ## Security
 
-Read the following security precautions to ensure that you wish to continue using this application.
+**Read the following security precautions to ensure that you wish to continue using this application.**
 
 ---
 
@@ -69,7 +69,7 @@ def test_notes_on_non_enterprise_train(mock_values):
 
 ## Security
 
-Read the following security precautions to ensure that you wish to continue using this application.
+**Read the following security precautions to ensure that you wish to continue using this application.**
 
 ---
 
@@ -110,7 +110,7 @@ def test_notes_with_warnings(mock_values):
 
 ## Security
 
-Read the following security precautions to ensure that you wish to continue using this application.
+**Read the following security precautions to ensure that you wish to continue using this application.**
 
 ---
 
@@ -151,7 +151,7 @@ def test_notes_with_deprecations(mock_values):
 
 ## Security
 
-Read the following security precautions to ensure that you wish to continue using this application.
+**Read the following security precautions to ensure that you wish to continue using this application.**
 
 ---
 
@@ -192,7 +192,7 @@ some other info.
 
 ## Security
 
-Read the following security precautions to ensure that you wish to continue using this application.
+**Read the following security precautions to ensure that you wish to continue using this application.**
 
 ---
 
@@ -248,7 +248,7 @@ some other info.
     c1.add_tun_device()
     c1.add_usb_bus()
     c1.add_snd_device()
-    c1.devices.add_device("/dev/null", "/dev/null")
+    c1.devices.add_device("/dev/null", "/dev/null", "rwm")
     c1.add_storage("/etc/os-release", {"type": "host_path", "host_path_config": {"path": "/etc/os-release"}})
     c1.restart.set_policy("on-failure", 1)
 
@@ -268,7 +268,7 @@ some other info.
 
 ## Warnings
 
-- Container [test_container] is running with a TTY, Logs will not appear correctly in the UI due to an [upstream bug](https://github.com/docker/docker-py/issues/1394)
+- Container [test_container] is running with a TTY, Logs do not appear correctly in the UI due to an [upstream bug](https://github.com/docker/docker-py/issues/1394)
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
 
@@ -284,7 +284,7 @@ some other info.
 
 ## Security
 
-Read the following security precautions to ensure that you wish to continue using this application.
+**Read the following security precautions to ensure that you wish to continue using this application.**
 
 ---
 
@@ -305,8 +305,8 @@ Read the following security precautions to ensure that you wish to continue usin
 
 #### Host IPC namespace is enabled
 
-- Container can access host's inter-process communication mechanisms
-- May allow communication with other processes on the host
+- Container can access the inter-process communication mechanisms of the host
+- Allows communication with other processes on the host under particular circumstances
 
 #### Host PID namespace is enabled
 
@@ -316,21 +316,21 @@ Read the following security precautions to ensure that you wish to continue usin
 #### Host cgroup namespace is enabled
 
 - Container shares control groups with the host system
-- May bypass resource limits and isolation boundaries
+- Can bypass resource limits and isolation boundaries
 
 #### Security option [no-new-privileges] is not set
 
 - Processes can gain additional privileges through setuid/setgid binaries
-- May allow privilege escalation attacks within the container
+- Can potentially allow privilege escalation attacks within the container
 
-#### Host Files, Devices, or Sockets passed into the container
+#### Passing Host Files, Devices, or Sockets into the Container
 
-- /dev/bus/usb
-- /dev/net/tun
-- /dev/null
-- /dev/snd
-- /etc/os-release (Read/Write)
-- /var/run/docker.sock (Read Only)
+- /dev/null - (rwm)
+- Docker Socket (/var/run/docker.sock) - (Read Only)
+- OS Release File (/etc/os-release) - (Read/Write)
+- Sound Device (/dev/snd) - (Read/Write)
+- TUN Device (/dev/net/tun) - (Read/Write)
+- USB Devices (/dev/bus/usb) - (Read/Write)
 
 ---
 

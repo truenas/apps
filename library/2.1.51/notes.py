@@ -70,19 +70,32 @@ class Notes:
     def set_body(self, body: str):
         self._body = body
 
-    def is_host_mount(self, device: str) -> bool:
-        device = device.rstrip("/") + "/"
+    def get_pretty_host_mount(self, hm: str) -> tuple[str, bool]:
+        hm = hm.rstrip("/")
+        mapping = {
+            "/dev/bus/usb": "USB Devices",
+            "/dev/net/tun": "TUN Device",
+            "/dev/snd": "Sound Device",
+            "/dev/fuse": "Fuse Device",
+            "/dev/uinput": "UInput Device",
+            "/dev/dvb": "DVB Devices",
+            "/dev/dri": "DRI Device",
+            "/dev/kfd": "AMD GPU Device",
+            "/etc/os-release": "OS Release File",
+            "/var/run/docker.sock": "Docker Socket",
+            "/var/run/utmp": "UTMP",
+            "/var/run/dbus": "DBus Socket",
+            "/run/udev": "Udev Socket",
+        }
+        if hm in mapping:
+            return f"{mapping[hm]} ({hm})", True
+
+        hm = hm + "/"
         starters = ("/dev/", "/proc/", "/sys/", "/etc/", "/lib/")
-        if any(device.startswith(s) for s in starters):
-            return True
-        device = device.rstrip("/")
-        known = [
-            "/var/run/docker.sock",
-            "/var/run/utmp",
-            "/var/run/dbus",
-            "/run/udev",
-        ]
-        return device in known
+        if any(hm.startswith(s) for s in starters):
+            return hm.rstrip("/"), True
+
+        return "", False
 
     def get_group_name_from_id(self, group_id: int | str) -> str:
         mapping = {
@@ -135,8 +148,8 @@ class Notes:
                     Security(
                         header="Host IPC namespace is enabled",
                         items=[
-                            "Container can access host's inter-process communication mechanisms",
-                            "May allow communication with other processes on the host",
+                            "Container can access the inter-process communication mechanisms of the host",
+                            "Allows communication with other processes on the host under particular circumstances",
                         ],
                     )
                 )
@@ -156,7 +169,7 @@ class Notes:
                         header="Host cgroup namespace is enabled",
                         items=[
                             "Container shares control groups with the host system",
-                            "May bypass resource limits and isolation boundaries",
+                            "Can bypass resource limits and isolation boundaries",
                         ],
                     )
                 )
@@ -166,32 +179,34 @@ class Notes:
                         header="Security option [no-new-privileges] is not set",
                         items=[
                             "Processes can gain additional privileges through setuid/setgid binaries",
-                            "May allow privilege escalation attacks within the container",
+                            "Can potentially allow privilege escalation attacks within the container",
                         ],
                     )
                 )
 
             host_mounts = []
             for dev in c.devices._devices:
-                host_mounts.append(dev.host_device)
+                pretty, _ = self.get_pretty_host_mount(dev.host_device)
+                host_mounts.append(f"{pretty} - ({dev.cgroup_perm or 'Read/Write'})")
 
             for vm in c.storage._volume_mounts:
                 if vm.volume_mount_spec.get("type", "") == "bind":
                     source = vm.volume_mount_spec.get("source", "")
                     read_only = vm.volume_mount_spec.get("read_only", False)
-                    if self.is_host_mount(source):
-                        host_mounts.append(f"{source} ({'Read Only' if read_only else 'Read/Write'})")
+                    pretty, is_host_mount = self.get_pretty_host_mount(source)
+                    if is_host_mount:
+                        host_mounts.append(f"{pretty} - ({'Read Only' if read_only else 'Read/Write'})")
 
             if host_mounts:
                 self._security[name].append(
                     Security(
-                        header="Host Files, Devices, or Sockets passed into the container", items=sorted(host_mounts)
+                        header="Passing Host Files, Devices, or Sockets into the Container", items=sorted(host_mounts)
                     )
                 )
             if c._tty:
                 self._prepend_warning(
                     f"Container [{name}] is running with a TTY, "
-                    "Logs will not appear correctly in the UI due to an [upstream bug]"
+                    "Logs do not appear correctly in the UI due to an [upstream bug]"
                     "(https://github.com/docker/docker-py/issues/1394)"
                 )
         self._security = {k: v for k, v in self._security.items() if v}
@@ -221,8 +236,8 @@ class Notes:
 
         if self._security:
             result += "## Security\n\n"
-            result += "Read the following security precautions to ensure"
-            result += " that you wish to continue using this application.\n\n"
+            result += "**Read the following security precautions to ensure"
+            result += " that you wish to continue using this application.**\n\n"
 
             container_count = len(self._security)
             for container_name, security in self._security.items():
