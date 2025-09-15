@@ -70,9 +70,26 @@ class Notes:
     def set_body(self, body: str):
         self._body = body
 
+    def is_host_mount(self, device: str) -> bool:
+        device = device.rstrip("/") + "/"
+        starters = ("/dev/", "/proc/", "/sys/", "/etc/", "/lib/")
+        if any(device.startswith(s) for s in starters):
+            return True
+        device = device.rstrip("/")
+        known = [
+            "/var/run/docker.sock",
+            "/var/run/utmp",
+            "/var/run/dbus",
+            "/run/udev",
+        ]
+        return device in known
+
     def get_group_name_from_id(self, group_id: int | str) -> str:
         mapping = {
             0: "root",
+            20: "dialout",
+            24: "cdrom",
+            29: "audio",
             568: "apps",
             999: "docker",
         }
@@ -151,6 +168,24 @@ class Notes:
                             "Processes can gain additional privileges through setuid/setgid binaries",
                             "May allow privilege escalation attacks within the container",
                         ],
+                    )
+                )
+
+            host_mounts = []
+            for dev in c.devices._devices:
+                host_mounts.append(dev.host_device)
+
+            for vm in c.storage._volume_mounts:
+                if vm.volume_mount_spec.get("type", "") == "bind":
+                    source = vm.volume_mount_spec.get("source", "")
+                    read_only = vm.volume_mount_spec.get("read_only", False)
+                    if self.is_host_mount(source):
+                        host_mounts.append(f"{source} ({'Read Only' if read_only else 'Read/Write'})")
+
+            if host_mounts:
+                self._security[name].append(
+                    Security(
+                        header="Host Files, Devices, or Sockets passed into the container", items=sorted(host_mounts)
                     )
                 )
             if c._tty:

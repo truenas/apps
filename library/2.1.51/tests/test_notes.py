@@ -244,6 +244,12 @@ some other info.
     c1.set_cgroup("host")
     c1.set_tty(True)
     c1.remove_security_opt("no-new-privileges")
+    c1.add_docker_socket()
+    c1.add_tun_device()
+    c1.add_usb_bus()
+    c1.add_snd_device()
+    c1.devices.add_device("/dev/null", "/dev/null")
+    c1.add_storage("/etc/os-release", {"type": "host_path", "host_path_config": {"path": "/etc/os-release"}})
     c1.restart.set_policy("on-failure", 1)
 
     c2 = render.add_container("test_container2", "test_image")
@@ -295,7 +301,7 @@ Read the following security precautions to ensure that you wish to continue usin
 
 - User: root
 - Group: root
-- Supplementary Groups: apps, root
+- Supplementary Groups: apps, audio, docker, root
 
 #### Host IPC namespace is enabled
 
@@ -316,6 +322,15 @@ Read the following security precautions to ensure that you wish to continue usin
 
 - Processes can gain additional privileges through setuid/setgid binaries
 - May allow privilege escalation attacks within the container
+
+#### Host Files, Devices, or Sockets passed into the container
+
+- /dev/bus/usb
+- /dev/net/tun
+- /dev/null
+- /dev/snd
+- /etc/os-release (Read/Write)
+- /var/run/docker.sock (Read Only)
 
 ---
 
