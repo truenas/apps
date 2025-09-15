@@ -51,35 +51,16 @@ questions:
             default: ""
             required: true
             private: true
-        - variable: enable_companion
-          label: Enable Companion
-          description: Enable Invidious Companion.
-          schema:
-            type: boolean
-            default: false
         - variable: companion_key
           label: Companion Key
           description: The key for Invidious Companion.
           schema:
             type: string
-            show_if: [["enable_companion", "=", true]]
             min_length: 16
             max_length: 16
             default: ""
             required: true
             private: true
-        - variable: companion_url
-          label: Companion URL
-          description: |
-            The URL that Invidious Companion will be accessible at.</br>
-            Examples:
-              - http://192.168.100:8282</br>
-              - http://invidious-companion.example.com:8282</br>
-          schema:
-            type: uri
-            show_if: [["enable_companion", "=", true]]
-            default: ""
-            required: true
         - variable: admins
           label: Admins
           description: List of usernames that will be granted administrator rights.
@@ -185,53 +166,6 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: companion_port
-          label: Companion Port
-          schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: ""
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 31205
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
 
   - variable: storage
     label: ""
@@ -240,8 +174,7 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: Invidious Config Storage
-          description: The path to store Invidious Config.
+          label: Config Storage
           schema:
             type: dict
             attrs:
@@ -315,9 +248,83 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: companion_cache
+          label: Companion Cache Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "companion_cache"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: postgres_data
-          label: Invidious Postgres Data Storage
-          description: The path to store Invidious Postgres Data.
+          label: Postgres Data Storage
           schema:
             type: dict
             attrs:
