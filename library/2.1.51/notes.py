@@ -1,0 +1,219 @@
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from render import Render
+
+SHORT_LIVED = "short-lived"
+
+
+@dataclass
+class Security:
+    header: str
+    items: list[str]
+
+
+class Notes:
+    def __init__(self, render_instance: "Render"):
+        self._render_instance = render_instance
+        self._app_name: str = ""
+        self._app_train: str = ""
+        self._info: list[str] = []
+        self._warnings: list[str] = []
+        self._deprecations: list[str] = []
+        self._security: dict[str, list[Security]] = {}
+        self._header: str = ""
+        self._body: str = ""
+        self._footer: str = ""
+
+        self._auto_set_app_name()
+        self._auto_set_app_train()
+        self._auto_set_header()
+        self._auto_set_footer()
+
+    def _is_enterprise_train(self):
+        if self._app_train == "enterprise":
+            return True
+
+    def _auto_set_app_name(self):
+        app_name = self._render_instance.values.get("ix_context", {}).get("app_metadata", {}).get("title", "")
+        self._app_name = app_name or "<app_name>"
+
+    def _auto_set_app_train(self):
+        app_train = self._render_instance.values.get("ix_context", {}).get("app_metadata", {}).get("train", "")
+        self._app_train = app_train or "<app_train>"
+
+    def _auto_set_header(self):
+        self._header = f"# {self._app_name}\n\n"
+
+    def _auto_set_footer(self):
+        url = "https://github.com/truenas/apps"
+        if self._is_enterprise_train():
+            url = "https://ixsystems.atlassian.net"
+        footer = "## Bug Reports and Feature Requests\n\n"
+        footer += "If you find a bug in this app or have an idea for a new feature, please file an issue at\n"
+        footer += f"{url}\n"
+        self._footer = footer
+
+    def add_info(self, info: str):
+        self._info.append(info)
+
+    def add_warning(self, warning: str):
+        self._warnings.append(warning)
+
+    def _prepend_warning(self, warning: str):
+        self._warnings.insert(0, warning)
+
+    def add_deprecation(self, deprecation: str):
+        self._deprecations.append(deprecation)
+
+    def set_body(self, body: str):
+        self._body = body
+
+    def get_group_name_from_id(self, group_id: int | str) -> str:
+        mapping = {
+            0: "root",
+            568: "apps",
+            999: "docker",
+        }
+        if group_id in mapping:
+            return mapping[group_id]
+        return str(group_id)
+
+    def scan_containers(self):
+        for name, c in self._render_instance._containers.items():
+            if self._security.get(name) is None:
+                self._security[name] = []
+
+            if c.restart._policy == "on-failure":
+                self._security[name].append(Security(header=SHORT_LIVED, items=[]))
+
+            if c._privileged:
+                self._security[name].append(
+                    Security(
+                        header="Privileged mode is enabled",
+                        items=[
+                            "Has the same level of control as a system administrator",
+                            "Can access and modify any part of your TrueNAS system",
+                        ],
+                    )
+                )
+
+            run_as_sec_items = []
+            user, group = c._user.split(":") if c._user else [-1, -1]
+            if user in ["0", -1]:
+                user = "root" if user == "0" else "unknown"
+            if group in ["0", -1]:
+                group = "root" if group == "0" else "unknown"
+            run_as_sec_items.append(f"User: {user}")
+            run_as_sec_items.append(f"Group: {group}")
+            groups = [self.get_group_name_from_id(g) for g in c._group_add]
+            if groups:
+                groups_str = ", ".join(sorted(groups))
+                run_as_sec_items.append(f"Supplementary Groups: {groups_str}")
+            self._security[name].append(Security("Running user/group(s)", run_as_sec_items))
+
+            if c._ipc_mode == "host":
+                self._security[name].append(
+                    Security(
+                        header="Host IPC namespace is enabled",
+                        items=[
+                            "Container can access host's inter-process communication mechanisms",
+                            "May allow communication with other processes on the host",
+                        ],
+                    )
+                )
+            if c._pid_mode == "host":
+                self._security[name].append(
+                    Security(
+                        header="Host PID namespace is enabled",
+                        items=[
+                            "Container can see and interact with all host processes",
+                            "Potential for privilege escalation or process manipulation",
+                        ],
+                    )
+                )
+            if c._cgroup == "host":
+                self._security[name].append(
+                    Security(
+                        header="Host cgroup namespace is enabled",
+                        items=[
+                            "Container shares control groups with the host system",
+                            "May bypass resource limits and isolation boundaries",
+                        ],
+                    )
+                )
+            if "no-new-privileges=true" not in c._security_opt.render():
+                self._security[name].append(
+                    Security(
+                        header="Security option [no-new-privileges] is not set",
+                        items=[
+                            "Processes can gain additional privileges through setuid/setgid binaries",
+                            "May allow privilege escalation attacks within the container",
+                        ],
+                    )
+                )
+            if c._tty:
+                self._prepend_warning(
+                    f"Container [{name}] is running with a TTY, "
+                    "Logs will not appear correctly in the UI due to an [upstream bug]"
+                    "(https://github.com/docker/docker-py/issues/1394)"
+                )
+        self._security = {k: v for k, v in self._security.items() if v}
+
+    def render(self):
+        self.scan_containers()
+
+        result = self._header
+
+        if self._warnings:
+            result += "## Warnings\n\n"
+            for warning in self._warnings:
+                result += f"- {warning}\n"
+            result += "\n"
+
+        if self._deprecations:
+            result += "## Deprecations\n\n"
+            for deprecation in self._deprecations:
+                result += f"- {deprecation}\n"
+            result += "\n"
+
+        if self._info:
+            result += "## Info\n\n"
+            for info in self._info:
+                result += f"- {info}\n"
+            result += "\n"
+
+        if self._security:
+            result += "## Security\n\n"
+            result += "Read the following security precautions to ensure"
+            result += " that you wish to continue using this application.\n\n"
+
+            container_count = len(self._security)
+            for container_name, security in self._security.items():
+                container_count -= 1
+                # If the only security item for this container is SHORT_LIVED, skip it
+                if len(security) == 1 and security[0].header == SHORT_LIVED:
+                    continue
+
+                result += "---\n\n"
+                result += f"### Container: [{container_name}]"
+                if any(sec.header == SHORT_LIVED for sec in security):
+                    result += "\n\n**This container is short-lived.**"
+
+                result += "\n\n"
+                for sec in [s for s in security if s.header != SHORT_LIVED]:
+                    result += f"#### {sec.header}\n\n"
+                    for item in sec.items:
+                        result += f"- {item}\n"
+                    if sec.items:
+                        result += "\n"
+                if container_count == 0:
+                    result += "---\n\n"
+
+        if self._body:
+            result += self._body.strip() + "\n\n"
+
+        result += self._footer
+
+        return result

@@ -34,16 +34,24 @@ def test_notes(mock_values):
 
 ## Security
 
+Read the following security precautions to ensure that you wish to continue using this application.
+
+---
+
 ### Container: [test_container]
 
-- Is running as unknown user
-- Is running as unknown group
+#### Running user/group(s)
+
+- User: unknown
+- Group: unknown
+- Supplementary Groups: apps
+
+---
 
 ## Bug Reports and Feature Requests
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
-
 """
     )
 
@@ -59,11 +67,26 @@ def test_notes_on_non_enterprise_train(mock_values):
         output["x-notes"]
         == """# Test App
 
+## Security
+
+Read the following security precautions to ensure that you wish to continue using this application.
+
+---
+
+### Container: [test_container]
+
+#### Running user/group(s)
+
+- User: 568
+- Group: 568
+- Supplementary Groups: apps
+
+---
+
 ## Bug Reports and Feature Requests
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://github.com/truenas/apps
-
 """
     )
 
@@ -85,11 +108,26 @@ def test_notes_with_warnings(mock_values):
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
 
+## Security
+
+Read the following security precautions to ensure that you wish to continue using this application.
+
+---
+
+### Container: [test_container]
+
+#### Running user/group(s)
+
+- User: 568
+- Group: 568
+- Supplementary Groups: apps
+
+---
+
 ## Bug Reports and Feature Requests
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
-
 """
     )
 
@@ -111,11 +149,26 @@ def test_notes_with_deprecations(mock_values):
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
 
+## Security
+
+Read the following security precautions to ensure that you wish to continue using this application.
+
+---
+
+### Container: [test_container]
+
+#### Running user/group(s)
+
+- User: 568
+- Group: 568
+- Supplementary Groups: apps
+
+---
+
 ## Bug Reports and Feature Requests
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
-
 """
     )
 
@@ -137,6 +190,22 @@ some other info.
         output["x-notes"]
         == """# Test App
 
+## Security
+
+Read the following security precautions to ensure that you wish to continue using this application.
+
+---
+
+### Container: [test_container]
+
+#### Running user/group(s)
+
+- User: 568
+- Group: 568
+- Supplementary Groups: apps
+
+---
+
 ## Additional info
 
 Some info
@@ -146,7 +215,6 @@ some other info.
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
-
 """
     )
 
@@ -210,18 +278,68 @@ some other info.
 
 ## Security
 
+Read the following security precautions to ensure that you wish to continue using this application.
+
+---
+
 ### Container: [test_container]
 
 **This container is short-lived.**
 
-- Is running with privileged mode enabled
-- Is running as root user
-- Is running as root group
-- Is running with supplementary root group
-- Is running with host IPC namespace
-- Is running with host PID namespace
-- Is running with host cgroup namespace
-- Is running without [no-new-privileges] security option
+#### Privileged mode is enabled
+
+- Has the same level of control as a system administrator
+- Can access and modify any part of your TrueNAS system
+
+#### Running user/group(s)
+
+- User: root
+- Group: root
+- Supplementary Groups: apps, root
+
+#### Host IPC namespace is enabled
+
+- Container can access host's inter-process communication mechanisms
+- May allow communication with other processes on the host
+
+#### Host PID namespace is enabled
+
+- Container can see and interact with all host processes
+- Potential for privilege escalation or process manipulation
+
+#### Host cgroup namespace is enabled
+
+- Container shares control groups with the host system
+- May bypass resource limits and isolation boundaries
+
+#### Security option [no-new-privileges] is not set
+
+- Processes can gain additional privileges through setuid/setgid binaries
+- May allow privilege escalation attacks within the container
+
+---
+
+### Container: [test_container2]
+
+#### Running user/group(s)
+
+- User: 568
+- Group: 568
+- Supplementary Groups: apps
+
+---
+
+### Container: [test_container3]
+
+**This container is short-lived.**
+
+#### Running user/group(s)
+
+- User: 568
+- Group: 568
+- Supplementary Groups: apps
+
+---
 
 ## Additional info
 
@@ -232,6 +350,5 @@ some other info.
 
 If you find a bug in this app or have an idea for a new feature, please file an issue at
 https://ixsystems.atlassian.net
-
 """  # noqa
     )
