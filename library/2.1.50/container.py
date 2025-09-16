@@ -309,6 +309,9 @@ class Container:
         self.add_group(29)
         self.devices._add_snd_device()
 
+    def add_usb_bus(self):
+        self.devices.add_usb_bus()
+
     def set_shm_size_mb(self, size: int):
         self._shm_size = size
 
