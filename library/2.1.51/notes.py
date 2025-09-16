@@ -239,26 +239,37 @@ class Notes:
             result += "**Read the following security precautions to ensure"
             result += " that you wish to continue using this application.**\n\n"
 
-            container_count = len(self._security)
-            for container_name, security in self._security.items():
-                container_count -= 1
-                # If the only security item for this container is SHORT_LIVED, skip it
-                if len(security) == 1 and security[0].header == SHORT_LIVED:
-                    continue
-
-                result += "---\n\n"
-                result += f"### Container: [{container_name}]"
+            def render_security(container_name: str, security: list[Security]) -> str:
+                output = "---\n\n"
+                output += f"### Container: [{container_name}]"
                 if any(sec.header == SHORT_LIVED for sec in security):
-                    result += "\n\n**This container is short-lived.**"
-
-                result += "\n\n"
+                    output += "\n\n**This container is short-lived.**"
+                output += "\n\n"
                 for sec in [s for s in security if s.header != SHORT_LIVED]:
-                    result += f"#### {sec.header}\n\n"
+                    output += f"#### {sec.header}\n\n"
                     for item in sec.items:
-                        result += f"- {item}\n"
+                        output += f"- {item}\n"
                     if sec.items:
-                        result += "\n"
-                if container_count == 0:
+                        output += "\n"
+                return output
+
+            sec_list = []
+            sec_short_lived_list = []
+            for container_name, security in self._security.items():
+                if any(sec.header == SHORT_LIVED for sec in security):
+                    sec_short_lived_list.append((container_name, security))
+                    continue
+                sec_list.append((container_name, security))
+
+            sec_list = sorted(sec_list, key=lambda x: x[0])
+            sec_short_lived_list = sorted(sec_short_lived_list, key=lambda x: x[0])
+
+            joined_sec_list = [*sec_list, *sec_short_lived_list]
+            for idx, item in enumerate(joined_sec_list):
+                container, sec = item
+                result += render_security(container, sec)
+                # If its the last container, add a final ---
+                if idx == len(joined_sec_list) - 1:
                     result += "---\n\n"
 
         if self._body:

@@ -288,6 +288,16 @@ some other info.
 
 ---
 
+### Container: [test_container2]
+
+#### Running user/group(s)
+
+- User: 568
+- Group: 568
+- Supplementary Groups: apps
+
+---
+
 ### Container: [test_container]
 
 **This container is short-lived.**
@@ -331,16 +341,6 @@ some other info.
 - Sound Device (/dev/snd) - (Read/Write)
 - TUN Device (/dev/net/tun) - (Read/Write)
 - USB Devices (/dev/bus/usb) - (Read/Write)
-
----
-
-### Container: [test_container2]
-
-#### Running user/group(s)
-
-- User: 568
-- Group: 568
-- Supplementary Groups: apps
 
 ---
 
