@@ -1,9 +1,16 @@
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from render import Render
 
 SHORT_LIVED = "short-lived"
+
+
+@dataclass
+class Security:
+    header: str
+    items: list[str]
 
 
 class Notes:
@@ -14,7 +21,7 @@ class Notes:
         self._info: list[str] = []
         self._warnings: list[str] = []
         self._deprecations: list[str] = []
-        self._security: dict[str, list[str]] = {}
+        self._security: dict[str, list[Security]] = {}
         self._header: str = ""
         self._body: str = ""
         self._footer: str = ""
@@ -45,7 +52,7 @@ class Notes:
             url = "https://ixsystems.atlassian.net"
         footer = "## Bug Reports and Feature Requests\n\n"
         footer += "If you find a bug in this app or have an idea for a new feature, please file an issue at\n"
-        footer += f"{url}\n\n"
+        footer += f"{url}\n"
         self._footer = footer
 
     def add_info(self, info: str):
@@ -63,40 +70,145 @@ class Notes:
     def set_body(self, body: str):
         self._body = body
 
+    def get_pretty_host_mount(self, hm: str) -> tuple[str, bool]:
+        hm = hm.rstrip("/")
+        mapping = {
+            "/dev/bus/usb": "USB Devices",
+            "/dev/net/tun": "TUN Device",
+            "/dev/snd": "Sound Device",
+            "/dev/fuse": "Fuse Device",
+            "/dev/uinput": "UInput Device",
+            "/dev/dvb": "DVB Devices",
+            "/dev/dri": "DRI Device",
+            "/dev/kfd": "AMD GPU Device",
+            "/etc/os-release": "OS Release File",
+            "/var/run/docker.sock": "Docker Socket",
+            "/var/run/utmp": "UTMP",
+            "/var/run/dbus": "DBus Socket",
+            "/run/udev": "Udev Socket",
+        }
+        if hm in mapping:
+            return f"{mapping[hm]} ({hm})", True
+
+        hm = hm + "/"
+        starters = ("/dev/", "/proc/", "/sys/", "/etc/", "/lib/")
+        if any(hm.startswith(s) for s in starters):
+            return hm.rstrip("/"), True
+
+        return "", False
+
+    def get_group_name_from_id(self, group_id: int | str) -> str:
+        mapping = {
+            0: "root",
+            20: "dialout",
+            24: "cdrom",
+            29: "audio",
+            568: "apps",
+            999: "docker",
+        }
+        if group_id in mapping:
+            return mapping[group_id]
+        return str(group_id)
+
     def scan_containers(self):
         for name, c in self._render_instance._containers.items():
             if self._security.get(name) is None:
                 self._security[name] = []
 
             if c.restart._policy == "on-failure":
-                self._security[name].append(SHORT_LIVED)
+                self._security[name].append(Security(header=SHORT_LIVED, items=[]))
 
             if c._privileged:
-                self._security[name].append("Is running with privileged mode enabled")
+                self._security[name].append(
+                    Security(
+                        header="Privileged mode is enabled",
+                        items=[
+                            "Has the same level of control as a system administrator",
+                            "Can access and modify any part of your TrueNAS system",
+                        ],
+                    )
+                )
 
-            run_as = c._user.split(":") if c._user else [-1, -1]
-            if run_as[0] in ["0", -1]:
-                self._security[name].append(f"Is running as {'root' if run_as[0] == '0' else 'unknown'} user")
-            if run_as[1] in ["0", -1]:
-                self._security[name].append(f"Is running as {'root' if run_as[1] == '0' else 'unknown'} group")
-            if any(x in c._group_add for x in ("root", 0)):
-                self._security[name].append("Is running with supplementary root group")
+            run_as_sec_items = []
+            user, group = c._user.split(":") if c._user else [-1, -1]
+            if user in ["0", -1]:
+                user = "root" if user == "0" else "unknown"
+            if group in ["0", -1]:
+                group = "root" if group == "0" else "unknown"
+            run_as_sec_items.append(f"User: {user}")
+            run_as_sec_items.append(f"Group: {group}")
+            groups = [self.get_group_name_from_id(g) for g in c._group_add]
+            if groups:
+                groups_str = ", ".join(sorted(groups))
+                run_as_sec_items.append(f"Supplementary Groups: {groups_str}")
+            self._security[name].append(Security("Running user/group(s)", run_as_sec_items))
 
             if c._ipc_mode == "host":
-                self._security[name].append("Is running with host IPC namespace")
+                self._security[name].append(
+                    Security(
+                        header="Host IPC namespace is enabled",
+                        items=[
+                            "Container can access the inter-process communication mechanisms of the host",
+                            "Allows communication with other processes on the host under particular circumstances",
+                        ],
+                    )
+                )
             if c._pid_mode == "host":
-                self._security[name].append("Is running with host PID namespace")
+                self._security[name].append(
+                    Security(
+                        header="Host PID namespace is enabled",
+                        items=[
+                            "Container can see and interact with all host processes",
+                            "Potential for privilege escalation or process manipulation",
+                        ],
+                    )
+                )
             if c._cgroup == "host":
-                self._security[name].append("Is running with host cgroup namespace")
+                self._security[name].append(
+                    Security(
+                        header="Host cgroup namespace is enabled",
+                        items=[
+                            "Container shares control groups with the host system",
+                            "Can bypass resource limits and isolation boundaries",
+                        ],
+                    )
+                )
             if "no-new-privileges=true" not in c._security_opt.render():
-                self._security[name].append("Is running without [no-new-privileges] security option")
+                self._security[name].append(
+                    Security(
+                        header="Security option [no-new-privileges] is not set",
+                        items=[
+                            "Processes can gain additional privileges through setuid/setgid binaries",
+                            "Can potentially allow privilege escalation attacks within the container",
+                        ],
+                    )
+                )
+
+            host_mounts = []
+            for dev in c.devices._devices:
+                pretty, _ = self.get_pretty_host_mount(dev.host_device)
+                host_mounts.append(f"{pretty} - ({dev.cgroup_perm or 'Read/Write'})")
+
+            for vm in c.storage._volume_mounts:
+                if vm.volume_mount_spec.get("type", "") == "bind":
+                    source = vm.volume_mount_spec.get("source", "")
+                    read_only = vm.volume_mount_spec.get("read_only", False)
+                    pretty, is_host_mount = self.get_pretty_host_mount(source)
+                    if is_host_mount:
+                        host_mounts.append(f"{pretty} - ({'Read Only' if read_only else 'Read/Write'})")
+
+            if host_mounts:
+                self._security[name].append(
+                    Security(
+                        header="Passing Host Files, Devices, or Sockets into the Container", items=sorted(host_mounts)
+                    )
+                )
             if c._tty:
                 self._prepend_warning(
                     f"Container [{name}] is running with a TTY, "
-                    "Logs will not appear correctly in the UI due to an [upstream bug]"
+                    "Logs do not appear correctly in the UI due to an [upstream bug]"
                     "(https://github.com/docker/docker-py/issues/1394)"
                 )
-
         self._security = {k: v for k, v in self._security.items() if v}
 
     def render(self):
@@ -124,16 +236,41 @@ class Notes:
 
         if self._security:
             result += "## Security\n\n"
-            for c_name, security in self._security.items():
-                if SHORT_LIVED in security and len(security) == 1:
+            result += "**Read the following security precautions to ensure"
+            result += " that you wish to continue using this application.**\n\n"
+
+            def render_security(container_name: str, security: list[Security]) -> str:
+                output = "---\n\n"
+                output += f"### Container: [{container_name}]"
+                if any(sec.header == SHORT_LIVED for sec in security):
+                    output += "\n\n**This container is short-lived.**"
+                output += "\n\n"
+                for sec in [s for s in security if s.header != SHORT_LIVED]:
+                    output += f"#### {sec.header}\n\n"
+                    for item in sec.items:
+                        output += f"- {item}\n"
+                    if sec.items:
+                        output += "\n"
+                return output
+
+            sec_list = []
+            sec_short_lived_list = []
+            for container_name, security in self._security.items():
+                if any(sec.header == SHORT_LIVED for sec in security):
+                    sec_short_lived_list.append((container_name, security))
                     continue
-                result += f"### Container: [{c_name}]"
-                if SHORT_LIVED in security:
-                    result += "\n\n**This container is short-lived.**"
-                result += "\n\n"
-                for s in [s for s in security if s != "short-lived"]:
-                    result += f"- {s}\n"
-                result += "\n"
+                sec_list.append((container_name, security))
+
+            sec_list = sorted(sec_list, key=lambda x: x[0])
+            sec_short_lived_list = sorted(sec_short_lived_list, key=lambda x: x[0])
+
+            joined_sec_list = [*sec_list, *sec_short_lived_list]
+            for idx, item in enumerate(joined_sec_list):
+                container, sec = item
+                result += render_security(container, sec)
+                # If its the last container, add a final ---
+                if idx == len(joined_sec_list) - 1:
+                    result += "---\n\n"
 
         if self._body:
             result += self._body.strip() + "\n\n"

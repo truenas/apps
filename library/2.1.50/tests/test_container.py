@@ -456,7 +456,6 @@ def test_set_cgroup_invalid(mock_values):
     c1.healthcheck.disable()
     with pytest.raises(Exception):
         c1.set_cgroup("invalid")
-<<<<<<< HEAD
 
 
 def test_setup_as_helper(mock_values):
@@ -470,5 +469,3 @@ def test_setup_as_helper(mock_values):
     assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["cpus"] == "1"
     assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["memory"] == "512M"
     assert "devices" not in output["services"]["test_container"]
-=======
->>>>>>> c35efb3c18 (add some notes)
