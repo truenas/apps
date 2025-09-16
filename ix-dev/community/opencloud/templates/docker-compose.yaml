@@ -10,15 +10,7 @@
 {% set has_additional_config = namespace(x=False) %}
 {% for app_name, enabled in values.opencloud.apps.items() %}
   {% set target_path = "%s/web/assets/apps"|format(values.consts.data_path) %}
-
   {% set app_config = values.consts.app_map[app_name] %}
-
-  {% if app_config.config_url %}
-    {% set has_additional_config.x = True %}
-    {% do tpl.notes.add_info("The app '%s' requires additional configuration. Please see %s for details."|format(
-        app_name, app_config.config_url
-    )) %}
-  {% endif %}
 
   {% set app = tpl.add_container(app_config.container_name, app_config.image) %}
   {% do app_containers.x.append(app) %}
@@ -40,10 +32,14 @@
     "run_as": {"uid": values.run_as.user, "gid": values.run_as.group},
   }), "/ix-entrypoint.sh", "0755") %}
   {% do app.set_entrypoint(["/ix-entrypoint.sh"]) %}
+
+  {% if app_config.config_url %}
+    {% set has_additional_config.x = True %}
+    {% do tpl.notes.add_info("The app '%s' requires additional configuration. Please see %s for details."|format(app_name, app_config.config_url)) %}
+  {% endif %}
 {% endfor %}
-{% if has_additional_config.x %}
-  {% do tpl.notes.set_body(values.consts.app_config_notes_body) %}
-{% endif %}
+
+{% if has_additional_config.x %}{% do tpl.notes.set_body(values.consts.app_config_notes_body) %}{% endif %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz", "scheme": "https"}) %}
