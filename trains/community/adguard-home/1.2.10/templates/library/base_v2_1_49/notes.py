@@ -11,7 +11,6 @@ class Notes:
         self._render_instance = render_instance
         self._app_name: str = ""
         self._app_train: str = ""
-        self._info: list[str] = []
         self._warnings: list[str] = []
         self._deprecations: list[str] = []
         self._security: dict[str, list[str]] = {}
@@ -47,9 +46,6 @@ class Notes:
         footer += "If you find a bug in this app or have an idea for a new feature, please file an issue at\n"
         footer += f"{url}\n\n"
         self._footer = footer
-
-    def add_info(self, info: str):
-        self._info.append(info)
 
     def add_warning(self, warning: str):
         self._warnings.append(warning)
@@ -114,12 +110,6 @@ class Notes:
             result += "## Deprecations\n\n"
             for deprecation in self._deprecations:
                 result += f"- {deprecation}\n"
-            result += "\n"
-
-        if self._info:
-            result += "## Info\n\n"
-            for info in self._info:
-                result += f"- {info}\n"
             result += "\n"
 
         if self._security:
