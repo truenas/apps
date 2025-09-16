@@ -28,7 +28,6 @@
 {% do c1.environment.add_env("INVIDIOUS_CONFIG_FILE", "%s/config.yaml"|format(values.consts.config_path)) %}
 {% do c1.environment.add_user_envs(values.invidious.additional_envs) %}
 
-{% do c1.depends.add_dependency(values.consts.companion_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
 
@@ -38,7 +37,12 @@
 {% do companion.environment.add_env("PORT", values.consts.inv_companion_port) %}
 {% do companion.environment.add_env("SERVER_SECRET_KEY", values.invidious.companion_key) %}
 {% do companion.set_read_only(true) %}
-{% do companion.healthcheck.set_custom_test(["CMD", "/thc"]) %}
+{% if values.ci %}
+  {# It tries to reach to youtube and fetch token, which seems to not be possible in GHA #}
+  {% do companion.healthcheck.disable() %}
+{% else %}
+  {% do companion.healthcheck.set_custom_test(["CMD", "/thc"]) %}
+{% endif %}
 {% do companion.add_storage("/var/tmp/youtubei.js", values.storage.companion_cache) %}
 {% set companion_perms_config = {"uid": values.consts.inv_companion_run_as_user, "gid": values.consts.inv_companion_run_as_group} %}
 {% do perm_container.add_or_skip_action("companion", values.storage.companion_cache, companion_perms_config) %}
