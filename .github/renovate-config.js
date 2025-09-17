@@ -132,11 +132,6 @@ module.exports = {
       ["fireflyiii/core", "fireflyiii/data-importer"]
     ),
     customVersioning(
-      // 2024-08-29
-      "^(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)$",
-      ["alexta69/metube"]
-    ),
-    customVersioning(
       // 2.462.1-jdk17
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-jdk17$",
       ["jenkins/jenkins"]
