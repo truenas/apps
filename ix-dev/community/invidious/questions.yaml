@@ -51,29 +51,17 @@ questions:
             default: ""
             required: true
             private: true
-        - variable: enable_inv_sig_helper
-          label: Enable Inv Sig Helper
-          description: Enable Invidious Signature Helper.
-          schema:
-            type: boolean
-            default: false
-        - variable: po_token
-          label: PO Token
-          description: |
-            The PO token for Invidious.</br>
-            See https://github.com/iv-org/invidious/issues/4734#issuecomment-2290075097
+        - variable: companion_key
+          label: Companion Key
+          description: The key for Invidious Companion.
           schema:
             type: string
+            min_length: 16
+            max_length: 16
+            valid_chars: "^[a-zA-Z0-9]+$"
+            valid_chars_error: Companion key can only contain alphanumeric characters (a-z, A-Z, 0-9)
             default: ""
-            private: true
-        - variable: visitor_data
-          label: Visitor Data
-          description: |
-            The visitor data for Invidious.</br>
-            See https://github.com/iv-org/invidious/issues/4734#issuecomment-2290075097
-          schema:
-            type: string
-            default: ""
+            required: true
             private: true
         - variable: admins
           label: Admins
@@ -188,8 +176,7 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: Invidious Config Storage
-          description: The path to store Invidious Config.
+          label: Config Storage
           schema:
             type: dict
             attrs:
@@ -263,9 +250,83 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: companion_cache
+          label: Companion Cache Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "companion_cache"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: postgres_data
-          label: Invidious Postgres Data Storage
-          description: The path to store Invidious Postgres Data.
+          label: Postgres Data Storage
           schema:
             type: dict
             attrs:
@@ -521,8 +582,8 @@ questions:
                         enum:
                           - value: invidious
                             description: invidious
-                          - value: signature-helper
-                            description: signature-helper
+                          - value: companion
+                            description: companion
                           - value: postgres
                             description: postgres
   - variable: resources
