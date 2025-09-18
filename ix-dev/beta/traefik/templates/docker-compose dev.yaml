@@ -11,14 +11,12 @@
 
 # Add Commands to a variable as the set.command argument can only be used one time.
 {% set commands = namespace(x=[
-  #Enable ping for healthcheck
-  "--ping=true",
   "--api=%s" | format(values.consts.commands.api.enabled),
   "--api.dashboard=%s" | format(values.consts.commands.api.dashboard),
   "--api.insecure=%s" | format(values.consts.commands.api.insecure),
-  "--providers.docker=%s" | format(values.consts.commands.docker.enabled),
+  "--providers.docker=%s" | format(values.consts.commands.providers.docker.enabled),
   "--providers.docker.exposedbydefault=%s" | format(values.consts.commands.docker.exposed),
-  "--providers.docker.network=%s" | format(values.consts.commands.docker.proxy_network),
+  "--providers.docker.network=%s" | format(values.consts.commands.docker.proxy_network)
 ]) %}
 # Add conditional commands
 # EntryPoints
@@ -28,7 +26,7 @@
 {% endif %}
 #Check if https proxying is enabled and add entrypoint when nessecary
 {% if values.network.https_enable %}
-  {% do commands.x.append("--entryPoints.websecure.address=%s" | format(values.network.https_port.port_number)) %}
+  {% do commands.x.append("--entryPoints.websecure.address" | format(values.network.https_port.port_number)) %}
 {% endif %}
 #Check if https redirection is enabled and add enable https redirection if it is
 {% if values.network.http_enable and values.network.https_enable and values.network.https_redirect %}
@@ -49,9 +47,15 @@
 {% if values.proxy.challenge == "tls_challenge" %}
   {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.tlschallenge=true") %}
   {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.email=%s" | format(values.proxy.email)) %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.storage=/letsencrypt/acme.json") %}
+  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.storage=/letsencrypt/acme.json"") %}
 {% endif %}
-
+# DNS Challenge BUILD AT SOME POINT (one provider at a time)
+# {% if values.proxy.challenge == "dns_challenge" %}
+#  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.dnschallenge=true") %}
+#  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.dnschallenge.provider=%s" | format(values.proxy.dns_provider)") %}
+#  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.email=%s" | format(values.proxy.email)") %}
+#  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.storage=/letsencrypt/acme.json") %}
+# {% endif %}
 
 
 # Add all commands
@@ -73,6 +77,17 @@
 {% endif %}
 
 
+#ENVIRONMENT VARIABLES DO NOT YET SEEM ESSENTIAL, NEED TO WORK ON LATER
+# Add Environment variables
+#{% do traefik.environment.add_env("ENV_Variable", values.#VARIABLE#) %}
+
+# Add conditional environment variables
+#{% if values. %}
+#  {% do traefik.environment.add_env("ENV_Variable", values.#VARIABLE#) %}
+#{% endif %}
+
+# Add user added environment variables
+#{% do traefik.environment.add_user_envs(values.traefik.additional_envs) %}
 
 # Add Volumes
 # Add folder for letsencrypt certs
