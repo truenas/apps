@@ -39,7 +39,8 @@
   {% endif %}
 {% endfor %}
 
-{% if has_additional_config.x %}{% do tpl.notes.set_body(values.consts.app_config_notes_body) %}{% endif %}
+{% set body = namespace(x=values.consts.notes_body) %}
+{% if has_additional_config.x %}{% set body.x = "%s\n\n%s"|format(body.x, values.consts.app_config_notes_body) %}{% endif %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz", "scheme": "https"}) %}
@@ -83,6 +84,7 @@
 {% endif %}
 
 {% do c1.environment.add_env("OC_ADD_RUN_SERVICES", extra_services.x | join(",")) %}
+{% do c1.environment.add_env("IDM_ADMIN_PASSWORD", "admin") %}
 {% do c1.environment.add_user_envs(values.opencloud.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
@@ -107,5 +109,6 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
+{% do tpl.notes.set_body(body.x) %}
 
 {{ tpl.render() | tojson }}
