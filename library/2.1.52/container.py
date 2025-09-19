@@ -151,6 +151,9 @@ class Container:
 
         return f"{repo}:{tag}"
 
+    def name(self) -> str:
+        return self._name
+
     def build_image(self, content: list[str | None]):
         dockerfile = f"FROM {self._image}\n"
         for line in content:
