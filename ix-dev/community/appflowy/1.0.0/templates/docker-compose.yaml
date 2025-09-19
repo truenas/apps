@@ -1,0 +1,371 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% if values.appflowy.web_host.startswith("https://") or values.appflowy.web_host.startswith("http://") %}
+  {% do tpl.funcs.fail("Expected [appflowy.web_host] to not start with [http(s)://]") %}
+{% endif %}
+{% if values.appflowy.web_host.endswith("/") %}
+  {% do tpl.funcs.fail("Expected [appflowy.web_host] to not end with [/]") %}
+{% endif %}
+{% if ":" in values.appflowy.web_host %}
+  {% do tpl.funcs.fail("Expected [appflowy.web_host] to not contain port [:###]") %}
+{% endif %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.database.postgres_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
+
+{% set proto = "https" if values.network.certificate_id else "http" %}
+{% set base_url = proto ~ "://" ~ values.appflowy.web_host %}
+
+{# Redis container #}
+{% set redis = tpl.add_container(values.consts.redis_container_name, "redis_image") %}
+{% do redis.healthcheck.set_test("redis-cli", {"args": ["ping"]}) %}
+
+{# MinIO container #}
+{% set minio = tpl.add_container(values.consts.minio_container_name, "minio_image") %}
+{% do minio.set_command(["server", "/data", "--console-address", ":9001"]) %}
+{% do minio.environment.add_env("MINIO_BROWSER_REDIRECT_URL", base_url ~ "/minio") %}
+{% do minio.environment.add_env("MINIO_ROOT_USER", values.s3.access_key) %}
+{% do minio.environment.add_env("MINIO_ROOT_PASSWORD", values.s3.secret_key) %}
+
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+{% do minio.add_storage("/data", values.storage.minio_data) %}
+{% do perm_container.add_or_skip_action("minio_data", values.storage.minio_data, perms_config) %}
+
+{# GoTrue container #}
+{% set gotrue = tpl.add_container(values.consts.gotrue_container_name, "gotrue_image") %}
+{% do gotrue.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do gotrue.healthcheck.set_test("curl", {"port": 9999, "path": "/health"}) %}
+
+{% set gotrue_db_url = "postgres://" ~ values.consts.db_user ~ ":" ~ values.database.postgres_password ~ "@" ~ values.consts.postgres_container_name ~ ":5432/" ~ values.consts.db_name %}
+
+{% do gotrue.environment.add_env("GOTRUE_ADMIN_EMAIL", values.auth.gotrue_admin_email) %}
+{% do gotrue.environment.add_env("GOTRUE_ADMIN_PASSWORD", values.auth.gotrue_admin_password) %}
+{% do gotrue.environment.add_env("GOTRUE_DISABLE_SIGNUP", values.auth.disable_signup) %}
+{% do gotrue.environment.add_env("GOTRUE_SITE_URL", "appflowy-flutter://") %}
+{% do gotrue.environment.add_env("GOTRUE_URI_ALLOW_LIST", "**") %}
+{% do gotrue.environment.add_env("GOTRUE_JWT_SECRET", values.auth.gotrue_jwt_secret) %}
+{% do gotrue.environment.add_env("GOTRUE_JWT_EXP", values.auth.gotrue_jwt_exp) %}
+{% do gotrue.environment.add_env("GOTRUE_JWT_ADMIN_GROUP_NAME", "supabase_admin") %}
+{% do gotrue.environment.add_env("GOTRUE_DB_DRIVER", "postgres") %}
+{% do gotrue.environment.add_env("API_EXTERNAL_URL", base_url) %}
+{% do gotrue.environment.add_env("DATABASE_URL", gotrue_db_url) %}
+{% do gotrue.environment.add_env("PORT", 9999) %}
+
+{% if values.email.smtp_host %}
+  {% do gotrue.environment.add_env("GOTRUE_SMTP_HOST", values.email.smtp_host) %}
+  {% do gotrue.environment.add_env("GOTRUE_SMTP_PORT", values.email.smtp_port) %}
+  {% do gotrue.environment.add_env("GOTRUE_SMTP_USER", values.email.smtp_user) %}
+  {% do gotrue.environment.add_env("GOTRUE_SMTP_PASS", values.email.smtp_password) %}
+  {% do gotrue.environment.add_env("GOTRUE_MAILER_URLPATHS_CONFIRMATION", "/gotrue/verify") %}
+  {% do gotrue.environment.add_env("GOTRUE_MAILER_URLPATHS_INVITE", "/gotrue/verify") %}
+  {% do gotrue.environment.add_env("GOTRUE_MAILER_URLPATHS_RECOVERY", "/gotrue/verify") %}
+  {% do gotrue.environment.add_env("GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE", "/gotrue/verify") %}
+  {% do gotrue.environment.add_env("GOTRUE_SMTP_ADMIN_EMAIL", values.email.smtp_email) %}
+{% endif %}
+
+{# AppFlowy Cloud container #}
+{% set appflowy_cloud = tpl.add_container(values.consts.appflowy_cloud_container_name, "appflowy_cloud_image") %}
+{% do appflowy_cloud.depends.add_dependency(values.consts.gotrue_container_name, "service_healthy") %}
+
+{% set appflowy_db_url = "postgres://" ~ values.consts.db_user ~ ":" ~ values.database.postgres_password ~ "@" ~ values.consts.postgres_container_name ~ ":5432/" ~ values.consts.db_name %}
+{% set redis_url = "redis://" ~ values.consts.redis_container_name ~ ":6379" %}
+
+{% do appflowy_cloud.environment.add_env("RUST_LOG", "info") %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_ENVIRONMENT", "production") %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_DATABASE_URL", appflowy_db_url) %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_REDIS_URI", redis_url) %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_GOTRUE_JWT_SECRET", values.auth.gotrue_jwt_secret) %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_GOTRUE_JWT_EXP", values.auth.gotrue_jwt_exp) %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_GOTRUE_BASE_URL", base_url ~ "/gotrue") %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_S3_CREATE_BUCKET", "true") %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_S3_USE_MINIO", "true") %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_S3_MINIO_URL", "http://" ~ values.consts.minio_container_name ~ ":9000") %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_S3_ACCESS_KEY", values.s3.access_key) %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_S3_SECRET_KEY", values.s3.secret_key) %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_S3_BUCKET", values.s3.bucket_name) %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_S3_REGION", "us-east-1") %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_S3_PRESIGNED_URL_ENDPOINT", base_url ~ "/minio-api") %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_WEB_URL", base_url) %}
+{% do appflowy_cloud.environment.add_env("APPFLOWY_DATABASE_MAX_CONNECTIONS", "40") %}
+
+{% if values.ai.enable_ai and values.ai.openai_api_key %}
+  {% do appflowy_cloud.environment.add_env("AI_SERVER_HOST", values.consts.appflowy_ai_container_name) %}
+  {% do appflowy_cloud.environment.add_env("AI_SERVER_PORT", "5001") %}
+  {% do appflowy_cloud.environment.add_env("AI_OPENAI_API_KEY", values.ai.openai_api_key) %}
+{% endif %}
+
+{% if values.email.smtp_host %}
+  {% do appflowy_cloud.environment.add_env("APPFLOWY_MAILER_SMTP_HOST", values.email.smtp_host) %}
+  {% do appflowy_cloud.environment.add_env("APPFLOWY_MAILER_SMTP_PORT", values.email.smtp_port) %}
+  {% do appflowy_cloud.environment.add_env("APPFLOWY_MAILER_SMTP_USERNAME", values.email.smtp_user) %}
+  {% do appflowy_cloud.environment.add_env("APPFLOWY_MAILER_SMTP_EMAIL", values.email.smtp_email) %}
+  {% do appflowy_cloud.environment.add_env("APPFLOWY_MAILER_SMTP_PASSWORD", values.email.smtp_password) %}
+  {% do appflowy_cloud.environment.add_env("APPFLOWY_MAILER_SMTP_TLS_KIND", "starttls") %}
+{% endif %}
+
+{# Admin Frontend container #}
+{% set admin_frontend = tpl.add_container(values.consts.admin_frontend_container_name, "admin_frontend_image") %}
+{% do admin_frontend.depends.add_dependency(values.consts.gotrue_container_name, "service_healthy") %}
+{% do admin_frontend.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
+
+{% do admin_frontend.environment.add_env("RUST_LOG", "info") %}
+{% do admin_frontend.environment.add_env("ADMIN_FRONTEND_REDIS_URL", redis_url) %}
+{% do admin_frontend.environment.add_env("ADMIN_FRONTEND_GOTRUE_URL", "http://" ~ values.consts.gotrue_container_name ~ ":9999") %}
+{% do admin_frontend.environment.add_env("ADMIN_FRONTEND_APPFLOWY_CLOUD_URL", "http://" ~ values.consts.appflowy_cloud_container_name ~ ":8000") %}
+
+{# AI container (optional) #}
+{% if values.ai.enable_ai and values.ai.openai_api_key %}
+  {% set ai = tpl.add_container(values.consts.appflowy_ai_container_name, "appflowy_ai_image") %}
+  {% do ai.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+  {% do ai.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
+  {% do ai.healthcheck.set_test("curl", {"port": 5001, "path": "/health"}) %}
+
+  {% do ai.environment.add_env("AI_SERVER_PORT", "5001") %}
+  {% do ai.environment.add_env("OPENAI_API_KEY", values.ai.openai_api_key) %}
+  {% do ai.environment.add_env("DEFAULT_AI_MODEL", "gpt-4.1-mini") %}
+  {% do ai.environment.add_env("DEFAULT_AI_COMPLETION_MODEL", "gpt-4.1-mini") %}
+  {% do ai.environment.add_env("APPFLOWY_S3_ACCESS_KEY", values.s3.access_key) %}
+  {% do ai.environment.add_env("APPFLOWY_S3_SECRET_KEY", values.s3.secret_key) %}
+  {% do ai.environment.add_env("APPFLOWY_S3_BUCKET", values.s3.bucket_name) %}
+  {% do ai.environment.add_env("APPFLOWY_S3_REGION", "us-east-1") %}
+  {% do ai.environment.add_env("AI_DATABASE_URL", appflowy_db_url) %}
+  {% do ai.environment.add_env("AI_REDIS_URL", redis_url) %}
+  {% do ai.environment.add_env("AI_USE_MINIO", "true") %}
+  {% do ai.environment.add_env("AI_MINIO_URL", "http://" ~ values.consts.minio_container_name ~ ":9000") %}
+  {% do ai.environment.add_env("AI_APPFLOWY_HOST", base_url) %}
+  {% do ai.environment.add_env("APPFLOWY_GOTRUE_JWT_SECRET", values.auth.gotrue_jwt_secret) %}
+{% endif %}
+
+{# Worker container #}
+{% set worker = tpl.add_container(values.consts.appflowy_worker_container_name, "appflowy_worker_image") %}
+{% do worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{% set worker_db_url = "postgres://" ~ values.consts.db_user ~ ":" ~ values.database.postgres_password ~ "@" ~ values.consts.postgres_container_name ~ ":5432/" ~ values.consts.db_name %}
+
+{% do worker.environment.add_env("RUST_LOG", "info") %}
+{% do worker.environment.add_env("APPFLOWY_ENVIRONMENT", "production") %}
+{% do worker.environment.add_env("APPFLOWY_WORKER_REDIS_URL", redis_url) %}
+{% do worker.environment.add_env("APPFLOWY_WORKER_ENVIRONMENT", "production") %}
+{% do worker.environment.add_env("APPFLOWY_WORKER_DATABASE_URL", worker_db_url) %}
+{% do worker.environment.add_env("APPFLOWY_WORKER_DATABASE_NAME", values.consts.db_name) %}
+{% do worker.environment.add_env("APPFLOWY_WORKER_IMPORT_TICK_INTERVAL", "30") %}
+{% do worker.environment.add_env("APPFLOWY_S3_USE_MINIO", "true") %}
+{% do worker.environment.add_env("APPFLOWY_S3_MINIO_URL", "http://" ~ values.consts.minio_container_name ~ ":9000") %}
+{% do worker.environment.add_env("APPFLOWY_S3_ACCESS_KEY", values.s3.access_key) %}
+{% do worker.environment.add_env("APPFLOWY_S3_SECRET_KEY", values.s3.secret_key) %}
+{% do worker.environment.add_env("APPFLOWY_S3_BUCKET", values.s3.bucket_name) %}
+{% do worker.environment.add_env("APPFLOWY_S3_REGION", "us-east-1") %}
+
+{% if values.email.smtp_host %}
+  {% do worker.environment.add_env("APPFLOWY_MAILER_SMTP_HOST", values.email.smtp_host) %}
+  {% do worker.environment.add_env("APPFLOWY_MAILER_SMTP_PORT", values.email.smtp_port) %}
+  {% do worker.environment.add_env("APPFLOWY_MAILER_SMTP_USERNAME", values.email.smtp_user) %}
+  {% do worker.environment.add_env("APPFLOWY_MAILER_SMTP_EMAIL", values.email.smtp_email) %}
+  {% do worker.environment.add_env("APPFLOWY_MAILER_SMTP_PASSWORD", values.email.smtp_password) %}
+  {% do worker.environment.add_env("APPFLOWY_MAILER_SMTP_TLS_KIND", "starttls") %}
+{% endif %}
+
+{# Web container #}
+{% set web = tpl.add_container(values.consts.appflowy_web_container_name, "appflowy_web_image") %}
+{% do web.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
+
+{% set ws_base_url = "ws" ~ (proto | replace("http", "")) ~ "://" ~ values.appflowy.web_host %}
+{% do web.environment.add_env("APPFLOWY_BASE_URL", base_url) %}
+{% do web.environment.add_env("APPFLOWY_GOTRUE_BASE_URL", base_url ~ "/gotrue") %}
+{% do web.environment.add_env("APPFLOWY_WS_BASE_URL", ws_base_url) %}
+
+{# Nginx container #}
+{% set nginx = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
+{% do nginx.depends.add_dependency(values.consts.appflowy_cloud_container_name, "service_started") %}
+{% do nginx.depends.add_dependency(values.consts.gotrue_container_name, "service_healthy") %}
+
+{# Create nginx configuration #}
+{% set nginx_config = """
+events {
+    worker_connections 1024;
+}
+
+http {
+    resolver 127.0.0.11 valid=10s;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+    }
+
+    map $http_origin $cors_origin {
+        default $http_origin;
+    }
+
+    server {
+        listen 80;
+""" %}
+
+{% if values.network.certificate_id %}
+  {% set nginx_config = nginx_config ~ """
+        listen 443 ssl;
+        ssl_certificate """ ~ values.consts.ssl_cert_path ~ """;
+        ssl_certificate_key """ ~ values.consts.ssl_key_path ~ """;
+""" %}
+{% endif %}
+
+{% set nginx_config = nginx_config ~ """
+        client_max_body_size 10M;
+        underscores_in_headers on;
+
+        set $appflowy_cloud_backend "http://""" ~ values.consts.appflowy_cloud_container_name ~ """:8000";
+        set $gotrue_backend "http://""" ~ values.consts.gotrue_container_name ~ """:9999";
+        set $admin_frontend_backend "http://""" ~ values.consts.admin_frontend_container_name ~ """:3000";
+        set $appflowy_web_backend "http://""" ~ values.consts.appflowy_web_container_name ~ """:80";
+        set $minio_backend "http://""" ~ values.consts.minio_container_name ~ """:9001";
+        set $minio_api_backend "http://""" ~ values.consts.minio_container_name ~ """:9000";
+        set $minio_internal_host \"""" ~ values.consts.minio_container_name ~ """:9000";
+
+        # GoTrue
+        location /gotrue/ {
+            proxy_pass $gotrue_backend;
+            rewrite ^/gotrue(/.*)$ $1 break;
+            proxy_set_header Host $http_host;
+            proxy_pass_request_headers on;
+        }
+
+        # WebSocket
+        location /ws {
+            proxy_pass $appflowy_cloud_backend;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "Upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 86400s;
+        }
+
+        location /api {
+            proxy_pass $appflowy_cloud_backend;
+            proxy_set_header X-Request-Id $request_id;
+            proxy_set_header Host $http_host;
+
+            location ~* ^/api/workspace/([a-zA-Z0-9_-]+)/publish$ {
+                proxy_pass $appflowy_cloud_backend;
+                proxy_request_buffering off;
+                client_max_body_size 256M;
+            }
+
+            location /api/chat {
+                proxy_pass $appflowy_cloud_backend;
+                proxy_http_version 1.1;
+                proxy_set_header Connection "";
+                chunked_transfer_encoding on;
+                proxy_buffering off;
+                proxy_cache off;
+                proxy_read_timeout 600s;
+                proxy_connect_timeout 600s;
+                proxy_send_timeout 600s;
+            }
+
+            location /api/import {
+                proxy_pass $appflowy_cloud_backend;
+                proxy_set_header X-Request-Id $request_id;
+                proxy_set_header Host $http_host;
+                proxy_read_timeout 600s;
+                proxy_connect_timeout 600s;
+                proxy_send_timeout 600s;
+                proxy_request_buffering off;
+                proxy_buffering off;
+                proxy_cache off;
+                client_max_body_size 2G;
+            }
+        }
+
+        # Minio Web UI
+        location /minio/ {
+            proxy_pass $minio_backend;
+            rewrite ^/minio/(.*) /$1 break;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-NginX-Proxy true;
+            real_ip_header X-Real-IP;
+            proxy_connect_timeout 300s;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            chunked_transfer_encoding off;
+        }
+
+        # Minio API
+        location /minio-api/ {
+            proxy_pass $minio_api_backend;
+            proxy_set_header Host $minio_internal_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            rewrite ^/minio-api/(.*) /$1 break;
+            proxy_connect_timeout 300s;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            chunked_transfer_encoding off;
+        }
+
+        # Admin Frontend
+        location /console {
+            proxy_pass $admin_frontend_backend;
+            proxy_set_header X-Scheme $scheme;
+            proxy_set_header Host $host;
+        }
+
+        # AppFlowy Web
+        location / {
+            proxy_pass $appflowy_web_backend;
+            proxy_set_header X-Scheme $scheme;
+            proxy_set_header Host $host;
+        }
+    }
+}
+""" %}
+
+{% do nginx.configs.add("nginx_config", nginx_config, values.consts.nginx_config_path) %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do nginx.configs.add("ssl_cert", cert.certificate, values.consts.ssl_cert_path) %}
+  {% do nginx.configs.add("ssl_key", cert.privatekey, values.consts.ssl_key_path) %}
+{% endif %}
+
+{# Add user environment variables #}
+{% do appflowy_cloud.environment.add_user_envs(values.appflowy.additional_envs) %}
+
+{# Add port mapping #}
+{% do nginx.add_port(values.network.web_port) %}
+
+{# Set up permissions dependencies #}
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do nginx.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do minio.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do gotrue.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do appflowy_cloud.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do admin_frontend.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do worker.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do web.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% if values.ai.enable_ai and values.ai.openai_api_key %}
+    {% do ai.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endif %}
+{% endif %}
+
+{# Add portal #}
+{% do tpl.portals.add(values.network.web_port, {"scheme": proto}) %}
+
+{{ tpl.render() | tojson }}
