@@ -17,7 +17,7 @@ for train in os.listdir("ix-dev"):
             if not data:
                 print("no app.yaml", train, app)
                 continue
-            if not data["lib_version"] == "2.1.49":
+            if not data["lib_version"] == "2.1.50":
                 print("wrong lib_version", train, app, data["lib_version"])
                 continue
 
