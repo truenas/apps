@@ -73,6 +73,16 @@ class MariadbContainer:
             raise RenderError(f"Unsupported repo [{repo}] for mariadb. Supported repos: {', '.join(supported_repos)}")
         return repo
 
+    def get_url(self, variant: str):
+        addr = f"{self._name}:{self.get_port()}"
+        urls = {
+            "jdbc": f"jdbc:mariadb://{addr}/{self._config['database']}",
+        }
+
+        if variant not in urls:
+            raise RenderError(f"Expected [variant] to be one of [{', '.join(urls.keys())}], got [{variant}]")
+        return urls[variant]
+
     def get_port(self):
         return self._config.get("port") or 3306
 
