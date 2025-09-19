@@ -11,6 +11,7 @@ try:
     from .deps_perms import PermsContainer
     from .deps_postgres import PostgresContainer, PostgresConfig
     from .deps_redis import RedisContainer, RedisConfig
+    from .deps_solr import SolrContainer, SolrConfig
 except ImportError:
     from deps_elastic import ElasticSearchContainer, ElasticConfig
     from deps_mariadb import MariadbContainer, MariadbConfig
@@ -19,6 +20,7 @@ except ImportError:
     from deps_perms import PermsContainer
     from deps_postgres import PostgresContainer, PostgresConfig
     from deps_redis import RedisContainer, RedisConfig
+    from deps_solr import SolrContainer, SolrConfig
 
 
 class Deps:
@@ -45,3 +47,6 @@ class Deps:
 
     def elasticsearch(self, name: str, image: str, config: ElasticConfig, perms_instance: PermsContainer):
         return ElasticSearchContainer(self._render_instance, name, image, config, perms_instance)
+
+    def solr(self, name: str, image: str, config: SolrConfig, perms_instance: PermsContainer):
+        return SolrContainer(self._render_instance, name, image, config, perms_instance)
