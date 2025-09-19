@@ -6,15 +6,15 @@ groups:
     description: Setup your domain and certificate provider
   - name: Storage Configuration
     description: Configure Storage
-  - name: Labels Configuration
-    description: Configure Labels
+  - name: Environment Variables and Labels Configuration
+    description: Configure Labels & Environment Variables
   - name: Resources Configuration
     description: Configure Resources
 
 # Start creating variables that will be used by the docker-compose.yaml template
 questions:
-# Group Network Configuration
-# Set network variable
+  # Group Network Configuration
+  # Set network variable
   - variable: network
     label: ""
     group: Network & Proxy Configuration
@@ -192,8 +192,8 @@ questions:
             default: false
 
 
-# Group Storage Configuration
-# Set Storage variable
+  # Group Storage Configuration
+  # Set Storage variable
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -293,78 +293,125 @@ questions:
                         required: true
 
 
-# Group Labels Configuration (I have copied this section from npm and am to tired to comment it all)
-# Set Labels variable
-  - variable: labels
-    label: ""
-    group: Labels Configuration
+  # Group Environment Variables & Labels configuration
+  # List variable with preset inputs for creating custom environment variables
+  # How to refer from Docker-Compose template: values.custom.additional_envs
+  - variable: additional_envs
+    label: Additional Environment Variables
+    group: Environment Variables and Labels Configuration
     schema:
       type: list
       default: []
       items:
+        # Input Wrapper variable
+        # How to refer from Docker-Compose template: values.custom.additional_envs.env
+        - variable: env
+          label: Environment Variable
+          schema:
+            type: dict
+            attrs:
+              # Environment Variable Name
+              # How to refer from Docker-Compose template: values.custom.additional_envs.env.name
+              - variable: name
+                label: Name
+                schema:
+                  type: string
+                  required: true
+              # Environment Variable Value
+              # How to refer from Docker-Compose template: values.custom.additional_envs.env.value
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+
+  # List variable with preset inputs for creating custom labels
+  # How to refer from Docker-Compose template: values.labels
+  - variable: labels
+    label: Additional Labels
+    group: Environment Variables and Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        # Input Wrapper variable
+        # How to refer from Docker-Compose template: values.custom.labels.label
         - variable: label
           label: Label
           schema:
             type: dict
             attrs:
+              # Label Key
+              # How to refer from Docker-Compose template: values.custom.labels.label.key
               - variable: key
                 label: Key
                 schema:
                   type: string
                   required: true
+              # Label Value
+              # How to refer from Docker-Compose template: values.custom.labels.label.value
               - variable: value
                 label: Value
                 schema:
                   type: string
                   required: true
+              # Variable for applying label to one or more specific containers
+              # How to refer from Docker-Compose template: values.custom.labels.label.containers
               - variable: containers
                 label: Containers
                 description: Containers where the label should be applied
                 schema:
                   type: list
                   items:
+                    # Variable for container selection
+                    # How to refer from Docker-Compose template: values.custom.labels.label.containers.container
                     - variable: container
                       label: Container
                       schema:
                         type: string
                         required: true
+                        default: traefik
                         enum:
-                          - value: npm
-                            description: npm
+                          - value: traefik
+                            description: Traefik
 
 
-# Group Resources Configuration (I have copied this section from npm and am to tired to comment it all)
-# Set Resources variable
+  # Group Resources Configuration
+  # Set Resources variable
   - variable: resources
     label: ""
     group: Resources Configuration
     schema:
       type: dict
       attrs:
+        # Wrapper for Resource Limits
+        # How to refer from Docker-Compose template: values.resources.limits
         - variable: limits
           label: Limits
           schema:
             type: dict
             attrs:
+              # Select amount of CPU threads
+              # How to refer from Docker-Compose template: values.resources.limits.cpus
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Nginx Proxy Manager.
+                description: CPUs limit for Traefik.
                 schema:
                   type: int
                   default: 2
                   required: true
+              # Select amount of Memory in MB
+              # How to refer from Docker-Compose template: values.resources.limits.memory
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Nginx Proxy Manager.
+                description: Memory limit for Traefik.
                 schema:
                   type: int
                   default: 4096
                   required: true
 
 
-
-# Group Domain & Cert Configuration
-# Set proxy variable
+  # Group Domain & Cert Configuration
+  # Set proxy variable
   - variable: proxy
     label: ""
     group: Domain and Certificate configuration
@@ -411,3 +458,5 @@ questions:
             enum:
               - value: "cloudflare"
                 description: Cloudflare DNS provider
+              - value: "custom"
+                description: Custom DNS Provider
