@@ -20,35 +20,61 @@
 {% do traefik.environment.add_env("TRAEFIK_PROVIDERS_DOCKER", values.consts.commands.docker.enabled) %}
 {% do traefik.environment.add_env("TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT", values.consts.commands.docker.exposed) %}
 {% do traefik.environment.add_env("TRAEFIK_PROVIDERS_DOCKER_NETWORK", values.consts.commands.docker.proxy_network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
-{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+
 # Add conditional environment variables
+# WebUI
 # IF WebUI is enabled:
 {% if values.network.webui_enable %}
   {% do traefik.environment.add_env("TRAEFIK_PING", true) %}
   {% do traefik.environment.add_env("TRAEFIK_API", true) %}
   {% do traefik.environment.add_env("TRAEFIK_API_DASHBOARD", true) %}
   {% do traefik.environment.add_env("TRAEFIK_API_DISABLEDASHBOARDAD, true) %}
-  {% do traefik.environment.add_env("TRAEFIK_API_INSECURE", true) %}
-  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_TRAEFIK_ADDRESS", ":%s" | format(values.network.web_port.port_number)) %}
+  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_TRAEFIK_ADDRESS", ":%d"|format(values.network.web_port.port_number)) %}
 {% endif %}
 # Web UI HTTP or HTTPS
-{% if values.network.webui_enable and values.network.webui_secure %}
+{% if values.network.webui_secure %}
   {% do traefik.environment.add_env("TRAEFIK_API_INSECURE", true) %}
-{% elif values.network.webui_enable and not values.network.webui_secure %}
-  {% do traefik.environment.add_env("TRAEFIK_API_INSECURE", true) %}
+{% else %}
+  {% do traefik.environment.add_env("TRAEFIK_API_INSECURE", false) %}
 {% endif %}
 
+# EntryPoints
+# Check if http proxying is enabled and add entrypoint when nessecary 
+{% if values.network.http_enable %}
+  {% do traefik.environment.add_env("TRAEFIK_WEB_ADDRESS", ":%d"|format(values.network.http_port.port_number)) %}
+{% endif %}
+# Check if https proxying is enabled and add entrypoint when nessecary 
+{% if values.network.https_enable %}
+  {% do traefik.environment.add_env("TRAEFIK_WEBSECURE_ADDRESS", ":%d"|format(values.network.https_port.port_number)) %}
+{% endif %}
+#Check if https redirection is enabled and add enable https redirection if it is 
+{% if values.network.https_redirect %}
+  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO", "websecure") %}
+  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_SCHEME", "https") %}
+  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_PERMANENT", true) %}
+{% endif %}
+
+# Challenges
+# HTTP Challenge 
+{% if values.network.http_challenge" %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_HTTPCHALLENGE", true) %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_HTTPCHALLENGE_ENTRYPOINT", "web") %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_EMAIL", values.network.http_challenge.email) %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_STORAGE", values.consts.storage.acme) %}
+{% endif %}
+# TLS Challenge 
+{% if values.network.tls_challenge %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_TLSCHALLENGE", true) %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_EMAIL", values.network.tls_challenge.email) %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_STORAGE", values.consts.storage.acme) %}
+{% endif %}
+# DNS Challenge (Manage the big DNS providers and add capabilities for a custom DNS provider)
+{% if values.network.dns_challenge %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_DNSCHALLENGE", true) %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_DNSCHALLENGE_PROVIDER", values.network) %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_EMAIL", values.network.dns_challenge.email) %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASRESOLVER_ACME_STORAGE", values.consts.storage.acme) %}
+{% endif %}
 
 # Add commands XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
