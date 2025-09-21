@@ -13,6 +13,339 @@ questions:
   - variable: network
     label: ""
     group: Network & Proxy Configuration
+    schema:
+      type: dict
+      attrs:
+        # Select between basic or advanced settings (yaml configuration)
+        # How to refer from Docker-Compose template: values.network.enable_advanced_settings
+        - variable: enable_advanced_settings
+          label: Enable Advanced settings
+          description: |
+            Switches between basic settings (GUI options) and advanced settings (YAML configuration file).
+            Basic settings allows for GUI setup for:</br>
+            - Dashboard setup.</br>
+            - HTTP Proxying setup including challenge selection.</br>
+            - HTTPS Proxying setup including challenge selection.</br>
+            </br>
+            Advanced settings allow only for setting up exposed ports.</br>
+            Any other configuration can be done trough:</br>
+            - Custom Environment Variables.</br>
+            - Custom Labels.</br>
+            - The YAML configuration file.
+          schema: 
+            type: boolean
+            default: false
+        
+        # Configure ports for advanced usage
+        # How to refer from Docker-Compose template: values.network.additional_ports
+        - variable: additional_ports
+          label: Ports
+          description: Setup Ports that will be exposed. You can use these ports in the YAML configuration for entrypoints.
+          schema:
+            type: list
+            show_if: [["enable_advanced_settings", "=", true]]
+            items:
+              - variable: port
+                label: Port
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: bind_mode
+                      label: Port Bind Mode
+                      description: |
+                        The port bind mode.</br>
+                        - Publish: The port will be published on the host for external access.</br>
+                        - Expose: The port will be exposed for inter-container communication.</br>
+                      schema:
+                        type: string
+                        default: "published"
+                        enum:
+                          - value: "published"
+                            description: Publish port on the host for external access
+                          - value: "exposed"
+                            description: Expose port for inter-container communication
+                    - variable: port_number
+                      label: Port Number
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: container_port
+                      label: Container Port
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: protocol
+                      label: Protocol
+                      schema:
+                        type: string
+                        required: true
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
+                    - variable: host_ips
+                      label: Host IPs
+                      description: IPs on the host to bind this port
+                      schema:
+                        type: list
+                        show_if: [["bind_mode", "=", "published"]]
+                        default: []
+                        items:
+                          - variable: host_ip
+                            label: Host IP
+                            schema:
+                              type: string
+                              required: true
+                              $ref:
+                                - definitions/node_bind_ip
+
+        # Set Webui enable Subvariable, this variable toggles http proxying
+        # How to refer from Docker-Compose template: values.network.http_enable
+        - variable: webui_enable
+          label: Enable Dashboard and API
+          description: Enable Dashboard and API. Allows for accessing information via a webbrowser or the api.
+          schema:
+            type: boolean
+            default: true
+        # Set Webui Subvariable, this variable sets up access to the dashboard
+        # How to refer from Docker-Compose template: values.network.web_port
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            show_if: [["webui_enable", "=", true]]
+            attrs:
+              # Set variable for port binding mode, this wil configure accessibility of the webui to none, inter-container communication and publicly accessible
+              # How to refer from Docker-Compose template: values.network.web_port.bind_mode
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.web_port.port_number
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 60000
+                  min: 20000
+                  max: 65535
+                  required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.web_port.host_ips
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        # Set HTTP enable Subvariable, this variable toggles http proxying
+        # How to refer from Docker-Compose template: values.network.http_enable
+        - variable: http_enable
+          label: Enable HTTP Proxying
+          description: Enable HTTP Proxying. This allows proxied domains to be accessible over http
+          schema:
+            type: boolean
+            shof_if: ["enable_advanced_settings", "=", false]
+            default: false
+        # Set HTTP Subvariable
+        # How to refer from Docker-Compose template: values.network.http_port
+        - variable: http_port
+          label: HTTP Port
+          schema:
+            type: dict
+            show_if: [["http_enable", "=", true]]
+            attrs:
+              # Set variable for port binding mode, this variable is hidden and locked to published as we manage access by enabling the port at all.
+              # How to refer from Docker-Compose template: values.network.http_port.bind_mode
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  hidden: true
+                  default: "published"
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.http_port.port_number
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 8080
+                  min: 0
+                  max: 65535
+                  required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.http_port.host_ips
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        # Set HTTPS enable Subvariable, this variable toggles HTTPS proxying
+        # How to refer from Docker-Compose template: values.network.https_enable
+        - variable: https_enable
+          label: Enable HTTPS Proxying
+          description: Enable HTTPS Proxying. This allows proxied domains to be accessible over https
+          schema:
+            type: boolean
+            default: false
+        # Set HTTPS Subvariable
+        # How to refer from Docker-Compose template: values.network.https_port
+        - variable: https_port
+          label: HTTPS Port
+          schema:
+            type: dict
+            show_if: [["https_enable", "=", true]]
+            attrs:
+              # Set variable for port binding mode, this variable is hidden and locked to published as we manage access by enabling the port at all.
+              # How to refer from Docker-Compose template: values.network.https_port.bind_mode
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  hidden: true
+                  default: "published"
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.https_port.port_number
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 4433
+                  min: 0
+                  max: 65535
+                  required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.https_port.host_ips
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+              
+        # Set HTTPS-redirect enable Subvariable, this variable redirects incoming http traffic to https when enabled. Should only be anabled when both the http and https port are available.
+        # How to refer from Docker-Compose template: values.network.https_redirect
+        - variable: https_redirection
+          label: Redirect all http traffic to https
+          description: Any incomin traffic over http will be automatically moved to https when enabled
+          schema:
+            type: boolean
+            show_if: [["http_enable", "=", "https_enable", "=", true]]
+            default: false
+
+        # Set http_challenges Subvariable
+        # How to refer from Docker-Compose template: values.network.http_challenge
+        - variable: http_challenge
+          label: "HTTP Challenge"
+          desription: |
+            Generates a self-signed http certificate through letsencrypt.</br>
+            Requires:</br>
+            - A valid e-Mail adress.</br>
+            - Access to your HTTP entrypoint trough port 80 (whether you redirect it from your router or use port 80 with the application)
+          schema:
+            type: dict
+            show_if: [["http_enable", "!=", "https_redirection"]]
+            attrs:
+              # Enable HTTP Challenge
+              # How to refer from Docker-Compose template: values.network.http_challenge.enabled
+              - variable: enabled
+                label: Enable HTTP Challenge
+                type: boolean
+                default: false
+              # Set e-Mail adress for letsencrypt
+              # How to refer from Docker-Compose template: values.network.http_challenge.enabled
+              - variable: email
+                label: e-Mail Adress for Letsencrypt
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  valid_chars: "^.+@.+\\..+$"
+                  valid_chars_error: The email address is not valid.
+                  required: true
+                  default: ""
+
+        # Set tls_challenges Subvariable
+        # How to refer from Docker-Compose template: values.network.http_challenge
+        - variable: tls_challenge
+          label: "TLS Challenge"
+          desription: |
+            Generates a self-signed http certificate through letsencrypt.</br>
+            Requires:</br>
+            - A valid e-Mail adress.</br>
+            - Access to your HTTPs entrypoint trough port 443 (whether you redirect it from your router or use port 443 with the application)
+          schema:
+            type: dict
+            show_if: [["https_enable", "!=", true]]
+            attrs:
+              # Enable TLS Challenge
+              # How to refer from Docker-Compose template: values.network.tls_challenge.enabled
+              - variable: enabled
+                label: Enable TLS Challenge
+                type: boolean
+                default: false
+              # Set e-Mail adress for letsencrypt
+              # How to refer from Docker-Compose template: values.network.tls_challenge.enabled
+              - variable: email
+                label: e-Mail Adress for Letsencrypt
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  valid_chars: "^.+@.+\\..+$"
+                  valid_chars_error: The email address is not valid.
+                  required: true
+                  default: ""
 
 
   # Group Storage Configuration
