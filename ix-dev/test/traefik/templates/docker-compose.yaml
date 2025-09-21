@@ -6,18 +6,23 @@
 {% set traefik = tpl.add_container(values.consts.traefik_container_name, "image") %}
 
 # Configure Healthcheck
-{% do traefik.healthcheck.set_test("http", {"port": values.network.web_port.port_number}) %}
+{% if values.network.webui_enable %}
+  # Healthcheck for HTTP
+  {% do traefik.healthcheck.set_custom_test("traefik healthcheck --ping")) %}
+{% elif not values.network.webui_enable %}
+  # Healthcheck for HTTPS
+  {% do traefik.healthcheck.set_test("http", {"port": values.network.web_port.port_number}) %}
+{% else %}
+  # Disable Healthcheck
+  {% do traefik.healthcheck.disable()) %}
+{% endif %}
+
 
 # Add capabilities 
 {% do traefik.add_caps(["SETUID", "SETGID", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
 
 # Add Commands to a variable as the set.command argument can only be used one time. 
 {% set commands = namespace(x=[
-  "--ping=true",
-  "--api=%s" | format(values.consts.commands.api.enabled),
-  "--api.dashboard=%s" | format(values.consts.commands.api.dashboard),
-  "--api.insecure=%s" | format(values.consts.commands.api.insecure),
-  "--api.disabledashboardad=true",
   "--providers.docker=%s" | format(values.consts.commands.docker.enabled),
   "--providers.docker.exposedbydefault=%s" | format(values.consts.commands.docker.exposed),
   "--providers.docker.network=%s" | format(values.consts.commands.docker.proxy_network),
@@ -26,18 +31,15 @@
 # WebUI
 {% if values.network.webui_enable %}
   {% do commands.x.append("--ping=true") %}
-  {% do commands.x.append("--api=%s" | format(values.consts.commands.api.enabled)) %}
-  {% do commands.x.append("--api.dashboard=%s" | format(values.consts.commands.api.dashboard)) %}
-  {% do commands.x.append() %}
-  
+  {% do commands.x.append("--api=true") %}
+  {% do commands.x.append("--api.dashboard=true") %}
+  {% do commands.x.append("--api.disabledashboardad=true") %}
 {% endif %}
 # Web UI HTTP or HTTPS
 {% if values.network.webui_enable and values.network.webui.secure %}
-  {% do commands.x.append() %}
-  {% do commands.x.append() %}
-  {% do commands.x.append() %}
-  {% do commands.x.append() %}
-  {% do commands.x.append() %}
+  {% do commands.x.append("--api.insecure=false") %}
+{% elif values.network.webui_enable and not values.network.webui.secure %}
+  {% do commands.x.append("--api.insecure=true") %}
 {% endif %}
 # EntryPoints
 # Check if http proxying is enabled and add entrypoint when nessecary 
