@@ -1,6 +1,9 @@
+# Define groups to seperate and organize the configuration
 groups:
   - name: Network & Proxy Configuration
     description: Configure Network, Ports and Proxy
+  - name: Domain and Certificate configuration
+    description: Setup your domain and certificate provider
   - name: Storage Configuration
     description: Configure Storage
   - name: Environment Variables and Labels Configuration
@@ -10,9 +13,192 @@ groups:
 
 # Start creating variables that will be used by the docker-compose.yaml template
 questions:
+  # Group Network Configuration
+  # Set network variable
   - variable: network
     label: ""
     group: Network & Proxy Configuration
+    schema:
+      type: dict
+      attrs:
+        # Set Webui enable Subvariable, this variable toggles http proxying
+        # How to refer from Docker-Compose template: values.network.http_enable
+        - variable: webui_enable
+          label: Enable Dashboard and API
+          description: Enable Dashboard and API. Allows for accessing information via a webbrowser or the api.
+          schema:
+            type: boolean
+            default: true
+        # Set Webui Subvariable, this variable sets up access to the dashboard
+        # How to refer from Docker-Compose template: values.network.web_port
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            show_if: [["webui_enable", "=", true]]
+            attrs:
+              # Set variable for port binding mode, this wil configure accessibility of the webui to none, inter-container communication and publicly accessible
+              # How to refer from Docker-Compose template: values.network.web_port.bind_mode
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.web_port.port_number
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 60000
+                  min: 20000
+                  max: 65535
+                  required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.web_port.host_ips
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        # Set HTTP enable Subvariable, this variable toggles http proxying
+        # How to refer from Docker-Compose template: values.network.http_enable
+        - variable: http_enable
+          label: Enable HTTP Proxying
+          description: Enable HTTP Proxying. This allows proxied domains to be accessible over http
+          schema:
+            type: boolean
+            default: false
+        # Set HTTP Subvariable
+        # How to refer from Docker-Compose template: values.network.http_port
+        - variable: http_port
+          label: HTTP Port
+          schema:
+            type: dict
+            show_if: [["http_enable", "=", true]]
+            attrs:
+              # Set variable for port binding mode, this variable is hidden and locked to published as we manage access by enabling the port at all.
+              # How to refer from Docker-Compose template: values.network.http_port.bind_mode
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  hidden: true
+                  default: "published"
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.http_port.port_number
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 8080
+                  min: 0
+                  max: 65535
+                  required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.http_port.host_ips
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        # Set HTTPS enable Subvariable, this variable toggles HTTPS proxying
+        # How to refer from Docker-Compose template: values.network.https_enable
+        - variable: https_enable
+          label: Enable HTTPS Proxying
+          description: Enable HTTPS Proxying. This allows proxied domains to be accessible over https
+          schema:
+            type: boolean
+            default: true
+        # Set HTTPS Subvariable
+        # How to refer from Docker-Compose template: values.network.https_port
+        - variable: https_port
+          label: HTTPS Port
+          schema:
+            type: dict
+            show_if: [["https_enable", "=", true]]
+            attrs:
+              # Set variable for port binding mode, this variable is hidden and locked to published as we manage access by enabling the port at all.
+              # How to refer from Docker-Compose template: values.network.https_port.bind_mode
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  hidden: true
+                  default: "published"
+              # Set variable for port number
+              # How to refer from Docker-Compose template: values.network.https_port.port_number
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 4433
+                  min: 0
+                  max: 65535
+                  required: true
+              # Set variable for host IP, when the port is published the port will be accessible trough the given IP adress
+              # How to refer from Docker-Compose template: values.network.https_port.host_ips
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        # Set HTTPS-redirect enable Subvariable, this variable redirects incoming http traffic to https when enabled. Should only be anabled when both the http and https port are available.
+        # How to refer from Docker-Compose template: values.network.https_redirect
+        - variable: https_redirect
+          label: Redirect all http traffic to https
+          description: Any incomin traffic over http will be automatically moved to https when enabled
+          schema:
+            type: boolean
+            show_if: [["http_enable", "=", true],["https_enable", "=", true]]
+            default: false
 
 
   # Group Storage Configuration
@@ -23,15 +209,23 @@ questions:
     schema:
       type: dict
       attrs:
-        # Set mount path for Certificate storage.
-        # How to refer from Docker-Compose template: values.storage.certs
-        - variable: certs
-          label: Certificate Storage
+        # Set Mounting the Docker Socket as a Subvariable, this variable allows Traefik to connect to docker and read info from other docker containers, allowing the app to actually function
+        # How to refer from Docker-Compose template: values.storage.enable_docker_socket
+        - variable: enable_docker_socket
+          label: Mount Docker Socket (reccommended)
+          description: This allows Traefik to actually function
+          schema:
+            type: boolean
+            default: true
+        # Set mount path for letsencrypt certificates.
+        # How to refer from Docker-Compose template: values.storage.letsencrypt
+        - variable: letsencrypt
+          label: Letsencrypt Certificate Storage
           schema:
             type: dict
             attrs:
-              # This subvariable defines whether the certificates folder gets mounted to an non-persistand ix-volume or a persistant host path
-              # How to refer from Docker-Compose template: values.storage.certs.type
+              # This subvariable defines whether the letsencrypt folder gets mounted to an impersistand ix-volume or a persistant host path
+              # How to refer from Docker-Compose template: values.storage.letsencrypt.type
               - variable: type
                 label: Type
                 description: |
@@ -47,7 +241,7 @@ questions:
                     - value: "ix_volume"
                       description: ixVolume (Dataset created automatically by the system)
               # This variable allows for further configuration when choosing an ix-volume
-              # How to refer from Docker-Compose template: values.storage.certs.ix_volume_config
+              # How to refer from Docker-Compose template: values.storage.letsencrypt.ix_volume_config
               - variable: ix_volume_config
                 label: ixVolume Configuration
                 description: The configuration for the ixVolume dataset.
@@ -77,8 +271,8 @@ questions:
                         type: dict
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
-              # This variable lets you configure the host path (when host path was chosen) to map the certificates folder to.
-              # How to refer from Docker-Compose template: values.storage.certs.host_path_config
+              # This variable lets you configure the host path (when host path was chosen) to map the letsencrypt folder to.
+              # How to refer from Docker-Compose template: values.storage.letsencrypt.host_path_config
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
@@ -107,89 +301,6 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
 
-        # Set mount path for config foler which will store the yaml configuration for traefik.
-        # How to refer from Docker-Compose template: values.storage.config
-        - variable: config
-          label: Certificate Storage
-          schema:
-            type: dict
-            attrs:
-              # This subvariable defines whether the config folder gets mounted to an non-persistand ix-volume or a persistant host path
-              # How to refer from Docker-Compose template: values.storage.config.type
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              # This variable allows for further configuration when choosing an ix-volume
-              # How to refer from Docker-Compose template: values.storage.config.ix_volume_config
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              # This variable lets you configure the host path (when host path was chosen) to map the config folder to.
-              # How to refer from Docker-Compose template: values.storage.config.host_path_config
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
 
   # Group Environment Variables & Labels configuration
   # List variable with preset inputs for creating custom environment variables
