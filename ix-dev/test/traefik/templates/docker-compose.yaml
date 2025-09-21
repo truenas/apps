@@ -6,79 +6,60 @@
 {% set traefik = tpl.add_container(values.consts.traefik_container_name, "image") %}
 
 # Configure Healthcheck
-{% do traefik.healthcheck.set_custom_test("traefik healthcheck --ping") %}
-
+{% if values.network.webui_enable %}
+  {% do traefik.healthcheck.set_custom_test("traefik healthcheck --ping") %}
+{% else %}
+  {% do traefik.healthcheck.set_custom_test("traefik healthcheck") %}
+{% endif %}
 
 # Add capabilities 
 {% do traefik.add_caps(["SETUID", "SETGID", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
 
-# Add Commands to a variable as the set.command argument can only be used one time. 
-{% set commands = namespace(x=[
-  "--providers.docker=%s" | format(values.consts.commands.docker.enabled),
-  "--providers.docker.exposedbydefault=%s" | format(values.consts.commands.docker.exposed),
-  "--providers.docker.network=%s" | format(values.consts.commands.docker.proxy_network),
-]) %}
-# Add conditional commands
-# WebUI
+
+# Add Environment variables
+{% do traefik.environment.add_env("TRAEFIK_PROVIDERS_DOCKER", values.consts.commands.docker.enabled) %}
+{% do traefik.environment.add_env("TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT", values.consts.commands.docker.exposed) %}
+{% do traefik.environment.add_env("TRAEFIK_PROVIDERS_DOCKER_NETWORK", values.consts.commands.docker.proxy_network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+{% do traefik.environment.add_env("TRAEFIK_", values.network) %}
+# Add conditional environment variables
+# IF WebUI is enabled:
 {% if values.network.webui_enable %}
-  {% do commands.x.append("--ping=true") %}
-  {% do commands.x.append("--api=true") %}
-  {% do commands.x.append("--api.dashboard=true") %}
-  {% do commands.x.append("--api.disabledashboardad=true") %}
+  {% do traefik.environment.add_env("TRAEFIK_PING", true) %}
+  {% do traefik.environment.add_env("TRAEFIK_API", true) %}
+  {% do traefik.environment.add_env("TRAEFIK_API_DASHBOARD", true) %}
+  {% do traefik.environment.add_env("TRAEFIK_API_DISABLEDASHBOARDAD, true) %}
+  {% do traefik.environment.add_env("TRAEFIK_API_INSECURE", true) %}
+  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_TRAEFIK_ADDRESS", ":%s" | format(values.network.web_port.port_number)) %}
 {% endif %}
 # Web UI HTTP or HTTPS
-{% if values.network.webui_enable and values.network.webui.secure %}
-  {% do commands.x.append("--api.insecure=false") %}
-{% elif values.network.webui_enable and not values.network.webui.secure %}
-  {% do commands.x.append("--api.insecure=true") %}
-{% endif %}
-# EntryPoints
-# Check if http proxying is enabled and add entrypoint when nessecary 
-{% if values.network.http_enable %}
-  {% do commands.x.append("--entryPoints.web.address=:%s" | format(values.network.http_port.port_number)) %}
-{% endif %}
-# Check if https proxying is enabled and add entrypoint when nessecary 
-{% if values.network.https_enable %}
-  {% do commands.x.append("--entryPoints.websecure.address=:%s" | format(values.network.https_port.port_number)) %}
-{% endif %}
-#Check if https redirection is enabled and add enable https redirection if it is 
-{% if values.network.http_enable and values.network.https_enable and values.network.https_redirect %}
-  {% do commands.x.append("--entrypoints.web.http.redirections.entrypoint.to=websecure") %}
-  {% do commands.x.append("--entrypoints.web.http.redirections.entrypoint.scheme=https") %}
-  {% do commands.x.append("--entrypoints.web.http.redirections.entrypoint.permanent=true") %}
+{% if values.network.webui_enable and values.network.webui_secure %}
+  {% do traefik.environment.add_env("TRAEFIK_API_INSECURE", true) %}
+{% elif values.network.webui_enable and not values.network.webui_secure %}
+  {% do traefik.environment.add_env("TRAEFIK_API_INSECURE", true) %}
 {% endif %}
 
-# Setup Proxy commands
-# HTTP Challenge 
-{% if values.proxy.challenge == "http_challenge" %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.httpchallenge=true") %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.httpchallenge.entrypoint=web") %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.email=%s" | format(values.proxy.email)) %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.storage=/letsencrypt/acme.json") %}
-{% endif %}
-# TLS Challenge 
-{% if values.proxy.challenge == "tls_challenge" %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.tlschallenge=true") %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.email=%s" | format(values.proxy.email)) %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.storage=/letsencrypt/acme.json") %}
-{% endif %}
-# DNS Challenge (Manage the big DNS providers and add capabilities for a custom DNS provider)
-{% if values.proxy.challenge == "dns_challenge" %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.dnschallenge=true") %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.dnschallenge.provider=%s" | format(values.proxy.dns_provider)") %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.email=%s" | format(values.proxy.email)") %}
-  {% do commands.x.append("--certificatesresolvers.truenasresolver.acme.storage=/letsencrypt/acme.json") %}
-{% endif %}
 
-# Add all commands 
-{% do traefik.set_command(commands.x) %}
+# Add commands XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 
 # Add Ports
-# Webui Port 
-{% do traefik.add_port(values.network.web_port, {"container_port": 8080}) %}
 
 # Add conditional ports
+# Webui Port
+{% if values.network.webui_enable %}
+  {% do traefik.add_port(values.network.web_port) %}
+{% endif %}
 # HTTP Proxy Port
 {% if values.network.http_enable %}
   {% do traefik.add_port(values.network.http_port) %}
@@ -89,32 +70,38 @@
 {% endif %}
 
 
-# Add Environment variables
-
-# Add conditional environment variables
-
-# Add user added environment variables
-{% do traefik.environment.add_user_envs(values.additional_envs) %}
-
-
 # Add Volumes
-# Add folder for letsencrypt certs 
-{% do traefik.add_storage(values.consts.storage.letsencrypt, values.storage.letsencrypt) %}
+# Add folder for Certificates
+{% do traefik.add_storage(values.consts.storage.certs, values.storage.certs) %}
+# Add folder for configuration yaml
+{% do traefik.add_storage(values.consts.storage.config, values.storage.config) %}
 # Mount Docker Socket
-{% if values.storage.enable_docker_socket %}
-  {% do traefik.add_docker_socket(read_only=True) %}
-{% endif %}
-
+{% do traefik.add_docker_socket(read_only=True) %}
 
 # Add User added Volumes 
 {% for store in values.storage.additional_storage %}
   {% do traefik.add_storage(store.mount_path, store) %}
 {% endfor %}
 
+
+# Add user added environment variables
+{% do traefik.environment.add_user_envs(values.additional_envs) %}
+
+# Add user added labels XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+
+
+# Set Traefik_Network_Connector as second container XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+{% set traefik = tpl.add_container(values.consts.traefik_network_connector_container_name, "image") %}
+
+
+
+
 # Enable webui button in truenas interface 
 {% do tpl.portals.add(values.network.web_port) %}
 
-# I believe add the notes 
+# Add the notes 
 {% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
