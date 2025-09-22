@@ -838,3 +838,89 @@ def test_add_elasticsearch_unsupported_repo(mock_values):
             },
             perms_container,
         )
+
+
+def test_add_solr(mock_values):
+    mock_values["images"]["solr_image"] = {"repository": "solr", "tag": "9.9.0"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    m = render.deps.solr(
+        "solr_container",
+        "solr_image",
+        {
+            "core": "test_core",
+            "modules": ["analysis-extras", "some-other-module"],
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+    output = render.render()
+    assert "devices" not in output["services"]["solr_container"]
+    assert "reservations" not in output["services"]["solr_container"]["deploy"]["resources"]
+    assert output["services"]["solr_container"]["image"] == "solr:9.9.0"
+    assert output["services"]["solr_container"]["user"] == "568:568"
+    assert output["services"]["solr_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["solr_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert output["services"]["solr_container"]["healthcheck"] == {
+        "test": [
+            "CMD",
+            "curl",
+            "--request",
+            "GET",
+            "--silent",
+            "--output",
+            "/dev/null",
+            "--show-error",
+            "--fail",
+            "http://127.0.0.1:8983/solr/test_core/admin/ping",
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
+    }
+    assert output["services"]["solr_container"]["volumes"] == [
+        {
+            "type": "volume",
+            "source": "test_volume",
+            "target": "/var/solr",
+            "read_only": False,
+            "volume": {"nocopy": False},
+        }
+    ]
+    assert output["services"]["solr_container"]["environment"] == {
+        "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+        "SOLR_PORT": "8983",
+        "SOLR_MODULES": "analysis-extras,some-other-module",
+    }
+    assert output["services"]["solr_container"]["command"] == ["solr-precreate", "test_core"]
+    assert output["services"]["solr_container"]["depends_on"] == {
+        "perms_container": {"condition": "service_completed_successfully"}
+    }
+
+
+def test_add_solr_unsupported_repo(mock_values):
+    mock_values["images"]["solr_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.solr(
+            "solr_container",
+            "solr_image",
+            {
+                "core": "test_core",
+                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            },
+            perms_container,
+        )

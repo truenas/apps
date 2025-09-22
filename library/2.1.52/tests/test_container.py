@@ -469,3 +469,9 @@ def test_setup_as_helper(mock_values):
     assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["cpus"] == "1"
     assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["memory"] == "512M"
     assert "devices" not in output["services"]["test_container"]
+
+
+def test_container_name(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    assert c1.name() == "test_container"

@@ -152,6 +152,7 @@ class PostgresContainer:
             "postgres": f"postgres://{creds}@{addr}/{db}?sslmode=disable",
             "postgresql": f"postgresql://{creds}@{addr}/{db}?sslmode=disable",
             "postgresql_no_creds": f"postgresql://{addr}/{db}?sslmode=disable",
+            "jdbc": f"jdbc:postgresql://{addr}/{db}",
             "host_port": addr,
         }
 
