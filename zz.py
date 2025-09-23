@@ -17,7 +17,7 @@ for train in os.listdir("ix-dev"):
             if not data:
                 print("no app.yaml", train, app)
                 continue
-            if not data["lib_version"] == "2.1.50":
+            if not data["lib_version"] == "2.1.52":
                 print("wrong lib_version", train, app, data["lib_version"])
                 continue
 
@@ -25,5 +25,6 @@ for train in os.listdir("ix-dev"):
             parts = version.split(".")
             parts[2] = str(int(parts[2]) + 1)
             data["version"] = ".".join(parts)
+            data["maintainers"][0]["email"] = "dev@truenas.com"
             with open(file, "w") as f:
                 yaml.safe_dump(data, f)
