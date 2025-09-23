@@ -60,25 +60,21 @@
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASHTTPRESOLVER_ACME_HTTPCHALLENGE", "true") %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASHTTPRESOLVER_ACME_HTTPCHALLENGE_ENTRYPOINT", "web") %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASHTTPRESOLVER_ACME_EMAIL", values.network.http_challenge.email) %}
-  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASHTTPRESOLVER_ACME_STORAGE", values.consts.storage.acme) %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASHTTPRESOLVER_ACME_STORAGE", "%s/http-acme.json"|format(values.consts.storage.acme)) %}
 
 {% endif %}
 # TLS Challenge 
 {% if values.network.tls_challenge %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASTLSRESOLVER_ACME_TLSCHALLENGE", "true") %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASTLSRESOLVER_ACME_EMAIL", values.network.tls_challenge.email) %}
-  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASTLSRESOLVER_ACME_STORAGE", values.consts.storage.acme) %}
-  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS", "true") %}
-  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS_CERTRESOLVER", "truenastlsresolver") %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASTLSRESOLVER_ACME_STORAGE", "%s/tls-acme.json"|format(values.consts.storage.acme)) %}
 {% endif %}
 # DNS Challenge (Manage the big DNS providers and add capabilities for a custom DNS provider)
 {% if values.network.dns_challenge %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_DNSCHALLENGE", "true") %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_DNSCHALLENGE_PROVIDER", values.network) %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_EMAIL", values.network.dns_challenge.email) %}
-  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_STORAGE", values.consts.storage.acme) %}
-  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS", "true") %}
-  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS_CERTRESOLVER", "truenasdnsresolver") %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_STORAGE", "%s/dns-acme.json"|format(values.consts.storage.acme)) %}
 {% endif %}
 
 
@@ -132,10 +128,7 @@
   {% traefik.labels.add_label("traefik.http.routers.dashboard.entrypoints", "websecure") %}
   {% traefik.labels.add_label("traefik.http.routers.dashboard.service", "api@internal") %}
   {% traefik.labels.add_label("traefik.http.routers.dashboard.tls", "true") %}
-  {% traefik.labels.add_label("", "") %}
-  {% traefik.labels.add_label("", "") %}
-  {% traefik.labels.add_label("", "") %}
-  
+  {% traefik.labels.add_label("traefik.docker.network", values.network.webui_docker_network) %}
 {% endif %}
 
 
@@ -143,8 +136,8 @@
 {% set tnc = tpl.add_container(values.consts.traefik_network_connector_container_name, "tnc_image") %}
 
 #Set Environment variables
-{% do traefik.environment.add_env("TRAEFIK_CONTAINERNAME", values.consts.traefik_container_name) %}
-{% do traefik.environment.add_env("TRAEFIK_MONITOREDLABEL", "^traefik.enable$") %}
+{% do tnc.environment.add_env("TRAEFIK_CONTAINERNAME", values.consts.traefik_container_name) %}
+{% do tnc.environment.add_env("TRAEFIK_MONITOREDLABEL", "^traefik.enable$") %}
 
 # Mount Docker Socket to Traefik Network Connector
 {% do tnc.add_docker_socket(read_only=False) %}
