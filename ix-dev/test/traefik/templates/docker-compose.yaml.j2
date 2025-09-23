@@ -12,8 +12,8 @@
   {% do traefik.healthcheck.set_custom_test("traefik healthcheck") %}
 {% endif %}
 
-{# Add capabilities #}
-{% do traefik.add_caps(["SETUID", "SETGID", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+{# make container privileged #}
+{% do traefik.set_privileged(true) %}
 
 
 {# Add Environment variables #}
@@ -41,11 +41,11 @@
 {# EntryPoints #}
 {# Check if http proxying is enabled and add entrypoint when nessecary #}
 {% if values.network.http_enable %}
-  {% do traefik.environment.add_env("TRAEFIK_WEB_ADDRESS", ":%d"|format(values.network.http_port.port_number)) %}
+  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEB_ADDRESS", ":%d"|format(values.network.http_port.port_number)) %}
 {% endif %}
 {# Check if https proxying is enabled and add entrypoint when nessecary  #}
 {% if values.network.https_enable %}
-  {% do traefik.environment.add_env("TRAEFIK_WEBSECURE_ADDRESS", ":%d"|format(values.network.https_port.port_number)) %}
+  {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS", ":%d"|format(values.network.https_port.port_number)) %}
 {% endif %}
 {# Check if https redirection is enabled and add enable https redirection if it is  #}
 {% if values.network.https_redirect %}
@@ -135,11 +135,14 @@
 {# Set Traefik_Network_Connector as second container #}
 {% set tnc = tpl.add_container(values.consts.traefik_network_connector_container_name, "tnc_image") %}
 
+{# make container privileged #}
+{% do tnc.set_privileged(true) %}
+
 {# Disable Healthcheck #}
 {% do tnc.healthcheck.disable() %}
 
 {# Set Environment variables #}
-{% do tnc.environment.add_env("TRAEFIK_CONTAINERNAME", values.consts.traefik_container_name) %}
+{% do tnc.environment.add_env("TRAEFIK_CONTAINERNAME", values.network.traefik_container_name) %}
 {% do tnc.environment.add_env("TRAEFIK_MONITOREDLABEL", "^traefik.enable$") %}
 
 {# Mount Docker Socket to Traefik Network Connector #}
