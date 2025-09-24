@@ -28,6 +28,7 @@
   {% do traefik.environment.add_env("TRAEFIK_API_DISABLEDASHBOARDAD", "true") %}
   {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_TRAEFIK_ADDRESS", ":%d"|format(values.network.web_port.port_number)) %}
 {% endif %}
+
 {# Web UI HTTP or HTTPS #}
 {% if values.network.webui_secure %}
   {% do traefik.environment.add_env("TRAEFIK_API_INSECURE", "false") %}
@@ -40,17 +41,20 @@
 {% if values.network.http_enable %}
   {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEB_ADDRESS", ":%d"|format(values.network.http_port.port_number)) %}
 {% endif %}
+
 {# Check if https proxying is enabled and add entrypoint when nessecary  #}
 {% if values.network.https_enable %}
   {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS", ":%d"|format(values.network.https_port.port_number)) %}
   {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS", "true") %}
 {% endif %}
+
 {# Check if https redirection is enabled and add enable https redirection if it is  #}
 {% if values.network.https_redirect %}
   {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO", "websecure") %}
   {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_SCHEME", "https") %}
   {% do traefik.environment.add_env("TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_PERMANENT", "true") %}
 {% endif %}
+
 
 {# Challenges #}
 {# HTTP Challenge #}
@@ -59,25 +63,40 @@
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASHTTPRESOLVER_ACME_HTTPCHALLENGE_ENTRYPOINT", "web") %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASHTTPRESOLVER_ACME_EMAIL", values.network.http_challenge.email) %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASHTTPRESOLVER_ACME_STORAGE", "%s/http-acme.json"|format(values.consts.storage.acme)) %}
-
 {% endif %}
+
 {# TLS Challenge #}
 {% if values.network.tls_challenge.enabled %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASTLSRESOLVER_ACME_TLSCHALLENGE", "true") %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASTLSRESOLVER_ACME_EMAIL", values.network.tls_challenge.email) %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASTLSRESOLVER_ACME_STORAGE", "%s/tls-acme.json"|format(values.consts.storage.acme)) %}
 {% endif %}
+
 {# DNS Challenge (Manage the big DNS providers and add capabilities for a custom DNS provider) #}
 {% if values.network.dns_challenge.enabled %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_DNSCHALLENGE", "true") %}
-  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_DNSCHALLENGE_PROVIDER", values.network.dns_challenge.provider) %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_EMAIL", values.network.dns_challenge.email) %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_STORAGE", "%s/dns-acme.json"|format(values.consts.storage.acme)) %}
 {% endif %}
+
+{# Set dns challenge provider #}
+{% if values.network.dns_challenge.provider == "custom" %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_DNSCHALLENGE_PROVIDER", values.network.dns_challenge.custom.provider) %}
+{% else %}
+  {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_DNSCHALLENGE_PROVIDER", values.network.dns_challenge.provider) %}
+{% endif %}
+
+{# DNS Challenge custom #}
+{% if values.network.dns_challenge.enabled and values.network.dns_challenge.provider == "custom" %}
+ {# Use custom environment variables #}
+{% endif %}
+
 {# DNS Challenge cloudflare #}
 {% if values.network.dns_challenge.enabled and values.network.dns_challenge.provider == "cloudflare" %}
   {% do traefik.environment.add_env("CF_DNS_API_TOKEN", values.network.dns_challenge.cloudflare.api_token) %}
 {% endif %}
+
+
 {# Add Ports #}
 
 {# Add conditional ports #}
@@ -85,10 +104,12 @@
 {% if values.network.webui_enable %}
   {% do traefik.add_port(values.network.web_port) %}
 {% endif %}
+
 {# HTTP Proxy Port #}
 {% if values.network.http_enable %}
   {% do traefik.add_port(values.network.http_port) %}
 {% endif %}
+
 {# HTTPS Proxy Port #}
 {% if values.network.https_enable %}
   {% do traefik.add_port(values.network.https_port) %}
@@ -103,8 +124,10 @@
 {# Add Volumes #}
 {# Add folder for Certificates #}
 {% do traefik.add_storage(values.consts.storage.certs, values.storage.certs) %}
+
 {# Add folder for configuration yaml #}
 {% do traefik.add_storage(values.consts.storage.config, values.storage.config) %}
+
 {# Mount Docker Socket #}
 {% do traefik.add_docker_socket(read_only=True) %}
 
