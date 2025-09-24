@@ -104,6 +104,8 @@
 {% endif %}
 
 {% if values.network.certificate_id %}
+  {% do trusted_domains.x.append(values.consts.nginx_container_name) %}
+
   {% do nc_env.x.append(("APACHE_DISABLE_REWRITE_IP", 1)) %}
   {% do nc_env.x.append(("OVERWRITEPROTOCOL", "https")) %}
   {% do nc_env.x.append(("TRUSTED_PROXIES", ["127.0.0.1", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"] | join(" "))) %}
@@ -126,7 +128,7 @@
 {% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
 
 {% do nc_container.build_image(nc_custom_image.x) %}
-{% do nc_container.set_user(0,0) %}
+{% do nc_container.set_user(0, 0) %}
 {% do nc_container.add_caps(nc_caps) %}
 {% do nc_container.healthcheck.set_test("curl", {"port": 80, "path": "/status.php", "headers": [("Host", "localhost")]}) %}
 {% do nc_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -143,6 +145,15 @@
   {% do nc_container.add_storage(s[0], s[1]) %}
 {% endfor %}
 {% if not values.network.certificate_id %}
+  {# We need to allow show the `port_number` field, because it applies when nginx is used #}
+  {# But when only nextcloud is used with exposed bind_mode, port_number is not applied, hence the warning #}
+  {% if values.network.web_port.bind_mode == "exposed" %}
+    {% do tpl.notes.add_warning(
+      "Nextcloud 'Web Port' is set to 'exposed', 'Port Number' is not applied to the internal container port."
+      " Make sure you have explicitly set a port in the `Host` field in this case, otherwise it may lead to misconfiguration."
+      " Nextcloud internally will always use port 80."
+    ) %}
+  {% endif %}
   {% do nc_container.add_port(values.network.web_port, {"container_port": 80}) %}
 {% endif %}
 {% if values.nextcloud.imaginary.enabled %}
