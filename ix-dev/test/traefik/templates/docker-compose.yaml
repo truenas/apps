@@ -74,8 +74,10 @@
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_EMAIL", values.network.dns_challenge.email) %}
   {% do traefik.environment.add_env("TRAEFIK_CERTIFICATESRESOLVERS_TRUENASDNSRESOLVER_ACME_STORAGE", "%s/dns-acme.json"|format(values.consts.storage.acme)) %}
 {% endif %}
-
-
+{# DNS Challenge cloudflare #}
+{% if values.network.dns_challenge.enabled and values.network.dns_challenge.provider == "cloudflare" %}
+  {% do traefik.environment.add_env("CF_DNS_API_TOKEN", values.network.dns_challenge.cloudflare.api_token) %}
+{% endif %}
 {# Add Ports #}
 
 {# Add conditional ports #}
@@ -150,6 +152,6 @@
 
 
 {# Enable webui button in truenas interface #}
-{% do tpl.portals.add(values.network.web_port, {"name": "Dashboard", "host": values.network.webui_domain if values.network.webui_secure else None, "port": values.network.https_port.port_number if values.network.webui_secure else None}) %}
+{% do tpl.portals.add(values.network.web_port, {"name": "Dashboard", "scheme": "https" if values.network.webui_secure else "http", "host": values.network.webui_domain if values.network.webui_secure else None, "port": 443 if values.network.webui_secure else None}) %}
 
 {{ tpl.render() | tojson }}

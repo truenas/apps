@@ -331,7 +331,7 @@ questions:
             - Access to your HTTP entrypoint trough port 80 (whether you redirect it from your router or use port 80 with the application)
           schema:
             type: dict
-            show_if: [["http_enable", "!=", "https_redirection"]]
+            show_if: [["http_enable", "=", "true"]]
             attrs:
               # Enable HTTP Challenge
               # How to refer from Docker-Compose template: values.network.http_challenge.enabled
@@ -408,7 +408,49 @@ questions:
                   valid_chars_error: The email address is not valid.
                   required: true
                   default: ""
-        - variable: treafix_container_name
+              # Set DNS Provider
+              # How to refer from Docker-Compose template: values.network.dns_challenge.provider
+              - variable: provider
+                label: Dns Provider
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  default: "cloudflare"
+                  enum:
+                    - value: "cloudflare"
+                    - value: "custom"
+              # Configure cloudflare
+              # values.network.dns_challenge.cloudflare
+              - variable: cloudflare
+                label: Configure cloudflare
+                description: |
+                  Configures the following environment variables:</br>
+                  - CF_DNS_API_TOKEN</br>
+                  For a better description go to:</br>
+                  https://go-acme.github.io/lego/dns/cloudflare/index.html</br>
+                  If your setup requires other environment variables, please select the "custom" dns provider.
+                schema:
+                  type: dict
+                  show_if: [["provider", "=", "cloudflare"]]
+                  attrs:
+                    # set env variable CF_DNS_API_TOKEN
+                    # values.network.dns_challenge.cloudflare.api_token
+                    - variable: api_token
+                      label: Cloudflare API Token
+                      description: |
+                        For a guide on getting the api token, go to:</br>
+                        https://developers.cloudflare.com/fundamentals/api/get-started/create-token/</br>
+                        Make sure to:</br>
+                        - Set the zone to DNS with edit privileges
+                        - Include all domain zones you want traefik to proxy
+                      schema:
+                        type: string
+                        required: true
+
+
+        # Set traefik container name for Traefik_Network_Connector
+        # values.network.traefik_container_name
+        - variable: traefik_container_name
           label: Protocol
           schema:
             type: string
@@ -801,9 +843,9 @@ questions:
                       schema:
                         type: string
                         required: true
-                        default: traefik
+                        default: "traefik"
                         enum:
-                          - value: traefik
+                          - value: "traefik"
                             description: Traefik
 
 
