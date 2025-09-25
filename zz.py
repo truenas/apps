@@ -10,14 +10,19 @@ for train in os.listdir("ix-dev"):
         # if its not dir skip
         if not os.path.isdir(os.path.join("ix-dev", train, app)):
             continue
-        # load question.yaml
+        qfile = os.path.join("ix-dev", train, app, "questions.yaml")
+        with open(qfile, "r") as qf:
+            string_data = qf.read()
+            if "cifs" not in string_data:
+                continue
+
         file = os.path.join("ix-dev", train, app, "app.yaml")
         with open(file, "r") as f:
             data = yaml.safe_load(f)
             if not data:
                 print("no app.yaml", train, app)
                 continue
-            if not data["lib_version"] == "2.1.52":
+            if not data["lib_version"] == "2.1.53":
                 print("wrong lib_version", train, app, data["lib_version"])
                 continue
 
