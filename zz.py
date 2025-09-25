@@ -10,12 +10,6 @@ for train in os.listdir("ix-dev"):
         # if its not dir skip
         if not os.path.isdir(os.path.join("ix-dev", train, app)):
             continue
-        qfile = os.path.join("ix-dev", train, app, "questions.yaml")
-        with open(qfile, "r") as qf:
-            string_data = qf.read()
-            if "cifs" not in string_data:
-                continue
-
         file = os.path.join("ix-dev", train, app, "app.yaml")
         with open(file, "r") as f:
             data = yaml.safe_load(f)
