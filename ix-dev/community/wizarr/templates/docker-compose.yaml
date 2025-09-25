@@ -6,13 +6,12 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+{% do c1.environment.add_env("UV_CACHE_DIR", "/tmp/uv") %}
 {# {% do c1.environment.add_env("WIZARR_PORT", values.network.web_port.port_number) %} #}
 {# TODO: Remove after: https://github.com/wizarrrr/wizarr/pull/688  #}
 {% do c1.set_command([
-    "uv", "run", "gunicorn",
+    "uv", "run", "--frozen", "--no-dev", "gunicorn",
      "--config", "gunicorn.conf.py",
-     "--preload",
-     "--workers", "4",
      "--bind", "0.0.0.0:%d"|format(values.network.web_port.port_number),
      "--umask", "007",
      "run:app"
@@ -21,11 +20,10 @@
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/data/database", values.storage.database) %}
-{% do perm_container.add_or_skip_action("config", values.storage.database, perms_config) %}
+{% do c1.add_storage("/data", values.storage.database) %}
+{% do perm_container.add_or_skip_action("data", values.storage.database, perms_config) %}
 
 {% set tmp_config = {"type": "temporary", "volume_config": {"volume_name": "tmp-wizarr"}} %}
-{% do c1.add_storage("/.cache/uv", tmp_config) %}
 {% do c1.add_storage("/etc/wizarr/wizard_steps", tmp_config) %}
 {% do perm_container.add_or_skip_action("temp", tmp_config, perms_config) %}
 
