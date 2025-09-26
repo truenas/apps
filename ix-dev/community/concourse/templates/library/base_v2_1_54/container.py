@@ -318,8 +318,9 @@ class Container:
     def setup_as_helper(self, profile: str = "low", disable_network: bool = True):
         self.restart.set_policy("on-failure", 1)
         self.healthcheck.disable()
-        self.deploy.resources.set_profile(profile)
         self.remove_devices()
+        if profile:
+            self.deploy.resources.set_profile(profile)
         if disable_network:
             self.set_network_mode("none")
 

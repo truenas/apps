@@ -315,11 +315,14 @@ class Container:
     def add_usb_bus(self):
         self.devices.add_usb_bus()
 
-    def setup_as_helper(self):
+    def setup_as_helper(self, profile: str = "low", disable_network: bool = True):
         self.restart.set_policy("on-failure", 1)
         self.healthcheck.disable()
-        self.deploy.resources.set_profile("low")
         self.remove_devices()
+        if profile:
+            self.deploy.resources.set_profile(profile)
+        if disable_network:
+            self.set_network_mode("none")
 
     def set_shm_size_mb(self, size: int):
         self._shm_size = size

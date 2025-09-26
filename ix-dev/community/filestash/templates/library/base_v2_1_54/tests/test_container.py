@@ -486,6 +486,20 @@ def test_setup_as_helper_med_profile(mock_values):
     assert "devices" not in output["services"]["test_container"]
 
 
+def test_setup_as_helper_no_profile(mock_values):
+    mock_values["resources"] = {"gpus": {"use_all_gpus": True}}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.setup_as_helper(profile="")
+    output = render.render()
+    assert output["services"]["test_container"]["restart"] == "on-failure:1"
+    assert output["services"]["test_container"]["network_mode"] == "none"
+    assert output["services"]["test_container"]["healthcheck"]["disable"] is True
+    assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["test_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert "devices" not in output["services"]["test_container"]
+
+
 def test_setup_as_helper_with_net(mock_values):
     mock_values["resources"] = {"gpus": {"use_all_gpus": True}}
     render = Render(mock_values)
