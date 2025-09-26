@@ -24,11 +24,9 @@
 {% set config = tpl.add_container(values.consts.config_container_name, "image") %}
 
 {% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
-{% do config.restart.set_policy("on-failure", 1) %}
-{% do config.remove_devices() %}
-{% do config.deploy.resources.set_profile("medium") %}
 {% do config.configs.add("setup.sh", setup_script(values, settings), "/setup.sh", "0755") %}
 {% do config.set_entrypoint(["/bin/sh", "-c", "/setup.sh"]) %}
+{% do config.setup_as_helper(profile="medium") %}
 
 {% do c1.set_user(0, 0) %}
 {% do config.set_user(0, 0) %}
@@ -41,7 +39,6 @@
 {% do config.add_caps(caps + ["KILL"]) %}
 
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/rest/noauth/health"}) %}
-{% do config.healthcheck.disable() %}
 
 {% set envs = {
   "PCAP": ["cap_sys_admin", "cap_chown", "cap_dac_override", "cap_fowner"]|join(",") + "+ep",
