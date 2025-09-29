@@ -48,16 +48,12 @@
 {% do perm_container.add_or_skip_action("companion", values.storage.companion_cache, companion_perms_config) %}
 
 {% do db_fetch.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do db_fetch.healthcheck.disable() %}
-{% do db_fetch.restart.set_policy("on-failure", 1) %}
-{% do db_fetch.deploy.resources.set_profile("low") %}
+{% do db_fetch.setup_as_helper() %}
 {% do db_fetch.configs.add("fetch_db_seed.sh", config_macro.fetch_db_seed(values=values), "/fetch_db_seed.sh", "0755") %}
 {% do db_fetch.set_entrypoint(["/fetch_db_seed.sh"]) %}
 
 {% do db_seed.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do db_seed.healthcheck.disable() %}
-{% do db_seed.restart.set_policy("on-failure", 1) %}
-{% do db_seed.deploy.resources.set_profile("low") %}
+{% do db_seed.setup_as_helper() %}
 {% do db_seed.configs.add("apply_db_seed.sh", config_macro.apply_db_seed(values=values), "/apply_db_seed.sh", "0755") %}
 {% do db_seed.set_entrypoint(["/apply_db_seed.sh"]) %}
 {% do db_seed.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -88,9 +84,7 @@
 ]) %}
 
 {% do config.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do config.healthcheck.disable() %}
-{% do config.restart.set_policy("on-failure", 1) %}
-{% do config.deploy.resources.set_profile("low") %}
+{% do config.setup_as_helper() %}
 {% do config.configs.add("config.sh", config_macro.config(values=values, cfg=cfg.x), "/setup/config.sh", "0755") %}
 {% do config.set_entrypoint(["/setup/config.sh"]) %}
 {% do config.depends.add_dependency(values.consts.db_seed_apply_container_name, "service_completed_successfully") %}
