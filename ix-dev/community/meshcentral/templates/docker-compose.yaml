@@ -3,12 +3,10 @@
 
 {% set c1 = tpl.add_container(values.consts.meshcentral_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {"user": values.consts.db_user, "password": values.meshcentral.db_password, "database": values.consts.db_name, "volume": values.storage.postgres_data} %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.meshcentral.postgres_image_selector, pg_config, perm_container) %}
 
-{# {% do c1.set_user(values.run_as.user, values.run_as.group) %} #}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health.ashx", "scheme": "https"}) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
@@ -25,20 +23,11 @@
 {% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/opt/meshcentral/meshcentral-data", values.storage.data) %}
-{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
-
 {% do c1.add_storage("/opt/meshcentral/meshcentral-files", values.storage.files) %}
-{% do perm_container.add_or_skip_action("files", values.storage.files, perms_config) %}
-
 {% do c1.add_storage("/opt/meshcentral/meshcentral-web", values.storage.web) %}
-{% do perm_container.add_or_skip_action("web", values.storage.web, perms_config) %}
-
 {% do c1.add_storage("/opt/meshcentral/meshcentral-backups", values.storage.backups) %}
-{% do perm_container.add_or_skip_action("backups", values.storage.backups, perms_config) %}
-
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
-  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
