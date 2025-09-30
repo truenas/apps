@@ -1,5 +1,7 @@
 # What is Traefik?
 
+---
+
 ![Traefik Architrecture Image](https://doc.traefik.io/traefik/assets/img/traefik-architecture.png "Traefik Architrecture")
 
 Traefik is an [open-source](https://github.com/traefik/traefik) Application Proxy and the core of the Traefik Hub Runtime Platform.
@@ -14,9 +16,13 @@ Because everything happens automatically, in real time (no restarts, no connecti
 
 ## Setting up Traefik:
 
+---
+
 Will write this when I can screenshot the questions
 
 ## Connecting your Apps:
+
+---
 
 To connect your existing app(s) to Traefik for proxying. Add the following labels to your app(s)
 
@@ -142,3 +148,9 @@ You may feel that some apps should not be publicly accessible. To restrict acces
 Restricting access to multiple domains is a little more complex. I have found that it processes AND `&&` over OR `||` .
 This means that ``Host(`homeassistant.mydomain.com`) || Host(`ha.mydomain.com`) && ClientIP(`10.0.0.156`)`` will only restrict access to `ha.mydomain.com`, while `homeassistant.mydomain.com` remains publicly accessible. To restrict both you have to use ``&& ClientIP(`10.0.0.156`)`` with both Hosts. This would look as following:
 ``Host(`homeassistant.mydomain.com`) && ClientIP(`10.0.0.156`) || Host(`ha.mydomain.com`) && ClientIP(`10.0.0.156`)``
+
+## Developer:
+
+---
+
+When app is accepted, will provide example questions section and docker-dompose configuration for adding GUI options for proxying your app to traefik.
