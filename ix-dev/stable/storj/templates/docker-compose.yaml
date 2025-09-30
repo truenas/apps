@@ -17,7 +17,7 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do setup.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER"]) %}
-{% do setup.setup_as_helper(profile="") %}
+{% do setup.setup_as_helper(profile="", disable_network=false) %}
 {% do setup.configs.add("init.sh", init(values), "/init.sh", "0755") %}
 {% do setup.set_entrypoint(["/bin/sh", "-c", "/init.sh"]) %}
 
@@ -34,10 +34,10 @@
   {% do c.environment.add_env("STORAGE", "%dGB" | format(values.storj.storage_size_gb)) %}
   {% do c.environment.add_env("ADDRESS", values.storj.domain_address) %}
   {% do c.environment.add_env("WALLET", values.storj.wallet_address|string) %}
+  {% do c.environment.add_env("RUN_PARAMS", "--operator.wallet-features=%s"|format(values.storj.wallets | join(",") if values.storj.wallets else "")) %}
   {% do c.environment.add_user_envs(values.storj.additional_envs) %}
 
   {% do c.add_storage("/tmp", {"type": "anonymous"}) %}
-
   {% do c.add_storage(values.consts.identity_tool_dir_files, tpl.funcs.temp_config("identity-tools-tmp")) %}
   {% do c.add_storage(values.consts.identity_dir, values.storage.identity) %}
   {% do c.add_storage(values.consts.config_dir, values.storage.data) %}
