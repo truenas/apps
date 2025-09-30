@@ -117,7 +117,7 @@ def test_http_healthcheck(mock_values):
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD-SHELL",
-        f"""/bin/bash -c '{{ printf 'GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n' >&0; grep 'HTTP' | grep -q '200'; }} 0<>/dev/tcp/127.0.0.1/8080'""",  # noqa
+        f"""/bin/bash -c '{{ printf "GET / HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n" >&0; grep "HTTP" | grep -q "200"; }} 0<>/dev/tcp/127.0.0.1/8080'""",  # noqa
     ]
 
 
