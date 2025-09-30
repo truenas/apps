@@ -140,7 +140,9 @@ You may feel that some apps should not be publicly accessible. To restrict acces
 #### Multiple domains & Access restriction:
 
 Restricting access to multiple domains is a little more complex. I have found that it processes AND `&&` over OR `||` .
-This means that ``Host(`homeassistant.mydomain.com`) || Host(`ha.mydomain.com`) && ClientIP(`10.0.0.156`)`` will only restrict access to `ha.mydomain.com`, while `homeassistant.mydomain.com` remains publicly accessible. To restrict both you have to use ``&& ClientIP(`10.0.0.156`)`` with both Hosts. This would look as following:
+This means that ``Host(`homeassistant.mydomain.com`) || Host(`ha.mydomain.com`) && ClientIP(`10.0.0.156`)`` will only restrict access to `ha.mydomain.com`, while `homeassistant.mydomain.com` remains publicly accessible.
+To restrict both you have to use ``&& ClientIP(`10.0.0.156`)`` with both Hosts.
+This would look as following:
 ``Host(`homeassistant.mydomain.com`) && ClientIP(`10.0.0.156`) || Host(`ha.mydomain.com`) && ClientIP(`10.0.0.156`)``
 
 ## Developer:
