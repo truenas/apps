@@ -142,19 +142,30 @@
 
 
 {# Add Labels XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX #}
-
+{# Enable traefik in case of webui_secure or proxy_truenas_enabled #}
+{% do traefik.labels.add_label("traefik.enable", "true") %}
 
 {# Add conditional labels #}
+{# Set Router for secure webui #}
 {% if values.network.webui_secure %}
-  {% do traefik.labels.add_label("traefik.enable", "true") %}
   {% do traefik.labels.add_label("traefik.http.routers.traefik.rule", "Host(`%s`)"|format(values.network.webui_domain)) %}
   {% do traefik.labels.add_label("traefik.http.routers.traefik.entrypoints", "websecure") %}
   {% do traefik.labels.add_label("traefik.http.routers.traefik.service", "api@internal") %}
-  {% do traefik.labels.add_label("traefik.http.routers.traefik.tls", "true") %}
   {% do traefik.labels.add_label("traefik.docker.network", values.network.webui_docker_network) %}
 {% endif %}
 {% if values.network.webui_resolver != "none" %}
   {% do traefik.labels.add_label("traefik.http.routers.traefik.tls.certresolver", values.network.webui_resolver) %}
+{% endif %}
+
+{# Set router for truenas #}
+{% if values.network.proxy_truenas.enabled %}
+  {% do traefik.labels.add_label("traefik.http.routers.truenas.rule", "Host(`%s`)"|format(values.network.proxy_truenas.domain)) %}
+  {% do traefik.labels.add_label("traefik.http.routers.truenas.entrypoints", "websecure") %}
+  {% do traefik.labels.add_label("traefik.http.routers.truenas.service", "truenas") %}
+  {% do traefik.labels.add_label("traefik.http.services.truenas.loadbalancer.server.url", "%s://%s:%d"|format(values.network.proxy_truenas.scheme, values.network.proxy_truenas.ipaddress, values.network.proxy_truenas.port_number)) %}
+{% endif %}
+{% if values.network.proxy_truenas.resolver != "none" %}
+  {% do traefik.labels.add_label("traefik.http.routers.truenas.tls.certresolver", values.network.proxy_truenas.resolver) %}
 {% endif %}
 
 {# Set Traefik_Network_Connector as second container #}
