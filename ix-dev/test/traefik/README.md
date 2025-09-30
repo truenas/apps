@@ -20,6 +20,21 @@ Will write this when I can screenshot the questions
 
 To connect your existing app(s) to Traefik for proxying. Add the following labels to your app(s)
 
+You will be seeing many tables that look as following:
+
+| Key:              | Value:            |
+| ----------------- | ----------------- |
+| `example.label` | `example value` |
+
+Every app has a section for custom labels, usually called "Labels Configuration"
+You can Add new labels with the add button at the top right, outside of any drawn circles.
+The `KEY` is to be entered in the red circled field.
+The `VALUE` is to be entered in the green circled field.
+
+When adding a label, you must specify the container this applies to. When there are multiple options it is up to you to figure out which container to use.
+
+![Label Configuration Example](./README_Images/Label_Configuration.png "Label Example")
+
 ### Required labels:
 
 | Key:                                 | Value:                  |
