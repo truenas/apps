@@ -2,6 +2,27 @@
 import os
 import yaml
 
+
+def ensure_maintainer(data: dict):
+    data["maintainers"][0]["email"] = "dev@truenas.com"
+    return data
+
+
+def bump_version(data: dict):
+    version = data["version"]
+    parts = version.split(".")
+    parts[2] = str(int(parts[2]) + 1)
+    data["version"] = ".".join(parts)
+    data["maintainers"][0]["email"] = "dev@truenas.com"
+    return data
+
+
+def get_yaml_data(file: str):
+    with open(file, "r") as f:
+        data = yaml.safe_load(f)
+        return data
+
+
 for train in os.listdir("ix-dev"):
     # if its not dir skip
     if not os.path.isdir(os.path.join("ix-dev", train)):
@@ -10,21 +31,17 @@ for train in os.listdir("ix-dev"):
         # if its not dir skip
         if not os.path.isdir(os.path.join("ix-dev", train, app)):
             continue
-        # load question.yaml
         file = os.path.join("ix-dev", train, app, "app.yaml")
-        with open(file, "r") as f:
-            data = yaml.safe_load(f)
-            if not data:
-                print("no app.yaml", train, app)
-                continue
-            if not data["lib_version"] == "2.1.52":
-                print("wrong lib_version", train, app, data["lib_version"])
-                continue
 
-            version = data["version"]
-            parts = version.split(".")
-            parts[2] = str(int(parts[2]) + 1)
-            data["version"] = ".".join(parts)
-            data["maintainers"][0]["email"] = "dev@truenas.com"
-            with open(file, "w") as f:
-                yaml.safe_dump(data, f)
+        data = get_yaml_data(file)
+        if not data:
+            print("no app.yaml", train, app)
+            continue
+        if not data["lib_version"] == "2.1.53":
+            print("wrong lib_version", train, app, data["lib_version"])
+            continue
+
+        data = ensure_maintainer(data)
+        data = bump_version(data)
+        with open(file, "w") as f:
+            yaml.safe_dump(data, f)
