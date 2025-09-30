@@ -2,22 +2,25 @@
 const cfgPath = "{{ values.consts.config_path }}";
 const fs = require('fs');
 
+console.log("Starting MeshCentral setup script...");
+console.log("Configuration file path: " + cfgPath);
+
 let data = {};
 if (!fs.existsSync(cfgPath)) {
-console.log(`File [${cfgPath}] does not exist, creating with defaults...`);
-data = {
-"domains": {
-"": {
-"title": "TrueNAS MeshCentral",
-"newAccounts": true,
-"minify": true,
-"localSessionRecording": true
-}
-}
-};
+  console.log(`File [${cfgPath}] does not exist, creating with defaults...`);
+  data = {
+    "domains": {
+      "": {
+        "title": "TrueNAS MeshCentral",
+        "newAccounts": true,
+        "minify": true,
+        "localSessionRecording": true
+      }
+    }
+  };
 } else {
-console.log(`File [${cfgPath}] exists, loading...`);
-data = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  console.log(`File [${cfgPath}] exists, loading...`);
+  data = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
 }
 
 console.log(`Updating [${cfgPath}] file...`);
@@ -46,9 +49,9 @@ data["settings"]["cleanNpmCacheOnUpdate"] = false;
 
 console.log("Disallow admins to update the server from the \"My Server\" tab...");
 for (const domain of Object.keys(data["domains"])) {
-const domainData = data["domains"][domain];
-if (!data["domains"][domain]["myServer"]) data["domains"][domain]["myServer"] = {};
-data["domains"][domain]["myServer"]["Upgrade"] = false;
+  const domainData = data["domains"][domain];
+  if (!data["domains"][domain]["myServer"]) data["domains"][domain]["myServer"] = {};
+  data["domains"][domain]["myServer"]["Upgrade"] = false;
 }
 
 fs.writeFileSync(cfgPath, JSON.stringify(data, null, 2));
@@ -58,8 +61,10 @@ console.log("Done!\n\n");
 {% macro setup_sh(values) %}
 #!/bin/bash
 
-id
-ls -la {{ values.consts.config_path }}
 node /ix-setup.js || { echo "Setup script failed!"; exit 1; }
+id
+ls -la /opt/meshcentral
+ls -la /opt/meshcentral/meshcentral-data
+ls -la {{ values.consts.config_path }}
 bash /opt/meshcentral/entrypoint.sh || { echo "Entrypoint script failed!"; exit 1; }
 {% endmacro %}
