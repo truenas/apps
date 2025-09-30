@@ -5,6 +5,10 @@ const fs = require('fs');
 console.log("Starting MeshCentral setup script...");
 console.log("Configuration file path: " + cfgPath);
 
+const fileExists = fs.existsSync(cfgPath);
+fileExists ? console.log(`File [${cfgPath}] exists, loading...`) : console.log(`File [${cfgPath}] does not exist, creating with defaults...`);
+const data = fileExists ? JSON.parse(fs.readFileSync(cfgPath, 'utf8')) : {};
+
 const defaults = [
   [["domains", "", "title"], "TrueNAS MeshCentral"],
   [["domains", "", "newAccounts"], true],
@@ -12,13 +16,7 @@ const defaults = [
   [["domains", "", "localSessionRecording"], true]
 ];
 
-const fileExists = fs.existsSync(cfgPath);
-fileExists ? console.log(`File [${cfgPath}] exists, loading...`) : console.log(`File [${cfgPath}] does not exist, creating with defaults...`);
-
-const data = fileExists ? JSON.parse(fs.readFileSync(cfgPath, 'utf8')) : {};
-
-const settings = [
-  ...(fileExists ? [] : defaults),
+const globalSettings = [
   [["$schema"], "https://raw.githubusercontent.com/Ylianst/MeshCentral/master/meshcentral-config-schema.json"],
   // Those does not make sense in a container
   [["settings", "selfUpdate"], false],
@@ -52,12 +50,22 @@ function applyValue(keys, value) {
   obj[keys[keys.length - 1]] = value;
 }
 
+if (!fileExists) {
+  console.log("Applying default settings...");
+  for (const [keys, value] of defaults) {
+    applyValue(keys, value);
+  }
+};
+
+console.log("Applying domain settings...");
 if (!data["domains"]) data["domains"] = {};
-for (const [keys, value] of settings) {
+for (const [keys, value] of globalSettings) {
   applyValue(keys, value);
 }
+
+console.log("Applying global settings...");
 for (const domain of Object.keys(data["domains"])) {
-    applyValue(["domains", domain, "myServer", "Upgrade"], false);
+  applyValue(["domains", domain, "myServer", "Upgrade"], false);
 }
 
 fs.writeFileSync(cfgPath, JSON.stringify(data, null, 2));
