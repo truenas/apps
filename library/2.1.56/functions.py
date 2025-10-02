@@ -116,6 +116,8 @@ class Functions:
                 )
 
             result = {
+                "netloc": parsed.netloc,
+                "scheme": parsed.scheme,
                 "host": parsed.hostname,
                 "port": parsed.port,
             }
