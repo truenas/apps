@@ -9,5 +9,9 @@ until [ -f "{{ values.consts.config_dir }}/setup.done" ]; do
   echo "Waiting for Storj to be setup..."; sleep 5;
 done
 
+{%- if values.storj.wallets %}
+/entrypoint --operator.wallet-features={{ values.storj.wallets | join(",") }}
+{%- else %}
 /entrypoint
+{%- endif %}
 {%- endmacro %}
