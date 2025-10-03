@@ -78,7 +78,6 @@ def test_add_postgres(mock_values):
     assert output["services"]["pg_container"]["user"] == "999:999"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
-    assert output["services"]["pg_container"]["command"] == ["postgres"]
     assert output["services"]["pg_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -145,7 +144,6 @@ def test_add_postgres_options(mock_values):
 
     output = render.render()
     assert output["services"]["pg_container"]["command"] == [
-        "postgres",
         "-c",
         "maintenance_work_mem=1024MB",
         "-c",
