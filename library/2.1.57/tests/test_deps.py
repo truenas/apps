@@ -123,6 +123,34 @@ def test_add_postgres(mock_values):
     assert output["services"]["perms_container"]["restart"] == "on-failure:1"
 
 
+def test_add_postgres_options(mock_values):
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    render.deps.postgres(
+        "pg_container",
+        "pg_image",
+        {
+            "user": "test_user",
+            "password": "test_@password",
+            "database": "test_database",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "additional_options": {"maintenance_work_mem": "1024MB", "max_connections": "100"},
+        },
+        perms_container,
+    )
+
+    output = render.render()
+    assert output["services"]["pg_container"]["command"] == [
+        "-c",
+        "maintenance_work_mem=1024MB",
+        "-c",
+        "max_connections=100",
+    ]
+
+
 def test_add_redis_missing_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
