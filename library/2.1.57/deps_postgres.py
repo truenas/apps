@@ -54,11 +54,11 @@ class PostgresContainer:
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
 
-        opts = ["postgres"]
+        opts = []
         for k, v in config.get("additional_options", {}).items():
             opts.extend(["-c", f"{k}={v}"])
-
-        c.set_command(opts)
+        if opts:
+            c.set_command(opts)
 
         common_variables = {
             "POSTGRES_USER": config["user"],
