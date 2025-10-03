@@ -42,6 +42,6 @@ for train in os.listdir("ix-dev"):
             continue
 
         data = ensure_maintainer(data)
-        # data = bump_version(data)
-        # with open(file, "w") as f:
-        #     yaml.safe_dump(data, f)
+        data = bump_version(data)
+        with open(file, "w") as f:
+            yaml.safe_dump(data, f)
