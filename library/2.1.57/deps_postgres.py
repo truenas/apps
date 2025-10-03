@@ -49,6 +49,7 @@ class PostgresContainer:
 
         c.set_user(999, 999)
         c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"]})
+        c.set_shm_size_mb(256)
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
 
