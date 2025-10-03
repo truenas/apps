@@ -23,6 +23,7 @@ class PostgresConfig(TypedDict):
     database: str
     port: NotRequired[int]
     volume: "IxStorage"
+    additional_options: NotRequired[dict]
 
 
 MAX_POSTGRES_VERSION = 17
@@ -52,6 +53,12 @@ class PostgresContainer:
         c.set_shm_size_mb(256)
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
+
+        opts = ["postgres"]
+        for k, v in config.get("additional_options", {}).items():
+            opts.extend(["-c", f"{k}={v}"])
+
+        c.set_command(opts)
 
         common_variables = {
             "POSTGRES_USER": config["user"],
