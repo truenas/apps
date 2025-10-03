@@ -10,9 +10,6 @@ fi
 echo "Updating configuration file at {{ cfg_file }}"
 
 {%- set base_cmd = "dasel put --file %s --type" |format(cfg_file) %}
-{%- for item in values.garage.additional_options %}
-{{ base_cmd }} {{ item.type }} "{{ item.path }}" --value "{{ item.value }}"
-{%- endfor %}
 
 {{ base_cmd }} int ".replication_factor" --value 1
 {{ base_cmd }} string ".metadata_dir" --value "{{ values.consts.metadata_path }}"
@@ -28,6 +25,10 @@ echo "Updating configuration file at {{ cfg_file }}"
 {{ base_cmd }} string ".s3_web.root_domain" --value "{{ values.garage.s3_web_root_domain }}"
 
 {{ base_cmd }} string ".admin.api_bind_addr" --value "0.0.0.0:{{ values.network.admin_port.port_number }}"
+
+{%- for item in values.garage.additional_options %}
+{{ base_cmd }} {{ item.type }} "{{ item.path }}" --value "{{ item.value }}"
+{%- endfor %}
 
 echo "Configuration file updated successfully at {{ cfg_file }}"
 {% endmacro %}
