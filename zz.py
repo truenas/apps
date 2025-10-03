@@ -37,11 +37,11 @@ for train in os.listdir("ix-dev"):
         if not data:
             print("no app.yaml", train, app)
             continue
-        if not data["lib_version"] == "2.1.53":
+        if not data["lib_version"] == "2.1.57":
             print("wrong lib_version", train, app, data["lib_version"])
             continue
 
         data = ensure_maintainer(data)
-        data = bump_version(data)
-        with open(file, "w") as f:
-            yaml.safe_dump(data, f)
+        # data = bump_version(data)
+        # with open(file, "w") as f:
+        #     yaml.safe_dump(data, f)
