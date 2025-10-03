@@ -23,7 +23,7 @@ class PostgresConfig(TypedDict):
     database: str
     port: NotRequired[int]
     volume: "IxStorage"
-    additional_options: NotRequired[dict]
+    additional_options: NotRequired[dict[str, str]]
 
 
 MAX_POSTGRES_VERSION = 17
