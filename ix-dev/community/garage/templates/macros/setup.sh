@@ -14,7 +14,7 @@ echo "Updating configuration file at {{ cfg_file }}"
 {{ base_cmd }} {{ item.type }} "{{ item.path }}" --value "{{ item.value }}"
 {%- endfor %}
 
-{{ base_cmd }} int ".replication_factor" --value 1
+{{ base_cmd }} int ".replication_factor" --value "{{ values.garage.replication_factor }}"
 {{ base_cmd }} string ".metadata_dir" --value "{{ values.consts.metadata_path }}"
 {{ base_cmd }} string ".data_dir" --value "{{ values.consts.data_path }}"
 {{ base_cmd }} string ".metadata_snapshots_dir" --value "{{ values.consts.metadata_snapshots_path }}"
