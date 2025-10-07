@@ -1,0 +1,262 @@
+groups:
+  - name: Nevu Configuration
+    description: Configure Nevu for Plex
+  - name: User and Group Configuration
+    description: Configure User and Group for Nevu
+  - name: Network Configuration
+    description: Configure Network for Nevu
+  - name: Storage Configuration
+    description: Configure Storage for Nevu
+  - name: Resources Configuration
+    description: Configure Resources for Nevu
+
+questions:
+  - variable: TZ
+    group: Nevu Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: nevu
+    label: ""
+    group: Nevu Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: plex_server
+          label: Plex Server URL
+          description: The URL of the Plex server that Nevu will connect to (e.g., http://your-plex-server:32400)
+          schema:
+            type: string
+            required: true
+            default: "http://plex-server:32400"
+        - variable: disable_tls_verify
+          label: Disable TLS Verification
+          description: If enabled, the proxy will not check any HTTPS SSL certificates
+          schema:
+            type: boolean
+            default: false
+        - variable: disable_nevu_sync
+          label: Disable Nevu Sync
+          description: If enabled, Nevu sync (watch together) will be disabled
+          schema:
+            type: boolean
+            default: false
+        - variable: disable_request_logging
+          label: Disable Request Logging
+          description: If enabled, the server will not log any requests
+          schema:
+            type: boolean
+            default: false
+        - variable: disable_global_reviews
+          label: Disable Global Reviews
+          description: If enabled, Nevu global reviews will be disabled
+          schema:
+            type: boolean
+            default: false
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Nevu files will be owned by.
+          schema:
+            type: int
+            min: 2
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Nevu files will be owned by.
+          schema:
+            type: int
+            min: 2
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: port
+          label: Server Port
+          description: The port that Nevu will use for its own web interface and API.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Published (Host will bind to this port)
+                    - value: ""
+                      description: Disabled (No host port binding)
+              - variable: port_number
+                label: Port Number
+                description: The port number to use (sets both PORT and LISTEN_PORT environment variables)
+                schema:
+                  type: int
+                  default: 3000
+                  min: 1
+                  max: 65535
+                  required: true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. This is recommended for discovery to work properly.
+          schema:
+            type: boolean
+            default: true
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Nevu Data Storage
+          description: The path to store Nevu data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ixVolume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ixVolume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ixVolume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to create.
+                      schema:
+                        type: string
+                        required: true
+                        immutable: true
+                        default: "nevu-data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+                    - variable: acl_path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", true]]
+                        required: true
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for Nevu.
+                schema:
+                  type: string
+                  max_length: 6
+                  valid_chars: '^(0\.[1-9]|[1-9][0-9]*(\.[0-9])?)$'
+                  valid_chars_error: |
+                    Please enter a valid number with up to 1 decimal place.
+                    Decimal point is only allowed for values between 0.1 and 0.9.
+                  default: "2.0"
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for Nevu.
+                schema:
+                  type: int
+                  default: 2048
+                  min: 128
+                  required: true
