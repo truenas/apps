@@ -17,12 +17,17 @@
   "database": "dummy",
   "password": values.asigra.db_password,
   "volume": values.storage.postgres_data,
+  "additional_options": {
+    "maintenance_work_mem": "%dMB" | format(values.resources.limits.memory),
+    "shared_buffers": "%dMB" | format(values.resources.limits.memory),
+  }
 } %}
 {% set perms_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_conf, perms_container) %}
 
 {# Asigra needs the hostname to be set, even if the PGHOST is set and internal dns resolves to the container #}
 {% do postgres.container.set_hostname(values.consts.postgres_container_name) %}
+{% do postgres.container.set_shm_size_mb(values.asigra.postgres_shm_size) %}
 
 {# Create asigra containers #}
 {% set asigra_container_names = namespace(x=[]) %}
