@@ -137,11 +137,6 @@ module.exports = {
       ["jenkins/jenkins"]
     ),
     customVersioning(
-      // 1d42f9ac3-v1.68.2-go1.18.8
-      "^[a-z0-9]{9}-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-go\\d+\\.\\d+\\.\\d+$",
-      ["storjlabs/storagenode"]
-    ),
-    customVersioning(
       // 1.2.3.4, but not 1.2.0.4 (3rd digit 0 equals beta)
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>[1-9]\\d*)\\.(?<build>\\d+)$",
       ["emby/embyserver"]
@@ -172,7 +167,7 @@ module.exports = {
       ["ghcr.io/umami-software/umami"]
     ),
     customVersioning(
-      // 20250122_091948  {year}{month}{day}_{build}
+      // 20250122_091948 {year}{month}{day}_{build}
       "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
       ["ghcr.io/nextcloud-releases/aio-imaginary"]
     ),
@@ -305,6 +300,11 @@ module.exports = {
       // apache-2.37.0
       "^apache-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["kimai/kimai2"]
+    ),
+    customVersioning(
+      // 4.0.0-beta.434
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
+      ["ghcr.io/coollabsio/coolify"]
     ),
   ],
 };
