@@ -5,34 +5,19 @@
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/status"}) %}
 
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("LISTEN_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("PLEX_SERVER", values.nevu.plex_server) %}
-
-{% do c1.environment.add_env("PORT", values.network.port.port_number) %}
-{% do c1.environment.add_env("LISTEN_PORT", values.network.port.port_number) %}
-
-{% if values.nevu.disable_tls_verify %}
-  {% do c1.environment.add_env("DISABLE_TLS_VERIFY", "true") %}
-{% endif %}
-{% if values.nevu.disable_nevu_sync %}
-  {% do c1.environment.add_env("DISABLE_NEVU_SYNC", "true") %}
-{% endif %}
-{% if values.nevu.disable_request_logging %}
-  {% do c1.environment.add_env("DISABLE_REQUEST_LOGGING", "true") %}
-{% endif %}
-{% if values.nevu.disable_global_reviews %}
-  {% do c1.environment.add_env("DISABLE_GLOBAL_REVIEWS", "true") %}
-{% endif %}
-
+{% do c1.environment.add_env("DISABLE_TLS_VERIFY", values.nevu.disable_tls_verify) %}
+{% do c1.environment.add_env("DISABLE_NEVU_SYNC", values.nevu.disable_nevu_sync) %}
+{% do c1.environment.add_env("DISABLE_REQUEST_LOGGING", values.nevu.disable_request_logging) %}
+{% do c1.environment.add_env("DISABLE_GLOBAL_REVIEWS", values.nevu.disable_global_reviews) %}
 {% do c1.environment.add_user_envs(values.nevu.additional_envs) %}
 
-{% if values.network.host_network %}
-  {% do c1.set_network_mode("host") %}
-{% else %}
-  {% do c1.add_port(values.network.port, {"container_port": values.network.port.port_number}) %}
-  {% do c1.add_port(values.consts.discovery_port_config, {"container_port": values.consts.discovery_port, "protocol": "udp"}) %}
-{% endif %}
+{% do c1.add_port(values.network.port) %}
+{% do c1.add_port(values.consts.discovery_port, {"container_port": values.consts.discovery_port, "protocol": "udp"}) %}
 
 {% do c1.add_storage("/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
@@ -41,5 +26,7 @@
   {% do perm_container.activate() %}
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
