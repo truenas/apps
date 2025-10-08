@@ -1,12 +1,14 @@
 groups:
   - name: Nevu Configuration
-    description: Configure Nevu for Plex
+    description: Configure Nevu
   - name: User and Group Configuration
     description: Configure User and Group for Nevu
   - name: Network Configuration
     description: Configure Network for Nevu
   - name: Storage Configuration
     description: Configure Storage for Nevu
+  - name: Labels Configuration
+    description: Configure Labels for Nevu
   - name: Resources Configuration
     description: Configure Resources for Nevu
 
@@ -33,7 +35,7 @@ questions:
           schema:
             type: string
             required: true
-            default: "http://plex-server:32400"
+            default: ""
         - variable: disable_tls_verify
           label: Disable TLS Verification
           description: If enabled, the proxy will not check any HTTPS SSL certificates
@@ -90,7 +92,7 @@ questions:
           description: The user id that Nevu files will be owned by.
           schema:
             type: int
-            min: 2
+            min: 568
             default: 568
             required: true
         - variable: group
@@ -98,7 +100,7 @@ questions:
           description: The group id that Nevu files will be owned by.
           schema:
             type: int
-            min: 2
+            min: 568
             default: 568
             required: true
 
@@ -108,31 +110,102 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: port
-          label: Server Port
-          description: The port that Nevu will use for its own web interface and API.
+        - variable: web_port
+          label: WebUI Port
           schema:
             type: dict
             attrs:
               - variable: bind_mode
-                label: Bind Mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: "published"
                   enum:
                     - value: "published"
-                      description: Published (Host will bind to this port)
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
                     - value: ""
-                      description: Disabled (No host port binding)
+                      description: None
               - variable: port_number
                 label: Port Number
-                description: The port number to use (sets both PORT and LISTEN_PORT environment variables)
                 schema:
                   type: int
-                  default: 3000
+                  default: 30238
                   min: 1
                   max: 65535
                   required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: discovery_port
+          label: Discovery Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 44201
+                  show_if: [["bind_mode", "=", "published"]]
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: host_network
           label: Host Network
           description: |
@@ -148,8 +221,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Nevu Data Storage
-          description: The path to store Nevu data.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -161,18 +233,18 @@ questions:
                 schema:
                   type: string
                   required: true
-                  default: "ixVolume"
+                  default: "ix_volume"
                   enum:
                     - value: "host_path"
                       description: Host Path (Path that already exists on the system)
-                    - value: "ixVolume"
+                    - value: "ix_volume"
                       description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
                 description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
-                  show_if: [["type", "=", "ixVolume"]]
+                  show_if: [["type", "=", "ix_volume"]]
                   $ref:
                     - "normalize/ix_volume"
                   attrs:
@@ -184,12 +256,12 @@ questions:
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
-                      description: The name of the dataset to create.
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
-                        immutable: true
-                        default: "nevu-data"
+                        hidden: true
+                        default: "data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -214,6 +286,8 @@ questions:
                         type: dict
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
+                        $ref:
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
                       description: The host path to use for storage.
@@ -221,14 +295,199 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-                    - variable: acl_path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", true]]
-                        required: true
 
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: nevu-for-plex
+                            description: nevu-for-plex
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -244,19 +503,13 @@ questions:
                 label: CPUs
                 description: CPUs limit for Nevu.
                 schema:
-                  type: string
-                  max_length: 6
-                  valid_chars: '^(0\.[1-9]|[1-9][0-9]*(\.[0-9])?)$'
-                  valid_chars_error: |
-                    Please enter a valid number with up to 1 decimal place.
-                    Decimal point is only allowed for values between 0.1 and 0.9.
-                  default: "2.0"
+                  type: int
+                  default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
                 description: Memory limit for Nevu.
                 schema:
                   type: int
-                  default: 2048
-                  min: 128
+                  default: 4096
                   required: true
