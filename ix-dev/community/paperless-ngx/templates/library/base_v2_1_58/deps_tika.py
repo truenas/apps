@@ -53,7 +53,7 @@ class TikaContainer:
         if not repo:
             raise RenderError("Could not determine repo")
         if repo not in supported_repos:
-            raise RenderError(f"Unsupported repo [{repo}] for solr. Supported repos: {', '.join(supported_repos)}")
+            raise RenderError(f"Unsupported repo [{repo}] for tika. Supported repos: {', '.join(supported_repos)}")
         return repo
 
     def get_port(self):
