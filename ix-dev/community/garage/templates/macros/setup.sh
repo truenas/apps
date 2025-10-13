@@ -25,7 +25,6 @@ echo "Updating configuration file at {{ cfg_file }}"
 {{ base_cmd }} string ".s3_api.s3_region" --value "{{ values.garage.region }}"
 
 {{ base_cmd }} string ".s3_web.bind_addr" --value "0.0.0.0:{{ values.network.s3_web_port.port_number }}"
-{{ base_cmd }} string ".s3_web.root_domain" --value "{{ values.garage.s3_web_root_domain }}"
 
 {{ base_cmd }} string ".admin.api_bind_addr" --value "0.0.0.0:{{ values.network.admin_port.port_number }}"
 
