@@ -642,15 +642,25 @@ class AppMetadataUpdater:
             logger.warning(f"{app_manifest.name}: missing changelog_url")
 
         # Validate media URLs
-        expected_base_url = f"https://media.sys.truenas.net/apps/{app_name}"
+        expected_base_url = "https://media.sys.truenas.net/apps"
+        app_expected_base_url = f"{expected_base_url}/{app_name}"
 
         icon_url = app_config.get("icon", "")
-        if not icon_url.startswith(f"{expected_base_url}/icons/"):
+        if not icon_url.startswith(expected_base_url):
+            logger.error(f"{app_manifest.name}: invalid icon URL: {icon_url}. Must use {expected_base_url} as base")
+            sys.exit(1)
+
+        if not icon_url.startswith(f"{app_expected_base_url}/icons/"):
             logger.warning(f"{app_manifest.name}: invalid icon URL: {icon_url}")
 
-        for screenshot_url in app_config.get("screenshots", []):
-            if not screenshot_url.startswith(f"{expected_base_url}/screenshots/"):
-                logger.warning(f"{app_manifest.name}: invalid screenshot URL: {screenshot_url}")
+        for ss_url in app_config.get("screenshots", []):
+            if not ss_url.startswith(expected_base_url):
+                logger.error(
+                    f"{app_manifest.name}: invalid screenshot URL: {ss_url}. Must use {expected_base_url} as base"
+                )
+                sys.exit(1)
+            if not ss_url.startswith(f"{app_expected_base_url}/screenshots/"):
+                logger.warning(f"{app_manifest.name}: invalid screenshot URL: {ss_url}")
 
 
 class TrueNASAppCapabilityManager:
