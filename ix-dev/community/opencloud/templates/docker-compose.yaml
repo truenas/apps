@@ -59,7 +59,10 @@
 {% if values.network.metrics_port.bind_mode %}
   {% do c1.environment.add_env("PROXY_DEBUG_ADDR", ":%d"|format(values.network.metrics_port.port_number)) %}
 {% endif %}
-{% do c1.environment.add_env("OC_URL", values.opencloud.app_url) %}
+{% set url = tpl.funcs.url_to_dict(values.opencloud.app_url, true) %}
+{% if url.scheme != "https" %}{% do tpl.funcs.fail("The app URL must be HTTPS") %}{% endif %}
+{# We use netloc here because it ensures that there is no trailing slash #}
+{% do c1.environment.add_env("OC_URL", "%s://%s"|format(url.scheme, url.netloc)) %}
 {% do c1.environment.add_env("OC_INSECURE", values.opencloud.insecure_access) %}
 
 {% if values.network.certificate_id %}
