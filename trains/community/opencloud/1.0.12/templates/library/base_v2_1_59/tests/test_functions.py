@@ -105,22 +105,29 @@ def test_funcs(mock_values):
         {
             "func": "url_to_dict",
             "values": ["192.168.1.1:8080"],
-            "expected": {"host": "192.168.1.1", "port": 8080, "scheme": "http", "netloc": "192.168.1.1:8080"},
+            "expected": {
+                "host": "192.168.1.1",
+                "port": 8080,
+                "scheme": "http",
+                "netloc": "192.168.1.1:8080",
+                "path": "",
+            },
         },
         {
             "func": "url_to_dict",
             "values": ["[::]:8080"],
-            "expected": {"host": "::", "port": 8080, "scheme": "http", "netloc": "[::]:8080"},
+            "expected": {"host": "::", "port": 8080, "scheme": "http", "netloc": "[::]:8080", "path": ""},
         },
         {
             "func": "url_to_dict",
-            "values": ["[::]:8080", True],
+            "values": ["[::]:8080/abc/", True],
             "expected": {
                 "host": "[::]",
                 "port": 8080,
                 "host_no_brackets": "::",
                 "scheme": "http",
                 "netloc": "[::]:8080",
+                "path": "/abc/",
             },
         },
     ]
