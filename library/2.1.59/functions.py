@@ -120,6 +120,7 @@ class Functions:
                 "scheme": parsed.scheme,
                 "host": parsed.hostname,
                 "port": parsed.port,
+                "path": parsed.path,
             }
             if v6_brackets and parsed.hostname and ":" in parsed.hostname:
                 result["host"] = f"[{parsed.hostname}]"
