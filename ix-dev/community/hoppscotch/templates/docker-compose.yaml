@@ -26,12 +26,22 @@
   {% do c.environment.add_env("VITE_BASE_URL", values.hoppscotch.urls.frontend) %}
   {% do c.environment.add_env("VITE_SHORTCODE_BASE_URL", values.hoppscotch.urls.frontend) %}
   {% do c.environment.add_env("VITE_ADMIN_URL", values.hoppscotch.urls.admin) %}
+  {% set parsed = tpl.funcs.url_to_dict(values.hoppscotch.urls.app_bundle) %}
+  {#
+    App Bundle URL has to be also added in multiple formats
+    1) app://hoppscotch (Static)
+    2) https://app.example.com (As is)
+    3) app://app_example_com (Host with dots replaced by underscores)
+    4) http://app.app_example_com (Always HTTP, with app. prefix + host with dots replaced by underscores)
+  #}
   {% do c.environment.add_env("WHITELISTED_ORIGINS", ",".join([
     values.hoppscotch.urls.backend,
     values.hoppscotch.urls.frontend,
     values.hoppscotch.urls.admin,
     values.hoppscotch.urls.app_bundle,
     "app://hoppscotch",
+    "app://%s"|format(parsed.host.replace(".", "_")),
+    "http://app.%s"|format(parsed.host.replace(".", "_")),
   ]) ) %}
 
   {% do c.environment.add_user_envs(values.hoppscotch.additional_envs) %}
