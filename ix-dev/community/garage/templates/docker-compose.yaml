@@ -7,11 +7,25 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% set cfg = [
+  {"type": "string", "path": ".metadata_dir", "value": values.consts.metadata_path},
+  {"type": "string", "path": ".data_dir", "value": values.consts.data_path},
+  {"type": "string", "path": ".metadata_snapshots_dir", "value": values.consts.metadata_snapshots_path},
+
+  {"type": "string", "path": ".rpc_bind_addr", "value": "0.0.0.0:%d"|format(values.network.rpc_port.port_number)},
+  {"type": "string", "path": ".s3_api.api_bind_addr", "value": "0.0.0.0:%d"|format(values.network.s3_port.port_number)},
+  {"type": "string", "path": ".s3_web.bind_addr", "value": "0.0.0.0:%d"|format(values.network.s3_web_port.port_number)},
+  {"type": "string", "path": ".admin.api_bind_addr", "value": "0.0.0.0:%d"|format(values.network.admin_port.port_number)},
+
+  {"type": "string", "path": ".s3_api.s3_region", "value": values.garage.region},
+  {"type": "int", "path": ".replication_factor", "value": values.garage.replication_factor},
+] %}
+
 {# Config #}
 {% do config.set_user(values.run_as.user, values.run_as.group) %}
 {% do config.add_storage(values.consts.config_path, values.storage.config) %}
 {% do config.setup_as_helper() %}
-{% do config.configs.add("config", setup(values), "/config.sh", "0755") %}
+{% do config.configs.add("config", setup(tpl, values, cfg), "/config.sh", "0755") %}
 {% do config.set_entrypoint(["/config.sh"]) %}
 
 {# Web #}
