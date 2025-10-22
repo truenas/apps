@@ -6,27 +6,14 @@ import yaml
 
 
 def migrate(values):
-    values["network"]["server_port"] = {
-        "port_number": values["network"]["server_port"],
-        "bind_mode": "published",
-        "host_ips": [],
-    }
-    values["network"]["rcon_port"] = {
-        "port_number": values["network"]["rcon_port"],
-        "bind_mode": "published",
-        "host_ips": [],
-    }
-
-    values["network"]["additional_ports"] = [
-        {
-            "bind_mode": "published",
-            "port_number": p["published"],
-            "container_port": p["target"],
-            "protocol": p["protocol"],
-            "host_ips": [],
-        }
-        for p in values["network"].get("additional_ports", [])
-    ]
+    auto_pause = False
+    new_env = []
+    for env in values.get("additional_envs", []):
+        if env["name"] == "ENABLE_AUTOPAUSE":
+            auto_pause = env["value"].lower() == "true"
+        else:
+            new_env.append(env)
+    values["minecraft"]["enable_auto_pause"] = auto_pause
 
     return values
 
