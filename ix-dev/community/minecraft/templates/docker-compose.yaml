@@ -1,12 +1,20 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.minecraft_container_name, values.minecraft.image_selector) %}
-{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID", "NET_RAW"]) %}
+{% set caps = namespace(x=["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
 {% do c1.healthcheck.set_custom_test("mc-health") %}
 {% do c1.healthcheck.set_start_period(120) %}
 
+{% if values.minecraft.enable_auto_pause %}
+  {% do c1.environment.add_env("SKIP_SUDO", "TRUE") %}
+  {% do c1.environment.add_env("ENABLE_AUTOPAUSE", "TRUE") %}
+  {% do caps.x.append("NET_RAW") %}
+  {% do tpl.notes.add_info("With auto-pause enabled, User/Group configuration is ignored. Files will be owned by the root user.") %}
+{% endif %}
+
+{% do c1.add_caps(caps.x) %}
+
 {% do c1.environment.add_env("GUI", "FALSE") %}
-{% do c1.environment.add_env("SKIP_SUDO", "TRUE") %}
 {% do c1.environment.add_env("EULA", values.minecraft.eula|string|upper) %}
 {% do c1.environment.add_env("SERVER_PORT", values.network.server_port.port_number) %}
 {% do c1.environment.add_env("VERSION", values.minecraft.version) %}
