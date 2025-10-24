@@ -12,6 +12,7 @@ try:
     from .deps_postgres import PostgresContainer, PostgresConfig
     from .deps_redis import RedisContainer, RedisConfig
     from .deps_solr import SolrContainer, SolrConfig
+    from .deps_tika import TikaContainer, TikaConfig
 except ImportError:
     from deps_elastic import ElasticSearchContainer, ElasticConfig
     from deps_mariadb import MariadbContainer, MariadbConfig
@@ -21,6 +22,7 @@ except ImportError:
     from deps_postgres import PostgresContainer, PostgresConfig
     from deps_redis import RedisContainer, RedisConfig
     from deps_solr import SolrContainer, SolrConfig
+    from deps_tika import TikaContainer, TikaConfig
 
 
 class Deps:
@@ -50,3 +52,6 @@ class Deps:
 
     def solr(self, name: str, image: str, config: SolrConfig, perms_instance: PermsContainer):
         return SolrContainer(self._render_instance, name, image, config, perms_instance)
+
+    def tika(self, name: str, image: str, config: TikaConfig):
+        return TikaContainer(self._render_instance, name, image, config)
