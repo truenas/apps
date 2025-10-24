@@ -620,7 +620,7 @@ def test_add_mongodb(mock_values):
     assert "devices" not in output["services"]["mongodb_container"]
     assert "reservations" not in output["services"]["mongodb_container"]["deploy"]["resources"]
     assert output["services"]["mongodb_container"]["image"] == "mongodb:latest"
-    assert output["services"]["mongodb_container"]["user"] == "999:999"
+    assert output["services"]["mongodb_container"]["user"] == "568:568"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["mongodb_container"]["healthcheck"] == {
@@ -951,4 +951,60 @@ def test_add_solr_unsupported_repo(mock_values):
                 "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
             },
             perms_container,
+        )
+
+
+def test_add_tika(mock_values):
+    mock_values["images"]["tika_image"] = {"repository": "apache/tika", "tag": "3.2.3.0-full"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    render.deps.tika(
+        "tika_container",
+        "tika_image",
+        {
+            "port": 10999,
+        },
+    )
+    output = render.render()
+    assert "devices" not in output["services"]["tika_container"]
+    assert "reservations" not in output["services"]["tika_container"]["deploy"]["resources"]
+    assert output["services"]["tika_container"]["image"] == "apache/tika:3.2.3.0-full"
+    assert output["services"]["tika_container"]["user"] == "568:568"
+    assert output["services"]["tika_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["tika_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert output["services"]["tika_container"]["healthcheck"] == {
+        "test": [
+            "CMD",
+            "wget",
+            "--quiet",
+            "-O",
+            "/dev/null",
+            "http://127.0.0.1:10999/tika",
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
+    }
+    assert output["services"]["tika_container"]["environment"] == {
+        "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+    }
+    assert output["services"]["tika_container"]["command"] == ["--port", "10999"]
+
+
+def test_add_tika_unsupported_repo(mock_values):
+    mock_values["images"]["tika_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        render.deps.tika(
+            "tika_container",
+            "tika_image",
+            {},
         )
