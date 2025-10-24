@@ -53,7 +53,7 @@ class MongoDBContainer:
         c.environment.add_env("MONGO_INITDB_DATABASE", config["database"])
 
         perms_instance.add_or_skip_action(
-            f"{self._name}_mongodb_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
+            f"{self._name}_mongodb_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
         )
 
         self._get_repo(image, ("mongodb"))
