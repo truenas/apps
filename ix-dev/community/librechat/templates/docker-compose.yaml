@@ -28,7 +28,7 @@
 {% set mongo = tpl.deps.mongodb(values.consts.mongo_container_name, "mongo_image", mongo_config, perm_container) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.rag_port_number, "path": "/health"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
 {% do c1.depends.add_dependency(values.consts.mongo_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.rag_container_name, "service_healthy") %}
@@ -38,7 +38,8 @@
 {% do c1.environment.add_env("SEARCH", true) %}
 {% do c1.environment.add_env("MEILI_HOST", meilisearch.get_url()) %}
 {% do c1.environment.add_env("MEILI_MASTER_KEY", values.librechat.meilisearch_master_key) %}
-{% do c1.environment.add_env("MONGO_URI", mongo.get_url("mongodb")) %}
+{% do c1.environment.add_env("JWT_SECRET", values.librechat.jwt_secret) %}
+{% do c1.environment.add_env("MONGO_URI", mongo.get_url("mongodb")+"?authSource=admin") %}
 {% do c1.environment.add_env("RAG_PORT", values.consts.rag_port_number) %}
 {% do c1.environment.add_env("RAG_API_URL", "http://%s:%d"|format(values.consts.rag_container_name, values.consts.rag_port_number)) %}
 {% do c1.environment.add_user_envs(values.librechat.additional_envs) %}
