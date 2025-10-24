@@ -37,7 +37,13 @@ class MongoDBContainer:
 
         c = self._render_instance.add_container(name, image)
 
-        c.set_user(999, 999)
+        user, group = 568, 568
+        run_as = self._render_instance.values.get("run_as")
+        if run_as:
+            user = run_as["user"] or user  # Avoids running as root
+            group = run_as["group"] or group  # Avoids running as root
+
+        c.set_user(user, group)
         c.healthcheck.set_test("mongodb", {"db": config["database"]})
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
