@@ -8,12 +8,17 @@
 {% do c1.healthcheck.set_custom_test("tailscale status") %}
 
 {% set args = namespace(x=[]) %}
-{% if values.tailscale.advertise_exit_node %}
-  {% do args.x.append("--advertise-exit-node") %}
-{% endif %}
-{% if values.tailscale.reset %}
-  {% do args.x.append("--reset") %}
-{% endif %}
+{% set arg_map = {
+  advertise_exit_node: "--advertise-exit-node",
+  reset: "--reset",
+  accept_routes: "--accept-routes",
+}%}
+
+{% for key, value in arg_map.items() %}
+  {% if values.tailscale[key] %}
+    {% do args.x.append(value) %}
+  {% endif %}
+{% endfor %}
 
 {% for arg in values.tailscale.extra_args %}
   {% for key in values.consts.reserved_keys %}
