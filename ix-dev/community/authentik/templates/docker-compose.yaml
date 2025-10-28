@@ -17,12 +17,6 @@
   pg_config, perm_container
 ) %}
 
-{% set redis_config = {
-  "password": values.authentik.redis_password,
-  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
-} %}
-{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
-
 {% do server.set_command(["server"]) %}
 {% do worker.set_command(["worker"]) %}
 
@@ -34,9 +28,6 @@
 
 {% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-
-{% do server.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do worker.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
 {% do server.environment.add_env("AUTHENTIK_LISTEN__HTTP", "0.0.0.0:%d"|format(values.network.http_port.port_number)) %}
 {% do server.environment.add_env("AUTHENTIK_LISTEN__HTTPS", "0.0.0.0:%d"|format(values.network.https_port.port_number)) %}
@@ -55,15 +46,6 @@
 
 {% do server.environment.add_env("AUTHENTIK_POSTGRESQL__PASSWORD", values.authentik.db_password) %}
 {% do worker.environment.add_env("AUTHENTIK_POSTGRESQL__PASSWORD", values.authentik.db_password) %}
-
-{% do server.environment.add_env("AUTHENTIK_REDIS__HOST", values.consts.redis_container_name) %}
-{% do worker.environment.add_env("AUTHENTIK_REDIS__HOST", values.consts.redis_container_name) %}
-
-{% do server.environment.add_env("AUTHENTIK_REDIS__PORT", 6379) %}
-{% do worker.environment.add_env("AUTHENTIK_REDIS__PORT", 6379) %}
-
-{% do server.environment.add_env("AUTHENTIK_REDIS__PASSWORD", values.authentik.redis_password) %}
-{% do worker.environment.add_env("AUTHENTIK_REDIS__PASSWORD", values.authentik.redis_password) %}
 
 {% do server.environment.add_env("AUTHENTIK_SECRET_KEY", values.authentik.secret_key) %}
 {% do worker.environment.add_env("AUTHENTIK_SECRET_KEY", values.authentik.secret_key) %}
