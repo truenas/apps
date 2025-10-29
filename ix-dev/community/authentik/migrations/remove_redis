@@ -7,15 +7,21 @@ import yaml
 
 def migrate(values):
     values["authentik"].pop("redis_password", None)
-    values["labels"] = [
-        {
-            "key": label["key"],
-            "value": label["value"],
-            "containers": filtered_containers,
-        }
-        for label in values["labels"]
-        if (filtered_containers := [container for container in label["containers"] if container != "redis"])
-    ]
+    
+    new_labels = []
+    for label in values["labels"]:
+        filtered_containers = [
+            container for container in label["containers"] 
+            if container != "redis"
+        ]
+        if filtered_containers:
+            new_labels.append({
+                "key": label["key"],
+                "value": label["value"],
+                "containers": filtered_containers,
+            })
+    
+    values["labels"] = new_labels
     return values
 
 
