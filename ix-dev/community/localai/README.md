@@ -1,5 +1,5 @@
-# Ollama
+# LocalAI
 
-[Ollama](https://github.com/ollama/ollama) - Get up and running with large language models.
+[LocalAI](https://localai.io/) - The free, Open Source alternative to OpenAI, Claude and others.
 
-Get up and running with Llama 3.2, Mistral, Gemma 2, and other large language models.
+The free, Open Source alternative to OpenAI, Claude and others. Self-hosted  and local-first.
