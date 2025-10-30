@@ -199,7 +199,7 @@ module.exports = {
     customVersioning(
       // 18.0-20250218
       "^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)$",
-      ["odoo/odoo"]
+      ["odoo"]
     ),
     customVersioning(
       // 1.0.0-hash
