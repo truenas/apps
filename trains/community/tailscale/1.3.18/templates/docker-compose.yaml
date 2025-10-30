@@ -9,10 +9,10 @@
 
 {% set args = namespace(x=[]) %}
 {% set arg_map = {
-  advertise_exit_node: "--advertise-exit-node",
-  reset: "--reset",
-  accept_routes: "--accept-routes",
-}%}
+  "advertise_exit_node": "--advertise-exit-node",
+  "reset": "--reset",
+  "accept_routes": "--accept-routes",
+} %}
 
 {% for key, value in arg_map.items() %}
   {% if values.tailscale[key] %}
@@ -20,13 +20,9 @@
   {% endif %}
 {% endfor %}
 
-{% for arg in values.tailscale.extra_args %}
-  {% for key in values.consts.reserved_keys %}
-    {% if arg.startswith(key) %}
-      {% do tpl.funcs.fail("Please use the dedicated field for [%s]"|format(key)) %}
-    {% endif %}
-  {% endfor %}
+{% do tpl.funcs.require_no_reserved(values.tailscale.extra_args, "Extra Arguments", values.consts.reserved_keys, starts_with=true) %}
 
+{% for arg in values.tailscale.extra_args %}
   {% do args.x.append(arg) %}
 {% endfor %}
 
