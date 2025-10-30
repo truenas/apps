@@ -45,7 +45,7 @@ module.exports = {
         executionMode: "update",
         commands: [
           // https://docs.renovatebot.com/templates/#other-available-fields
-          "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} patch {{{depName}}} {{{newValue}}}",
+          "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} patch {{{depName}}} {{{newValue}}} {{{baseBranch}}}",
         ],
       },
     },
