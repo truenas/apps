@@ -12,7 +12,6 @@ function check_path() {
     fi
 }
 
-check_path /data
 {%- for store in values.storage.additional_storage if store.index_data %}
 check_path "{{ store.mount_path }}"
 {%- endfor %}
