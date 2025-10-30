@@ -2,7 +2,7 @@
 
 {% set c1 = tpl.add_container(values.consts.miniflux_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -10,20 +10,17 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.miniflux.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.miniflux.postgres_image_selector, pg_config, perm_container) %}
 
-{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/healthcheck"}) %}
 
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
-{% do c1.environment.add_env("RUN_MIGRATIONS", "1") %}
-{% do c1.environment.add_env("CREATE_ADMIN", "1") %}
+{% do c1.environment.add_env("RUN_MIGRATIONS", true) %}
+{% do c1.environment.add_env("CREATE_ADMIN", true) %}
+{% do c1.environment.add_env("LISTEN_ADDR", ":%d" | format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_env("ADMIN_USERNAME", values.miniflux.admin_username) %}
 {% do c1.environment.add_env("ADMIN_PASSWORD", values.miniflux.admin_password) %}
 
@@ -43,6 +40,5 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
-{% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
