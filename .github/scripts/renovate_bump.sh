@@ -13,7 +13,9 @@ fi
 
 # We keep a distinct log for each base branch
 # This makes sure an app that is on multiple branches gets updated on each branch
-log_path="/tmp/renovate-${base_branch}.log"
+# Sanitize base_branch to remove characters that are invalid in filenames
+sanitized_branch="${base_branch//\//-}"
+log_path="/tmp/renovate-${sanitized_branch}.log"
 
 if [ ! -f "$log_path" ]; then
   touch "$log_path"
