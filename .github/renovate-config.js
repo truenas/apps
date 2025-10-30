@@ -45,7 +45,7 @@ module.exports = {
         executionMode: "update",
         commands: [
           // https://docs.renovatebot.com/templates/#other-available-fields
-          "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} patch {{{depName}}} {{{newValue}}}",
+          "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} patch {{{depName}}} {{{newValue}}} {{{branchName}}}",
         ],
       },
     },
@@ -199,7 +199,7 @@ module.exports = {
     customVersioning(
       // 18.0-20250218
       "^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)$",
-      ["odoo/odoo"]
+      ["odoo"]
     ),
     customVersioning(
       // 1.0.0-hash
