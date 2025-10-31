@@ -1,3 +1,3 @@
-# YamTrack
+# Yamtrack
 
-[YamTrack](https://github.com/FuzzyGrim/Yamtrack) is a self hosted media tracker.
+[Yamtrack](https://github.com/FuzzyGrim/Yamtrack) is a self hosted media tracker.
