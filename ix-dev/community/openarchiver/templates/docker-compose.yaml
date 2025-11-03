@@ -25,7 +25,7 @@
 
 {# OpenArchiver #}
 {% set openarchiver_container = tpl.add_container(values.consts.openarchiver_container_name, "image") %}
-{% do openarchiver_container.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/v1/auth/status"}) %}
+{% do openarchiver_container.healthcheck.set_test("wget", {"port": values.consts.backend_port, "path": "/v1/auth/status"}) %}
 
 {% do openarchiver_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do openarchiver_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -35,15 +35,17 @@
 {% set app_url = values.openarchiver.app_url.rstrip("/") %}
 {% do openarchiver_container.environment.add_env("APP_URL", app_url) %}
 {% do openarchiver_container.environment.add_env("ORIGIN", app_url) %}
+{% do openarchiver_container.environment.add_env("PORT_BACKEND", values.consts.backend_port) %}
+{# PORT_FRONTEND seems to only be used during development, but PORT seems to apply on production #}
+{% do openarchiver_container.environment.add_env("PORT_FRONTEND", values.network.web_port.port_number) %}
+{% do openarchiver_container.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do openarchiver_container.environment.add_env("NODE_ENV", "production") %}
 {% do openarchiver_container.environment.add_env("STORAGE_TYPE", "local") %}
 {% do openarchiver_container.environment.add_env("STORAGE_LOCAL_ROOT_PATH", values.consts.data_path) %}
 {% do openarchiver_container.environment.add_env("STORAGE_ENCRYPTION_KEY", values.openarchiver.storage_encryption_key) %}
 {% do openarchiver_container.environment.add_env("JWT_SECRET", values.openarchiver.jwt_secret) %}
-{% do openarchiver_container.environment.add_env("JWT_EXPIRES_IN", "7d") %}
+{% do openarchiver_container.environment.add_env("JWT_EXPIRES_IN", "%dd"|format(values.openarchiver.jwt_expires_in_days)) %}
 {% do openarchiver_container.environment.add_env("ENCRYPTION_KEY", values.openarchiver.encryption_key) %}
-{% do openarchiver_container.environment.add_env("PORT_BACKEND", values.consts.backend_port) %}
-{% do openarchiver_container.environment.add_env("PORT_FRONTEND", values.network.web_port.port_number) %}
 {% do openarchiver_container.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
 {% do openarchiver_container.environment.add_env("MEILI_MASTER_KEY", values.openarchiver.meilisearch_master_key) %}
 {% do openarchiver_container.environment.add_env("MEILI_HOST", meilisearch.get_url()) %}
