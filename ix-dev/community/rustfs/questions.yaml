@@ -30,7 +30,10 @@ questions:
       attrs:
         - variable: deployment_mode
           label: Deployment Mode
-          description: The deployment mode for RustFS.
+          description: |
+            The deployment mode for RustFS.</br>
+            - SNSD (Single Node Single Disk): Requires a single storage volume.</br>
+            - SNMD (Single Node Multi Disk): Requires storage volumes equal to the configured volume count defined below.</br>
           schema:
             type: string
             default: snsd
@@ -41,6 +44,15 @@ questions:
                 description: SNMD (Single Node Multi Disk)
               - value: mnmd
                 description: MNMD (Multi Node Multi Disk)
+        - variable: volume_count
+          label: Volume Count
+          description: The number of storage volumes to use for SNMD deployments.
+          schema:
+            type: int
+            show_if: [["deployment_mode", "=", "snmd"]]
+            default: 4
+            min: 4
+            required: true
         - variable: access_key
           label: Access Key
           schema:
@@ -211,82 +223,92 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: data
-          label: Data Storage
-          description: The path to store RustFS data.
+        - variable: data_disks
+          label: Data Disks
+          description: The "Disks" to use for RustFS Data.
           schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
+            type: list
+            default:
+              - type: ix_volume
+                ix_volume_config:
+                  dataset_name: data0
+            items:
+              - variable: disk
+                label: Disk
                 schema:
                   type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
                   attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
                       schema:
                         type: string
                         required: true
-                        hidden: true
-                        default: "data"
-                    - variable: acl_entries
-                      label: ACL Configuration
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                    - variable: host_path_config
+                      label: Host Path Configuration
                       schema:
                         type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
                       schema:
                         type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
+                        show_if: [["type", "=", "ix_volume"]]
                         $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "data#"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
         - variable: additional_storage
           label: Additional Storage
           schema:

@@ -6,30 +6,50 @@
 {% set scheme = "https" if values.network.certificate_id else "http" %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.api_port.port_number, "path": "/health"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.api_port.port_number, "path": "/health", "scheme": scheme}) %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, "%s/rustfs_key.pem"|format(values.consts.cert_base_path)) %}
+  {% do c1.configs.add("public", cert.certificate, "%s/rustfs_cert.pem"|format(values.consts.cert_base_path)) %}
+  {% do c1.environment.add_env("RUSTFS_TLS_PATH", values.consts.cert_base_path) %}
+{% endif %}
+
 {% do c1.environment.add_env("RUSTFS_CONSOLE_ENABLE", true) %}
 {% do c1.environment.add_env("RUSTFS_ADDRESS", ":%d"|format(values.network.api_port.port_number)) %}
 {% do c1.environment.add_env("RUSTFS_CONSOLE_ADDRESS", ":%d"|format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_env("RUSTFS_ACCESS_KEY", values.rustfs.access_key) %}
 {% do c1.environment.add_env("RUSTFS_SECRET_KEY", values.rustfs.secret_key) %}
 
-{# TODO: This should be based on the deployment mode #}
-{% do c1.environment.add_env("RUSTFS_VOLUMES", "/data") %}
-
-{% if values.network.certificate_id %}
-  {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do c1.configs.add("private", cert.privatekey, "%s/rustfs_key.pem"|format(values.consts.cert_base_path)) %}
-  {% do c1.configs.add("public", cert.certificate, "%s/rustfs_cert.pem"|format(values.consts.cert_base_path)) %}
-
-  {% do c1.environment.add_env("RUSTFS_TLS_PATH", values.consts.cert_base_path) %}
-{% endif %}
-
-{% do c1.environment.add_user_envs(values.rustfs.additional_envs) %}
-
+{% do c1.add_port(values.network.api_port) %}
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/data", values.storage.data) %}
-{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+{% set volumes = namespace(x=[]) %}
+{% set disk_len = values.storage.data_disks | length %}
+{% if values.rustfs.deployment_mode == "snsd" %}
+  {% if disk_len != 1 %}
+    {% do tpl.fail("The SNSD deployment mode requires exactly 1 data disk, but %d were provided."|format(disk_len)) %}
+  {% endif %}
+{% elif values.rustfs.deployment_mode == "snmd" %}
+  {% if disk_len != values.rustfs.volume_count %}
+    {% do tpl.fail("The SNMD deployment mode requires %d data disks, but %d were provided."|format(values.rustfs.volume_count, disk_len)) %}
+  {% endif %}
+{% endif %}
+
+{% for disk in values.storage.data_disks %}
+  {% if disk.type == "ix_volume" and "#" in disk.ix_volume_config.dataset_name %}
+    {% do tpl.fail("Did you forget to replace '#' in the Dataset Name '%s' with a unique identifier?"|format(disk.ix_volume_config.dataset_name)) %}
+  {% endif %}
+  {% do volumes.x.append("/data/rustfs%d"|format(loop.index0)) %}
+{% endfor %}
+
+{% for v in volumes.x %}
+  {% do c1.add_storage(v, values.storage.data_disks[loop.index0]) %}
+  {% do perm_container.add_or_skip_action("rustfs%d"|format(loop.index0), values.storage.data_disks[loop.index0], perms_config) %}
+{% endfor %}
+
+{% do c1.environment.add_env("RUSTFS_VOLUMES", ",".join(volumes.x)) %}
+{% do c1.environment.add_user_envs(values.rustfs.additional_envs) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
