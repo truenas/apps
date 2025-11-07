@@ -40,12 +40,16 @@
   {% if disk.type == "ix_volume" and "#" in disk.ix_volume_config.dataset_name %}
     {% do tpl.fail("Did you forget to replace '#' in the Dataset Name '%s' with a unique identifier?"|format(disk.ix_volume_config.dataset_name)) %}
   {% endif %}
-  {% do volumes.x.append("/data/rustfs%d"|format(loop.index0)) %}
+  {#
+    Note: we cannot use /data, because in the Dockerfile is owned by root.
+    And on entrypoint it tries to do mkdir -p <the path below>, which fails due to root ownership on /data.
+  #}
+  {% do volumes.x.append("/rustfs/data%d"|format(loop.index0)) %}
 {% endfor %}
 
 {% for v in volumes.x %}
   {% do c1.add_storage(v, values.storage.data_disks[loop.index0]) %}
-  {% do perm_container.add_or_skip_action("rustfs%d"|format(loop.index0), values.storage.data_disks[loop.index0], perms_config) %}
+  {% do perm_container.add_or_skip_action("rustfs-data%d"|format(loop.index0), values.storage.data_disks[loop.index0], perms_config) %}
 {% endfor %}
 
 {% do c1.environment.add_env("RUSTFS_VOLUMES", ",".join(volumes.x)) %}
