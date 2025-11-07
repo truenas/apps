@@ -1,5 +1,26 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{# Input validation #}
+{% set disk_len = values.storage.data_disks | length %}
+{% if values.rustfs.deployment_mode == "snsd" and disk_len != 1 %}
+  {% do tpl.fail("The SNSD deployment mode requires exactly 1 data disk, but %d were provided."|format(disk_len)) %}
+{% elif values.rustfs.deployment_mode == "snmd" and disk_len != values.rustfs.snmd_volume_count %}
+  {% do tpl.fail("The SNMD deployment mode requires %d data disks, but %d were provided."|format(values.rustfs.snmd_volume_count, disk_len)) %}
+{% elif values.rustfs.deployment_mode == "mnmd" %}
+  {% if disk_len != values.rustfs.mnmd_volume_count %}
+    {% do tpl.fail("The MNMD deployment mode requires %d data disks, but %d were provided."|format(values.rustfs.mnmd_volume_count, disk_len)) %}
+  {% endif %}
+  {% if values.rustfs.mnmd_hosts | length < 4 %}
+    {% do tpl.fail("The MNMD deployment mode requires at least 4 hosts, but %d were provided."|format(values.rustfs.mnmd_hosts | length)) %}
+  {% endif %}
+{% endif %}
+
+{% for disk in values.storage.data_disks if disk.type == "ix_volume" %}
+  {% if "#" in disk.ix_volume_config.dataset_name %}
+    {% do tpl.fail("Did you forget to replace '#' in the Dataset Name '%s' with a unique identifier?"|format(disk.ix_volume_config.dataset_name)) %}
+  {% endif %}
+{% endfor %}
+
 {% set c1 = tpl.add_container(values.consts.rustfs_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
@@ -25,21 +46,7 @@
 {% do c1.add_port(values.network.web_port) %}
 
 {% set volumes = namespace(x=[]) %}
-{% set disk_len = values.storage.data_disks | length %}
-{% if values.rustfs.deployment_mode == "snsd" %}
-  {% if disk_len != 1 %}
-    {% do tpl.fail("The SNSD deployment mode requires exactly 1 data disk, but %d were provided."|format(disk_len)) %}
-  {% endif %}
-{% elif values.rustfs.deployment_mode == "snmd" %}
-  {% if disk_len != values.rustfs.volume_count %}
-    {% do tpl.fail("The SNMD deployment mode requires %d data disks, but %d were provided."|format(values.rustfs.volume_count, disk_len)) %}
-  {% endif %}
-{% endif %}
-
 {% for disk in values.storage.data_disks %}
-  {% if disk.type == "ix_volume" and "#" in disk.ix_volume_config.dataset_name %}
-    {% do tpl.fail("Did you forget to replace '#' in the Dataset Name '%s' with a unique identifier?"|format(disk.ix_volume_config.dataset_name)) %}
-  {% endif %}
   {#
     Note: we cannot use /data, because in the Dockerfile is owned by root.
     And on entrypoint it tries to do mkdir -p <the path below>, which fails due to root ownership on /data.
@@ -47,10 +54,27 @@
   {% do volumes.x.append("/rustfs/data%d"|format(loop.index0)) %}
 {% endfor %}
 
+{# Mount the volumes #}
 {% for v in volumes.x %}
   {% do c1.add_storage(v, values.storage.data_disks[loop.index0]) %}
   {% do perm_container.add_or_skip_action("rustfs-data%d"|format(loop.index0), values.storage.data_disks[loop.index0], perms_config) %}
 {% endfor %}
+
+{#
+  Update the volumes list with the hosts. To avoid having brace expansion like {1...4}, we just create a comma separated list with all the combinations
+  https://github.com/rustfs/rustfs/blob/29056a767abe9d0e684284b52001ac0b964db83f/docs/examples/mnmd/README.md?plain=1#L120-L125
+#}
+{% if values.rustfs.deployment_mode == "mnmd" %}
+  {% set new_volumes = namespace(x=[]) %}
+
+  {% for host in values.rustfs.mnmd_hosts %}
+    {% for v in volumes.x %}
+      {% do new_volumes.x.append(host.rstrip("/") + v) %}
+    {% endfor %}
+  {% endfor %}
+
+  {% set volumes.x = new_volumes.x %}
+{% endif %}
 
 {% do c1.environment.add_env("RUSTFS_VOLUMES", ",".join(volumes.x)) %}
 {% do c1.environment.add_user_envs(values.rustfs.additional_envs) %}
