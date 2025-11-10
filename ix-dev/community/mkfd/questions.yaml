@@ -20,31 +20,34 @@ questions:
         - variable: passkey
           label: Passkey
           description: |
-            A passkey is used to authenticate requests to the Mkfd API.
+            A passkey is used to authenticate requests to the Mkfd API.</br>
             This ensures only authorized users can access the API.
           schema:
             type: string
             required: true
+            private: true
             default: ""
         - variable: cookie_secret
           label: Cookie Secret
           description: |
-            A random string used to sign cookies in the Mkfd application.
+            A random string used to sign cookies in the Mkfd application.</br>
             Must be at least 32 characters long.
           schema:
             type: string
             required: true
             min_length: 32
+            private: true
             default: ""
         - variable: encryption_key
           label: Encryption Key
           description: |
-            Used to encrypt IMAP passwords before storing them in config files.
+            Used to encrypt IMAP passwords before storing them in config files.</br>
             Must be at least 16 characters long.
           schema:
             type: string
             required: true
             min_length: 16
+            private: true
             default: ""
         - variable: ssl_enabled
           label: Enable SSL
@@ -72,7 +75,6 @@ questions:
                       label: Value
                       schema:
                         type: string
-
   - variable: network
     label: ""
     group: Network Configuration
@@ -81,7 +83,6 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: The port for Mkfd WebUI
           schema:
             type: dict
             attrs:
@@ -108,19 +109,16 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30294
+                  default: 18090
                   min: 1
                   max: 65535
                   required: true
               - variable: host_ips
                 label: Host IPs
-                description: |
-                  The IPs on the host that the port will bind to.</br>
-                  If empty, the port will bind on all IPs.</br>
-                  If not empty, the port will only bind on the IPs specified.</br>
-                  Note that this is only applicable when bind mode is set to "published".
+                description: IPs on the host to bind this port
                 schema:
                   type: list
+                  show_if: [["bind_mode", "=", "published"]]
                   default: []
                   items:
                     - variable: host_ip
@@ -128,6 +126,8 @@ questions:
                       schema:
                         type: string
                         required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: host_network
           label: Host Network
           description: |
@@ -143,8 +143,7 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: Mkfd Config Storage
-          description: The path to store Mkfd config files.
+          label: Config Storage
           schema:
             type: dict
             attrs:
@@ -156,7 +155,6 @@ questions:
                 schema:
                   type: string
                   required: true
-                  immutable: true
                   default: "ix_volume"
                   enum:
                     - value: "host_path"
@@ -172,13 +170,26 @@ questions:
                   $ref:
                     - "normalize/ix_volume"
                   attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
-                        immutable: true
+                        hidden: true
                         default: "config"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
@@ -187,6 +198,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -200,13 +212,13 @@ questions:
                           - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage for Mkfd.
           schema:
             type: list
             default: []
@@ -221,56 +233,42 @@ questions:
                       description: |
                         ixVolume: Is dataset created automatically by the system.</br>
                         Host Path: Is a path that already exists on the system.</br>
-                        SMB Share: Is a SMB share that is mounted to a persistent volume claim.
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
                       schema:
                         type: string
                         required: true
                         default: "ix_volume"
-                        immutable: true
                         enum:
                           - value: "host_path"
                             description: Host Path (Path that already exists on the system)
                           - value: "ix_volume"
                             description: ixVolume (Dataset created automatically by the system)
                           - value: "cifs"
-                            description: SMB/CIFS Share (Mounts a persistent volume claim to a SMB share)
-                    - variable: mount_path
-                      label: Mount Path
-                      description: The path inside the container to mount the storage.
-                      schema:
-                        type: path
-                        required: true
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
                     - variable: read_only
                       label: Read Only
                       description: Mount the volume as read only.
                       schema:
                         type: boolean
                         default: false
-                    - variable: ix_volume_config
-                      label: ixVolume Configuration
-                      description: The configuration for the ixVolume dataset.
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
                       schema:
-                        type: dict
-                        show_if: [["type", "=", "ix_volume"]]
-                        $ref:
-                          - "normalize/ix_volume"
-                        attrs:
-                          - variable: dataset_name
-                            label: Dataset Name
-                            schema:
-                              type: string
-                              required: true
-                              immutable: true
-                              default: "storage_entry"
+                        type: path
+                        required: true
                     - variable: host_path_config
                       label: Host Path Configuration
-                      description: The configuration for the host path volume.
                       schema:
                         type: dict
                         show_if: [["type", "=", "host_path"]]
                         attrs:
                           - variable: acl_enable
                             label: Enable ACL
+                            description: Enable ACL for the storage.
                             schema:
                               type: boolean
                               default: false
@@ -284,81 +282,134 @@ questions:
                                 - "normalize/acl"
                           - variable: path
                             label: Host Path
+                            description: The host path to use for storage.
                             schema:
                               type: hostpath
                               show_if: [["acl_enable", "=", false]]
                               required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
-                      label: SMB/CIFS Configuration
-                      description: The configuration for the SMB/CIFS share.
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "cifs"]]
                         attrs:
                           - variable: server
                             label: Server
-                            description: The server for the SMB/CIFS share.
+                            description: The server to mount the SMB share.
                             schema:
                               type: string
                               required: true
-                          - variable: share
-                            label: Share
-                            description: The share name for the SMB/CIFS share.
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
                             schema:
                               type: string
                               required: true
-                          - variable: domain
-                            label: Domain (Optional)
-                            description: The domain for the SMB/CIFS share.
-                            schema:
-                              type: string
                           - variable: username
-                            label: Username (Optional)
-                            description: The username for the SMB/CIFS share.
+                            label: Username
+                            description: The username to use for the SMB share.
                             schema:
                               type: string
-                          - variable: password
-                            label: Password (Optional)
-                            description: The password for the SMB/CIFS share.
-                            schema:
-                              type: string
-                              private: true
-                          - variable: size
-                            label: Size (in Gi)
-                            description: The size of the volume quota.
-                            schema:
-                              type: int
                               required: true
-                              min: 1
-                              default: 1
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
 
   - variable: labels
     label: ""
     group: Labels Configuration
     schema:
-      type: dict
-      attrs:
-        - variable: custom_labels
-          label: Custom Labels
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
           schema:
-            type: list
-            default: []
-            items:
-              - variable: label
-                label: Label
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
                 schema:
-                  type: dict
-                  attrs:
-                    - variable: key
-                      label: Key
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
                       schema:
                         type: string
                         required: true
-                    - variable: value
-                      label: Value
-                      schema:
-                        type: string
-                        required: true
+                        enum:
+                          - value: mkfd
+                            description: mkfd
 
   - variable: resources
     label: ""
@@ -377,8 +428,6 @@ questions:
                 schema:
                   type: int
                   default: 2
-                  min: 1
-                  max: 256
                   required: true
               - variable: memory
                 label: Memory (in MB)
@@ -386,6 +435,4 @@ questions:
                 schema:
                   type: int
                   default: 4096
-                  min: 128
-                  max: 1048576
                   required: true
