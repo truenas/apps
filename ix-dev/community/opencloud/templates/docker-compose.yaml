@@ -12,9 +12,8 @@
   {% do csp.x.update({key: values}) %}
 {% endfor %}
 {% for x in values.opencloud.additional_csp %}
-  {% set current = csp.x.get(x.directive) or []  %}
-  {% set values = current + x['items'] %}
-  {% do csp.x.update({x.directive: values | unique | list}) %}
+  {% set values = csp.x.get(x.directive, []) + x['items'] %}
+  {% do csp.x.update({x.directive: values}) %}
 {% endfor %}
 
 {# Apps Init #}
@@ -71,10 +70,8 @@
   {% do c1.environment.add_env("PROXY_DEBUG_ADDR", ":%d"|format(values.network.metrics_port.port_number)) %}
 {% endif %}
 {% set url = tpl.funcs.url_to_dict(values.opencloud.app_url, true) %}
-{# We use netloc here because it ensures that there is no trailing slash #}
-{% set url_path = url.path.rstrip("/") %}
 {% if url.scheme != "https" %}{% do tpl.funcs.fail("The app URL must be HTTPS") %}{% endif %}
-{% do c1.environment.add_env("OC_URL", "%s://%s%s"|format(url.scheme, url.netloc, url_path)) %}
+{% do c1.environment.add_env("OC_URL", values.opencloud.app_url.rstrip("/")) %}
 {% do c1.environment.add_env("OC_INSECURE", values.opencloud.insecure_access) %}
 {% if values.network.certificate_id %}
   {% do c1.environment.add_env("PROXY_TRANSPORT_TLS_KEY", values.consts.ssl_key_path) %}
@@ -83,6 +80,39 @@
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{# Collaboration #}
+{% if values.opencloud.collaboration.enabled %}
+  {% do extra_services.x.append("collaboration") %}
+  {% do c1.add_port(values.network.collaboration_port) %}
+  {% set collab_urls = [values.opencloud.collaboration.url, values.opencloud.collaboration.wopi_url] %}
+  {% do csp.x.update({
+    "frame-src": csp.x.get("frame-src", []) + collab_urls,
+    "img-src": csp.x.get("img-src", []) + collab_urls,
+  }) %}
+
+  {% set app_url = values.opencloud.collaboration.url.rstrip("/") %}
+  {% set wopi_url = values.opencloud.collaboration.wopi_url.rstrip("/") %}
+
+  {% do c1.environment.add_env("COLLABORATION_STORE", "nats-js-kv") %}
+  {% do c1.environment.add_env("COLLABORATION_APP_ADDR", values.opencloud.collaboration.url) %}
+  {% do c1.environment.add_env("COLLABORATION_APP_INSECURE", values.opencloud.collaboration.insecure) %}
+  {% do c1.environment.add_env("COLLABORATION_CS3API_DATAGATEWAY_INSECURE", values.opencloud.collaboration.insecure) %}
+  {% do c1.environment.add_env("COLLABORATION_HTTP_ADDR", values.network.collaboration_port.port_number) %}
+  {% do c1.environment.add_env("COLLABORATION_WOPI_SRC", wopi_url) %}
+
+  {% if values.opencloud.collaboration.type == "collabora" %}
+    {% do c1.environment.add_env("COLLABORATION_APP_NAME", "CollaboraOnline") %}
+    {% do c1.environment.add_env("COLLABORATION_APP_PRODUCT", "Collabora") %}
+    {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/favicon.ico"|format(app_url)) %}
+    {% do c1.environment.add_env("FRONTEND_APP_HANDLER_SECURE_VIEW_APP_ADDR", "eu.opencloud.api.collaboration.CollaboraOnline") %}
+  {% elif values.opencloud.collaboration.type == "onlyoffice" %}
+    {% do c1.environment.add_env("COLLABORATION_APP_NAME", "OnlyOffice") %}
+    {% do c1.environment.add_env("COLLABORATION_APP_PRODUCT", "OnlyOffice") %}
+    {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/welcome/css/favicon.ico"|format(app_url)) %}
+    {% do c1.environment.add_env("FRONTEND_APP_HANDLER_SECURE_VIEW_APP_ADDR", "eu.opencloud.api.collaboration.OnlyOffice") %}
+  {% endif %}
 {% endif %}
 
 {# SMTP #}
@@ -105,6 +135,9 @@
   {% do extra_services.x.extend(values.opencloud.additional_services) %}
 {% endif %}
 
+{% for key, values in csp.x.items() %}
+  {% do csp.x.update({key: values | unique | list}) %}
+{% endfor %}
 {% set csp_yaml = tpl.funcs.to_yaml({"directives": csp.x}) %}
 {% set csp_notes = "Generated CSP File:\n\n```yaml\n%s```"|format(csp_yaml) %}
 {% set body.x = "%s\n\n%s"|format(body.x, csp_notes) %}
