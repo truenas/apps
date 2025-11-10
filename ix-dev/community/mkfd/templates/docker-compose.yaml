@@ -6,19 +6,15 @@
 
 {% do c1.set_user(values.consts.run_user, values.consts.run_group) %}
 
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port}) %}
 
-{# Add required environment variables #}
 {% do c1.environment.add_env("PASSKEY", values.mkfd.passkey) %}
 {% do c1.environment.add_env("COOKIE_SECRET", values.mkfd.cookie_secret) %}
 {% do c1.environment.add_env("ENCRYPTION_KEY", values.mkfd.encryption_key) %}
 {% do c1.environment.add_env("SSL", values.mkfd.ssl_enabled|string|lower) %}
-{% if values.mkfd.node_options %}
-  {% do c1.environment.add_env("NODE_OPTIONS", values.mkfd.node_options) %}
-{% endif %}
 {% do c1.environment.add_user_envs(values.mkfd.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 
 {% do c1.add_storage("/app/configs", values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
@@ -33,6 +29,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
 
 {{ tpl.render() | tojson }}
