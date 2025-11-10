@@ -9,11 +9,11 @@
 {% set extra_services = namespace(x=["notifications"]) %}
 
 {% for key, values in values.consts.csp_config.items() %}
-  {% set csp.x[key] = values %}
+  {% do csp.x.update({key: values}) %}
 {% endfor %}
 {% for x in values.opencloud.csp %}
-  {% if not csp.x[x.directive] %}{% set csp.x[x.directive] = [] %}{% endif %}
-  {% set csp.x[x.directive] = x.items + csp.x[x.directive] | unique | list %}
+  {% set values = csp.x.get(x.directive, []) + x.items %}
+  {% do csp.x.update({x.directive: values | unique | list}) %}
 {% endfor %}
 
 {# Apps Init #}
@@ -104,7 +104,7 @@
   {% do extra_services.x.extend(values.opencloud.additional_services) %}
 {% endif %}
 
-{% do c1.configs.add("csp", {"directives": csp.x}|tojson, values.consts.csp_config_path) %}
+{% do c1.configs.add("csp", tpl.funcs.to_yaml({"directives": csp.x}), values.consts.csp_config_path) %}
 {% do c1.environment.add_env("OC_ADD_RUN_SERVICES", extra_services.x | unique | list | join(",")) %}
 {% do c1.environment.add_env("IDM_ADMIN_PASSWORD", "admin") %}
 {% do c1.environment.add_user_envs(values.opencloud.additional_envs) %}

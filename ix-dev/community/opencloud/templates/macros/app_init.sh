@@ -18,10 +18,10 @@ if [ -d {{ app_path }} ]; then
   rm -rf {{ app_path }}
 fi
 
-{% if not config.enabled %}
+{%- if not config.enabled %}
   echo "App [{{ app_id }}] is disabled, exiting."
   exit 0
-{% endif %}
+{%- endif %}
 
 mkdir -p {{ app_path }}
 

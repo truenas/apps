@@ -101,9 +101,6 @@ class CifsVolume:
                     raise RenderError(f"Option [{key}] already added for [cifs] type.")
                 if key in disallowed_opts:
                     raise RenderError(f"Option [{key}] is not allowed for [cifs] type.")
-                for disallowed in disallowed_opts:
-                    if key == disallowed:
-                        raise RenderError(f"Option [{key}] is not allowed for [cifs] type.")
                 opts.append(opt)
                 tracked_keys.add(key)
         opts.sort()
