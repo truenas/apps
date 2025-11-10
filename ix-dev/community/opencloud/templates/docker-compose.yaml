@@ -50,8 +50,6 @@
 
 {% set body = namespace(x=values.consts.notes_body) %}
 {% if has_additional_config.x %}{% set body.x = "%s\n\n%s"|format(body.x, values.consts.app_config_notes_body) %}{% endif %}
-{% set csp_notes = "Generated CSP File:\n\n```yaml\n%s```"|format(tpl.funcs.to_yaml(csp.x)) %}
-{% set body.x = "%s\n\n%s"|format(body.x, csp_notes) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz", "scheme": "https"}) %}
@@ -107,7 +105,11 @@
   {% do extra_services.x.extend(values.opencloud.additional_services) %}
 {% endif %}
 
-{% do c1.configs.add("csp", tpl.funcs.to_yaml({"directives": csp.x}), values.consts.csp_config_path) %}
+{% set csp_yaml = tpl.funcs.to_yaml({"directives": csp.x}) %}
+{% set csp_notes = "Generated CSP File:\n\n```yaml\n%s```"|format(csp_yaml) %}
+{% set body.x = "%s\n\n%s"|format(body.x, csp_notes) %}
+
+{% do c1.configs.add("csp", csp_yaml, values.consts.csp_config_path) %}
 {% do c1.environment.add_env("OC_ADD_RUN_SERVICES", extra_services.x | unique | list | join(",")) %}
 {% do c1.environment.add_env("IDM_ADMIN_PASSWORD", "admin") %}
 {% do c1.environment.add_user_envs(values.opencloud.additional_envs) %}
