@@ -85,31 +85,20 @@
 {# Collaboration #}
 {% if values.opencloud.collaboration.enabled %}
   {% do extra_services.x.append("collaboration") %}
-  {% do c1.add_port(values.network.collaboration_port) %}
-  {% set collab_url_dict = tpl.funcs.url_to_dict(values.opencloud.collaboration.url, true) %}
-  {% set wopi_url_dict = tpl.funcs.url_to_dict(values.opencloud.collaboration.wopi_url, true) %}
-  # Both with and without ports
-  {% set collab_urls = [
-    values.opencloud.collaboration.url,
-    values.opencloud.collaboration.wopi_url,
-    "%s://%s"|format(collab_url_dict.scheme, collab_url_dict.host),
-    "%s://%s"|format(wopi_url_dict.scheme, wopi_url_dict.host),
-  ] %}
   {% do csp.x.update({
-    "frame-src": csp.x.get("frame-src", []) + collab_urls,
-    "img-src": csp.x.get("img-src", []) + collab_urls,
+    "frame-src": csp.x.get("frame-src", []) + [values.opencloud.collaboration.url],
+    "img-src": csp.x.get("img-src", []) + [values.opencloud.collaboration.url],
   }) %}
 
   {% set app_url = values.opencloud.collaboration.url.rstrip("/") %}
-  {% set wopi_url = values.opencloud.collaboration.wopi_url.rstrip("/") %}
 
   {% do c1.environment.add_env("FRONTEND_APP_HANDLER_SECURE_VIEW_APP_ADDR", "eu.opencloud.api.collaboration") %}
   {% do c1.environment.add_env("COLLABORATION_STORE", "nats-js-kv") %}
-  {% do c1.environment.add_env("COLLABORATION_APP_ADDR", values.opencloud.collaboration.url) %}
+  {% do c1.environment.add_env("COLLABORATION_APP_ADDR", values.opencloud.collaboration.url.rstrip("/")) %}
   {% do c1.environment.add_env("COLLABORATION_APP_INSECURE", values.opencloud.collaboration.insecure) %}
   {% do c1.environment.add_env("COLLABORATION_CS3API_DATAGATEWAY_INSECURE", values.opencloud.collaboration.insecure) %}
-  {% do c1.environment.add_env("COLLABORATION_HTTP_ADDR", ":%d"|format(values.network.collaboration_port.port_number)) %}
-  {% do c1.environment.add_env("COLLABORATION_WOPI_SRC", wopi_url) %}
+  {% do c1.environment.add_env("COLLABORATION_WOPI_SRC", values.opencloud.app_url.rstrip("/")) %}
+  {% do c1.environment.add_env("COLLABORATION_APP_PROOF_DISABLE", true) %}
 
   {% if values.opencloud.collaboration.type == "collabora" %}
     {% do c1.environment.add_env("COLLABORATION_APP_NAME", "CollaboraOnline") %}
