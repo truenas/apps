@@ -1,35 +1,30 @@
-{% macro app_init(tpl, config) -%}
+{% macro app_init(values) -%}
 #!/bin/sh
 set -e
 
-{%- for v in ["target_path", "app_id", "source_path"] %}
-  {%- if not config[v] %}
-    {%- do tpl.funcs.fail("Missing required config value: %s"|format(v)) %}
-  {%- endif %}
-{%- endfor %}
+[ -z "$TARGET_PATH" ] && echo "Missing required environment variable: TARGET_PATH" && exit 1
+[ -z "$APP_ID" ] && echo "Missing required environment variable: APP_ID" && exit 1
+[ -z "$SOURCE_PATH" ] && echo "Missing required environment variable: SOURCE_PATH" && exit 1
+[ -z "$ENABLED" ] && echo "Missing required environment variable: ENABLED" && exit 1
 
-{%- set app_id = config.app_id %}
-{%- set source_path = config.source_path %}
-{%- set target_path = config.target_path %}
-
-{%- set app_path = "%s/%s"|format(target_path, app_id) %}
-if [ -d {{ app_path }} ]; then
-  echo "Removing old app files for [{{ app_id }}] from {{ app_path }}]"
-  rm -rf {{ app_path }}
+app_path="$TARGET_PATH/$APP_ID"
+if [ -d "$app_path" ]; then
+  echo "Removing old app files for [$APP_ID] from [$app_path]"
+  rm -rf "$app_path"
 fi
 
-{%- if not config.enabled %}
-  echo "App [{{ app_id }}] is disabled, exiting."
+if [ "$ENABLED" != "true" ]; then
+  echo "App [$APP_ID] is disabled, exiting."
   exit 0
-{%- endif %}
+fi
 
-mkdir -p {{ app_path }}
+mkdir -p "$TARGET_PATH"
 
-echo "Copying app files for [{{ app_id }}] to [{{ app_path }}] from [{{ source_path }}]"
-cp -R {{ source_path }} {{ target_path }}
+echo "Copying app files for [$APP_ID] to [$app_path] from [$SOURCE_PATH]"
+cp -R "$SOURCE_PATH" "$app_path"
 
-echo "Setting ownership to [{{ config.run_as.uid }}:{{ config.run_as.gid }}] for [{{ app_path }}]"
-chown -R {{ config.run_as.uid }}:{{ config.run_as.gid }} {{ app_path }}
+echo "Setting ownership to [{{ values.run_as.user }}:{{ values.run_as.group }}] for [$app_path]"
+chown -R {{ values.run_as.user }}:{{ values.run_as.group }} "$app_path"
 
 echo "Done!"
 {% endmacro %}

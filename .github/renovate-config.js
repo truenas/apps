@@ -306,6 +306,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
       ["ghcr.io/coollabsio/coolify"]
     ),
+    customVersioning(
+      // some-app-1.0.2
+      "^.+-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["opencloudeu/web-extensions"]
+    ),
   ],
 };
 

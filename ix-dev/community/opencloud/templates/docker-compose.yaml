@@ -32,13 +32,11 @@
   {% do app.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
   {% do app.setup_as_helper() %}
   {% do app.add_storage(values.consts.data_path, values.storage.data) %}
-  {% do app.configs.add("%s_entrypoint"|format(app_config.container_name), app_init(tpl, {
-    "enabled": enabled,
-    "target_path": target_path,
-    "app_id": app_config.id,
-    "source_path": app_config.source,
-    "run_as": {"uid": values.run_as.user, "gid": values.run_as.group},
-  }), "/ix-entrypoint.sh", "0755") %}
+  {% do app.environment.add_env("TARGET_PATH", target_path) %}
+  {% do app.environment.add_env("APP_ID", app_config.id) %}
+  {% do app.environment.add_env("SOURCE_PATH", app_config.source) %}
+  {% do app.environment.add_env("ENABLED", enabled) %}
+  {% do app.configs.add("app_entrypoint", app_init(values), "/ix-entrypoint.sh", "0755") %}
   {% do app.set_entrypoint(["/ix-entrypoint.sh"]) %}
 
   {% if app_config.config_url %}
