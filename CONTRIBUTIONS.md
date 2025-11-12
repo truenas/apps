@@ -26,7 +26,7 @@ All other files should be ignored, as they are mostly auto-generated.
 
 ## Local Testing
 
-You will need to have `docker`, `docker compose` and `python` installed.
+You will need to have `docker`, `docker compose`, `python` and `jq`  installed.
 Additionally, you need the following Python packages installed:
 `pyyaml, psutil, pytest, pytest-cov, bcrypt, pydantic`
 
@@ -112,10 +112,10 @@ Make sure before running the test, that is not going to mount any directories th
 
 ## Notifying Upstream Developers
 
-After your app has been successfully published in the catalog and tested, it is a good idea 
-to politely contact the upstream app developers to let them know that TrueNAS now supports 
-simple deployment of their app. 
-You can provide a quick "how-to" for deploying their app on TrueNAS, to make it easier for their 
-team to share with their users. If the developer has a section on their website listing supported 
-platforms, suggest they add TrueNAS as one of the platforms capable of running their app 
+After your app has been successfully published in the catalog and tested, it is a good idea
+to politely contact the upstream app developers to let them know that TrueNAS now supports
+simple deployment of their app.
+You can provide a quick "how-to" for deploying their app on TrueNAS, to make it easier for their
+team to share with their users. If the developer has a section on their website listing supported
+platforms, suggest they add TrueNAS as one of the platforms capable of running their app
 with easy deployment.
