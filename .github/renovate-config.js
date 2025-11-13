@@ -306,23 +306,11 @@ module.exports = {
       "^.+-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["opencloudeu/web-extensions"]
     ),
-    ...[
-      "draw-io",
-      "progress-bars",
-      "json-viewer",
-      "external-sites",
-      "unzip",
-      "cast",
-      "importer",
-      "arcade",
-      "maps",
-    ].map((app) =>
-      customVersioning(
-        // appname-1.2.3
-        `^${app}-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$`,
-        [`opencloudeu/web-extensions`]
-      )
-    ),
+    customVersioning(
+      // appname-1.2.3
+      `^(?<compatibility>draw-io|progress-bars|json-viewer|external-sites|unzip|cast|importer|arcade|maps)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$`,
+      [`opencloudeu/web-extensions`]
+    )
   ],
 };
 
