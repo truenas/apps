@@ -157,11 +157,6 @@ module.exports = {
       ["apache/tika"]
     ),
     customVersioning(
-      // 2.0.0-beta.1
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
-      ["ghcr.io/louislam/uptime-kuma"]
-    ),
-    customVersioning(
       // postgresql-v2.15.1
       "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/umami-software/umami"]
@@ -310,6 +305,23 @@ module.exports = {
       // some-app-1.0.2
       "^.+-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["opencloudeu/web-extensions"]
+    ),
+    ...[
+      "draw-io",
+      "progress-bars",
+      "json-viewer",
+      "external-sites",
+      "unzip",
+      "cast",
+      "importer",
+      "arcade",
+      "maps",
+    ].map((app) =>
+      customVersioning(
+        // appname-1.2.3
+        `^${app}-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$`,
+        [`opencloudeu/web-extensions`]
+      )
     ),
   ],
 };

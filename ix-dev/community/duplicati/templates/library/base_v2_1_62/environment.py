@@ -24,6 +24,7 @@ class Environment:
         self._app_dev_variables: dict[str, Any] = {}
 
         self._skip_generic_variables: bool = render_instance.values.get("skip_generic_variables", False)
+        self._skip_id_variables: bool = render_instance.values.get("skip_id_variables", False)
 
         self._auto_add_variables_from_values()
 
@@ -64,6 +65,12 @@ class Environment:
         if isinstance(v, bool):
             value = value.lower()
         return value
+
+    def remove_auto_env(self, name: str):
+        if name in self._auto_variables.keys():
+            del self._auto_variables[name]
+            return
+        raise RenderError(f"Environment variable [{name}] is not defined.")
 
     def add_env(self, name: str, value: Any):
         if not name:
