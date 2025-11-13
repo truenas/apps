@@ -37,7 +37,13 @@ class MongoDBContainer:
 
         c = self._render_instance.add_container(name, image)
 
-        c.set_user(999, 999)
+        user, group = 568, 568
+        run_as = self._render_instance.values.get("run_as")
+        if run_as:
+            user = run_as["user"] or user  # Avoids running as root
+            group = run_as["group"] or group  # Avoids running as root
+
+        c.set_user(user, group)
         c.healthcheck.set_test("mongodb", {"db": config["database"]})
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
@@ -47,7 +53,7 @@ class MongoDBContainer:
         c.environment.add_env("MONGO_INITDB_DATABASE", config["database"])
 
         perms_instance.add_or_skip_action(
-            f"{self._name}_mongodb_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
+            f"{self._name}_mongodb_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
         )
 
         self._get_repo(image, ("mongodb"))
