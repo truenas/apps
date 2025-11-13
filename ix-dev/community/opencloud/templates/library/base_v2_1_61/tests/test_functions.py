@@ -130,6 +130,11 @@ def test_funcs(mock_values):
                 "path": "/abc/",
             },
         },
+        {
+            "func": "to_yaml",
+            "values": [{"a": 1, "b": 2}],
+            "expected": "a: 1\nb: 2\n",
+        },
     ]
 
     for test in tests:

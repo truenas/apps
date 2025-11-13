@@ -620,7 +620,7 @@ def test_add_mongodb(mock_values):
     assert "devices" not in output["services"]["mongodb_container"]
     assert "reservations" not in output["services"]["mongodb_container"]["deploy"]["resources"]
     assert output["services"]["mongodb_container"]["image"] == "mongodb:latest"
-    assert output["services"]["mongodb_container"]["user"] == "999:999"
+    assert output["services"]["mongodb_container"]["user"] == "568:568"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
     assert output["services"]["mongodb_container"]["healthcheck"] == {
