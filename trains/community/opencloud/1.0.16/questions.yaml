@@ -38,14 +38,33 @@ questions:
             type: uri
             default: ""
             required: true
-        - variable: insecure_access
+        - variable: insecure
           label: Insecure Access
           description: |
             Enabled: Allow access via self-signed SSL certificates.</br>
-            Disabled: Require a valid SSL certificate.
+            Disabled: Require a valid SSL certificate.</br>
+            Note: Even with insecure access enabled, WOPI might still require valid
+            SSL certificates depending on the collaboration application used
+            and its configuration.
           schema:
             type: boolean
             default: true
+        - variable: proof_disable
+          label: Proof Key Disable
+          description: Disable proof key validation for Collaboration.
+          schema:
+            type: boolean
+            default: true
+        - variable: jwt_secret
+          label: JWT Secret
+          description: |
+            The JWT secret for Collaboration.</br>
+            It must match the secret configured in the OnlyOffice server.
+          schema:
+            type: string
+            show_if: [["enabled", "=", true], ["type", "=", "onlyoffice"]]
+            default: ""
+            private: true
         - variable: full_text_search
           label: Full Text Search
           schema:
@@ -56,6 +75,43 @@ questions:
                 schema:
                   type: boolean
                   default: true
+        - variable: collaboration
+          label: Collaboration
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                schema:
+                  type: boolean
+                  default: true
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  default: "collabora"
+                  required: true
+                  show_if: [["enabled", "=", true]]
+                  enum:
+                    - value: "collabora"
+                      description: Collabora Online
+                    - value: "onlyoffice"
+                      description: OnlyOffice
+              - variable: url
+                label: URL
+                description: The URL of the collaboration application. (e.g. https://collabora.example.com)
+                schema:
+                  type: uri
+                  default: ""
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: insecure
+                label: Insecure
+                description: Allow insecure connections to the collaboration application.
+                schema:
+                  type: boolean
+                  show_if: [["enabled", "=", true]]
+                  default: false
         - variable: extra_services
           label: Extra Services
           description: |
@@ -190,7 +246,76 @@ questions:
                 schema:
                   type: boolean
                   default: true
-
+        - variable: additional_csp
+          label: Additional Content Security Policy
+          description: |
+            Additional Content Security Policy directives to add to the default CSP.</br>
+            These will be merged with the default CSP directives.</br>
+            Only add here directives/items that are not already present in the CSP File (/etc/opencloud/csp.yaml).</br>
+            If you notice a directive/item is missing that affects the core functionality of OpenCloud, </br>
+            or any of the integrations configured via this UI, please open an issue on GitHub.</br>
+            CSP keywords should be enclosed in single quotes.</br>
+            Example: `'unsafe-eval'`
+          schema:
+            type: list
+            default:
+              - directive: connect-src
+                items:
+                  - https://raw.githubusercontent.com/opencloud-eu/awesome-apps/
+                  - https://update.opencloud.eu/
+              - directive: frame-src
+                items:
+                  - https://embed.diagrams.net/
+              - directive: img-src
+                items:
+                  - https://raw.githubusercontent.com/opencloud-eu/awesome-apps/
+                  - https://tile.openstreetmap.org/
+            items:
+              - variable: csp_entry
+                label: Content Security Policy Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: directive
+                      label: Directive
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: child-src
+                            description: child-src
+                          - value: connect-src
+                            description: connect-src
+                          - value: default-src
+                            description: default-src
+                          - value: font-src
+                            description: font-src
+                          - value: frame-ancestors
+                            description: frame-ancestors
+                          - value: frame-src
+                            description: frame-src
+                          - value: img-src
+                            description: img-src
+                          - value: manifest-src
+                            description: manifest-src
+                          - value: media-src
+                            description: media-src
+                          - value: object-src
+                            description: object-src
+                          - value: script-src
+                            description: script-src
+                          - value: style-src
+                            description: style-src
+                    - variable: items
+                      label: Items
+                      schema:
+                        type: list
+                        items:
+                          - variable: item
+                            label: Item
+                            schema:
+                              type: string
+                              required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
