@@ -1,0 +1,31 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.next_explorer_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+
+{% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/api/auth/status"}) %}
+{% do c1.environment.add_env("NODE_ENV", "production") %}
+{% do c1.environment.add_env("PUBLIC_URL", values.next_explorer.public_url) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("SESSION_SECRET", values.next_explorer.session_secret) %}
+{# It also stores config, not only cache #}
+{% do c1.environment.add_env("CACHE_DIR", values.consts.config_path) %}
+{% do c1.environment.add_env("VOLUME_ROOT", values.consts.volume_root) %}
+
+{% do c1.environment.add_user_envs(values.next_explorer.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% if store.browseable and (not store.mount_path.startswith("%s/"|format(values.consts.volume_root))) %}
+    {% do tpl.funcs.fail("Mount path for additional storage must be inside volume root: %s/"|format(values.consts.volume_root)) %}
+  {% endif %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
