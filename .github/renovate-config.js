@@ -192,7 +192,7 @@ module.exports = {
       ["lmscommunity/lyrionmusicserver"]
     ),
     customVersioning(
-      // 2.1.0.3-beta
+      // 2.1.0.3-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-stable$",
       ["duplicati/duplicati"]
     ),
