@@ -19,6 +19,16 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: edition
+          label: Select Basic or Pro edition of the server image
+          schema:
+            type: string
+            default: "basic"
+            enum:
+              - value: "basic"
+                description: Basic - This version gives you the basic CLI version of rustdesk.
+              - value: "pro"
+                description: Pro - This version comes with a web-interface, but REQUIRES a paid license.
         - variable: allow_only_encrypted_connections
           label: Allow Only Encrypted Connections
           description: |
@@ -100,6 +110,59 @@ questions:
           schema:
             type: boolean
             default: false
+        - variable: webui_port
+          label: Port for the webui
+          description: |
+            This port will be used to connect to the webui.</br>
+            The internal port will always be 21114.</br>
+            This is only available in the pro version.
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false],["rust_desk.edition", "=", "pro"]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 21115
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: nat_type_test_port
           label: NAT Type Test Port
           description: |
