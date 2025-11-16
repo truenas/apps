@@ -1,0 +1,107 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.donetick_container_name, "image") %}
+{% set donetick_cfg = values.get("donetick", {"jwt_secret": ""}) %}
+
+{% set base_path = values.storage.base_host_path[:-1] if values.storage.base_host_path.endswith('/') else values.storage.base_host_path %}
+{% set data_storage = {"type": "host_path", "host_path_config": {"path": "%s/data" | format(base_path), "create_host_path": True}} %}
+{% set config_storage = {"type": "host_path", "host_path_config": {"path": "%s/config" | format(base_path), "create_host_path": True}} %}
+{% set jwt_secret = donetick_cfg.get("jwt_secret") or tpl.funcs.secure_string(44) %}
+
+{%- set default_config -%}
+name: "selfhosted"
+is_done_tick_dot_com: false
+is_user_creation_disabled: false
+telegram:
+  token: ""
+pushover:
+  token: ""
+database:
+  type: "sqlite"
+  migration: true
+  # these are only required for postgres
+  host: "secret"
+  port: 5432
+  user: "secret"
+  password: "secret"
+  name: "secret"
+jwt:
+  secret: "change_this_to_a_secure_random_string_32_characters_long"
+  session_time: 168h
+  max_refresh: 168h
+server:
+  port: 2021
+  read_timeout: 10s
+  write_timeout: 10s
+  rate_period: 60s
+  rate_limit: 300
+  cors_allow_origins:
+    - "http://localhost:5173"
+    - "http://localhost:7926"
+    - "https://localhost"
+    - "capacitor://localhost"
+  serve_frontend: true
+logging:
+  level: "info"
+  encoding: "json"
+  development: false
+scheduler_jobs:
+  due_job: 30m
+  overdue_job: 3h
+  pre_due_job: 3h
+email:
+  host:
+  port:
+  key:
+  email:
+  appHost:
+oauth2:
+  client_id:
+  client_secret:
+  auth_url:
+  token_url:
+  user_info_url:
+  redirect_url:
+  name:
+realtime:
+  enabled: true
+  sse_enabled: true
+  heartbeat_interval: 60s
+  connection_timeout: 120s
+  max_connections: 1000
+  max_connections_per_user: 5
+  event_queue_size: 2048
+  cleanup_interval: 2m
+  stale_threshold: 5m
+  enable_compression: true
+  enable_stats: true
+  allowed_origins:
+    - "*"
+{%- endset -%}
+
+{%- set bootstrap_script -%}
+secret="${DT_JWT_SECRET:-{{ jwt_secret }}}"
+if [ ! -f /config/selfhosted.yaml ]; then
+  cat <<'EOF' > /config/selfhosted.yaml
+{{ default_config.replace('change_this_to_a_secure_random_string_32_characters_long', '{{ jwt_secret }}') }}
+EOF
+elif grep -q "change_this_to_a_secure_random_string_32_characters_long" /config/selfhosted.yaml; then
+  sed -e "s/change_this_to_a_secure_random_string_32_characters_long/${secret}/" /config/selfhosted.yaml > /config/selfhosted.yaml.tmp && mv /config/selfhosted.yaml.tmp /config/selfhosted.yaml
+fi
+exec /donetick
+{%- endset -%}
+
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/"}) %}
+{% do c1.environment.add_env("DT_ENV", "selfhosted") %}
+{% do c1.environment.add_env("DT_SQLITE_PATH", "/donetick-data/donetick.db") %}
+{% do c1.environment.add_env("DT_JWT_SECRET", jwt_secret) %}
+{% do c1.set_entrypoint(["/bin/sh", "-c", bootstrap_script]) %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do c1.add_storage(values.consts.data_mount_path, data_storage) %}
+{% do c1.add_storage(values.consts.config_mount_path, config_storage) %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port}) %}
+
+{{ tpl.render() | tojson }}
