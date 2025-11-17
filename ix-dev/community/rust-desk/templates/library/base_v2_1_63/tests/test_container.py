@@ -458,6 +458,23 @@ def test_set_cgroup_invalid(mock_values):
         c1.set_cgroup("invalid")
 
 
+def test_set_mac_invalid(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.set_mac("invalid_mac")
+
+
+def test_set_mac_valid(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.set_mac("00:00:00:00:00:00")
+    output = render.render()
+    assert output["services"]["test_container"]["mac_address"] == "00:00:00:00:00:00"
+
+
 def test_setup_as_helper(mock_values):
     mock_values["resources"] = {"gpus": {"use_all_gpus": True}}
     render = Render(mock_values)
