@@ -19,6 +19,29 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: image_selector
+          label: Image Selector
+          description: The image selector to use for Scrypted.
+          schema:
+            type: string
+            default: image
+            enum:
+              - value: image
+                description: OSS Image
+              - value: pro_image
+                description: Pro Image - Requires a paid license
+        - variable: mac_address
+          label: MAC Address
+          description: |
+            For licensing purposes, Rust Desk needs the MAC Address to tie the license to your server.</br>
+            Format: XX:XX:XX:XX:XX:XX
+          schema:
+            type: string
+            default: ""
+            min_length: 17
+            max_length: 17
+            show_if: [["image_selector", "=", "pro_image"]]
+            required: true
         - variable: allow_only_encrypted_connections
           label: Allow Only Encrypted Connections
           description: |
@@ -100,6 +123,59 @@ questions:
           schema:
             type: boolean
             default: false
+        - variable: webui_port
+          label: Port for the webui
+          description: |
+            This port will be used to connect to the webui.</br>
+            The internal port will always be 21114.</br>
+            This is only available in the PRO version.
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 21114
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: nat_type_test_port
           label: NAT Type Test Port
           description: |

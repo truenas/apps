@@ -1,5 +1,6 @@
 import re
 import copy
+import yaml
 import bcrypt
 import secrets
 import urllib.parse
@@ -20,6 +21,9 @@ except ImportError:
 class Functions:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
+
+    def _to_yaml(self, data):
+        return yaml.dump(data)
 
     def _bcrypt_hash(self, password):
         hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -120,6 +124,7 @@ class Functions:
                 "scheme": parsed.scheme,
                 "host": parsed.hostname,
                 "port": parsed.port,
+                "path": parsed.path,
             }
             if v6_brackets and parsed.hostname and ":" in parsed.hostname:
                 result["host"] = f"[{parsed.hostname}]"
@@ -209,4 +214,5 @@ class Functions:
             "require_no_reserved": self._require_no_reserved,
             "url_encode": self._url_encode,
             "url_to_dict": self._url_to_dict,
+            "to_yaml": self._to_yaml,
         }
