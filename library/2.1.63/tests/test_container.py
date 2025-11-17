@@ -470,9 +470,9 @@ def test_set_mac_valid(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    c1.set_mac("00-00-00-00-00-00")
+    c1.set_mac("00:00:00:00:00:00")
     output = render.render()
-    assert output["services"]["test_container"]["mac_address"] == "00-00-00-00-00-00"
+    assert output["services"]["test_container"]["mac_address"] == "00:00:00:00:00:00"
 
 
 def test_setup_as_helper(mock_values):

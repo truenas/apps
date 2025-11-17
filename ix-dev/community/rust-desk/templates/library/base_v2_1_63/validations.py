@@ -8,7 +8,7 @@ try:
 except ImportError:
     from error import RenderError
 
-MAC_ADDR_REGEX = re.compile(r"^([0-9A-Fa-f]{2}[:-]?){5}([0-9A-Fa-f]{2})$")
+MAC_ADDR_REGEX = re.compile(r"^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$")
 
 OCTAL_MODE_REGEX = re.compile(r"^0[0-7]{3}$")
 RESTRICTED_IN: tuple[Path, ...] = (Path("/mnt"), Path("/"))
@@ -29,9 +29,7 @@ RESTRICTED: tuple[Path, ...] = (
 def valid_mac_or_raise(mac: str):
     if MAC_ADDR_REGEX.match(mac):
         return mac
-    raise RenderError(
-        f"Invalid MAC Address [{mac}], valid format is either XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX or XXXXXXXXXXXX"
-    )
+    raise RenderError(f"Invalid MAC Address [{mac}], valid format is either XX:XX:XX:XX:XX:XX")
 
 
 def valid_security_opt_or_raise(opt: str):
