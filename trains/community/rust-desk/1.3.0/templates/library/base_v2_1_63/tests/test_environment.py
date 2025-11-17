@@ -49,6 +49,7 @@ def test_auto_add_vars(mock_values):
 
 def test_skip_generic_variables(mock_values):
     mock_values["skip_generic_variables"] = True
+    mock_values["run_as"] = {"user": "1000", "group": "1000"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -56,7 +57,29 @@ def test_skip_generic_variables(mock_values):
     envs = output["services"]["test_container"]["environment"]
 
     assert len(envs) == 1
-    assert envs["NVIDIA_VISIBLE_DEVICES"] == "void"
+    assert envs == {
+        "NVIDIA_VISIBLE_DEVICES": "void",
+    }
+
+
+def test_remove_auto_env(mock_values):
+    mock_values["run_as"] = {"user": "1000", "group": "1000"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.environment.remove_auto_env("UID")
+
+    output = render.render()
+    envs = output["services"]["test_container"]["environment"]
+    assert "UID" not in envs
+
+
+def test_remove_env_not_defined(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.environment.remove_auto_env("NOT_DEFINED")
 
 
 def test_add_from_all_sources(mock_values):
