@@ -11,7 +11,10 @@
   https://github.com/LMS-Community/slimserver-platforms/blob/e1bccde7ba59991520464f7ea52f4c4dafe0e38e/Docker/start-container.sh#L21
   https://github.com/LMS-Community/slimserver/blob/f1c5c4ce887ad6565e9b23ab843d2c9139229112/slimserver.pl#L639-L658
 #}
-{% do c1.environment.add_env("EXTRA_ARGS","--cliport %d"|format(values.network.cli_port.port_number)) %}
+{% set args = namespace(x=values.lms.additional_flags) %}
+{% do args.x.append("--cliport=%d"|format(values.network.cli_port.port_number)) %}
+
+{% do c1.environment.add_env("EXTRA_ARGS", args.x|join(" ")) %}
 
 {% if not values.network.host_network %}
   {% do c1.add_port(values.network.web_port) %}
@@ -31,6 +34,7 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
+{# https://github.com/LMS-Community/slimserver-platforms/blob/3ef0e1beca9491cd657d9f44439c52e6291a2e7b/Docker/start-container.sh#L30 #}
 {% do c1.environment.add_env("HTTP_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_user_envs(values.lms.additional_envs) %}
 
