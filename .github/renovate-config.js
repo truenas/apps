@@ -157,11 +157,6 @@ module.exports = {
       ["apache/tika"]
     ),
     customVersioning(
-      // postgresql-v2.15.1
-      "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["ghcr.io/umami-software/umami"]
-    ),
-    customVersioning(
       // 20250122_091948 {year}{month}{day}_{build}
       "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
       ["ghcr.io/nextcloud-releases/aio-imaginary"]
@@ -310,7 +305,7 @@ module.exports = {
       // appname-1.2.3
       `^(?<compatibility>draw-io|progress-bars|json-viewer|external-sites|unzip|cast|importer|arcade|maps)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$`,
       [`opencloudeu/web-extensions`]
-    )
+    ),
   ],
 };
 
