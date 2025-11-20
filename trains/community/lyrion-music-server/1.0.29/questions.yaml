@@ -1,20 +1,20 @@
 groups:
-  - name: Photoview Configuration
-    description: Configure Photoview
+  - name: LMS Configuration
+    description: Configure Lyrion Music Server
   - name: User and Group Configuration
-    description: Configure User and Group for Photoview
+    description: Configure User and Group for Lyrion Music Server
   - name: Network Configuration
-    description: Configure Network for Photoview
+    description: Configure Network for Lyrion Music Server
   - name: Storage Configuration
-    description: Configure Storage for Photoview
+    description: Configure Storage for Lyrion Music Server
   - name: Labels Configuration
-    description: Configure Labels for Photoview
+    description: Configure Labels for Lyrion Music Server
   - name: Resources Configuration
-    description: Configure Resources for Photoview
+    description: Configure Resources for Lyrion Music Server
 
 questions:
   - variable: TZ
-    group: Photoview Configuration
+    group: LMS Configuration
     label: Timezone
     schema:
       type: string
@@ -22,36 +22,33 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: photoview
+
+  - variable: lms
     label: ""
-    group: Photoview Configuration
+    group: LMS Configuration
     schema:
       type: dict
       attrs:
-        - variable: postgres_image_selector
-          label: Postgres Image (CAUTION)
+        - variable: attach_sound_device
+          label: Attach Sound Device
+          description: Attach the host sound device to the LMS container.
+          schema:
+            type: boolean
+            default: false
+        - variable: additional_flags
+          label: Extra Flags
           description: |
-            If you are changing this after the postgres directory has been initialized,</br>
-            STOP! and make sure you have a backup of your data.</br>
-            Changing this will trigger an one way database upgrade.</br>
-            You can only select newer versions of postgres.</br>
-            Selecting an older version will refuse to start.</br>
-            If something goes wrong, you will have to restore from backup.
+            Additional flags to pass to LMS.</br>
+            https://hub.docker.com/r/lmscommunity/lyrionmusicserver#passing-additional-launch-arguments
           schema:
-            type: string
-            default: postgres_17_image
-            required: true
-            enum:
-              - value: postgres_17_image
-                description: Postgres 17
-        - variable: db_password
-          label: Database Password
-          description: The password for Photoview.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
+            type: list
+            default: []
+            items:
+              - variable: flag
+                label: Flag
+                schema:
+                  type: string
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -72,6 +69,7 @@ questions:
                       label: Value
                       schema:
                         type: string
+
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -80,7 +78,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Photoview files will be owned by.
+          description: The user id that LMS files will be owned by.
           schema:
             type: int
             min: 568
@@ -88,7 +86,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Photoview files will be owned by.
+          description: The group id that LMS files will be owned by.
           schema:
             type: int
             min: 568
@@ -129,7 +127,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30231
+                  default: 31101
                   min: 1
                   max: 65535
                   required: true
@@ -148,6 +146,167 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
+        - variable: cli_port
+          label: CLI port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 31102
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: discovery_port
+          label: Discovery Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 3483
+                  hidden: true
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: additional_ports
+          label: Additional Ports
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            items:
+              - variable: port
+                label: Port
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: bind_mode
+                      label: Port Bind Mode
+                      description: |
+                        The port bind mode.</br>
+                        - Publish: The port will be published on the host for external access.</br>
+                        - Expose: The port will be exposed for inter-container communication.</br>
+                      schema:
+                        type: string
+                        default: "published"
+                        enum:
+                          - value: "published"
+                            description: Publish port on the host for external access
+                          - value: "exposed"
+                            description: Expose port for inter-container communication
+                    - variable: port_number
+                      label: Port Number
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: container_port
+                      label: Container Port
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: protocol
+                      label: Protocol
+                      schema:
+                        type: string
+                        required: true
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
+                    - variable: host_ips
+                      label: Host IPs
+                      description: IPs on the host to bind this port
+                      schema:
+                        type: list
+                        show_if: [["bind_mode", "=", "published"]]
+                        default: []
+                        items:
+                          - variable: host_ip
+                            label: Host IP
+                            schema:
+                              type: string
+                              required: true
+                              $ref:
+                                - definitions/node_bind_ip
         - variable: host_network
           label: Host Network
           description: |
@@ -161,8 +320,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: media_cache
-          label: Media Cache Storage
+        - variable: config
+          label: LMS config storage
+          description: The path to store LMS config info.
           schema:
             type: dict
             attrs:
@@ -202,7 +362,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "media_cache"
+                        default: "config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -236,8 +396,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: postgres_data
-          label: Postgres Data Storage
+        - variable: music
+          label: LMS music storage
+          description: The path to the music files.
           schema:
             type: dict
             attrs:
@@ -277,7 +438,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "postgres_data"
+                        default: "music"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -311,18 +472,82 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this, will check the top level directory,</br>
-                        If it finds incorrect permissions, it will `chown` the
-                        host path to the user and group required for the
-                        postgres container.
+        - variable: playlist
+          label: LMS playlist storage
+          description: The path to the playlist files.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "playlist"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
                         show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: additional_storage
           label: Additional Storage
           schema:
@@ -479,6 +704,7 @@ questions:
                             schema:
                               type: string
                               required: true
+
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -513,10 +739,9 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: photoview
-                            description: photoview
-                          - value: postgres
-                            description: postgres
+                          - value: lms
+                            description: lms
+
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -530,14 +755,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Photoview.
+                description: CPUs limit for LMS.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Photoview.
+                description: Memory limit for LMS.
                 schema:
                   type: int
                   default: 4096
