@@ -72,6 +72,7 @@ def find_test_files(changed_files):
 
 def main():
     changed_files = get_changed_files()
+    print(f"Detected {len(changed_files)} changed files")
     print(find_test_files(changed_files))
     # This should look like:
     # {
