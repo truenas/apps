@@ -62,6 +62,11 @@ def find_test_files(changed_files):
         print("Skipped apps based on the EXCLUDE_TESTS list:", file=sys.stderr)
         print("\n".join(skipped), file=sys.stderr)
 
+    if len(matrix) > 512:
+        print("Changed apps exceeded 512 limit", file=sys.stderr)
+        print("Additional matrices need to be added to the workflow", file=sys.stderr)
+        sys.exit(1)
+
     result = {
         "matrix1": {"include": matrix[:256]},
         "matrix2": {"include": matrix[256:]},
