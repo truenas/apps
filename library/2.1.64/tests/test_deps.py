@@ -11,7 +11,15 @@ def mock_values():
             "test_image": {
                 "repository": "nginx",
                 "tag": "latest",
-            }
+            },
+            "container_utils_image": {
+                "repository": "ixsystems/container-utils",
+                "tag": "1.0.0",
+            },
+            "postgres_upgrade_image": {
+                "repository": "ixsystems/postgres-upgrade",
+                "tag": "1.0.0",
+            },
         },
     }
 
@@ -455,7 +463,6 @@ def test_add_perms_container(mock_values):
     assert output["services"]["test_container"]["depends_on"] == {
         "test_perms_container": {"condition": "service_completed_successfully"}
     }
-    assert output["configs"]["permissions_run_script"]["content"] != ""
     # fmt: off
     content = [
         {"read_only": False, "mount_path": "/mnt/permission/data", "is_temporary": False, "identifier": "data", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
@@ -470,6 +477,7 @@ def test_add_perms_container(mock_values):
     ]
     # fmt: on
     assert output["configs"]["permissions_actions_data"]["content"] == json.dumps(content)
+    assert output["services"]["test_perms_container"]["entrypoint"] == ["python3", "/script/permissions.py"]
 
 
 def test_add_duplicate_perms_action(mock_values):
@@ -592,7 +600,7 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pgup["depends_on"] == {"test_perms_container": {"condition": "service_completed_successfully"}}
     assert pgup["restart"] == "on-failure:1"
     assert pgup["healthcheck"] == {"disable": True}
-    assert pgup["image"] == "ixsystems/postgres-upgrade:1.0.1"
+    assert pgup["image"] == "ixsystems/postgres-upgrade:1.0.0"
     assert pgup["entrypoint"] == ["/bin/bash", "-c", "/upgrade.sh"]
 
 

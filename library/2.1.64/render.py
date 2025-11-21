@@ -26,7 +26,6 @@ class Render(object):
     def __init__(self, values):
         self._containers: dict[str, Container] = {}
         self.values = values
-        self._add_images_internal_use()
         # Make a copy after we inject the images
         self._original_values: dict = copy.deepcopy(self.values)
 
@@ -39,19 +38,6 @@ class Render(object):
         self.portals: Portals = Portals(render_instance=self)
         self.notes: Notes = Notes(render_instance=self)
         self.volumes = Volumes(render_instance=self)
-
-    def _add_images_internal_use(self):
-        if not self.values.get("images"):
-            self.values["images"] = {}
-
-        if "python_permissions_image" not in self.values["images"]:
-            self.values["images"]["python_permissions_image"] = {"repository": "python", "tag": "3.13.0-slim-bookworm"}
-
-        if "postgres_upgrade_image" not in self.values["images"]:
-            self.values["images"]["postgres_upgrade_image"] = {
-                "repository": "ixsystems/postgres-upgrade",
-                "tag": "1.0.1",
-            }
 
     def container_names(self):
         return list(self._containers.keys())
