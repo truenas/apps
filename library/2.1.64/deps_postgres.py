@@ -1,3 +1,4 @@
+import re
 import urllib.parse
 from typing import TYPE_CHECKING, TypedDict, NotRequired
 
@@ -26,7 +27,48 @@ class PostgresConfig(TypedDict):
     additional_options: NotRequired[dict[str, str]]
 
 
-MAX_POSTGRES_VERSION = 17
+MAX_POSTGRES_VERSION = 18
+SUPPORTED_REPOS = [
+    "postgres",
+    "postgis/postgis",
+    "pgvector/pgvector",
+    "ghcr.io/immich-app/postgres",
+]
+
+
+def get_major_version(variant: str, tag: str):
+    if variant == "postgres":
+        # 17.7-bookworm
+        regex = re.compile(r"^\d+\.\d+-\w+")
+
+        def oper(x):
+            return x.split("-")[0]
+
+    elif variant == "postgis/postgis":
+        # 17-3.5
+        regex = re.compile(r"^\d+\-\d+\.\d+")
+
+        def oper(x):
+            return x.split("-")[0]
+
+    elif variant == "pgvector/pgvector":
+        # 0.8.1-pg17
+        regex = re.compile(r"^\d+\.\d+\.\d+\-pg\d+")
+
+        def oper(x):
+            return x.split("-")[1].lstrip("pg")
+
+    elif variant == "ghcr.io/immich-app/postgres":
+        # 15-vectorchord0.4.3-pgvectors0.2.0
+        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+\-pgvectors\d+\.\d+\.\d+")
+
+        def oper(x):
+            return x.split("-")[0]
+
+    if not regex.match(tag):
+        raise RenderError(f"Could not determine major version from tag [{tag}] for variant [{variant}]")
+
+    return oper(tag)
 
 
 class PostgresContainer:
@@ -70,13 +112,15 @@ class PostgresContainer:
         if opts:
             c.set_command(opts)
 
+        repo = self._get_repo(image)
+        target_major_version = self._get_target_version(image)
+
         common_variables = {
             "POSTGRES_USER": config["user"],
             "POSTGRES_PASSWORD": config["password"],
             "POSTGRES_DB": config["database"],
             "PGPORT": port,
-            # FIXME: This wil only work for repo == "postgres".
-            "PGDATA": "/var/lib/postgresql/19/docker",
+            "PGDATA": f"/var/lib/postgresql/${target_major_version}/docker",
         }
 
         for k, v in common_variables.items():
@@ -86,18 +130,9 @@ class PostgresContainer:
             f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
         )
 
-        repo = self._get_repo(
-            image,
-            (
-                "postgres",  # 17.7-bookworm
-                "postgis/postgis",  # 17-3.5
-                "pgvector/pgvector",  # 0.8.1-pg17
-                "ghcr.io/immich-app/postgres",  # 15-vectorchord0.4.3-pgvectors0.2.0
-            ),
-        )
         # eg we don't want to handle upgrades of pg_vector at the moment
+        # TODO: Check if postgis, pgvector and immich will work with this.
         if repo == "postgres":
-            target_major_version = self._get_target_version(image)
             upg = self._render_instance.add_container(self._upgrade_name, "postgres_upgrade_image")
             upg.set_entrypoint(["/bin/bash", "-c", "/upgrade.sh"])
             upg.restart.set_policy("on-failure", 1)
@@ -128,27 +163,27 @@ class PostgresContainer:
         if self._upgrade_container:
             self._upgrade_container.depends.add_dependency(container_name, condition)
 
-    def _get_repo(self, image, supported_repos):
+    def _get_repo(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
-        if repo not in supported_repos:
-            raise RenderError(f"Unsupported repo [{repo}] for postgres. Supported repos: {', '.join(supported_repos)}")
+        if repo not in SUPPORTED_REPOS:
+            raise RenderError(f"Unsupported repo [{repo}] for postgres. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
-    # FIXME: This should work based on the repo for all postgres images
     def _get_target_version(self, image):
+        repo = self._get_repo(image)
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
-        tag = images[image].get("tag", "")
-        tag = str(tag)  # Account for tags like 16.6
-        target_major_version = tag.split(".")[0]
+        tag = str(images[image].get("tag", ""))
+        target_major_version = get_major_version(repo, tag)
 
         try:
+            # Make sure we end up with an integer
             target_major_version = int(target_major_version)
         except ValueError:
             raise RenderError(f"Could not determine target major version from tag [{tag}]")

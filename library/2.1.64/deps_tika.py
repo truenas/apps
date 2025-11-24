@@ -15,6 +15,9 @@ class TikaConfig(TypedDict):
     port: NotRequired[int]
 
 
+SUPPORTED_REPOS = ["apache/tika"]
+
+
 class TikaContainer:
     def __init__(self, render_instance: "Render", name: str, image: str, config: TikaConfig):
         self._render_instance = render_instance
@@ -35,7 +38,7 @@ class TikaContainer:
 
         c.set_command(["--port", str(self.get_port())])
 
-        self._get_repo(image, ("apache/tika"))
+        self._get_repo(image)
 
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
@@ -45,15 +48,15 @@ class TikaContainer:
     def container(self):
         return self._container
 
-    def _get_repo(self, image, supported_repos):
+    def _get_repo(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
-        if repo not in supported_repos:
-            raise RenderError(f"Unsupported repo [{repo}] for tika. Supported repos: {', '.join(supported_repos)}")
+        if repo not in SUPPORTED_REPOS:
+            raise RenderError(f"Unsupported repo [{repo}] for tika. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
     def get_port(self):
