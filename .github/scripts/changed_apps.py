@@ -62,9 +62,15 @@ def find_test_files(changed_files):
         print("Skipped apps based on the EXCLUDE_TESTS list:", file=sys.stderr)
         print("\n".join(skipped), file=sys.stderr)
 
+    if len(matrix) > 256 * 3:
+        print(f"Detected test files ({len(matrix)}) exceeded 768 limit", file=sys.stderr)
+        print("Additional matrices need to be added to the workflow", file=sys.stderr)
+        sys.exit(1)
+
     result = {
-        "matrix1": {"include": matrix[:256]},
-        "matrix2": {"include": matrix[256:]},
+        "matrix1": {"include": matrix[0:256]},
+        "matrix2": {"include": matrix[256:512]},
+        "matrix3": {"include": matrix[512:768]},
     }
 
     return json.dumps(result)
@@ -72,6 +78,7 @@ def find_test_files(changed_files):
 
 def main():
     changed_files = get_changed_files()
+    print(f"Detected {len(changed_files)} changed files", file=sys.stderr)
     print(find_test_files(changed_files))
     # This should look like:
     # {
