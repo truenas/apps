@@ -3,6 +3,8 @@
 {% set c1 = tpl.add_container(values.consts.lms_container_name, "image") %}
 {% do c1.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
+
 {% if values.lms.attach_sound_device %}
   {% do c1.add_snd_device() %}
 {% endif %}
@@ -13,7 +15,9 @@
 #}
 {% set args = namespace(x=values.lms.additional_flags | list) %}
 {% do tpl.funcs.require_no_reserved(values.lms.additional_flags, "Additional flags", values.consts.reserved_flags, starts_with=true) %}
-{% do args.x.append("--cliport=%d"|format(values.network.cli_port.port_number)) %}
+{% if values.network.cli_port.bind_mode %}
+  {% do args.x.append("--cliport=%d"|format(values.network.cli_port.port_number)) %}
+{% endif %}
 
 {% do c1.environment.add_env("EXTRA_ARGS", args.x|join(" ")) %}
 
@@ -38,8 +42,6 @@
 {# https://github.com/LMS-Community/slimserver-platforms/blob/3ef0e1beca9491cd657d9f44439c52e6291a2e7b/Docker/start-container.sh#L30 #}
 {% do c1.environment.add_env("HTTP_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_user_envs(values.lms.additional_envs) %}
-
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
 
 {% do tpl.portals.add(values.network.web_port) %}
 
