@@ -36,7 +36,17 @@ class PostgresContainer:
         self._render_instance = render_instance
         self._name = name
         self._config = config
-        self._data_dir = "/var/lib/postgresql/data"
+        # NOTE: droping the ../data suffix means that existing installs will have a directory structure change:
+        # Before:
+        #   postgres_data:
+        #     <db>
+        #
+        # After:
+        #   postgres_data:
+        #     data:
+        #       <db>
+        # So if we detect data, we move it up one level or better yet, we move it to MAJOR/docker like upstream
+        self._data_dir = "/var/lib/postgresql"
         self._upgrade_name = f"{self._name}_upgrade"
         self._upgrade_container = None
 
@@ -65,6 +75,8 @@ class PostgresContainer:
             "POSTGRES_PASSWORD": config["password"],
             "POSTGRES_DB": config["database"],
             "PGPORT": port,
+            # FIXME: This wil only work for repo == "postgres".
+            "PGDATA": "/var/lib/postgresql/19/docker",
         }
 
         for k, v in common_variables.items():
@@ -77,11 +89,10 @@ class PostgresContainer:
         repo = self._get_repo(
             image,
             (
-                "postgres",
-                "postgis/postgis",
-                "pgvector/pgvector",
-                "tensorchord/pgvecto-rs",
-                "ghcr.io/immich-app/postgres",
+                "postgres",  # 17.7-bookworm
+                "postgis/postgis",  # 17-3.5
+                "pgvector/pgvector",  # 0.8.1-pg17
+                "ghcr.io/immich-app/postgres",  # 15-vectorchord0.4.3-pgvectors0.2.0
             ),
         )
         # eg we don't want to handle upgrades of pg_vector at the moment
@@ -128,6 +139,7 @@ class PostgresContainer:
             raise RenderError(f"Unsupported repo [{repo}] for postgres. Supported repos: {', '.join(supported_repos)}")
         return repo
 
+    # FIXME: This should work based on the repo for all postgres images
     def _get_target_version(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
