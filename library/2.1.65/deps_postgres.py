@@ -42,7 +42,7 @@ def get_major_version(variant: str, tag: str):
         regex = re.compile(r"^\d+\.\d+-\w+")
 
         def oper(x):
-            return x.split("-")[0]
+            return x.split(".")[0]
 
     elif variant == "postgis/postgis":
         # 17-3.5
@@ -60,7 +60,7 @@ def get_major_version(variant: str, tag: str):
 
     elif variant == "ghcr.io/immich-app/postgres":
         # 15-vectorchord0.4.3-pgvectors0.2.0
-        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+\-pgvectors\d+\.\d+\.\d+")
+        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+(\-pgvectors?\d+\.\d+\.\d+)?")
 
         def oper(x):
             return x.split("-")[0]
@@ -78,17 +78,7 @@ class PostgresContainer:
         self._render_instance = render_instance
         self._name = name
         self._config = config
-        # NOTE: droping the ../data suffix means that existing installs will have a directory structure change:
-        # Before:
-        #   postgres_data:
-        #     <db>
-        #
-        # After:
-        #   postgres_data:
-        #     data:
-        #       <db>
-        # So if we detect data, we move it up one level or better yet, we move it to MAJOR/docker like upstream
-        self._data_dir = "/var/lib/postgresql"
+        self._data_dir = "/var/lib/postgresql/data"
         self._upgrade_name = f"{self._name}_upgrade"
         self._upgrade_container = None
 
@@ -106,33 +96,41 @@ class PostgresContainer:
         c.remove_devices()
         c.add_storage(self._data_dir, config["volume"])
 
+        perms_instance.add_or_skip_action(
+            f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
+        )
+
         opts = []
         for k, v in config.get("additional_options", {}).items():
             opts.extend(["-c", f"{k}={v}"])
         if opts:
             c.set_command(opts)
 
-        repo = self._get_repo(image)
-        target_major_version = self._get_target_version(image)
-
         common_variables = {
             "POSTGRES_USER": config["user"],
             "POSTGRES_PASSWORD": config["password"],
             "POSTGRES_DB": config["database"],
             "PGPORT": port,
-            "PGDATA": f"/var/lib/postgresql/${target_major_version}/docker",
+            "PGDATA": self._data_dir,
         }
 
-        for k, v in common_variables.items():
-            c.environment.add_env(k, v)
-
-        perms_instance.add_or_skip_action(
-            f"{self._name}_postgres_data", config["volume"], {"uid": 999, "gid": 999, "mode": "check"}
-        )
-
-        # eg we don't want to handle upgrades of pg_vector at the moment
-        # TODO: Check if postgis, pgvector and immich will work with this.
+        # eg we don't want to handle upgrades of pg_vector or immich at the moment
+        repo = self._get_repo(image)
         if repo == "postgres":
+            target_major_version = self._get_target_version(image)
+            # We force this data directory here, because from 18 onwards,
+            # The default data directory defaults to /var/lib/postgresql/MAJOR_VERSION/docker
+            # This makes it hard for the upgrade container to find the data directory
+            # Having a fixed data directory makes it easier to manage across versions
+            # Drawback is that we can't take advantage of the "fast" upgrades using `--link`.
+            # Later on we might want to revisit this decision and migrate to the new data structure
+            common_variables["PGDATA"] = self._data_dir
+            if target_major_version >= 18:
+                # Before 18, the default was no data checksums.
+                # We need to keep it that way so it is compatible for upgrades.
+                # Also it is recommended to have this disabled as ZFS does its own check-summing.
+                common_variables["POSTGRES_INITDB_ARGS"] = "--no-data-checksums"
+
             upg = self._render_instance.add_container(self._upgrade_name, "postgres_upgrade_image")
             upg.set_entrypoint(["/bin/bash", "-c", "/upgrade.sh"])
             upg.restart.set_policy("on-failure", 1)
@@ -149,6 +147,9 @@ class PostgresContainer:
             self._upgrade_container = upg
 
             c.depends.add_dependency(self._upgrade_name, "service_completed_successfully")
+
+        for k, v in common_variables.items():
+            c.environment.add_env(k, v)
 
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
