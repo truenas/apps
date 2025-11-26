@@ -34,12 +34,13 @@
 {% do admin.set_entrypoint([
   "/usr/bin/weed", "-logtostderr=true", "admin",
   "-masters=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
-  "-dataDir=%s/admin"|format(values.consts.data_path),
+  "-dataDir=%s"|format(values.consts.data_path),
   "-adminUser=%s"|format(values.seaweedfs.admin_user),
   "-adminPassword=%s"|format(values.seaweedfs.admin_password),
   "-port=%d"|format(values.network.admin_port.port_number),
 ]) %}
-{% do admin.add_storage(values.consts.data_path, values.storage.data) %}
+{% do admin.add_storage(values.consts.data_path, values.storage.admin_data) %}
+{% do perm_container.add_or_skip_action("admin-data", values.storage.admin_data, perms_config) %}
 
 {# Volume #}
 {% do volume.healthcheck.set_test("wget", {"port": values.network.volume_port.port_number, "path": "/healthz"}) %}
@@ -53,12 +54,13 @@
   "-ip=%s"|format(values.consts.volume_container_name),
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.volume_port.port_number),
-  "-dir=%s/volume"|format(values.consts.data_path),
+  "-dir=%s"|format(values.consts.data_path),
   "-max=0",
   "-rack=%s"|format(values.seaweedfs.rack_name),
   "-dataCenter=%s"|format(values.seaweedfs.data_center_name),
 ]) %}
-{% do volume.add_storage(values.consts.data_path, values.storage.data) %}
+{% do volume.add_storage(values.consts.data_path, values.storage.volume_data) %}
+{% do perm_container.add_or_skip_action("volume-data", values.storage.volume_data, perms_config) %}
 
 {# Filer #}
 {% do filer.healthcheck.set_test("wget", {"port": values.network.filer_port.port_number, "path": "/healthz"}) %}
@@ -73,9 +75,10 @@
   "-ip=%s"|format(values.consts.filer_container_name),
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.filer_port.port_number),
-  "-defaultStoreDir=%s/filer"|format(values.consts.data_path),
+  "-defaultStoreDir=%s"|format(values.consts.data_path),
 ]) %}
-{% do filer.add_storage(values.consts.data_path, values.storage.data) %}
+{% do filer.add_storage(values.consts.data_path, values.storage.filer_data) %}
+{% do perm_container.add_or_skip_action("filer-data", values.storage.filer_data, perms_config) %}
 
 {# S3 #}
 {% do s3.healthcheck.set_test("wget", {"port": values.network.s3_port.port_number, "path": "/healthz"}) %}
@@ -110,12 +113,12 @@
   "-ip=%s"|format(values.consts.master_container_name),
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.master_port.port_number),
-  "-mdir=%s/master"|format(values.consts.data_path),
+  "-mdir=%s"|format(values.consts.data_path),
   "-volumeSizeLimitMB=%d"|format(values.seaweedfs.volume_size_limit_mb),
 ]) %}
-{% do master.add_storage(values.consts.data_path, values.storage.data) %}
+{% do master.add_storage(values.consts.data_path, values.storage.master_data) %}
+{% do perm_container.add_or_skip_action("master-data", values.storage.master_data, perms_config) %}
 
-{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% for c in containers %}
