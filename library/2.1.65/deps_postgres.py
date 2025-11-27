@@ -135,6 +135,8 @@ class PostgresContainer:
             self._data_dir = "/var/lib/postgresql/data"
 
         for container in containers:
+            # TODO: We can now use 568:568 (or any user/group).
+            # Need to first plan a migration path for the existing users.
             container.set_user(999, 999)
             container.remove_devices()
             container.add_storage(self._data_dir, config["volume"])
