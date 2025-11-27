@@ -128,6 +128,7 @@ class PostgresContainer:
             upg.set_entrypoint(["/bin/bash", "-c", "/upgrade.sh"])
             upg.restart.set_policy("on-failure", 1)
             upg.healthcheck.disable()
+            upg.setup_as_helper(profile="medium")
             upg.environment.add_env("TARGET_VERSION", target_major_version)
 
             c.depends.add_dependency(self._upgrade_name, "service_completed_successfully")
