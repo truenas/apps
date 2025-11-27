@@ -179,7 +179,7 @@ module.exports = {
     customVersioning(
       // 9.0.2-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
-      ["lmscommunity/lyrionmusicserver"],
+      ["lmscommunity/lyrionmusicserver"]
     ),
     customVersioning(
       // 2.1.0.3-stable
@@ -305,6 +305,11 @@ module.exports = {
       // appname-1.2.3
       `^(?<compatibility>draw-io|progress-bars|json-viewer|external-sites|unzip|cast|importer|arcade|maps)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$`,
       [`opencloudeu/web-extensions`]
+    ),
+    customVersioning(
+      // 1.0.0-alpha.67
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-alpha\\.(?<build>\\d+))?$",
+      ["rustfs/rustfs"]
     ),
   ],
 };
