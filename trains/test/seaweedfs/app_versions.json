@@ -1,13 +1,13 @@
 {
-    "1.0.0": {
+    "1.0.1": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/test/seaweedfs/1.0.0",
-        "last_update": "2025-11-25 18:05:17",
+        "location": "/__w/apps/apps/trains/test/seaweedfs/1.0.1",
+        "last_update": "2025-11-27 09:48:53",
         "required_features": [],
-        "human_version": "4.00_1.0.0",
-        "version": "1.0.0",
+        "human_version": "4.00_1.0.1",
+        "version": "1.0.1",
         "app_metadata": {
             "app_version": "4.00",
             "capabilities": [],
@@ -53,7 +53,7 @@
             ],
             "title": "SeaweedFS",
             "train": "test",
-            "version": "1.0.0"
+            "version": "1.0.1"
         },
         "schema": {
             "groups": [
@@ -129,7 +129,7 @@
                                     "type": "int",
                                     "min": 1024,
                                     "max": 30000,
-                                    "default": 1024,
+                                    "default": 30000,
                                     "required": true
                                 }
                             },
@@ -619,8 +619,9 @@
                         "type": "dict",
                         "attrs": [
                             {
-                                "variable": "data",
-                                "label": "Data Storage",
+                                "variable": "admin_data",
+                                "label": "Admin Data Storage",
+                                "description": "Stores configuration files for the Admin Dashboard. Recommended to use SSD for better performance.",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -678,7 +679,7 @@
                                                             "type": "string",
                                                             "required": true,
                                                             "hidden": true,
-                                                            "default": "data"
+                                                            "default": "admin-data"
                                                         }
                                                     },
                                                     {
@@ -762,8 +763,9 @@
                                 }
                             },
                             {
-                                "variable": "admin_data",
-                                "label": "Admin Data Storage",
+                                "variable": "master_data",
+                                "label": "Master Data Storage",
+                                "description": "Mostly metadata files are stored here. Recommended to use SSD for better performance.",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -821,7 +823,295 @@
                                                             "type": "string",
                                                             "required": true,
                                                             "hidden": true,
-                                                            "default": "admin-data"
+                                                            "default": "master-data"
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl_entries",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": []
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_path_config",
+                                            "label": "Host Path Configuration",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "host_path"
+                                                    ]
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": [],
+                                                            "$ref": [
+                                                                "normalize/acl"
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "path",
+                                                        "label": "Host Path",
+                                                        "description": "The host path to use for storage.",
+                                                        "schema": {
+                                                            "type": "hostpath",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    false
+                                                                ]
+                                                            ],
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "filer_data",
+                                "label": "Filer Data Storage",
+                                "description": "Mostly metadata files are stored here. Recommended to use SSD for better performance.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "type",
+                                            "label": "Type",
+                                            "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "required": true,
+                                                "default": "ix_volume",
+                                                "enum": [
+                                                    {
+                                                        "value": "host_path",
+                                                        "description": "Host Path (Path that already exists on the system)"
+                                                    },
+                                                    {
+                                                        "value": "ix_volume",
+                                                        "description": "ixVolume (Dataset created automatically by the system)"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "ix_volume_config",
+                                            "label": "ixVolume Configuration",
+                                            "description": "The configuration for the ixVolume dataset.",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "ix_volume"
+                                                    ]
+                                                ],
+                                                "$ref": [
+                                                    "normalize/ix_volume"
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "dataset_name",
+                                                        "label": "Dataset Name",
+                                                        "description": "The name of the dataset to use for storage.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "hidden": true,
+                                                            "default": "filer-data"
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl_entries",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": []
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_path_config",
+                                            "label": "Host Path Configuration",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "host_path"
+                                                    ]
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": [],
+                                                            "$ref": [
+                                                                "normalize/acl"
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "path",
+                                                        "label": "Host Path",
+                                                        "description": "The host path to use for storage.",
+                                                        "schema": {
+                                                            "type": "hostpath",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    false
+                                                                ]
+                                                            ],
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "volume_data",
+                                "label": "Volume Data Storage",
+                                "description": "Stores the actual file data. Recommended to use high capacity storage here. Either SSD or HDD.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "type",
+                                            "label": "Type",
+                                            "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "required": true,
+                                                "default": "ix_volume",
+                                                "enum": [
+                                                    {
+                                                        "value": "host_path",
+                                                        "description": "Host Path (Path that already exists on the system)"
+                                                    },
+                                                    {
+                                                        "value": "ix_volume",
+                                                        "description": "ixVolume (Dataset created automatically by the system)"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "ix_volume_config",
+                                            "label": "ixVolume Configuration",
+                                            "description": "The configuration for the ixVolume dataset.",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "ix_volume"
+                                                    ]
+                                                ],
+                                                "$ref": [
+                                                    "normalize/ix_volume"
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "dataset_name",
+                                                        "label": "Dataset Name",
+                                                        "description": "The name of the dataset to use for storage.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "hidden": true,
+                                                            "default": "volume-data"
                                                         }
                                                     },
                                                     {
@@ -1230,12 +1520,24 @@
                                                             "required": true,
                                                             "enum": [
                                                                 {
-                                                                    "value": "server",
-                                                                    "description": "server"
-                                                                },
-                                                                {
                                                                     "value": "admin",
                                                                     "description": "admin"
+                                                                },
+                                                                {
+                                                                    "value": "master",
+                                                                    "description": "master"
+                                                                },
+                                                                {
+                                                                    "value": "volume",
+                                                                    "description": "volume"
+                                                                },
+                                                                {
+                                                                    "value": "filer",
+                                                                    "description": "filer"
+                                                                },
+                                                                {
+                                                                    "value": "s3",
+                                                                    "description": "s3"
                                                                 }
                                                             ]
                                                         }
@@ -1337,7 +1639,7 @@
             ],
             "title": "SeaweedFS",
             "train": "test",
-            "version": "1.0.0"
+            "version": "1.0.1"
         }
     }
 }
