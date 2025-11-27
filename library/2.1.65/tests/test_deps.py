@@ -109,7 +109,7 @@ def test_add_postgres(mock_values):
         {
             "type": "volume",
             "source": "test_volume",
-            "target": "/var/lib/postgresql/data",
+            "target": "/var/lib/postgresql",
             "read_only": False,
             "volume": {"nocopy": False},
         }
@@ -123,7 +123,7 @@ def test_add_postgres(mock_values):
         "POSTGRES_PASSWORD": "test_@password",
         "POSTGRES_DB": "test_database",
         "PGPORT": "5432",
-        "PGDATA": "/var/lib/postgresql/data",
+        "PGDATA": "/var/lib/postgresql/16/docker",
     }
     assert output["services"]["pg_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"},
@@ -589,11 +589,9 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pg["volumes"] == pgup["volumes"]
     assert pg["user"] == pgup["user"]
     assert pgup["environment"]["TARGET_VERSION"] == "16"
-    assert pgup["environment"]["DATA_DIR"] == "/var/lib/postgresql/data"
-    assert pgup["environment"]["PGDATA"] == "/var/lib/postgresql/data"
+    assert pgup["environment"]["PGDATA"] == "/var/lib/postgresql/16/docker"
     pgup_env = pgup["environment"]
     pgup_env.pop("TARGET_VERSION")
-    pgup_env.pop("DATA_DIR")
     assert pg["environment"] == pgup_env
     assert pg["depends_on"] == {
         "test_perms_container": {"condition": "service_completed_successfully"},
