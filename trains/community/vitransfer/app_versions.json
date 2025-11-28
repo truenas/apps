@@ -1,23 +1,23 @@
 {
-    "1.0.16": {
+    "1.0.17": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/vitransfer/1.0.16",
-        "last_update": "2025-11-28 16:17:12",
+        "location": "/__w/apps/apps/trains/community/vitransfer/1.0.17",
+        "last_update": "2025-11-28 18:42:16",
         "required_features": [],
-        "human_version": "0.5.5_1.0.16",
-        "version": "1.0.16",
+        "human_version": "0.6.0_1.0.17",
+        "version": "1.0.17",
         "app_metadata": {
-            "app_version": "0.5.5",
+            "app_version": "0.6.0",
             "capabilities": [],
             "categories": [
                 "productivity"
             ],
             "changelog_url": "https://github.com/MansiVisuals/ViTransfer/releases",
             "date_added": "2025-11-06",
-            "description": "ViTransfer - A modern selfhosted video feedback and sharing solution",
-            "home": "https://github.com/MansiVisuals/ViTransfer",
+            "description": "ViTransfer - Professional video review and approval platform for filmmakers",
+            "home": "https://www.vitransfer.com",
             "host_mounts": [],
             "icon": "https://media.sys.truenas.net/apps/vitransfer/icons/icon.svg",
             "keywords": [
@@ -59,11 +59,12 @@
             ],
             "screenshots": [],
             "sources": [
-                "https://github.com/MansiVisuals/ViTransfer"
+                "https://github.com/MansiVisuals/ViTransfer",
+                "https://www.vitransfer.com"
             ],
             "title": "ViTransfer",
             "train": "community",
-            "version": "1.0.16"
+            "version": "1.0.17"
         },
         "schema": {
             "groups": [
@@ -132,7 +133,7 @@
                             {
                                 "variable": "db_password",
                                 "label": "Database Password",
-                                "description": "The password for ViTransfer.",
+                                "description": "PostgreSQL database password (hex/URL-safe only).</br>\nGenerate with: openssl rand -hex 32</br>\nIMPORTANT: Use hex format (no special characters like +/=)\n",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -143,6 +144,7 @@
                             {
                                 "variable": "redis_password",
                                 "label": "Redis Password",
+                                "description": "Redis password for queue and cache (hex/URL-safe only).</br>\nGenerate with: openssl rand -hex 32</br>\nIMPORTANT: Use hex format (no special characters like +/=)\n",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -153,6 +155,7 @@
                             {
                                 "variable": "jwt_secret",
                                 "label": "JWT Secret",
+                                "description": "Secret for signing JWT access tokens (base64).</br>\nGenerate with: openssl rand -base64 64</br>\nUsed for admin authentication sessions\n",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -163,6 +166,7 @@
                             {
                                 "variable": "jwt_refresh_secret",
                                 "label": "JWT Refresh Secret",
+                                "description": "Secret for signing JWT refresh tokens (base64).</br>\nGenerate with: openssl rand -base64 64</br>\nUsed for token rotation and renewal\n",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -173,6 +177,7 @@
                             {
                                 "variable": "encryption_key",
                                 "label": "Encryption Key",
+                                "description": "AES-256 encryption key for sensitive data (base64).</br>\nGenerate with: openssl rand -base64 32</br>\nUsed for encrypting passwords and credentials\n",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -181,8 +186,31 @@
                                 }
                             },
                             {
+                                "variable": "share_token_secret",
+                                "label": "Share Token Secret",
+                                "description": "Secret for signing share link tokens (base64).</br>\nGenerate with: openssl rand -base64 64</br>\nREQUIRED for v0.6.0+ - Used for client share authentication\n",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "",
+                                    "required": true,
+                                    "private": true
+                                }
+                            },
+                            {
+                                "variable": "admin_name",
+                                "label": "Initial Admin Name",
+                                "description": "Display name for the initial admin user.</br>\nOnly used during first-time setup\n",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "Admin",
+                                    "immutable": true,
+                                    "required": true
+                                }
+                            },
+                            {
                                 "variable": "admin_email",
                                 "label": "Admin Email",
+                                "description": "Initial admin email address for first-time setup.</br>\nUsed only during initial setup when no admin exists.</br>\nMust be a valid email address\n",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -193,6 +221,7 @@
                             {
                                 "variable": "admin_password",
                                 "label": "Admin Password",
+                                "description": "Initial admin password for first-time setup.</br>\nMust be at least 8 characters long.</br>\nAvoid special characters (!, @, #) due to JSON parsing.</br>\nChange this password after first login!\n",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -212,8 +241,8 @@
                             },
                             {
                                 "variable": "https_enabled",
-                                "label": "HTTPS Security Features",
-                                "description": "Enable HTTPS security headers and cookie settings.</br>\nNOTE: This does NOT change the server port. The app always listens on HTTP.</br>\nThis setting only controls security features for reverse proxy deployments.</br>\n</br>\nWhen enabled (true - recommended for production):</br>\n- Cookies use secure flag (only sent over HTTPS)</br>\n- HSTS header enabled (forces browser to use HTTPS)</br>\n- Use behind reverse proxy (Nginx, Traefik, Caddy) with HTTPS</br>\n</br>\nWhen disabled (false - for local/development):</br>\n- Cookies work over plain HTTP</br>\n- No HSTS enforcement</br>\n- Use for localhost or LAN-only deployments without reverse proxy</br>\n</br>\nDefault: false (for localhost/LAN compatibility)\n",
+                                "label": "HTTPS Security (HSTS)",
+                                "description": "Enable HSTS (HTTP Strict Transport Security) header.</br>\nNOTE: This does NOT change the server port. The app always listens on HTTP.</br>\nThis setting only controls HSTS header for reverse proxy deployments.</br>\n</br>\nv0.6.0+ uses bearer tokens (no cookies) - this only affects HSTS.</br>\n</br>\nWhen enabled (true - recommended for production):</br>\n- HSTS header enabled (forces browser to use HTTPS)</br>\n- Use behind reverse proxy (Nginx, Traefik, Caddy) with HTTPS</br>\n</br>\nWhen disabled (false - for local/development):</br>\n- No HSTS enforcement</br>\n- Use for localhost or LAN-only deployments without reverse proxy</br>\n</br>\nDefault: false (for localhost/LAN compatibility)\n",
                                 "schema": {
                                     "type": "boolean",
                                     "default": false
@@ -1218,18 +1247,18 @@
                 }
             ]
         },
-        "readme": "<h1>ViTransfer</h1> <p><a href=\"https://github.com/MansiVisuals/ViTransfer\">ViTransfer</a> is a modern selfhosted video feedback and sharing solution.</p>",
+        "readme": "<h1>ViTransfer</h1> <p><a href=\"https://www.vitransfer.com\">ViTransfer</a> is a professional video review and approval platform for filmmakers.</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "0.5.5",
+            "app_version": "0.6.0",
             "capabilities": [],
             "categories": [
                 "productivity"
             ],
             "changelog_url": "https://github.com/MansiVisuals/ViTransfer/releases",
             "date_added": "2025-11-06",
-            "description": "ViTransfer - A modern selfhosted video feedback and sharing solution",
-            "home": "https://github.com/MansiVisuals/ViTransfer",
+            "description": "ViTransfer - Professional video review and approval platform for filmmakers",
+            "home": "https://www.vitransfer.com",
             "host_mounts": [],
             "icon": "https://media.sys.truenas.net/apps/vitransfer/icons/icon.svg",
             "keywords": [
@@ -1271,11 +1300,12 @@
             ],
             "screenshots": [],
             "sources": [
-                "https://github.com/MansiVisuals/ViTransfer"
+                "https://github.com/MansiVisuals/ViTransfer",
+                "https://www.vitransfer.com"
             ],
             "title": "ViTransfer",
             "train": "community",
-            "version": "1.0.16"
+            "version": "1.0.17"
         }
     }
 }
