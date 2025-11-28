@@ -46,7 +46,10 @@ questions:
                 description: Postgres 17
         - variable: db_password
           label: Database Password
-          description: The password for ViTransfer.
+          description: |
+            PostgreSQL database password (hex/URL-safe only).</br>
+            Generate with: openssl rand -hex 32</br>
+            IMPORTANT: Use hex format (no special characters like +/=)
           schema:
             type: string
             default: ""
@@ -54,6 +57,10 @@ questions:
             private: true
         - variable: redis_password
           label: Redis Password
+          description: |
+            Redis password for queue and cache (hex/URL-safe only).</br>
+            Generate with: openssl rand -hex 32</br>
+            IMPORTANT: Use hex format (no special characters like +/=)
           schema:
             type: string
             default: ""
@@ -61,6 +68,10 @@ questions:
             private: true
         - variable: jwt_secret
           label: JWT Secret
+          description: |
+            Secret for signing JWT access tokens (base64).</br>
+            Generate with: openssl rand -base64 64</br>
+            Used for admin authentication sessions
           schema:
             type: string
             default: ""
@@ -68,6 +79,10 @@ questions:
             private: true
         - variable: jwt_refresh_secret
           label: JWT Refresh Secret
+          description: |
+            Secret for signing JWT refresh tokens (base64).</br>
+            Generate with: openssl rand -base64 64</br>
+            Used for token rotation and renewal
           schema:
             type: string
             default: ""
@@ -75,13 +90,42 @@ questions:
             private: true
         - variable: encryption_key
           label: Encryption Key
+          description: |
+            AES-256 encryption key for sensitive data (base64).</br>
+            Generate with: openssl rand -base64 32</br>
+            Used for encrypting passwords and credentials
           schema:
             type: string
             default: ""
             required: true
             private: true
+        - variable: share_token_secret
+          label: Share Token Secret
+          description: |
+            Secret for signing share link tokens (base64).</br>
+            Generate with: openssl rand -base64 64</br>
+            REQUIRED for v0.6.0+ - Used for client share authentication
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: admin_name
+          label: Initial Admin Name
+          description: |
+            Display name for the initial admin user.</br>
+            Only used during first-time setup
+          schema:
+            type: string
+            default: "Admin"
+            immutable: true
+            required: true
         - variable: admin_email
           label: Admin Email
+          description: |
+            Initial admin email address for first-time setup.</br>
+            Used only during initial setup when no admin exists.</br>
+            Must be a valid email address
           schema:
             type: string
             default: ""
@@ -89,6 +133,11 @@ questions:
             private: true
         - variable: admin_password
           label: Admin Password
+          description: |
+            Initial admin password for first-time setup.</br>
+            Must be at least 8 characters long.</br>
+            Avoid special characters (!, @, #) due to JSON parsing.</br>
+            Change this password after first login!
           schema:
             type: string
             default: ""
@@ -104,19 +153,19 @@ questions:
             default: ""
             required: true
         - variable: https_enabled
-          label: HTTPS Security Features
+          label: HTTPS Security (HSTS)
           description: |
-            Enable HTTPS security headers and cookie settings.</br>
+            Enable HSTS (HTTP Strict Transport Security) header.</br>
             NOTE: This does NOT change the server port. The app always listens on HTTP.</br>
-            This setting only controls security features for reverse proxy deployments.</br>
+            This setting only controls HSTS header for reverse proxy deployments.</br>
+            </br>
+            v0.6.0+ uses bearer tokens (no cookies) - this only affects HSTS.</br>
             </br>
             When enabled (true - recommended for production):</br>
-            - Cookies use secure flag (only sent over HTTPS)</br>
             - HSTS header enabled (forces browser to use HTTPS)</br>
             - Use behind reverse proxy (Nginx, Traefik, Caddy) with HTTPS</br>
             </br>
             When disabled (false - for local/development):</br>
-            - Cookies work over plain HTTP</br>
             - No HSTS enforcement</br>
             - Use for localhost or LAN-only deployments without reverse proxy</br>
             </br>
