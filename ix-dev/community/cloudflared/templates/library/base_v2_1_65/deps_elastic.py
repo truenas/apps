@@ -21,7 +21,7 @@ class ElasticConfig(TypedDict):
     volume: "IxStorage"
 
 
-SUPPORTED_REPOS = ["docker.elastic.co/elasticsearch/elasticsearch"]
+SUPPORTED_REPOS = ["elasticsearch"]
 
 
 class ElasticSearchContainer:
