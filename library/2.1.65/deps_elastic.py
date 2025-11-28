@@ -21,6 +21,9 @@ class ElasticConfig(TypedDict):
     volume: "IxStorage"
 
 
+SUPPORTED_REPOS = ["docker.elastic.co/elasticsearch/elasticsearch"]
+
+
 class ElasticSearchContainer:
     def __init__(
         self, render_instance: "Render", name: str, image: str, config: ElasticConfig, perms_instance: PermsContainer
@@ -62,7 +65,7 @@ class ElasticSearchContainer:
             f"{self._name}_elastic_data", config["volume"], {"uid": 1000, "gid": 1000, "mode": "check"}
         )
 
-        self._get_repo(image, ("docker.elastic.co/elasticsearch/elasticsearch"))
+        self._get_repo(image)
 
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
@@ -72,16 +75,16 @@ class ElasticSearchContainer:
     def container(self):
         return self._container
 
-    def _get_repo(self, image, supported_repos):
+    def _get_repo(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
-        if repo not in supported_repos:
+        if repo not in SUPPORTED_REPOS:
             raise RenderError(
-                f"Unsupported repo [{repo}] for elastic search. Supported repos: {', '.join(supported_repos)}"
+                f"Unsupported repo [{repo}] for elastic search. Supported repos: {', '.join(SUPPORTED_REPOS)}"
             )
         return repo
 
