@@ -22,7 +22,7 @@ class MongoDBConfig(TypedDict):
     volume: "IxStorage"
 
 
-SUPPORTED_REPOS = ["mongodb"]
+SUPPORTED_REPOS = ["mongo"]
 
 
 class MongoDBContainer:
