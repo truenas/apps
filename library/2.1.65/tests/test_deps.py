@@ -37,7 +37,7 @@ def test_add_postgres_missing_config(mock_values):
 
 
 def test_add_postgres_unsupported_repo(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "unsupported_repo", "tag": "16"}
+    mock_values["images"]["pg_image"] = {"repository": "unsupported_repo", "tag": "16.6-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -57,7 +57,7 @@ def test_add_postgres_unsupported_repo(mock_values):
 
 
 def test_add_postgres(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16"}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -82,7 +82,7 @@ def test_add_postgres(mock_values):
     )
     assert "devices" not in output["services"]["pg_container"]
     assert "reservations" not in output["services"]["pg_container"]["deploy"]["resources"]
-    assert output["services"]["pg_container"]["image"] == "postgres:16"
+    assert output["services"]["pg_container"]["image"] == "postgres:16.6-bookworm"
     assert output["services"]["pg_container"]["user"] == "999:999"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
@@ -109,7 +109,7 @@ def test_add_postgres(mock_values):
         {
             "type": "volume",
             "source": "test_volume",
-            "target": "/var/lib/postgresql/data",
+            "target": "/var/lib/postgresql",
             "read_only": False,
             "volume": {"nocopy": False},
         }
@@ -123,6 +123,7 @@ def test_add_postgres(mock_values):
         "POSTGRES_PASSWORD": "test_@password",
         "POSTGRES_DB": "test_database",
         "PGPORT": "5432",
+        "PGDATA": "/var/lib/postgresql/16/docker",
     }
     assert output["services"]["pg_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"},
@@ -132,7 +133,7 @@ def test_add_postgres(mock_values):
 
 
 def test_add_postgres_options(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16"}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -378,7 +379,7 @@ def test_add_perms_container(mock_values):
         "test_dataset2": "/mnt/test/2",
         "test_dataset3": "/mnt/test/3",
     }
-    mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "17"}
+    mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "17.7-bookworm"}
     mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
     mock_values["images"]["mariadb_image"] = {"repository": "mariadb", "tag": "latest"}
     render = Render(mock_values)
@@ -536,7 +537,7 @@ def test_add_postgres_with_invalid_tag(mock_values):
 
 
 def test_no_upgrade_container_with_non_postgres_image(mock_values):
-    mock_values["images"]["postgres_image"] = {"repository": "tensorchord/pgvecto-rs", "tag": "pg15-v0.2.0"}
+    mock_values["images"]["postgres_image"] = {"repository": "pgvector/pgvector", "tag": "0.8.1-pg17"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -563,7 +564,7 @@ def test_no_upgrade_container_with_non_postgres_image(mock_values):
 
 
 def test_postgres_with_upgrade_container(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": 16.6}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -588,10 +589,9 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pg["volumes"] == pgup["volumes"]
     assert pg["user"] == pgup["user"]
     assert pgup["environment"]["TARGET_VERSION"] == "16"
-    assert pgup["environment"]["DATA_DIR"] == "/var/lib/postgresql/data"
+    assert pgup["environment"]["PGDATA"] == "/var/lib/postgresql/16/docker"
     pgup_env = pgup["environment"]
     pgup_env.pop("TARGET_VERSION")
-    pgup_env.pop("DATA_DIR")
     assert pg["environment"] == pgup_env
     assert pg["depends_on"] == {
         "test_perms_container": {"condition": "service_completed_successfully"},
