@@ -1,0 +1,361 @@
+groups:
+  - name: Lens Configuration
+    description: Configure Lens
+  - name: Admin User
+    description: Default administrator account
+  - name: Security
+    description: Security and secrets configuration
+  - name: SMTP Configuration
+    description: Email server settings (optional)
+  - name: Frontend Configuration
+    description: Frontend environment variables
+  - name: Storage Configuration
+    description: Configure Storage for Lens
+
+questions:
+  - variable: lens
+    label: ""
+    group: Lens Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: hostname
+          label: Hostname
+          description: |
+            The hostname or IP address where the application will be accessible.</br>
+            Examples:</br>
+            - truenas.local</br>
+            - 192.168.1.100</br>
+            - lens.example.com
+          schema:
+            type: string
+            default: ""
+            required: true
+
+        - variable: port
+          label: Backend Port
+          description: Port for the backend API service
+          schema:
+            type: integer
+            default: 3030
+            minimum: 1024
+            maximum: 65535
+            required: true
+
+        - variable: frontend_port
+          label: Frontend Port
+          description: Port for the frontend web interface
+          schema:
+            type: integer
+            default: 3000
+            minimum: 1024
+            maximum: 65535
+            required: true
+
+        - variable: frontend_url
+          label: Frontend URL
+          description: |
+            Full URL where the frontend will be accessible.</br>
+            Use the same hostname/IP as configured above, with port 3000 (or your custom port).</br>
+            Examples:</br>
+            - http://truenas.local:3000</br>
+            - http://192.168.1.100:3000</br>
+            - https://lens.example.com
+          schema:
+            type: uri
+            default: ""
+            required: true
+
+        - variable: expose_db_port
+          label: MongoDB Exposed Port
+          description: |
+            External port for MongoDB (optional).</br>
+            By default, MongoDB is not exposed externally.</br>
+            If a port is provided, MongoDB will be exposed on the specified port for external access.
+          schema:
+            type: integer
+            minimum: 1024
+            maximum: 65535
+
+        - variable: default_admin_email
+          label: Admin Email
+          group: Admin User
+          description: Email address for the default admin user
+          schema:
+            type: string
+            default: admin@local.test
+            required: true
+
+        - variable: default_admin_username
+          label: Admin Username
+          group: Admin User
+          description: Username for the default admin user
+          schema:
+            type: string
+            default: admin
+            required: true
+
+        - variable: default_admin_password
+          label: Admin Password
+          group: Admin User
+          description: Password for the default admin user
+          schema:
+            type: string
+            default: admin@local.test
+            required: true
+            hidden: true
+
+        - variable: default_admin_name
+          label: Admin Name
+          group: Admin User
+          description: Display name for the default admin user
+          schema:
+            type: string
+            default: Administrator
+            required: true
+
+        - variable: local_signed_url_secret
+          label: Signed URL Secret
+          group: Security
+          description: |
+            Secret key for generating signed URLs (optional).</br>
+            If not provided, a secure key will be generated automatically.
+          schema:
+            type: string
+            hidden: true
+
+        - variable: smtp_host
+          label: SMTP Host
+          group: SMTP Configuration
+          description: SMTP server hostname
+          schema:
+            type: string
+
+        - variable: smtp_port
+          label: SMTP Port
+          group: SMTP Configuration
+          description: SMTP server port
+          schema:
+            type: integer
+            default: 465
+
+        - variable: smtp_user
+          label: SMTP Username
+          group: SMTP Configuration
+          description: SMTP authentication username
+          schema:
+            type: string
+
+        - variable: smtp_pass
+          label: SMTP Password
+          group: SMTP Configuration
+          description: SMTP authentication password
+          schema:
+            type: string
+            hidden: true
+
+        - variable: smtp_from
+          label: SMTP From Address
+          group: SMTP Configuration
+          description: Email address to send emails from
+          schema:
+            type: string
+
+        - variable: vite_app_api_url
+          label: API URL
+          group: Frontend Configuration
+          description: |
+            Backend API URL for frontend (optional).</br>
+            If not provided, will be automatically constructed from hostname and backend port (http://hostname:port).</br>
+            Examples:</br>
+            - http://truenas.local:3030</br>
+            - http://192.168.1.100:3030
+          schema:
+            type: uri
+
+        - variable: vite_stripe_purchase_peer_url
+          label: Stripe Purchase URL
+          group: Frontend Configuration
+          description: Stripe payment processing URL
+          schema:
+            type: string
+
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: mongodb_data
+          label: MongoDB Data Storage
+          description: The path to store MongoDB database files.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "mongodb_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: uploads_data
+          label: Uploads Data Storage
+          description: The path to store user uploads.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "uploads_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
