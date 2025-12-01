@@ -437,7 +437,7 @@ def copy_lib():
     cmd = " ".join(
         [
             f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
-            "apps_catalog_hash_generate --path /workspace",
+            f"apps_catalog_hash_generate --path /workspace --train {args['train']} --app {args['app']}",
         ]
     )
     print_cmd(cmd)
