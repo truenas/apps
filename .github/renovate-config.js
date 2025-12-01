@@ -262,6 +262,11 @@ module.exports = {
       ["postgis/postgis"]
     ),
     customVersioning(
+      // 0.8.1-pg18-trixie
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pg(17|18)(-\\w+)?$",
+      ["pgvector/pgvector"]
+    ),
+    customVersioning(
       // 2.4-dev
       "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
       ["wger/server"]
