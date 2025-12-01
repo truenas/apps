@@ -65,8 +65,8 @@ def get_major_version(variant: str, tag: str):
             return parts[1].lstrip("pg")
 
     elif variant == "ghcr.io/immich-app/postgres":
-        # 15-vectorchord0.4.3-pgvectors0.2.0
-        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+(\-pgvectors?\d+\.\d+\.\d+)?")
+        # 15-vectorchord0.4.3
+        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+")
 
         def oper(x):
             return x.split("-")[0]
