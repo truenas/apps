@@ -537,7 +537,10 @@ def test_add_postgres_with_invalid_tag(mock_values):
 
 
 def test_no_upgrade_container_with_non_postgres_image(mock_values):
-    mock_values["images"]["postgres_image"] = {"repository": "pgvector/pgvector", "tag": "0.8.1-pg17"}
+    mock_values["images"]["postgres_image"] = {
+        "repository": "ghcr.io/immich-app/postgres",
+        "tag": "15-vectorchord0.4.3-pgvectors0.2.0",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()

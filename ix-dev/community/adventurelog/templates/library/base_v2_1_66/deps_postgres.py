@@ -37,6 +37,7 @@ SUPPORTED_REPOS = [
 SUPPORTED_UPGRADE_REPOS = [
     "postgres",
     "postgis/postgis",
+    "pgvector/pgvector",
 ]
 
 
@@ -56,11 +57,12 @@ def get_major_version(variant: str, tag: str):
             return x.split("-")[0]
 
     elif variant == "pgvector/pgvector":
-        # 0.8.1-pg17
-        regex = re.compile(r"^\d+\.\d+\.\d+\-pg\d+")
+        # 0.8.1-pg17-trixie
+        regex = re.compile(r"^\d+\.\d+\.\d+\-pg\d+(\-\w+)?")
 
         def oper(x):
-            return x.split("-")[1].lstrip("pg")
+            parts = x.split("-")
+            return parts[1].lstrip("pg")
 
     elif variant == "ghcr.io/immich-app/postgres":
         # 15-vectorchord0.4.3-pgvectors0.2.0
