@@ -34,6 +34,10 @@ SUPPORTED_REPOS = [
     "pgvector/pgvector",
     "ghcr.io/immich-app/postgres",
 ]
+SUPPORTED_UPGRADE_REPOS = [
+    "postgres",
+    "postgis/postgis",
+]
 
 
 def get_major_version(variant: str, tag: str):
@@ -113,7 +117,7 @@ class PostgresContainer:
 
         # eg we don't want to handle upgrades of pg_vector or immich at the moment
         repo = self._get_repo(image)
-        if repo == "postgres":
+        if repo in SUPPORTED_UPGRADE_REPOS:
             self._data_dir = "/var/lib/postgresql"
             target_major_version = self._get_target_version(image)
             # This is the new format upstream Postgres uses/suggests.
