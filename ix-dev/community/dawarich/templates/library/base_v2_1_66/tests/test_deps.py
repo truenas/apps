@@ -537,7 +537,10 @@ def test_add_postgres_with_invalid_tag(mock_values):
 
 
 def test_no_upgrade_container_with_non_postgres_image(mock_values):
-    mock_values["images"]["postgres_image"] = {"repository": "pgvector/pgvector", "tag": "0.8.1-pg17"}
+    mock_values["images"]["postgres_image"] = {
+        "repository": "ghcr.io/immich-app/postgres",
+        "tag": "15-vectorchord0.4.3-pgvectors0.2.0",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -605,7 +608,7 @@ def test_postgres_with_upgrade_container(mock_values):
 
 
 def test_add_mongodb(mock_values):
-    mock_values["images"]["mongodb_image"] = {"repository": "mongodb", "tag": "latest"}
+    mock_values["images"]["mongodb_image"] = {"repository": "mongo", "tag": "latest"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -627,7 +630,7 @@ def test_add_mongodb(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["mongodb_container"]
     assert "reservations" not in output["services"]["mongodb_container"]["deploy"]["resources"]
-    assert output["services"]["mongodb_container"]["image"] == "mongodb:latest"
+    assert output["services"]["mongodb_container"]["image"] == "mongo:latest"
     assert output["services"]["mongodb_container"]["user"] == "568:568"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
@@ -781,7 +784,7 @@ def test_add_meilisearch_unsupported_repo(mock_values):
 
 def test_add_elasticsearch(mock_values):
     mock_values["images"]["elastic_image"] = {
-        "repository": "docker.elastic.co/elasticsearch/elasticsearch",
+        "repository": "elasticsearch",
         "tag": "9.1.2",
     }
     render = Render(mock_values)
@@ -804,7 +807,7 @@ def test_add_elasticsearch(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["elastic_container"]
     assert "reservations" not in output["services"]["elastic_container"]["deploy"]["resources"]
-    assert output["services"]["elastic_container"]["image"] == "docker.elastic.co/elasticsearch/elasticsearch:9.1.2"
+    assert output["services"]["elastic_container"]["image"] == "elasticsearch:9.1.2"
     assert output["services"]["elastic_container"]["user"] == "1000:1000"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
