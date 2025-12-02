@@ -258,12 +258,12 @@ module.exports = {
     ),
     customVersioning(
       // 17-3.5
-      "^(17|18)-(?<major>\\d+)\\.(?<minor>\\d+)$",
+      "^18-(?<major>\\d+)\\.(?<minor>\\d+)$",
       ["postgis/postgis"]
     ),
     customVersioning(
       // 0.8.1-pg18-trixie
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pg(17|18)(-\\w+)?$",
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pg18(-\\w+)?$",
       ["pgvector/pgvector"]
     ),
     customVersioning(
