@@ -201,8 +201,7 @@ Each app lives in `/ix-dev/{train}/{app}/` and has this structure:
     ├── rendered/              # Temporary (gitignored)
     │   └── docker-compose.yaml
     └── test_values/           # CI test configurations (required)
-        ├── basic-values.yaml  # Basic test scenario
-        └── advanced-values.yaml  # Additional test scenarios
+        └── basic-values.yaml  # Basic test scenario (required)
 ```
 
 #### 2. The Library System
