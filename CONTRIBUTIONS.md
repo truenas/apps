@@ -684,15 +684,14 @@ Show fields only when certain conditions are met:
     show_if: [["enable_ssl", "=", true]]
 ```
 
-Multiple conditions:
+Multiple conditions (AND logic - all must be true):
 
 ```yaml
-# AND logic (all must be true)
+# All conditions must be true
 show_if: [["enable_ssl", "=", true], ["ssl_type", "=", "custom"]]
-
-# OR logic
-show_if: [["type", "=", "postgres"], ["type", "=", "mysql"]]
 ```
+
+**Note:** Currently, only AND logic is supported in `show_if`. There is no OR support in questions.yaml.
 
 ### Storage Configuration Pattern
 
