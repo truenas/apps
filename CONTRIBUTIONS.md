@@ -1077,7 +1077,7 @@ When you run the CI script, it automatically:
    - Check logs: `docker logs myapp`
 
 4. **Test different configurations:**
-   - Create additional test files (e.g., `advanced-values.yaml`, `with-database.yaml`)
+   - Create additional test files if needed (e.g., `with-database.yaml`, `hostpath-values.yaml`)
    - Test each configuration thoroughly
 
 5. **Clean up:**
