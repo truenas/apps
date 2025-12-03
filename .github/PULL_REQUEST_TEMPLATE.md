@@ -15,8 +15,6 @@ Adds [App Name] to the community train.
 
 Tested locally with:
 - [ ] basic-values.yaml
-- [ ] advanced-values.yaml
-- [ ] GPU passthrough (if applicable)
 
 All tests passed successfully.
 
@@ -29,7 +27,6 @@ Please upload the following to the CDN:
 
 ## Special Notes
 
-- Requires GPU passthrough for hardware acceleration
 - First-time setup instructions: [if applicable]
 - Any other important information
 
