@@ -520,8 +520,8 @@ The `templates/docker-compose.yaml` file is a Jinja2 template that uses the libr
 } %}
 {% set postgres = tpl.deps.postgres("postgres", "postgres_image", pg_config, perms) %}
 {% do app.depends.add_dependency("postgres", "service_healthy") %}
-{% do app.environment.add_env("DATABASE_URL", 
-  "postgresql://myapp:" + values.myapp.db_password + "@postgres:5432/myapp_db") %}
+{# Use postgres.get_url() to generate the connection string #}
+{% do app.environment.add_env("DATABASE_URL", postgres.get_url()) %}
 ```
 
 #### Step 6: Create Test Files
