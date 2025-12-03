@@ -866,9 +866,6 @@ Every template follows this basic structure:
 
 {# Set network mode #}
 {% do app.set_network_mode("host") %}
-
-{# Set restart policy #}
-{% do app.set_restart_policy("unless-stopped") %}
 ```
 
 #### Health Checks
