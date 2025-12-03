@@ -557,32 +557,14 @@ Make sure your test files won't mount any directories you don't want them to!
 
 #### Step 7: Create README.md
 
-Write a brief description of the app:
+Keep the README brief - just a title and short description. Link to upstream documentation for details:
 
 ```markdown
 # My Awesome Application
 
 My Awesome Application is a tool for doing awesome things.
 
-## Features
-
-- Feature 1
-- Feature 2
-- Feature 3
-
-## Configuration
-
-### Storage
-
-The app requires persistent storage for configuration and data.
-
-### Network
-
-The web interface is accessible on the configured port (default: 8080).
-
-## Documentation
-
-For more information, visit: https://myapp.com/docs
+For more information and documentation, visit: https://myapp.com/docs
 ```
 
 ---
