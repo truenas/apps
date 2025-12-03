@@ -877,9 +877,6 @@ Every template follows this basic structure:
 {# TCP health check #}
 {% do app.healthcheck.set_test("netcat", {"port": 5432}) %}
 
-{# Command health check #}
-{% do app.healthcheck.set_test("exec", {"command": ["myapp", "health"]}) %}
-
 {# Disable health check #}
 {% do app.healthcheck.disable() %}
 ```
