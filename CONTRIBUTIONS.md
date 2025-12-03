@@ -103,9 +103,10 @@ Once cloned, you'll see this structure:
 .
 ├── ix-dev/                    # App definitions (this is where you work!)
 │   ├── community/            # Community-contributed apps
-│   ├── charts/               # Legacy apps being migrated
+│   ├── stable/               # Production-ready apps
 │   ├── enterprise/           # Enterprise-tier apps
-│   └── stable/               # Stable, production-ready apps
+│   ├── dev/                  # Development/testing
+│   └── test/                 # Test apps
 ├── library/                   # Rendering library (Python modules)
 │   └── 2.x.x/                # Library versions
 ├── trains/                    # Auto-generated catalog files (DO NOT EDIT)
