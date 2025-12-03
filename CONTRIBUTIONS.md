@@ -836,7 +836,8 @@ Every template follows this basic structure:
 #### Container Configuration
 
 ```python
-{# Set user and group #}
+{# Set user and group - usually picked automatically from run_as_context in app.yaml #}
+{# Only set manually if you need to override the default #}
 {% do app.set_user(568, 568) %}
 
 {# Set command and args #}
