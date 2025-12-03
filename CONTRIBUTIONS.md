@@ -1374,50 +1374,16 @@ Checklist before opening a PR:
 
 ### PR Description Template
 
-```markdown
-## Description
+When you create a new pull request, GitHub will automatically populate it with our PR template. This template includes sections for:
 
-Adds [App Name] to the community train.
+- **Description**: Brief overview of the app and what it does
+- **App Information**: Links to upstream repository, documentation, license, and version
+- **Testing**: Checklist of test scenarios you've verified
+- **Icons and Screenshots**: Visual assets for the app
+- **Special Notes**: Any important setup or usage information
+- **Checklist**: Final verification before submission
 
-[Brief description of what the app does]
-
-## App Information
-
-- **Upstream**: https://github.com/upstream/repo
-- **Documentation**: https://docs.upstream.com
-- **License**: MIT/etc
-- **App Version**: 2.1.0
-
-## Testing
-
-Tested locally with:
-- [x] basic-values.yaml
-- [x] advanced-values.yaml
-- [x] GPU passthrough (if applicable)
-
-All tests passed successfully.
-
-## Icons and Screenshots
-
-Please upload the following to the CDN:
-- Icon: [attach or link]
-- Screenshot 1: [attach or link]
-- Screenshot 2: [attach or link]
-
-## Special Notes
-
-- Requires GPU passthrough for hardware acceleration
-- First-time setup instructions: [if applicable]
-- Any other important information
-
-## Checklist
-
-- [x] App runs successfully locally
-- [x] Only modified files under /ix-dev/ or /library/
-- [x] README.md included
-- [x] Multiple test scenarios tested
-- [x] questions.yaml has clear descriptions
-```
+The template is located at [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) and will be automatically loaded when you create a PR. Simply fill in the placeholders with your app's specific information.
 
 ### Review Process
 
