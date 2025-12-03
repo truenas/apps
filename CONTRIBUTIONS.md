@@ -123,12 +123,11 @@ Once cloned, you'll see this structure:
 
 Apps are organized into "trains" (categories):
 
-- **community**: Community-contributed apps (most new apps go here)
-- **charts**: Legacy apps being migrated from the old system
-- **stable**: Well-tested, production-ready apps
-- **enterprise**: Enterprise-grade applications
+- **community**: Community-contributed apps - all new contributions go here
+- **stable**: Apps promoted from community after thorough testing
+- **enterprise**: Enterprise-grade applications maintained by iXsystems
 
-Most new contributions should target the `community` train.
+All new contributions should target the `community` train. Other trains are managed by iXsystems maintainers.
 
 ---
 
