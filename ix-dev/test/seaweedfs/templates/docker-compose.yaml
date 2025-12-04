@@ -109,7 +109,7 @@
 {% do master.add_port(values.network.master_port) %}
 
 {# Master Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/master.go#L74 #}
-{% do master.set_entrypoint([
+{% set master_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "master",
   "-ip=%s"|format(values.consts.master_container_name),
   "-ip.bind=0.0.0.0",
@@ -117,6 +117,20 @@
   "-mdir=%s"|format(values.consts.data_path),
   "-volumeSizeLimitMB=%d"|format(values.seaweedfs.volume_size_limit_mb),
 ]) %}
+
+{% if values.seaweedfs.master_peers %}
+  {% set peers = namespace(x=[]) %}
+  {% for peer in values.seaweedfs.master_peers %}
+    {% set parsed = tpl.funcs.url_to_dict(peer) %}
+    {% if not parsed.hostname %}{% do tpl.funcs.fail("Invalid master peer URL [%s]. Missing hostname."|format(peer)) %}{% endif %}
+    {% if not parsed.port %}{% do tpl.funcs.fail("Invalid master peer URL [%s]. Missing port."|format(peer)) %}{% endif %}
+    {% do peers.x.append("%s:%d"|format(parsed.host, parsed.port)) %}
+  {% endfor %}
+  {% do master_entrypoint.x.extend(["-peers=%s"|format(peers.x|join(","))]) %}
+{% endif %}
+
+{% do master.set_entrypoint(master_entrypoint.x) %}
+
 {% do master.add_storage(values.consts.data_path, values.storage.master_data) %}
 {% do perm_container.add_or_skip_action("master-data", values.storage.master_data, perms_config) %}
 
