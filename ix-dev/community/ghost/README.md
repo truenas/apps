@@ -26,7 +26,7 @@ Examples:
 
 ### Database
 
-Ghost uses MariaDB for data storage. The database is automatically configured with the credentials you provide during setup.
+Ghost uses MySQL for data storage. The database is automatically configured with the credentials you provide during setup.
 
 - Database passwords are required and should be strong
 - The database is stored in a separate volume for persistence
@@ -37,7 +37,7 @@ Ghost uses MariaDB for data storage. The database is automatically configured wi
 Ghost requires persistent storage for:
 
 - **Content Storage**: Themes, images, uploaded files, and application data
-- **Database Storage**: MariaDB data files
+- **Database Storage**: MySQL data files
 
 Both storage volumes are essential for Ghost operation and should be backed up regularly.
 
@@ -67,7 +67,7 @@ Refer to [Ghost Configuration Documentation](https://ghost.org/docs/config/) for
 ## Notes
 
 - Ghost runs as non-root user (UID 1000)
-- MariaDB runs as non-root user (UID 999)
+- MySQL runs as non-root user (UID 999)
 - Initial setup requires web UI access
 - URL changes require app restart
 - Content uploads are stored in the content volume
