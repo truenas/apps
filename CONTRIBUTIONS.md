@@ -143,7 +143,7 @@ Once cloned, you'll see this structure:
 Apps are organized into "trains" (categories):
 
 - **community**: Community-contributed apps - all new contributions go here
-- **stable**: TrueNAS applications thar are curated and maintained by TrueNAS team
+- **stable**: TrueNAS applications that are curated and maintained by TrueNAS team
 - **enterprise**: Enterprise-grade applications maintained by iXsystems
 
 All new contributions should target the `community` train. Other trains are managed by iXsystems maintainers.
