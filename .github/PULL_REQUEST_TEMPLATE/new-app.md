@@ -1,6 +1,6 @@
 # App Addition
 
-- [ ] I have opened an [issue](https://github.com/truenas/community-train/issues) to discuss this app addition before submitting this pull request.
+- [ ] I have opened an [issue](https://github.com/truenas/apps/issues) to discuss this app addition before submitting this pull request.
 
 ## Description
 
