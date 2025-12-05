@@ -1249,15 +1249,14 @@ version: 2.0.0  # Incremented from 1.0.10
    - Minor: New features
    - Patch: Bug fixes
 
-2. **Track Upstream**: Keep `app_version` in sync with upstream releases
+2. **Track Upstream**: Keep `app_version` in sync with main container tag
 3. **Increment on Every Change**: Always bump `version` when modifying the app
 
 ### Documentation
 
-1. **Write Clear README**: Explain what the app does and basic configuration
-2. **Document Special Requirements**: Note GPU, devices, or network requirements
-3. **Add Configuration Notes**: Include setup instructions if needed
-4. **Link to Upstream Docs**: Provide links to official documentation
+1. **Document Special Requirements**: Note GPU, devices, or network requirements
+2. **Add Configuration Notes**: Include setup instructions if needed
+3. **Link to Upstream Docs**: Provide links to official documentation
 
 ---
 
@@ -1287,7 +1286,9 @@ When you create a new pull request, GitHub will automatically populate it with o
 - **Special Notes**: Any important setup or usage information
 - **Checklist**: Final verification before submission
 
-The template is located at [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) and will be automatically loaded when you create a PR. Simply fill in the placeholders with your app's specific information.
+The template is located at [`.github/PULL_REQUEST_TEMPLATE/new-app.md`](.github/PULL_REQUEST_TEMPLATE/new-app.md)
+and will be automatically loaded when you create a PR.
+Simply fill in the placeholders with your app's specific information.
 
 ### Review Process
 
@@ -1363,17 +1364,18 @@ A: Check apps like `plex` or `jellyfin` that use GPU passthrough. You'll need to
 **Q: Can I test on TrueNAS before submitting?**
 A: Currently there's no easy way. Test locally with Docker Compose—if it works there, it should work on TrueNAS.
 
-**Q: How do I handle database migrations?**
+**Q: How do I handle questions.yaml migrations?**
 A: Create an `app_migrations.yaml` file and a Python migration script. See the "Updates and Migrations" section above.
 
-**Q: What if the app I want already exists in the old catalog?**
-A: Check if it's already migrated. If not, you can help migrate it to the new system!
-
-**Q: Can I add an app to the stable train?**
-A: Start with community train. Apps are promoted to stable after they've been tested and proven reliable.
+**Q: Can I add an app to the stable or enterprise train?**
+A: You can't. This train is managed by TrueNAS maintainers only. Submit to the community train only.
 
 **Q: How do I update an existing app?**
 A: Fork the repo, make your changes, increment the version in `app.yaml`, and open a PR. Include what changed in the description.
+
+**Q: An app is outdated. Can I update it?**
+A: If its been more than 2 days that the upstream container tag has been released, and our bot haven't picked it up yet, please open an issue.
+   A fix has to be applied so the bot can pick it up.
 
 ### Getting Involved
 
@@ -1382,8 +1384,7 @@ Want to do more than just contribute apps?
 - **Review PRs**: Help review other contributors' apps
 - **Improve Documentation**: Submit improvements to this guide
 - **Report Issues**: Found a bug? Open an issue
-- **Help Users**: Answer questions in Discussions
-- **Improve the Library**: Contribute to the rendering library
+- **Help Users**: Answer questions in Discussions / Issues
 
 ### Contact
 
