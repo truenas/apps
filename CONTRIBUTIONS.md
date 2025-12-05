@@ -1,6 +1,8 @@
 # Contributing to TrueNAS Apps Catalog
 
-This guide will walk you through everything you need to know about contributing a new application to the catalog, from understanding the project architecture to submitting your first pull request.
+This guide will walk you through everything you need to know about
+contributing a new application to the catalog, from understanding the
+project architecture to submitting your first pull request.
 
 ## Table of Contents
 
@@ -22,13 +24,19 @@ This guide will walk you through everything you need to know about contributing 
 
 ### What is TrueNAS Apps?
 
-TrueNAS Apps is a Docker Compose-based application catalog that makes it easy to deploy and manage containerized applications on TrueNAS systems. Think of it as an app store for your TrueNAS server—users can browse, install, configure, and manage applications through a friendly web interface without needing to write Docker Compose files manually.
+TrueNAS Apps is a Docker Compose-based application catalog that makes it
+easy to deploy and manage containerized applications on TrueNAS systems.
+Think of it as an app store for your TrueNAS server.
+
+Users can browse, install, configure, and manage applications through a
+friendly web interface without needing to write Docker Compose files manually.
 
 ### How It Works
 
 The system uses a templating approach:
 
-1. **App developers** (that's you!) define applications using a combination of metadata files (`app.yaml`), configuration schemas (`questions.yaml`), and Jinja2 templates (`docker-compose.yaml`)
+1. **App developers** (that's you!) define applications using a combination of metadata files (`app.yaml`),
+   configuration schemas (`questions.yaml`), and Jinja2 templates (`docker-compose.yaml`)
 2. **TrueNAS users** select an app from the catalog and fill out a form based on the questions you define
 3. **The rendering system** processes your templates with the user's values and generates a standard Docker Compose file
 4. **Docker Compose** deploys and manages the containers
@@ -36,6 +44,7 @@ The system uses a templating approach:
 ### Our Mission
 
 We aim to:
+
 - Make self-hosting applications accessible to everyone, regardless of technical expertise
 - Provide a curated, well-tested catalog of applications
 - Enable easy application management with sensible defaults
@@ -44,6 +53,7 @@ We aim to:
 ### Why Contribute?
 
 By contributing an app to this catalog, you:
+
 - Help TrueNAS users easily deploy applications they love
 - Give back to the open-source community
 - Gain experience with Docker, templating systems, and Python
@@ -65,7 +75,16 @@ Before you begin, make sure you have the following installed on your local machi
 - **Python 3.x** - The templating and testing system is written in Python
 - **jq** - JSON processor used by the CI scripts
 
+To avoid installing python (and its dependencies) on your system, you can install [**devbox**](https://www.jetify.com/devbox)
+and use the provided `devbox.json` file to set up your environment:
+
+```bash
+devbox shell
+```
+
 #### Required Python Packages
+
+> You can skip this if using devbox as described above.
 
 Install these Python packages:
 
@@ -92,39 +111,39 @@ Before starting work on an app:
 
 1. **Check existing issues**: Someone might already be working on it
 2. **Check existing PRs**: The app might already be in review
-3. **Open an issue or comment**: Let others know you're working on it
-4. **Open a draft PR early**: Even an empty PR signals you're working on it
+3. **Open an issue or comment**: Let others know you're working on it before starting work
+4. **Open a draft PR**: This allows maintainers to catch any wrong directions early
 
 ### Repository Structure
 
 Once cloned, you'll see this structure:
 
-```
+```txt
 .
-├── ix-dev/                    # App definitions (this is where you work!)
-│   ├── community/            # Community-contributed apps
-│   ├── stable/               # Production-ready apps
-│   ├── enterprise/           # Enterprise-tier apps
+├── ix-dev/                   # App definitions
+│   ├── community/            # Community-contributed apps (this is where you work!)
+│   ├── stable/               # TrueNAS curated apps
+│   ├── enterprise/           # Apps for enterprise users
 │   ├── dev/                  # Development/testing
 │   └── test/                 # Test apps
-├── library/                   # Rendering library (Python modules)
+├── library/                  # Rendering library (Python modules)
 │   └── 2.x.x/                # Library versions
-├── trains/                    # Auto-generated catalog files (DO NOT EDIT)
-├── docs/                      # Documentation
-├── .github/                   # CI/CD scripts and workflows
+├── trains/                   # Auto-generated catalog files (DO NOT EDIT)
+├── docs/                     # Documentation
+├── .github/                  # CI/CD scripts and workflows
 │   └── scripts/
-│       └── ci.py             # Local testing script
+│       └── ci.py             # Local/CI testing script
 └── README.md
 ```
 
-**Important:** You should only modify files under `/ix-dev/` or `/library/` directories. All other files are auto-generated.
+**Important:** ⚠️ You should only modify files under `/ix-dev/` or `/library/` directories. All other files are auto-generated. ⚠️
 
 ### Understanding Trains
 
 Apps are organized into "trains" (categories):
 
 - **community**: Community-contributed apps - all new contributions go here
-- **stable**: Apps promoted from community after thorough testing
+- **stable**: TrueNAS applications thar are curated and maintained by TrueNAS team
 - **enterprise**: Enterprise-grade applications maintained by iXsystems
 
 All new contributions should target the `community` train. Other trains are managed by iXsystems maintainers.
@@ -137,7 +156,7 @@ All new contributions should target the `community` train. Other trains are mana
 
 The TrueNAS Apps system follows this flow:
 
-```
+```txt
 ┌─────────────────┐
 │  App Developer  │ ← You define the app structure
 └────────┬────────┘
@@ -184,24 +203,24 @@ The TrueNAS Apps system follows this flow:
 
 Each app lives in `/ix-dev/{train}/{app}/` and has this structure:
 
-```
+```txt
 /ix-dev/{train}/{app}/
 ├── app.yaml                    # App metadata (required)
 ├── item.yaml                   # Auto-generated catalog entry
-├── ix_values.yaml             # Static default values (required)
-├── questions.yaml             # User configuration schema (required)
-├── README.md                  # Short app description (required)
-├── app_migrations.yaml        # Migration definitions (optional)
-├── migrations/                # Migration scripts (optional)
-│   └── migration_script       # Python migration script
+├── ix_values.yaml              # Static default values (required)
+├── questions.yaml              # User configuration schema (required)
+├── README.md                   # Short app description (required)
+├── app_migrations.yaml         # Migration definitions (optional)
+├── migrations/                 # Migration scripts (optional)
+│   └── migration_script        # Python migration script
 └── templates/
-    ├── docker-compose.yaml    # Jinja2 template (required)
-    ├── library/               # Auto-copied library files
-    │   └── base_v2_x_xx/     # Library version (auto-generated)
-    ├── rendered/              # Temporary (gitignored)
-    │   └── docker-compose.yaml
-    └── test_values/           # CI test configurations (required)
-        └── basic-values.yaml  # Basic test scenario (required)
+    ├── docker-compose.yaml     # Jinja2 template (required)
+    ├── library/                # Auto-copied library files (auto-generated)
+    │   └── base_v2_x_xx/       # Library version (auto-generated)
+    ├── rendered/               # Temporary (gitignored)
+    │   └── docker-compose.yaml # Rendered compose file (auto-generated)
+    └── test_values/            # CI test configurations (required)
+        └── basic-values.yaml   # Basic test scenario (required)
 ```
 
 #### 2. The Library System
@@ -228,16 +247,17 @@ The library provides a Python API that you use in your Jinja2 templates to gener
 When a user deploys an app:
 
 1. **Value Collection**: User input from the UI form (based on `questions.yaml`) is collected
-2. **Value Merging**: User values are merged with `ix_values.yaml` defaults
-3. **Template Processing**: 
+2. **Validation**: Middleware validates user input against the schema
+3. **Value Merging**: User values are merged with `ix_values.yaml` defaults
+4. **Template Processing**:
    - Jinja2 processes `templates/docker-compose.yaml`
    - Your template calls library functions to build configuration
    - Library returns structured data representing Docker Compose services
-4. **Rendering**: The final Docker Compose YAML is generated
-5. **Validation**: The compose file is validated for correctness
-6. **Deployment**: Docker Compose creates and starts the containers
-7. **Monitoring**: Health checks ensure containers are running properly
-8. **Portal Generation**: Web UI links are made available to the user
+5. **Rendering**: The final Docker Compose YAML is generated
+6. **Validation**: The compose file is validated against docker engine for spec correctness
+7. **Deployment**: Docker Compose creates and starts the containers
+8. **Monitoring**: Health checks ensure containers are running properly
+9. **Portal Generation**: Web UI links are made available to the user
 
 #### 4. The CI/CD Pipeline
 
@@ -684,7 +704,7 @@ Every template follows this basic structure:
 {% set perms = tpl.deps.perms("perms_container_name") %}
 
 {# Add permission actions #}
-{% do perms.add_or_skip_action("config", values.storage.config, 
+{% do perms.add_or_skip_action("config", values.storage.config,
   {"uid": 568, "gid": 568, "mode": "check"}) %}
 
 {# Activate and add dependency #}
@@ -948,41 +968,41 @@ import sys
 def migrate(values):
     """
     Transform old configuration to new configuration.
-    
+
     Old structure:
       network:
         web_port: 8080
-    
+
     New structure:
       network:
         web_port:
           port: 8080
           bind_mode: "published"
     """
-    
+
     # Check if old structure exists
     if isinstance(values.get("network", {}).get("web_port"), int):
         old_port = values["network"]["web_port"]
-        
+
         # Transform to new structure
         values["network"]["web_port"] = {
             "port": old_port,
             "bind_mode": "published",
             "host_ips": [],
         }
-    
+
     return values
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: migrate_to_v2 <values_file>")
         sys.exit(1)
-    
+
     with open(sys.argv[1], "r") as f:
         current_values = yaml.safe_load(f.read())
-    
+
     migrated_values = migrate(current_values)
-    
+
     print(yaml.dump(migrated_values))
 ```
 
@@ -1018,10 +1038,10 @@ def migrate(values):
         # Add migration flag
         values["postgres"] = values.get("postgres", {})
         values["postgres"]["version_upgraded"] = True
-        
+
         # User will need to manually handle data migration
         # Add a note about this in the migration
-    
+
     return values
 ```
 
@@ -1208,25 +1228,25 @@ It's a great idea to let the upstream app developers know that their app is now 
 
 ### Common Questions
 
-**Q: Which library version should I use?**  
+**Q: Which library version should I use?**
 A: Always use the latest non-v1 version from `/library/`. Check the directory for available versions and use the highest numbered 2.x.x version.
 
-**Q: My app needs a GPU. How do I configure that?**  
+**Q: My app needs a GPU. How do I configure that?**
 A: Check apps like `plex` or `jellyfin` that use GPU passthrough. You'll need to add device mappings and possibly capabilities.
 
-**Q: Can I test on TrueNAS before submitting?**  
+**Q: Can I test on TrueNAS before submitting?**
 A: Currently there's no easy way. Test locally with Docker Compose—if it works there, it should work on TrueNAS.
 
-**Q: How do I handle database migrations?**  
+**Q: How do I handle database migrations?**
 A: Create an `app_migrations.yaml` file and a Python migration script. See the "Updates and Migrations" section above.
 
-**Q: What if the app I want already exists in the old catalog?**  
+**Q: What if the app I want already exists in the old catalog?**
 A: Check if it's already migrated. If not, you can help migrate it to the new system!
 
-**Q: Can I add an app to the stable train?**  
+**Q: Can I add an app to the stable train?**
 A: Start with community train. Apps are promoted to stable after they've been tested and proven reliable.
 
-**Q: How do I update an existing app?**  
+**Q: How do I update an existing app?**
 A: Fork the repo, make your changes, increment the version in `app.yaml`, and open a PR. Include what changed in the description.
 
 ### Getting Involved
