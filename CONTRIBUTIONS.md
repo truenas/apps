@@ -1088,7 +1088,7 @@ Define when your migration should run:
 migrations:
   - file: migrate_to_v2
     from:
-      max_version: 1.0.10     # Applies to apps with version <= 1.0.10
+      max_version: 1.0.10     # Applies to apps upgrading from version <= 1.0.10
     target:
       min_version: 2.0.0      # When upgrading to version >= 2.0.0
 ```
@@ -1132,15 +1132,11 @@ def migrate(values):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: migrate_to_v2 <values_file>")
-        sys.exit(1)
+        exit(1)
 
-    with open(sys.argv[1], "r") as f:
-        current_values = yaml.safe_load(f.read())
-
-    migrated_values = migrate(current_values)
-
-    print(yaml.dump(migrated_values))
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
 ```
 
 #### Step 3: Make Script Executable
@@ -1159,12 +1155,11 @@ version: 2.0.0  # Incremented from 1.0.10
 
 ### Migration Best Practices
 
-1. **Be Idempotent**: Running the migration multiple times should be safe
-2. **Handle Edge Cases**: Check for missing or unexpected values
-3. **Test Thoroughly**: Test migrations with various old configurations
-4. **Document Changes**: Explain what changed in your PR description
-5. **Preserve Data**: Never delete user data without explicit consent
-6. **Validate Output**: Ensure migrated values match the new schema
+1. **Handle Edge Cases**: Check for missing or unexpected values
+2. **Test Thoroughly**: Test migrations with various old configurations
+3. **Document Changes**: Explain what changed in your PR description
+4. **Preserve Data**: Never delete user data without explicit consent
+5. **Validate Output**: Ensure migrated values match the new schema
 
 ### Example: Database Version Migration
 
