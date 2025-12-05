@@ -1074,10 +1074,9 @@ When you update an existing app or change its configuration structure, you may n
 ### When to Use Migrations
 
 Use migrations when:
+
 - Changing the structure of configuration values
 - Renaming configuration fields
-- Changing data storage locations
-- Moving from one dependency version to another (e.g., PostgreSQL 14 to 15)
 
 ### Creating a Migration
 
