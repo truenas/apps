@@ -536,36 +536,6 @@ def test_add_postgres_with_invalid_tag(mock_values):
         )
 
 
-def test_no_upgrade_container_with_non_postgres_image(mock_values):
-    mock_values["images"]["postgres_image"] = {
-        "repository": "ghcr.io/immich-app/postgres",
-        "tag": "15-vectorchord0.4.3-pgvectors0.2.0",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("test_perms_container")
-    pg = render.deps.postgres(
-        "postgres_container",
-        "postgres_image",
-        {
-            "user": "test_user",
-            "password": "test_password",
-            "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
-        },
-        perms_container,
-    )
-    if perms_container.has_actions():
-        perms_container.activate()
-        pg.add_dependency("test_perms_container", "service_completed_successfully")
-    output = render.render()
-    assert len(output["services"]) == 3  # c1, pg, perms
-    assert output["services"]["postgres_container"]["depends_on"] == {
-        "test_perms_container": {"condition": "service_completed_successfully"}
-    }
-
-
 def test_postgres_with_upgrade_container(mock_values):
     mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
     render = Render(mock_values)

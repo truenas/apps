@@ -38,6 +38,7 @@ SUPPORTED_UPGRADE_REPOS = [
     "postgres",
     "postgis/postgis",
     "pgvector/pgvector",
+    "ghcr.io/immich-app/postgres",
 ]
 
 
