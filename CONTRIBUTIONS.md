@@ -1161,22 +1161,6 @@ version: 2.0.0  # Incremented from 1.0.10
 4. **Preserve Data**: Never delete user data without explicit consent
 5. **Validate Output**: Ensure migrated values match the new schema
 
-### Example: Database Version Migration
-
-```python
-def migrate(values):
-    # Migrating from PostgreSQL 14 to 15
-    if "storage" in values and "postgres_data" in values["storage"]:
-        # Add migration flag
-        values["postgres"] = values.get("postgres", {})
-        values["postgres"]["version_upgraded"] = True
-
-        # User will need to manually handle data migration
-        # Add a note about this in the migration
-
-    return values
-```
-
 ---
 
 ## Best Practices
