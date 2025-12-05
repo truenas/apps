@@ -545,7 +545,7 @@ The `templates/docker-compose.yaml` file is a Jinja2 template that uses the libr
 {# Define the main application container #}
 {% set app = tpl.add_container(values.consts.app_container_name, "image") %}
 {% do app.set_user(values.run_as.user, values.run_as.group) %}
-{% do app.healthcheck.set_test("curl", {"port": 8080, "path": "/"}) %}
+{% do app.healthcheck.set_test("curl", {"port": 8080, "path": "/health"}) %}
 
 {# Configure environment variables #}
 {% do app.environment.add_env("APP_PORT", values.network.web_port.port) %}
@@ -560,6 +560,7 @@ The `templates/docker-compose.yaml` file is a Jinja2 template that uses the libr
 {# Setup permissions container for storage initialization #}
 {% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
 {% do perms.add_or_skip_action("config", values.storage.config, {"uid": 568, "gid": 568, "mode": "check"}) %}
+
 {% if perms.has_actions() %}
   {% do perms.activate() %}
   {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
@@ -571,6 +572,8 @@ The `templates/docker-compose.yaml` file is a Jinja2 template that uses the libr
 {# Render the final configuration #}
 {{ tpl.render() | tojson }}
 ```
+
+Explore other apps for more examples.
 
 **Key library components:**
 
@@ -588,15 +591,15 @@ The `templates/docker-compose.yaml` file is a Jinja2 template that uses the libr
 ```yaml
 {# Add PostgreSQL database #}
 {% set pg_config = {
-  "user": "myapp",
+  "user": values.consts.db_user,
   "password": values.myapp.db_password,
-  "database": "myapp_db",
+  "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres("postgres", "postgres_image", pg_config, perms) %}
 {% do app.depends.add_dependency("postgres", "service_healthy") %}
 {# Use postgres.get_url() to generate the connection string #}
-{% do app.environment.add_env("DATABASE_URL", postgres.get_url()) %}
+{% do app.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
 ```
 
 #### Step 6: Create Test Files
@@ -606,24 +609,37 @@ Create test value files in `templates/test_values/` to test different configurat
 **basic-values.yaml:**
 
 ```yaml
+resources:
+  limits:
+    cpus: 2.0
+    memory: 4096
+
+# Should contain all options that are exposed in the questions.yaml
+myapp:
+  admin_email: test@example.com
+  enable_feature: false
+  additional_envs: []
+
 network:
   web_port:
-    port: 30080
+    bind_mode: published
+    port_number: 30080 # Use a non-default port for testing, catches issues early
+
+ix_volumes:
+  test_myapp_config: /opt/tests/mnt/myapp/config
 
 storage:
   config:
     type: ix_volume
     ix_volume_config:
-      acl_enable: false
-
-myapp:
-  admin_email: test@example.com
-  enable_feature: false
+      dataset_name: test_myapp_config
+      create_host_path: true
 ```
 
 **Note on test storage paths:**
 
 Most apps use directories like `/opt/tests/**` for storage in test files. This is because:
+
 - macOS whitelists `/opt/` by default for Docker
 - Linux doesn't have this restriction
 - It prevents accidentally mounting sensitive directories
@@ -637,9 +653,7 @@ Keep the README brief - just a title and short description. Link to upstream doc
 ```markdown
 # My Awesome Application
 
-My Awesome Application is a tool for doing awesome things.
-
-For more information and documentation, visit: https://myapp.com/docs
+[My Awesome Application](https://myapp.com) is a tool for doing awesome things.
 ```
 
 ---
@@ -651,12 +665,9 @@ For more information and documentation, visit: https://myapp.com/docs
 When your template is rendered, values come from multiple sources merged in this order:
 
 1. `ix_values.yaml` - Your static defaults
-2. User input from `questions.yaml`
-3. System-provided values (like `run_as.user`, `run_as.group`)
+2. User input from `questions.yaml` (or test values during testing)
 
 Access values in templates using: `values.path.to.variable`
-
-
 
 ---
 
@@ -698,16 +709,13 @@ Every template follows this basic structure:
 {# Only set manually if you need to override the default #}
 {% do app.set_user(568, 568) %}
 
-{# Set command and args #}
-{% do app.set_command(["myapp"]) %}
-{% do app.set_args(["--config", "/config/app.conf"]) %}
+{# Set entrypoint and command #}
+{% do app.set_entrypoint(["myapp"]) %}
+{% do app.set_command(["--config", "/config/app.conf"]) %}
 
 {# Add environment variables #}
 {% do app.environment.add_env("KEY", "value") %}
 {% do app.environment.add_env("PORT", 8080) %}
-
-{# Add secrets as environment variables #}
-{% do app.environment.add_env("PASSWORD", values.myapp.password, secret=true) %}
 
 {# Add port mappings #}
 {% do app.add_port(values.network.web_port) %}
@@ -716,14 +724,8 @@ Every template follows this basic structure:
 {% do app.add_storage("/config", values.storage.config) %}
 {% do app.add_storage("/data", values.storage.data) %}
 
-{# Add devices #}
-{% do app.add_device("/dev/dri", "/dev/dri") %}
-
 {# Set capabilities #}
-{% do app.set_capabilities(["NET_ADMIN", "SYS_ADMIN"]) %}
-
-{# Set network mode #}
-{% do app.set_network_mode("host") %}
+{% do app.add_caps(["NET_ADMIN", "SYS_ADMIN"]) %}
 ```
 
 #### Health Checks
@@ -742,9 +744,6 @@ Every template follows this basic structure:
 #### Dependencies
 
 ```python
-{# Wait for service to start #}
-{% do app.depends.add_dependency("service_name", "service_started") %}
-
 {# Wait for service to be healthy #}
 {% do app.depends.add_dependency("database", "service_healthy") %}
 
@@ -757,10 +756,10 @@ Every template follows this basic structure:
 ```python
 {# Create permissions container #}
 {% set perms = tpl.deps.perms("perms_container_name") %}
+{% set perms_config = {"uid": 568, "gid": 568, "mode": "check"} %}
 
 {# Add permission actions #}
-{% do perms.add_or_skip_action("config", values.storage.config,
-  {"uid": 568, "gid": 568, "mode": "check"}) %}
+{% do perms.add_or_skip_action("config", values.storage.config, perms_config) %}
 
 {# Activate and add dependency #}
 {% if perms.has_actions() %}
@@ -770,6 +769,9 @@ Every template follows this basic structure:
 ```
 
 **Permission modes:**
+
+> Both modes will skip if the directory is not empty.
+
 - `check`: Only fix if permissions are wrong
 - `always`: Always set permissions
 
@@ -822,11 +824,11 @@ Portals create clickable links in the TrueNAS UI:
 {% do tpl.portals.add(values.network.web_port) %}
 
 {# Custom portal #}
-{% do tpl.portals.add(values.network.web_port, scheme="https", path="/admin") %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https", "path": "/admin"}) %}
 
 {# Multiple portals #}
-{% do tpl.portals.add(values.network.web_port, scheme="http", path="/") %}
-{% do tpl.portals.add(values.network.api_port, scheme="http", path="/api") %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "http"}) %}
+{% do tpl.portals.add(values.network.api_port, {"name": "Custom Label", "path": "/api"}) %}
 ```
 
 #### Notes
@@ -834,8 +836,8 @@ Portals create clickable links in the TrueNAS UI:
 Add informational notes displayed to users:
 
 ```python
-{% do tpl.notes.add("info", "First time setup requires visiting /setup") %}
-{% do tpl.notes.add("warning", "This app requires GPU passthrough") %}
+{% do tpl.notes.add_info("First time setup requires visiting /setup") %}
+{% do tpl.notes.add_warning("This app requires GPU passthrough") %}
 ```
 
 ### What Gets Generated
@@ -849,6 +851,7 @@ Your template generates a standard Docker Compose file. Here's an example:
 {% set app = tpl.add_container(values.consts.app_container_name, "image") %}
 {% do app.set_user(568, 568) %}
 {% do app.add_port(values.network.web_port) %}
+{% do app.healthcheck.set_test("curl", {"port": 8080, "path": "/ping"}) %}
 {% do app.add_storage("/config", values.storage.config) %}
 {{ tpl.render() | tojson }}
 ```
@@ -856,25 +859,90 @@ Your template generates a standard Docker Compose file. Here's an example:
 **Output (generated compose file):**
 
 ```yaml
-x-portals:
-  - path: "/"
-    port: 8080
-    scheme: "http"
 services:
   myapp:
-    image: myorg/myapp:2.1.0
-    container_name: myapp
-    user: "568:568"
-    ports:
-      - "8080:8080"
-    volumes:
-      - /mnt/myapp/config:/config
-    restart: unless-stopped
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: 2
+          memory: "4294967296"
+    environment:
+      GID: "568"
+      GROUP_ID: "568"
+      NVIDIA_VISIBLE_DEVICES: void
+      PGID: "568"
+      PUID: "568"
+      TZ: Etc/UTC
+      UID: "568"
+      UMASK: "002"
+      UMASK_SET: "002"
+      USER_ID: "568"
+    group_add:
+      - "568"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      test:
+        - CMD
+        - curl
+        - --request
+        - GET
+        - --silent
+        - --output
+        - /dev/null
+        - --show-error
+        - --fail
+        - http://127.0.0.1:8080/ping
+      timeout: 5s
       interval: 30s
-      timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 15s
+      start_interval: 2s
+    image: some-repo/myapp:2.1.0
+    platform: linux/amd64
+    ports:
+      - mode: ingress
+        target: 8080
+        published: "8080"
+        protocol: tcp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    user: 568:568
+    volumes:
+      - type: bind
+        source: /opt/tests/mnt/config
+        target: /config
+        bind:
+          propagation: rprivate
+          create_host_path: true
+x-notes: |
+  # <app_name>
+
+  ## Security
+
+  **Read the following security precautions to ensure that you wish to continue using this application.**
+
+  ---
+
+  ### Container: [myapp]
+
+  #### Running user/group(s)
+
+  - User: 568
+  - Group: 568
+  - Supplementary Groups: apps
+
+  ## Bug Reports and Feature Requests
+
+  If you find a bug in this app or have an idea for a new feature, please file an issue at
+  https://github.com/truenas/apps
+x-portals:
+  - host: 0.0.0.0
+    name: Web UI
+    path: /
+    port: 8080
+    scheme: http
 ```
 
 ---
@@ -893,9 +961,11 @@ The `.github/scripts/ci.py` script is your primary testing tool:
 
 # Keep the app running for manual testing
 ./.github/scripts/ci.py --app myapp --train community --test-file basic-values.yaml --wait=true
+# or devbox run app-test community myapp <optionally basic-values.yaml>
 
 # Just render the compose file without deploying
 ./.github/scripts/ci.py --app myapp --train community --test-file basic-values.yaml --render-only=true
+# or devbox run app-render community myapp <optionally basic-values.yaml>
 ```
 
 ### Command Options
@@ -917,9 +987,19 @@ When you run the CI script, it automatically:
 5. **Deploys with Docker Compose**: Starts the containers (unless `--render-only`)
 6. **Monitors health**: Waits for containers to become healthy (times out after 10 minutes)
 
+### Metadata Generation / Validation
+
+```bash
+# Generates some metadata (like capabilities) for your app
+./.github/scripts/generate_metadata.py --app myapp --train community
+# Validates ports in questions.yaml are unique
+./.github/scripts/port_validation.py
+```
+
 ### Testing Workflow
 
 1. **Start with basic test:**
+
    ```bash
    ./.github/scripts/ci.py --app myapp --train community --test-file basic-values.yaml --wait=true
    ```
@@ -935,7 +1015,7 @@ When you run the CI script, it automatically:
    - Check logs: `docker logs myapp`
 
 4. **Test different configurations:**
-   - Create additional test files if needed (e.g., `with-database.yaml`, `hostpath-values.yaml`)
+   - Create additional test files if needed (e.g., `with-database-values.yaml`, `hostpath-values.yaml`)
    - Test each configuration thoroughly
 
 5. **Clean up:**
@@ -946,24 +1026,27 @@ When you run the CI script, it automatically:
 ### Troubleshooting
 
 **Containers won't start:**
+
 - Check `docker logs <container_name>` for errors
 - Verify image names and tags in `ix_values.yaml`
 - Check port conflicts: `docker ps` to see if ports are already in use
 
 **Permission errors:**
-- Verify `run_as_context` in `app.yaml`
+
+- Verify `set_user` in your template
 - Check permissions container configuration
 - Ensure storage paths are accessible
 
 **Template errors:**
+
 - Use `--render-only=true` to see the rendered compose file
 - Check for Jinja2 syntax errors
 - Verify all values paths exist in your test files
 
 **Health checks failing:**
-- Increase timeout in health check configuration
+
 - Verify the health check command is correct
-- Check if the app needs more time to start
+- Verify the application ships the binary used in the health check (ie `curl`, etc.)
 
 ### Testing on TrueNAS
 
