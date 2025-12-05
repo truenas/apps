@@ -1168,6 +1168,9 @@ version: 2.0.0  # Incremented from 1.0.10
 ### Security
 
 1. **Run as Non-Root**: Always define `run_as_context` with a non-root user
+
+   > Note: this is only METADATA
+
    ```yaml
    run_as_context:
      - uid: 568
@@ -1177,6 +1180,9 @@ version: 2.0.0  # Incremented from 1.0.10
    ```
 
 2. **Use Secrets**: Mark sensitive fields as private in `questions.yaml`
+
+   > Note: this is just UI masking.
+
    ```yaml
    - variable: password
      schema:
@@ -1185,6 +1191,7 @@ version: 2.0.0  # Incremented from 1.0.10
    ```
 
 3. **Minimal Capabilities**: Only add capabilities if absolutely necessary
+
    ```python
    {% do app.set_capabilities(["NET_ADMIN"]) %}  # Only if needed
    ```
@@ -1194,11 +1201,13 @@ version: 2.0.0  # Incremented from 1.0.10
 ### Performance
 
 1. **Use Health Checks**: Always define appropriate health checks
+
    ```python
    {% do app.healthcheck.set_test("curl", {"port": 8080, "path": "/health"}) %}
    ```
 
 2. **Optimize Dependencies**: Only add dependencies when needed
+
    ```python
    {% do app.depends.add_dependency("postgres", "service_healthy") %}
    ```
@@ -1208,8 +1217,8 @@ version: 2.0.0  # Incremented from 1.0.10
 ### User Experience
 
 1. **Sensible Defaults**: Provide good default values in `questions.yaml`
-2. **Clear Descriptions**: Add helpful descriptions to all fields
-3. **Group Related Settings**: Use groups to organize configuration
+2. **Clear Descriptions**: Add helpful descriptions to fields (where applicable)
+3. **Group Related Settings**: Use the existing groups to organize configuration
 4. **Conditional Fields**: Use `show_if` to hide irrelevant options
 5. **Add Portals**: Always add web UI portals when applicable
 
@@ -1224,13 +1233,14 @@ version: 2.0.0  # Incremented from 1.0.10
 ### Storage
 
 1. **Use ix_volume by Default**: TrueNAS-managed datasets are preferred
+   as defaults, as it makes it easy to spin up the app and test.
+
    ```yaml
    default: "ix_volume"
    ```
 
-2. **Enable ACL When Needed**: For apps requiring fine-grained permissions
-3. **Document Storage Needs**: Explain what each storage mount is for
-4. **Test Paths**: Use `/opt/tests/` prefix in test files for compatibility
+2. **Document Storage Needs**: Explain what each storage mount is for
+3. **Test Paths**: Use `/opt/tests/` prefix in test files for compatibility
 
 ### Versioning
 
