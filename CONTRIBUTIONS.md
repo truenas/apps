@@ -383,6 +383,9 @@ Most groups should exist across all apps. For example:
 - Labels Configuration
 - Resources Configuration
 
+Also keep in mind that most groups and their fields structure is "fixed" and cannot be changed.
+Rendering library does does lots of automated things based on this structure.
+
 It uses a schema-based approach:
 
 > This is a simplified example - with only few of the above mentioned groups.
@@ -1375,7 +1378,7 @@ A: You can't. This train is managed by TrueNAS maintainers only. Submit to the c
 A: Fork the repo, make your changes, increment the version in `app.yaml`, and open a PR. Include what changed in the description.
 
 **Q: An app is outdated. Can I update it?**
-A: If it's been more than 2 days that the upstream container tag has been released, and our bot haven't picked it up yet, please open an issue.
+A: If it's been more than 2 days that the upstream container tag has been released, and our bot hasn't picked it up yet, please open an issue.
    A fix has to be applied so the bot can pick it up.
 
 ### Getting Involved
