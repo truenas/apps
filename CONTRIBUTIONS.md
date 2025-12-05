@@ -1101,6 +1101,7 @@ Create `migrations/migrate_to_v2` (Python script):
 #!/usr/bin/python3
 import yaml
 import sys
+import os
 
 def migrate(values):
     """
