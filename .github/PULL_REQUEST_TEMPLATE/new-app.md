@@ -1,3 +1,7 @@
+# App Addition
+
+- [ ] I have opened an [issue](https://github.com/truenas/community-train/issues) to discuss this app addition before submitting this pull request.
+
 ## Description
 
 Adds [App Name] to the community train.
@@ -8,12 +12,12 @@ Adds [App Name] to the community train.
 
 - **Upstream**: https://github.com/upstream/repo
 - **Documentation**: https://docs.upstream.com
-- **License**: MIT/etc
 - **App Version**: 2.1.0
 
 ## Testing
 
 Tested locally with:
+
 - [ ] basic-values.yaml
 
 All tests passed successfully.
@@ -21,9 +25,9 @@ All tests passed successfully.
 ## Icons and Screenshots
 
 Please upload the following to the CDN:
+
 - Icon: [attach or link]
-- Screenshot 1: [attach or link]
-- Screenshot 2: [attach or link]
+- Screenshot 1 (optional): [attach or link]
 
 ## Special Notes
 
@@ -36,5 +40,5 @@ Please upload the following to the CDN:
 - [ ] Only modified files under /ix-dev/ or /library/
 - [ ] README.md included
 - [ ] Multiple test scenarios tested
-- [ ] questions.yaml has clear descriptions
+- [ ] questions.yaml has clear descriptions and follows structure of existing apps
 - [ ] All automated CI checks pass
