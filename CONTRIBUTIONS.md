@@ -1374,7 +1374,7 @@ A: You can't. This train is managed by TrueNAS maintainers only. Submit to the c
 A: Fork the repo, make your changes, increment the version in `app.yaml`, and open a PR. Include what changed in the description.
 
 **Q: An app is outdated. Can I update it?**
-A: If its been more than 2 days that the upstream container tag has been released, and our bot haven't picked it up yet, please open an issue.
+A: If it's been more than 2 days that the upstream container tag has been released, and our bot haven't picked it up yet, please open an issue.
    A fix has to be applied so the bot can pick it up.
 
 ### Getting Involved
