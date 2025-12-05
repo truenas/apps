@@ -265,9 +265,7 @@ The GitHub Actions CI/CD system:
 
 - Validates all app definitions
 - Runs tests against test values
-- Generates `item.yaml` catalog entries
-- Updates library files
-- Publishes to the catalog
+- Publishes to the catalog (after PR is merged)
 
 ---
 
