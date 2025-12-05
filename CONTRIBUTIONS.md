@@ -312,8 +312,8 @@ maintainers:                  # TrueNAS is the only maintainer for now
   name: truenas
   url: https://www.ixsystems.com
 name: myapp                   # Must match directory name
-run_as_context:               # Define user/group the app runs as (use 568 if it can run as any non-root user)
-- description: MyApp runs as non-root user
+run_as_context:               # Metadata for user/group the app runs as (use 568 if it can run as any non-root user)
+- description: MyApp runs as any non-root user
   gid: 568
   group_name: myapp
   uid: 568
@@ -332,26 +332,37 @@ version: 1.0.0                # App version (start at 1.0.0)
 - `version`: Increment this whenever you make changes to the app
 - `app_version`: The version of the upstream application
 - `lib_version`: Use the latest non-v1 library version (check `/library/` directory)
-- `run_as_context`: Define the user/group the app runs as (security best practice)
+- `run_as_context`: Metadata for user/group the app runs as (security best practice)
 
 **About icons and screenshots:**
 
-For icons and screenshots that will be hosted on the TrueNAS CDN, include the URLs or attach the images in your PR description. The PR reviewer will upload them to the CDN and provide you with the correct URLs.
+For icons and screenshots that will be hosted on the TrueNAS CDN,
+include the URLs or attach the images in your PR description.
+The PR reviewer will upload them to the CDN and provide you with the correct URLs.
 
 #### Step 3: Define Static Values (ix_values.yaml)
 
 This file contains values that are always used, not exposed to users:
+
+Keys for the images must always end with `image`.
+
+If the versioning of an image is not SemVer, a custom versioning regex must
+be added in the renovate-config.js file to ensure proper updates.
+
+Prefer `ghcr` over `docker.io` for images.
 
 ```yaml
 images:
   image:
     repository: myorg/myapp
     tag: 2.1.0
+  worker_image:
+    repository: myorg/myapp-worker
+    tag: 2.1.0
 
 consts:
   app_container_name: myapp
   perms_container_name: myapp-perms
-  default_port: 8080
 ```
 
 **Common patterns:**
@@ -361,11 +372,24 @@ consts:
 
 #### Step 4: Create User Configuration Schema (questions.yaml)
 
-This defines the form users see when configuring your app. It uses a schema-based approach:
+This defines the form users see when configuring your app.
+
+Most groups should exist across all apps. For example:
+
+- My App Configuration (App-specific settings)
+- User and Group Configuration (Can be skipped if the app can ONLY run as a specific uid/gid and users can't choose)
+- Network Configuration
+- Storage Configuration
+- Labels Configuration
+- Resources Configuration
+
+It uses a schema-based approach:
+
+> This is a simplified example - with only few of the above mentioned groups.
 
 ```yaml
 groups:
-  - name: Configuration
+  - name: My App Configuration
     description: Configure MyApp Settings
   - name: Network
     description: Network Configuration
@@ -373,6 +397,44 @@ groups:
     description: Storage Configuration
 
 questions:
+  - variable: myapp
+    label: ""
+    group: My App Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: admin_email
+          label: Administrator Email
+          description: Email address for the administrator
+          schema:
+            type: string
+            required: true
+            default: "admin@example.com"
+        - variable: enable_feature
+          label: Enable Advanced Feature
+          schema:
+            type: boolean
+            default: false
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
   # Network Configuration
   - variable: network
     label: ""
@@ -380,6 +442,8 @@ questions:
     schema:
       type: dict
       attrs:
+        # Also simplified, a port must have whole lot more attributes.
+        # See other apps for full example.
         - variable: web_port
           label: Web Port
           description: Port for the web interface
@@ -402,6 +466,8 @@ questions:
     schema:
       type: dict
       attrs:
+        # Also simplified, a storage must have whole lot more attributes.
+        # See other apps for full example.
         - variable: config
           label: App Configuration Storage
           description: Stores application configuration
@@ -440,26 +506,6 @@ questions:
                       schema:
                         type: hostpath
                         required: true
-
-  # App-specific Configuration
-  - variable: myapp
-    label: ""
-    group: Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: admin_email
-          label: Administrator Email
-          description: Email address for the administrator
-          schema:
-            type: string
-            required: true
-            default: "admin@example.com"
-        - variable: enable_feature
-          label: Enable Advanced Feature
-          schema:
-            type: boolean
-            default: false
 ```
 
 **Schema types available:**
@@ -469,18 +515,24 @@ questions:
 - `boolean`: Checkbox
 - `dict`: Nested configuration (object)
 - `list`: Array of items
+- `uri`: URL input
 - `path`: File/directory path on the system
 - `hostpath`: Path that must exist on the host
+
+> And more...
 
 **Important attributes:**
 
 - `required`: Whether the field is mandatory
 - `default`: Default value
 - `min`/`max`: For numeric fields
+- `min_length`/`max_length`: For string fields
 - `enum`: List of allowed values
 - `show_if`: Conditional display based on other field values
 - `private`: Hides the value (for passwords)
 - `hidden`: Completely hides the field but includes it in config
+
+> And more...
 
 #### Step 5: Create the Docker Compose Template
 
