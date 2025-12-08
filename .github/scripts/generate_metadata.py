@@ -616,6 +616,11 @@ class AppMetadataUpdater:
             needs_version_bump = True
         app_config["capabilities"] = new_capabilities_data
 
+        new_maintainers = [{"email": "dev@truenas.com", "name": "truenas", "url": "https://www.truenas.com/"}]
+        if app_config.get("maintainers", []) != new_maintainers:
+            app_config["maintainers"] = new_maintainers
+            needs_version_bump = True
+
         # Bump version if needed
         if needs_version_bump and should_bump_version:
             old_version = app_config["version"]
@@ -733,13 +738,6 @@ class TrueNASAppCapabilityManager:
 
         # Get current app version
         current_version = self.version_manager.get_current_app_version(app_manifest)
-
-        maintainers = app_config.get("maintainers", [])
-        valid_maintainers = [
-            {"email": "dev@truenas.com", "name": "truenas", "url": "https://www.truenas.com/"},
-        ]
-        if maintainers != valid_maintainers:
-            raise ValueError(f"Invalid maintainers in {app_metadata_path}. Must be {valid_maintainers}")
 
         return AppAnalysisResult(
             capabilities=sorted(capabilities, key=lambda c: c.name),
