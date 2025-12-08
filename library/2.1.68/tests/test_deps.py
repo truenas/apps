@@ -959,6 +959,8 @@ def test_add_tika(mock_values):
             "CMD",
             "wget",
             "--quiet",
+            "--method",
+            "GET",
             "-O",
             "/dev/null",
             "http://127.0.0.1:10999/tika",
