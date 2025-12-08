@@ -146,14 +146,19 @@ def wget_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = valid_http_path_or_raise(get_key(config, "path", "/", False))
-    method = get_key(config, "method", "GET", False)
+    method = get_key(config, "method", "", False)
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
     spider = get_key(config, "spider", True, False)
     data = get_key(config, "data", None, False)
+    busybox = get_key(config, "busybox", False, False)
 
-    cmd = ["CMD", "wget", "--quiet", "--method", method]
+    cmd = ["CMD", "wget", "--quiet"]
+    if method:
+        if busybox:
+            raise RenderError("Cannot use method with busybox's wget")
+        cmd.extend(["--method", method])
 
     if spider:
         cmd.append("--spider")
@@ -169,7 +174,10 @@ def wget_test(config: dict) -> list[str]:
         cmd.extend(["--header", f"{header[0]}: {header[1]}"])
 
     if data is not None:
-        cmd.extend(["--body-data", json.dumps(data)])
+        if busybox:
+            cmd.extend(["--post-data", json.dumps(data)])
+        else:
+            cmd.extend(["--body-data", json.dumps(data)])
 
     cmd.append(f"{scheme}://{host}:{port}{path}")
 
