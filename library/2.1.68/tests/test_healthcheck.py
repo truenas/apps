@@ -217,6 +217,46 @@ def test_wget_healthcheck_no_spider(mock_values):
     ]
 
 
+def test_wget_healthcheck_data(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test(
+        "wget", {"port": 8080, "path": "/health", "spider": False, "data": {"test": "val"}, "method": "POST"}
+    )
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "wget",
+        "--quiet",
+        "--method",
+        "POST",
+        "-O",
+        "/dev/null",
+        "--body-data",
+        '{"test": "val"}',
+        "http://127.0.0.1:8080/health",
+    ]
+
+
+def test_wget_healthcheck_data_busybox(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test(
+        "wget", {"port": 8080, "path": "/health", "spider": False, "data": {"test": "val"}, "busybox": True}
+    )
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "wget",
+        "--quiet",
+        "-O",
+        "/dev/null",
+        "--post-data",
+        '{"test": "val"}',
+        "http://127.0.0.1:8080/health",
+    ]
+
+
 def test_netcat_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
