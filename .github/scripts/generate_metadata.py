@@ -734,6 +734,13 @@ class TrueNASAppCapabilityManager:
         # Get current app version
         current_version = self.version_manager.get_current_app_version(app_manifest)
 
+        maintainers = app_config.get("maintainers", [])
+        valid_maintainers = [
+            {"email": "dev@truenas.com", "name": "truenas", "url": "https://www.truenas.com/"},
+        ]
+        if maintainers != valid_maintainers:
+            raise ValueError(f"Invalid maintainers in {app_metadata_path}. Must be {valid_maintainers}")
+
         return AppAnalysisResult(
             capabilities=sorted(capabilities, key=lambda c: c.name),
             service_names=sorted(all_service_names),
