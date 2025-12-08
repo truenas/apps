@@ -82,7 +82,12 @@
 {% do frontend.add_port(values.network.frontend_port, {"container_port": values.consts.internal_frontend_port}) %}
 
 {# FC Worker API #}
-{% do api.healthcheck.set_custom_test("wget --quiet --method=POST --header='Content-Type: application/json' --body-data='{\"command\":\"health_check\"}' -O /dev/null http://0.0.0.0:8080/2015-03-31/functions/function/invocations") %}
+{% do api.healthcheck.set_test("wget", {
+  "path": "http://0.0.0.0:8080/2015-03-31/functions/function/invocations"
+  "method": "POST",
+  "headers": [["Content-Type", "application/json"]],
+  "data": {"command": "health_check"},
+}) %}
 {% do api.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
 {% do api.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
