@@ -1,7 +1,7 @@
-{% from "macros/init.sh" import init %}
+{% from "macros/init.sh" import init_script %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set init_container = tpl.add_container(values.consts.init_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "image") %}
 {% set backend = tpl.add_container(values.consts.backend_container_name, "image") %}
 {% set frontend = tpl.add_container(values.consts.frontend_container_name, "frontend_image") %}
 {% set api = tpl.add_container(values.consts.api_container_name, "api_image") %}
@@ -27,10 +27,10 @@
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
 {# Init #}
-{% do init_container.setup_as_helper() %}
-{% do init_container.configs.add("init.sh", init(values), "/init.sh", "0755") %}
-{% do init_container.set_entrypoint(["/init.sh"]) %}
-{% do init_container.add_storage(values.consts.init_uploads_path, values.storage.uploads) %}
+{% do init.setup_as_helper() %}
+{% do init.configs.add("init.sh", init_script(values), "/init.sh", "0755") %}
+{% do init.set_entrypoint(["/init.sh"]) %}
+{% do init.add_storage(values.consts.init_uploads_path, values.storage.uploads) %}
 
 {# Backend #}
 {% do backend.healthcheck.set_test("wget", {"port": values.network.backend_port.port_number}) %}
@@ -41,7 +41,11 @@
 {% do backend.environment.add_env("PORT", values.network.backend_port.port_number) %}
 {% do backend.environment.add_env("DB_URL", "%s?authSource=admin" | format(mongo.get_url("mongodb"))) %}
 {% do backend.environment.add_env("FRONTEND_URL", values.lens.frontend_url) %}
-{% do backend.environment.add_env("FC_WORKER_URL", "http://0.0.0.0:8080/2015-03-31/functions/function/invocations") %}
+{% do backend.environment.add_env("FC_WORKER_URL", "http://%s:8080/2015-03-31/functions/function/invocations" | format(values.consts.api_container_name)) %}
+{% do backend.environment.add_env("DEFAULT_ADMIN_EMAIL", values.lens.default_admin_email) %}
+{% do backend.environment.add_env("DEFAULT_ADMIN_USERNAME", values.lens.default_admin_username) %}
+{% do backend.environment.add_env("DEFAULT_ADMIN_PASSWORD", values.lens.default_admin_password) %}
+{% do backend.environment.add_env("DEFAULT_ADMIN_NAME", values.lens.default_admin_name) %}
 
 {% if values.lens.setup_email %}
   {% do backend.environment.add_env("SMTP_HOST", values.lens.email.host) %}
@@ -50,11 +54,6 @@
   {% do backend.environment.add_env("SMTP_PASS", values.lens.email.password) %}
   {% do backend.environment.add_env("SMTP_FROM", values.lens.email.from) %}
 {% endif %}
-
-{% do backend.environment.add_env("DEFAULT_ADMIN_EMAIL", values.lens.default_admin_email) %}
-{% do backend.environment.add_env("DEFAULT_ADMIN_USERNAME", values.lens.default_admin_username) %}
-{% do backend.environment.add_env("DEFAULT_ADMIN_PASSWORD", values.lens.default_admin_password) %}
-{% do backend.environment.add_env("DEFAULT_ADMIN_NAME", values.lens.default_admin_name) %}
 
 {% do backend.environment.add_user_envs(values.lens.additional_envs) %}
 
@@ -71,13 +70,11 @@
 {% do frontend.healthcheck.set_test("http", {"port": values.consts.internal_frontend_port}) %}
 {% do frontend.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
 
+{% do frontend.environment.add_env("PROXY_SCHEME_PREFIX", "http://") %}
 {% do frontend.environment.add_env("VITE_APP_API_URL", "%s/"|format(values.lens.api_url.rstrip("/"))) %}
-
 {% if values.lens.purchase_peer_url %}
   {% do frontend.environment.add_env("VITE_STRIPE_PURCHASE_PEER_URL", values.lens.purchase_peer_url) %}
 {% endif %}
-
-{% do frontend.environment.add_env("PROXY_SCHEME_PREFIX", "http://") %}
 
 {% do frontend.add_port(values.network.frontend_port, {"container_port": values.consts.internal_frontend_port}) %}
 

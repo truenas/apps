@@ -1,4 +1,4 @@
-{% macro init(values) -%}
+{% macro init_script(values) -%}
 #!/bin/sh
 set -e
 
@@ -9,5 +9,4 @@ if [ -z "$(ls -A {{ values.consts.init_uploads_path }})" ]; then
   exit 0
 fi
 echo "Directory [{{ values.consts.init_uploads_path }}] is not empty, skipping copy"
-
 {%- endmacro %}
