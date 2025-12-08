@@ -1,0 +1,21 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.probe_container_name, "image") %}
+
+{# Set host network mode if enabled #}
+{% if values.network.host_network %}
+  {% do c1.set_network_mode("host") %}
+{% endif %}
+
+{# Add adoption token if provided #}
+{% if values.globalping.adoption_token %}
+  {% do c1.environment.add_env("GP_ADOPTION_TOKEN", values.globalping.adoption_token) %}
+{% endif %}
+
+{# Disable health check since probe doesn't expose any HTTP endpoints #}
+{% do c1.healthcheck.disable() %}
+
+{# Add informational notes #}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
