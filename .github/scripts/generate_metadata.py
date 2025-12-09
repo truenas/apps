@@ -616,6 +616,11 @@ class AppMetadataUpdater:
             needs_version_bump = True
         app_config["capabilities"] = new_capabilities_data
 
+        new_maintainers = [{"email": "dev@truenas.com", "name": "truenas", "url": "https://www.truenas.com/"}]
+        if app_config.get("maintainers", []) != new_maintainers:
+            app_config["maintainers"] = new_maintainers
+            needs_version_bump = True
+
         # Bump version if needed
         if needs_version_bump and should_bump_version:
             old_version = app_config["version"]
