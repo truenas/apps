@@ -37,6 +37,12 @@
   {% do c.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% endfor %}
 {% set celery_password = tpl.funcs.secure_string(32) %}
+{% set origins = namespace(x=[]) %}
+{% for origin in values.wger.trusted_origins %}
+  {% do origins.x.append(origin.rstrip("/")) %}
+{% endfor %}
+
+{# -- Common Environment Variables -- #}
 {% for c in containers %}
   {% do c.environment.add_env("SECRET_KEY", values.wger.secret_key) %}
   {% do c.environment.add_env("SIGNING_KEY", values.wger.signing_key) %}
@@ -59,11 +65,11 @@
   {% do c.environment.add_env("DJANGO_CACHE_CLIENT_PASSWORD", values.wger.redis_password) %}
   {% do c.environment.add_env("DJANGO_CACHE_TIMEOUT", 1296000) %}
   {% do c.environment.add_env("DJANGO_CACHE_CLIENT_CLASS", "django_redis.client.DefaultClient") %}
-  {% do c.environment.add_env("CSRF_TRUSTED_ORIGINS", values.wger.trusted_origins|join(",")) %}
   {% do c.environment.add_env("SYNC_EXERCISES_CELERY", "True") %}
   {% do c.environment.add_env("SYNC_EXERCISE_IMAGES_CELERY", "True") %}
   {% do c.environment.add_env("SYNC_EXERCISE_VIDEOS_CELERY", "True") %}
   {% do c.environment.add_env("SYNC_INGREDIENTS_CELERY", "True") %}
+  {% do c.environment.add_env("CSRF_TRUSTED_ORIGINS", origins.x|join(",")) %}
   {% do c.environment.add_user_envs(values.wger.additional_envs) %}
 {% endfor %}
 
