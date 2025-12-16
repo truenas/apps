@@ -5,12 +5,9 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% set csp = namespace(x={}) %}
 {% set extra_services = namespace(x=["notifications"]) %}
 
-{% for key, values in values.consts.csp_config.items() %}
-  {% do csp.x.update({key: values}) %}
-{% endfor %}
+{% set csp = namespace(x={}) %}
 {% for x in values.opencloud.additional_csp %}
   {% set list_items = x['items'] | map(attribute="value") | list %}
   {% set values = csp.x.get(x.directive, []) + list_items %}
@@ -137,7 +134,7 @@
   {% do csp.x.update({key: values | unique | list}) %}
 {% endfor %}
 {% set csp_yaml = tpl.funcs.to_yaml({"directives": csp.x}) %}
-{% set csp_notes = "Generated CSP File:\n\n```yaml\n%s```"|format(csp_yaml) %}
+{% set csp_notes = "CSP Rules that are added on top of the OpenCloud Defaults:\n\n```yaml\n%s```"|format(csp_yaml) %}
 {% set body.x = "%s\n\n%s"|format(body.x, csp_notes) %}
 
 {% do c1.configs.add("csp", csp_yaml, values.consts.csp_config_path) %}
