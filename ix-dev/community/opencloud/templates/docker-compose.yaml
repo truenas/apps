@@ -65,15 +65,12 @@
 {# Radicale (CalDAV/CardDAV) #}
 {% if values.radicale.enabled %}
   {% set radicale = tpl.add_container(values.consts.radicale_container_name, "radicale_image") %}
-
-  {% set https = True if values.network.certificate_id else False %}
-  {% set scheme = 'https' if https else 'http' %}
-  {% do radicale.healthcheck.set_test("wget", {"port": values.consts.radicale.port, "scheme": scheme}) %}
+  {% do radicale.healthcheck.set_test("wget", {"port": values.consts.radicale.port}) %}
   {% do c1.depends.add_dependency(values.consts.radicale_container_name, "service_healthy") %}
 
   {% do radicale.set_user(values.run_as.user, values.run_as.group) %}
-  {% do radicale.configs.add("radicale_config", radicale_config(values.consts.radicale, https), values.consts.radicale.config_file) %}
-  {% do c1.configs.add("radicale_opencloud_proxy", opencloud_proxy(values.consts.radicale, scheme), values.consts.opencloud_proxy_path) %}
+  {% do radicale.configs.add("radicale_config", radicale_config(values.consts.radicale), values.consts.radicale.config_file) %}
+  {% do c1.configs.add("radicale_opencloud_proxy", opencloud_proxy(values.consts.radicale), values.consts.opencloud_proxy_path) %}
 
   {% do radicale.add_storage(values.consts.radicale.data_path, values.radicale.data_storage) %}
   {% do perm_container.add_or_skip_action("radicale_data_storage", values.radicale.data_storage, perms_config) %}
@@ -95,9 +92,6 @@
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
-
-  {% do radicale.configs.add("radicale_private", cert.privatekey, values.consts.radicale.ssl_key_path) %}
-  {% do radicale.configs.add("radicale_public", cert.certificate, values.consts.radicale.ssl_cert_path) %}
 {% endif %}
 
 {# Collaboration #}
