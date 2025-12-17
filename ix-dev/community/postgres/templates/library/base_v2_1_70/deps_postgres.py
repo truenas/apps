@@ -110,7 +110,7 @@ class PostgresContainer:
         }
 
         c = self._render_instance.add_container(name, image)
-        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"]})
+        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"], "port": port})
         c.set_shm_size_mb(256)
 
         if opts:
