@@ -33,12 +33,7 @@
   {% do containers.append(filer) %}
 {% endif %}
 
-{# Permissions for additional storage #}
-{% for store in values.storage.additional_storage %}
-  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
-{% endfor %}
-
-{# Admin #}
+{# --- Admin --- #}
 {% if admin %}
   {% if filer %}{% do admin.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}{% endif %}
   {% do admin.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
@@ -62,7 +57,7 @@
   {% do tpl.portals.add(values.network.admin_port, {"name": "Admin"}) %}
 {% endif %}
 
-{# Volume #}
+{# --- Volume --- #}
 {% do volume.healthcheck.set_test("wget", {"port": values.network.volume_port.port_number, "path": "/healthz"}) %}
 {% do volume.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
 {% do volume.add_port(values.network.volume_port) %}
@@ -89,8 +84,9 @@
 {% endif %}
 
 {% do volume.set_entrypoint(volume_entrypoint.x) %}
+{% do tpl.portals.add(values.network.volume_port, {"name": "Volume", "path": "/ui/index.html"}) %}
 
-{# Filer #}
+{# --- Filer --- #}
 {% if filer %}
   {% do filer.healthcheck.set_test("wget", {"port": values.network.filer_port.port_number, "path": "/healthz"}) %}
   {% do filer.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
@@ -119,7 +115,7 @@
   {% do filer.set_entrypoint(filer_entrypoint.x) %}
 {% endif %}
 
-{# S3 #}
+{# --- S3 --- #}
 {% if s3 %}
   {% set s3_scheme = "https" if values.network.s3_port.certificate_id else "http" %}
   {% do s3.healthcheck.set_test("wget", {"port": values.network.s3_port.port_number, "path": "/healthz", "scheme": s3_scheme}) %}
@@ -152,7 +148,7 @@
   {% do s3.set_entrypoint(s3_entrypoint.x) %}
 {% endif %}
 
-{# WebDAV #}
+{# --- WebDAV --- #}
 {% if webdav %}
   {% do webdav.healthcheck.set_test("wget", {"port": values.network.webdav_port.port_number, "path": "/healthz"}) %}
   {% do webdav.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}
@@ -177,7 +173,7 @@
   {% do webdav.set_entrypoint(webdav_entrypoint.x) %}
 {% endif %}
 
-{# Master #}
+{# --- Master --- #}
 {% do master.healthcheck.set_test("wget", {"port": values.network.master_port.port_number, "path": "/cluster/healthz"}) %}
 {% do master.add_port(values.network.master_port) %}
 
@@ -211,6 +207,12 @@
 {% endif %}
 
 {% do master.set_entrypoint(master_entrypoint.x) %}
+{% do tpl.portals.add(values.network.master_port, {"name": "Master"}) %}
+
+{# Permissions for additional storage #}
+{% for store in values.storage.additional_storage %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
 
 {# Permissions Container Activation #}
 {% if perm_container.has_actions() %}
@@ -219,8 +221,5 @@
     {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% endfor %}
 {% endif %}
-
-{% do tpl.portals.add(values.network.master_port, {"name": "Master"}) %}
-{% do tpl.portals.add(values.network.volume_port, {"name": "Volume", "path": "/ui/index.html"}) %}
 
 {{ tpl.render() | tojson }}
