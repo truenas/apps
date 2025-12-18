@@ -1,23 +1,25 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set master = tpl.add_container(values.consts.master_container_name, "image") %}
 {% set admin = tpl.add_container(values.consts.admin_container_name, "image") %}
 {% set volume = tpl.add_container(values.consts.volume_container_name, "image") %}
 {% set filer = tpl.add_container(values.consts.filer_container_name, "image") %}
-{% set s3 = tpl.add_container(values.consts.s3_container_name, "image") %}
-{% set master = tpl.add_container(values.consts.master_container_name, "image") %}
+{% set s3 = None %}
+{% set webdav = None %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% set containers = [master, admin, filer, s3, volume] %}
-{% for c in containers %}
-  {% do c.set_user(values.run_as.user, values.run_as.group) %}
-  {% do c.environment.add_user_envs(values.seaweedfs.additional_envs) %}
+{% set containers = [master, admin, filer, volume] %}
+{% if values.network.webdav_port.bind_mode %}
+  {% set webdav = tpl.add_container(values.consts.webdav_container_name, "image") %}
+  {% do containers.append(webdav) %}
+{% endif %}
 
-  {% for store in values.storage.additional_storage %}
-    {% do c.add_storage(store.mount_path, store) %}
-  {% endfor %}
-{% endfor %}
+{% if values.network.s3_port.bind_mode %}
+  {% set s3 = tpl.add_container(values.consts.s3_container_name, "image") %}
+  {% do containers.append(s3) %}
+{% endif %}
 
 {# Permissions for additional storage #}
 {% for store in values.storage.additional_storage %}
@@ -81,28 +83,53 @@
 {% do perm_container.add_or_skip_action("filer-data", values.storage.filer_data, perms_config) %}
 
 {# S3 #}
-{% set s3_scheme = "https" if values.network.s3_port.certificate_id else "http" %}
-{% do s3.healthcheck.set_test("wget", {"port": values.network.s3_port.port_number, "path": "/healthz", "scheme": s3_scheme}) %}
-{% do s3.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
-{% do s3.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
-{% do s3.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}
-{% do s3.add_port(values.network.s3_port) %}
+{% if s3 %}
+  {% set s3_scheme = "https" if values.network.s3_port.certificate_id else "http" %}
+  {% do s3.healthcheck.set_test("wget", {"port": values.network.s3_port.port_number, "path": "/healthz", "scheme": s3_scheme}) %}
+  {% do s3.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
+  {% do s3.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
+  {% do s3.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}
+  {% do s3.add_port(values.network.s3_port) %}
 
-{# S3 Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/s3.go#L62 #}
-{% set s3_entrypoint = namespace(x=[
-  "/usr/bin/weed", "-logtostderr=true", "s3",
-  "-filer=%s:%d"|format(values.consts.filer_container_name, values.network.filer_port.port_number),
-  "-ip.bind=0.0.0.0",
-  "-port=%d"|format(values.network.s3_port.port_number),
-]) %}
-{% if values.network.s3_port.certificate_id %}
-  {% set cert = values.ix_certificates[values.network.s3_port.certificate_id] %}
-  {% do s3.configs.add("private", cert.privatekey, values.consts.s3_ssl_key_path) %}
-  {% do s3.configs.add("public", cert.certificate, values.consts.s3_ssl_cert_path) %}
-  {% do s3_entrypoint.x.extend(["-key.file=%s"|format(values.consts.s3_ssl_key_path)]) %}
-  {% do s3_entrypoint.x.extend(["-cert.file=%s"|format(values.consts.s3_ssl_cert_path)]) %}
+  {# S3 Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/s3.go#L62 #}
+  {% set s3_entrypoint = namespace(x=[
+    "/usr/bin/weed", "-logtostderr=true", "s3",
+    "-filer=%s:%d"|format(values.consts.filer_container_name, values.network.filer_port.port_number),
+    "-ip.bind=0.0.0.0",
+    "-port=%d"|format(values.network.s3_port.port_number),
+  ]) %}
+  {% if values.network.s3_port.certificate_id %}
+    {% set cert = values.ix_certificates[values.network.s3_port.certificate_id] %}
+    {% do s3.configs.add("private", cert.privatekey, values.consts.s3_ssl_key_path) %}
+    {% do s3.configs.add("public", cert.certificate, values.consts.s3_ssl_cert_path) %}
+    {% do s3_entrypoint.x.append("-key.file=%s"|format(values.consts.s3_ssl_key_path)) %}
+    {% do s3_entrypoint.x.append("-cert.file=%s"|format(values.consts.s3_ssl_cert_path)) %}
+  {% endif %}
+  {% do s3.set_entrypoint(s3_entrypoint.x) %}
 {% endif %}
-{% do s3.set_entrypoint(s3_entrypoint.x) %}
+
+{# WebDAV #}
+{% if webdav %}
+  {% do webdav.healthcheck.set_test("wget", {"port": values.network.webdav_port.port_number, "path": "/healthz"}) %}
+  {% do webdav.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}
+  {% do webdav.add_port(values.network.webdav_port) %}
+
+  {# WebDAV Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/webdav.go#L40 #}
+  {% set webdav_entrypoint = namespace(x=[
+    "/usr/bin/weed", "-logtostderr=true", "webdav",
+    "-filer=%s:%d"|format(values.consts.filer_container_name, values.network.filer_port.port_number),
+    "-ip.bind=0.0.0.0",
+    "-port=%d"|format(values.network.webdav_port.port_number),
+  ]) %}
+  {% if values.network.webdav_port.certificate_id %}
+    {% set cert = values.ix_certificates[values.network.webdav_port.certificate_id] %}
+    {% do webdav.configs.add("private", cert.privatekey, values.consts.webdav_ssl_key_path) %}
+    {% do webdav.configs.add("public", cert.certificate, values.consts.webdav_ssl_cert_path) %}
+    {% do webdav_entrypoint.x.append("-key.file=%s"|format(values.consts.webdav_ssl_key_path)) %}
+    {% do webdav_entrypoint.x.append("-cert.file=%s"|format(values.consts.webdav_ssl_cert_path)) %}
+  {% endif %}
+  {% do webdav.set_entrypoint(webdav_entrypoint.x) %}
+{% endif %}
 
 {# Master #}
 {% do master.healthcheck.set_test("wget", {"port": values.network.master_port.port_number, "path": "/cluster/healthz"}) %}
