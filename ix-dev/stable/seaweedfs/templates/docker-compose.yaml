@@ -39,6 +39,10 @@
 {% do admin.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
 {% do admin.healthcheck.set_test("wget", {"port": values.network.admin_port.port_number, "path": "/health"}) %}
 {% do admin.add_port(values.network.admin_port) %}
+
+{% do admin.add_storage(values.consts.data_path, values.storage.admin_data) %}
+{% do perm_container.add_or_skip_action("admin-data", values.storage.admin_data, perms_config) %}
+
 {# Admin Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/admin.go#L44 #}
 {% do admin.set_entrypoint([
   "/usr/bin/weed", "-logtostderr=true", "admin",
@@ -48,16 +52,17 @@
   "-adminPassword=%s"|format(values.seaweedfs.admin_password),
   "-port=%d"|format(values.network.admin_port.port_number),
 ]) %}
-{% do admin.add_storage(values.consts.data_path, values.storage.admin_data) %}
-{% do perm_container.add_or_skip_action("admin-data", values.storage.admin_data, perms_config) %}
 
 {# Volume #}
 {% do volume.healthcheck.set_test("wget", {"port": values.network.volume_port.port_number, "path": "/healthz"}) %}
 {% do volume.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
 {% do volume.add_port(values.network.volume_port) %}
 
+{% do volume.add_storage(values.consts.data_path, values.storage.volume_data) %}
+{% do perm_container.add_or_skip_action("volume-data", values.storage.volume_data, perms_config) %}
+
 {# Volume Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/volume.go#L75 #}
-{% do volume.set_entrypoint([
+{% set volume_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "volume",
   "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
   "-ip=%s"|format(values.consts.volume_container_name),
@@ -68,8 +73,13 @@
   "-rack=%s"|format(values.seaweedfs.rack_name),
   "-dataCenter=%s"|format(values.seaweedfs.data_center_name),
 ]) %}
-{% do volume.add_storage(values.consts.data_path, values.storage.volume_data) %}
-{% do perm_container.add_or_skip_action("volume-data", values.storage.volume_data, perms_config) %}
+
+{% if values.network.volume_grpc_port.bind_mode %}
+  {% do volume.add_port(values.network.volume_grpc_port) %}
+  {% do volume_entrypoint.x.append("-port.grpc=%d"|format(values.network.volume_grpc_port.port_number)) %}
+{% endif %}
+
+{% do volume.set_entrypoint(volume_entrypoint.x) %}
 
 {# Filer #}
 {% if filer %}
@@ -77,9 +87,13 @@
   {% do filer.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
   {% do filer.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
   {% do filer.add_port(values.network.filer_port) %}
+  {% do tpl.portals.add(values.network.filer_port, {"name": "Filer"}) %}
+
+  {% do filer.add_storage(values.consts.data_path, values.storage.filer_data) %}
+  {% do perm_container.add_or_skip_action("filer-data", values.storage.filer_data, perms_config) %}
 
   {# Filer Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/filer.go#L81 #}
-  {% do filer.set_entrypoint([
+  {% set filer_entrypoint = namespace(x=[
     "/usr/bin/weed", "-logtostderr=true", "filer",
     "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
     "-ip=%s"|format(values.consts.filer_container_name),
@@ -87,8 +101,13 @@
     "-port=%d"|format(values.network.filer_port.port_number),
     "-defaultStoreDir=%s"|format(values.consts.data_path),
   ]) %}
-  {% do filer.add_storage(values.consts.data_path, values.storage.filer_data) %}
-  {% do perm_container.add_or_skip_action("filer-data", values.storage.filer_data, perms_config) %}
+
+  {% if values.network.filer_grpc_port.bind_mode %}
+    {% do filer.add_port(values.network.filer_grpc_port) %}
+    {% do filer_entrypoint.x.append("-port.grpc=%d"|format(values.network.filer_grpc_port.port_number)) %}
+  {% endif %}
+
+  {% do filer.set_entrypoint(filer_entrypoint.x) %}
 {% endif %}
 
 {# S3 #}
@@ -107,6 +126,12 @@
     "-ip.bind=0.0.0.0",
     "-port=%d"|format(values.network.s3_port.port_number),
   ]) %}
+
+  {% if values.network.s3_grpc_port.bind_mode %}
+    {% do s3.add_port(values.network.s3_grpc_port) %}
+    {% do s3_entrypoint.x.append("-port.grpc=%d"|format(values.network.s3_grpc_port.port_number)) %}
+  {% endif %}
+
   {% if values.network.s3_port.certificate_id %}
     {% set cert = values.ix_certificates[values.network.s3_port.certificate_id] %}
     {% do s3.configs.add("private", cert.privatekey, values.consts.s3_ssl_key_path) %}
@@ -114,6 +139,7 @@
     {% do s3_entrypoint.x.append("-key.file=%s"|format(values.consts.s3_ssl_key_path)) %}
     {% do s3_entrypoint.x.append("-cert.file=%s"|format(values.consts.s3_ssl_cert_path)) %}
   {% endif %}
+
   {% do s3.set_entrypoint(s3_entrypoint.x) %}
 {% endif %}
 
@@ -130,6 +156,7 @@
     "-ip.bind=0.0.0.0",
     "-port=%d"|format(values.network.webdav_port.port_number),
   ]) %}
+
   {% if values.network.webdav_port.certificate_id %}
     {% set cert = values.ix_certificates[values.network.webdav_port.certificate_id] %}
     {% do webdav.configs.add("private", cert.privatekey, values.consts.webdav_ssl_key_path) %}
@@ -137,12 +164,16 @@
     {% do webdav_entrypoint.x.append("-key.file=%s"|format(values.consts.webdav_ssl_key_path)) %}
     {% do webdav_entrypoint.x.append("-cert.file=%s"|format(values.consts.webdav_ssl_cert_path)) %}
   {% endif %}
+
   {% do webdav.set_entrypoint(webdav_entrypoint.x) %}
 {% endif %}
 
 {# Master #}
 {% do master.healthcheck.set_test("wget", {"port": values.network.master_port.port_number, "path": "/cluster/healthz"}) %}
 {% do master.add_port(values.network.master_port) %}
+
+{% do master.add_storage(values.consts.data_path, values.storage.master_data) %}
+{% do perm_container.add_or_skip_action("master-data", values.storage.master_data, perms_config) %}
 
 {# Master Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/master.go#L74 #}
 {% set master_entrypoint = namespace(x=[
@@ -153,6 +184,11 @@
   "-mdir=%s"|format(values.consts.data_path),
   "-volumeSizeLimitMB=%d"|format(values.seaweedfs.volume_size_limit_mb),
 ]) %}
+
+{% if values.network.master_grpc_port.bind_mode %}
+  {% do master.add_port(values.network.master_grpc_port) %}
+  {% do master_entrypoint.x.append("-port.grpc=%d"|format(values.network.master_grpc_port.port_number)) %}
+{% endif %}
 
 {% if values.seaweedfs.master_peers %}
   {% set peers = namespace(x=[]) %}
@@ -167,9 +203,7 @@
 
 {% do master.set_entrypoint(master_entrypoint.x) %}
 
-{% do master.add_storage(values.consts.data_path, values.storage.master_data) %}
-{% do perm_container.add_or_skip_action("master-data", values.storage.master_data, perms_config) %}
-
+{# Permissions Container Activation #}
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% for c in containers %}
@@ -178,7 +212,6 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.admin_port, {"name": "Admin"}) %}
-{% do tpl.portals.add(values.network.filer_port, {"name": "Filer"}) %}
 {% do tpl.portals.add(values.network.master_port, {"name": "Master"}) %}
 {% do tpl.portals.add(values.network.volume_port, {"name": "Volume", "path": "/ui/index.html"}) %}
 
