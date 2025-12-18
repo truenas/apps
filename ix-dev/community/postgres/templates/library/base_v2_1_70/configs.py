@@ -22,6 +22,9 @@ class Configs:
         if not isinstance(data, str):
             raise RenderError(f"Expected [data] to be a string, got [{type(data)}]")
 
+        if data == "":
+            raise RenderError(f"Expected [data] to be non-empty for config [{name}]")
+
         if name not in self._configs:
             self._configs[name] = {"name": name, "data": data}
             return
