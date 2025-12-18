@@ -1,16 +1,21 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set master = tpl.add_container(values.consts.master_container_name, "image") %}
-{% set admin = tpl.add_container(values.consts.admin_container_name, "image") %}
 {% set volume = tpl.add_container(values.consts.volume_container_name, "image") %}
 {% set webdav = None %}
+{% set admin = None %}
 {% set filer = None %}
 {% set s3 = None %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% set containers = [master, admin, filer, volume] %}
+{% set containers = [master, volume] %}
+
+{% if values.network.admin_port.bind_mode %}
+  {% set admin = tpl.add_container(values.consts.admin_container_name, "image") %}
+  {% do containers.append(admin) %}
+{% endif %}
 
 {% if values.network.webdav_port.bind_mode %}
   {% set webdav = tpl.add_container(values.consts.webdav_container_name, "image") %}
@@ -34,24 +39,28 @@
 {% endfor %}
 
 {# Admin #}
-{% do admin.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}
-{% do admin.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
-{% do admin.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
-{% do admin.healthcheck.set_test("wget", {"port": values.network.admin_port.port_number, "path": "/health"}) %}
-{% do admin.add_port(values.network.admin_port) %}
+{% if admin %}
+  {% if filer %}{% do admin.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}{% endif %}
+  {% do admin.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
+  {% do admin.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
+  {% do admin.healthcheck.set_test("wget", {"port": values.network.admin_port.port_number, "path": "/health"}) %}
+  {% do admin.add_port(values.network.admin_port) %}
 
-{% do admin.add_storage(values.consts.data_path, values.storage.admin_data) %}
-{% do perm_container.add_or_skip_action("admin-data", values.storage.admin_data, perms_config) %}
+  {% do admin.add_storage(values.consts.data_path, values.storage.admin_data) %}
+  {% do perm_container.add_or_skip_action("admin-data", values.storage.admin_data, perms_config) %}
 
-{# Admin Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/admin.go#L44 #}
-{% do admin.set_entrypoint([
-  "/usr/bin/weed", "-logtostderr=true", "admin",
-  "-masters=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
-  "-dataDir=%s"|format(values.consts.data_path),
-  "-adminUser=%s"|format(values.seaweedfs.admin_user),
-  "-adminPassword=%s"|format(values.seaweedfs.admin_password),
-  "-port=%d"|format(values.network.admin_port.port_number),
-]) %}
+  {# Admin Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/admin.go#L44 #}
+  {% do admin.set_entrypoint([
+    "/usr/bin/weed", "-logtostderr=true", "admin",
+    "-masters=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
+    "-dataDir=%s"|format(values.consts.data_path),
+    "-adminUser=%s"|format(values.seaweedfs.admin_user),
+    "-adminPassword=%s"|format(values.seaweedfs.admin_password),
+    "-port=%d"|format(values.network.admin_port.port_number),
+  ]) %}
+
+  {% do tpl.portals.add(values.network.admin_port, {"name": "Admin"}) %}
+{% endif %}
 
 {# Volume #}
 {% do volume.healthcheck.set_test("wget", {"port": values.network.volume_port.port_number, "path": "/healthz"}) %}
@@ -211,7 +220,6 @@
   {% endfor %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.admin_port, {"name": "Admin"}) %}
 {% do tpl.portals.add(values.network.master_port, {"name": "Master"}) %}
 {% do tpl.portals.add(values.network.volume_port, {"name": "Volume", "path": "/ui/index.html"}) %}
 
