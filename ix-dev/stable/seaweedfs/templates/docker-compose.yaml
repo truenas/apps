@@ -3,14 +3,15 @@
 {% set master = tpl.add_container(values.consts.master_container_name, "image") %}
 {% set admin = tpl.add_container(values.consts.admin_container_name, "image") %}
 {% set volume = tpl.add_container(values.consts.volume_container_name, "image") %}
-{% set filer = tpl.add_container(values.consts.filer_container_name, "image") %}
-{% set s3 = None %}
 {% set webdav = None %}
+{% set filer = None %}
+{% set s3 = None %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set containers = [master, admin, filer, volume] %}
+
 {% if values.network.webdav_port.bind_mode %}
   {% set webdav = tpl.add_container(values.consts.webdav_container_name, "image") %}
   {% do containers.append(webdav) %}
@@ -19,6 +20,12 @@
 {% if values.network.s3_port.bind_mode %}
   {% set s3 = tpl.add_container(values.consts.s3_container_name, "image") %}
   {% do containers.append(s3) %}
+{% endif %}
+
+{# Filer is needed if we have S3 or WebDAV #}
+{% if values.network.filer_port.bind_mode or s3 or webdav %}
+  {% set filer = tpl.add_container(values.consts.filer_container_name, "image") %}
+  {% do containers.append(filer) %}
 {% endif %}
 
 {# Permissions for additional storage #}
@@ -65,22 +72,24 @@
 {% do perm_container.add_or_skip_action("volume-data", values.storage.volume_data, perms_config) %}
 
 {# Filer #}
-{% do filer.healthcheck.set_test("wget", {"port": values.network.filer_port.port_number, "path": "/healthz"}) %}
-{% do filer.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
-{% do filer.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
-{% do filer.add_port(values.network.filer_port) %}
+{% if filer %}
+  {% do filer.healthcheck.set_test("wget", {"port": values.network.filer_port.port_number, "path": "/healthz"}) %}
+  {% do filer.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
+  {% do filer.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
+  {% do filer.add_port(values.network.filer_port) %}
 
-{# Filer Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/filer.go#L81 #}
-{% do filer.set_entrypoint([
-  "/usr/bin/weed", "-logtostderr=true", "filer",
-  "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
-  "-ip=%s"|format(values.consts.filer_container_name),
-  "-ip.bind=0.0.0.0",
-  "-port=%d"|format(values.network.filer_port.port_number),
-  "-defaultStoreDir=%s"|format(values.consts.data_path),
-]) %}
-{% do filer.add_storage(values.consts.data_path, values.storage.filer_data) %}
-{% do perm_container.add_or_skip_action("filer-data", values.storage.filer_data, perms_config) %}
+  {# Filer Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/filer.go#L81 #}
+  {% do filer.set_entrypoint([
+    "/usr/bin/weed", "-logtostderr=true", "filer",
+    "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
+    "-ip=%s"|format(values.consts.filer_container_name),
+    "-ip.bind=0.0.0.0",
+    "-port=%d"|format(values.network.filer_port.port_number),
+    "-defaultStoreDir=%s"|format(values.consts.data_path),
+  ]) %}
+  {% do filer.add_storage(values.consts.data_path, values.storage.filer_data) %}
+  {% do perm_container.add_or_skip_action("filer-data", values.storage.filer_data, perms_config) %}
+{% endif %}
 
 {# S3 #}
 {% if s3 %}
