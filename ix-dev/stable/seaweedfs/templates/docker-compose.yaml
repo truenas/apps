@@ -10,6 +10,17 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% set filer_addr = "%s:%d"|format(values.consts.filer_container_name, values.network.filer_port.port_number) %}
+{% set master_addr = "%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number) %}
+
+{% if values.network.master_grpc_port.bind_mode %}
+  {% set master_addr = "%s.%d"|format(master_addr, values.network.master_grpc_port.port_number) %}
+{% endif %}
+
+{% if values.network.filer_grpc_port.bind_mode %}
+  {% set filer_addr = "%s.%d"|format(filer_addr, values.network.filer_grpc_port.port_number) %}
+{% endif %}
+
 {% set containers = [master, volume] %}
 
 {% if values.network.admin_port.bind_mode %}
@@ -56,7 +67,7 @@
   {# Admin Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/admin.go#L44 #}
   {% do admin.set_entrypoint([
     "/usr/bin/weed", "-logtostderr=true", "admin",
-    "-masters=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
+    "-masters=%s"|format(master_addr),
     "-dataDir=%s"|format(values.consts.data_path),
     "-adminUser=%s"|format(values.seaweedfs.admin_user),
     "-adminPassword=%s"|format(values.seaweedfs.admin_password),
@@ -77,7 +88,7 @@
 {# Volume Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/volume.go#L75 #}
 {% set volume_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "volume",
-  "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
+  "-master=%s"|format(master_addr),
   "-ip=%s"|format(values.consts.volume_container_name),
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.volume_port.port_number),
@@ -109,7 +120,7 @@
   {# Filer Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/filer.go#L81 #}
   {% set filer_entrypoint = namespace(x=[
     "/usr/bin/weed", "-logtostderr=true", "filer",
-    "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
+    "-master=%s"|format(master_addr),
     "-ip=%s"|format(values.consts.filer_container_name),
     "-ip.bind=0.0.0.0",
     "-port=%d"|format(values.network.filer_port.port_number),
@@ -136,7 +147,7 @@
   {# S3 Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/s3.go#L62 #}
   {% set s3_entrypoint = namespace(x=[
     "/usr/bin/weed", "-logtostderr=true", "s3",
-    "-filer=%s:%d"|format(values.consts.filer_container_name, values.network.filer_port.port_number),
+    "-filer=%s"|format(filer_addr),
     "-ip.bind=0.0.0.0",
     "-port=%d"|format(values.network.s3_port.port_number),
   ]) %}
@@ -166,7 +177,7 @@
   {# WebDAV Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/webdav.go#L40 #}
   {% set webdav_entrypoint = namespace(x=[
     "/usr/bin/weed", "-logtostderr=true", "webdav",
-    "-filer=%s:%d"|format(values.consts.filer_container_name, values.network.filer_port.port_number),
+    "-filer=%s"|format(filer_addr),
     "-ip.bind=0.0.0.0",
     "-port=%d"|format(values.network.webdav_port.port_number),
   ]) %}
