@@ -34,6 +34,12 @@ SUPPORTED_REPOS = [
     "pgvector/pgvector",
     "ghcr.io/immich-app/postgres",
 ]
+SUPPORTED_UPGRADE_REPOS = [
+    "postgres",
+    "postgis/postgis",
+    "pgvector/pgvector",
+    "ghcr.io/immich-app/postgres",
+]
 
 
 def get_major_version(variant: str, tag: str):
@@ -52,15 +58,16 @@ def get_major_version(variant: str, tag: str):
             return x.split("-")[0]
 
     elif variant == "pgvector/pgvector":
-        # 0.8.1-pg17
-        regex = re.compile(r"^\d+\.\d+\.\d+\-pg\d+")
+        # 0.8.1-pg17-trixie
+        regex = re.compile(r"^\d+\.\d+\.\d+\-pg\d+(\-\w+)?")
 
         def oper(x):
-            return x.split("-")[1].lstrip("pg")
+            parts = x.split("-")
+            return parts[1].lstrip("pg")
 
     elif variant == "ghcr.io/immich-app/postgres":
-        # 15-vectorchord0.4.3-pgvectors0.2.0
-        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+(\-pgvectors?\d+\.\d+\.\d+)?")
+        # 15-vectorchord0.4.3
+        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+")
 
         def oper(x):
             return x.split("-")[0]
@@ -103,7 +110,7 @@ class PostgresContainer:
         }
 
         c = self._render_instance.add_container(name, image)
-        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"]})
+        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"], "port": port})
         c.set_shm_size_mb(256)
 
         if opts:
@@ -113,7 +120,7 @@ class PostgresContainer:
 
         # eg we don't want to handle upgrades of pg_vector or immich at the moment
         repo = self._get_repo(image)
-        if repo == "postgres":
+        if repo in SUPPORTED_UPGRADE_REPOS:
             self._data_dir = "/var/lib/postgresql"
             target_major_version = self._get_target_version(image)
             # This is the new format upstream Postgres uses/suggests.

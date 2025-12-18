@@ -159,8 +159,8 @@
 
   {% if values.network.s3_port.certificate_id %}
     {% set cert = values.ix_certificates[values.network.s3_port.certificate_id] %}
-    {% do s3.configs.add("private", cert.privatekey, values.consts.s3_ssl_key_path) %}
-    {% do s3.configs.add("public", cert.certificate, values.consts.s3_ssl_cert_path) %}
+    {% do s3.configs.add("s3private", cert.privatekey, values.consts.s3_ssl_key_path) %}
+    {% do s3.configs.add("s3public", cert.certificate, values.consts.s3_ssl_cert_path) %}
     {% do s3_entrypoint.x.append("-key.file=%s"|format(values.consts.s3_ssl_key_path)) %}
     {% do s3_entrypoint.x.append("-cert.file=%s"|format(values.consts.s3_ssl_cert_path)) %}
   {% endif %}
@@ -170,7 +170,7 @@
 
 {# --- WebDAV --- #}
 {% if webdav %}
-  {% do webdav.healthcheck.set_test("wget", {"port": values.network.webdav_port.port_number}) %}
+  {% do webdav.healthcheck.set_test("wget", {"port": values.network.webdav_port.port_number, "method": "OPTIONS", "scheme": "https" if values.network.webdav_port.certificate_id else "http"}) %}
   {% do webdav.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}
   {% do webdav.add_port(values.network.webdav_port) %}
 
@@ -184,8 +184,8 @@
 
   {% if values.network.webdav_port.certificate_id %}
     {% set cert = values.ix_certificates[values.network.webdav_port.certificate_id] %}
-    {% do webdav.configs.add("private", cert.privatekey, values.consts.webdav_ssl_key_path) %}
-    {% do webdav.configs.add("public", cert.certificate, values.consts.webdav_ssl_cert_path) %}
+    {% do webdav.configs.add("webdavprivate", cert.privatekey, values.consts.webdav_ssl_key_path) %}
+    {% do webdav.configs.add("webdavpublic", cert.certificate, values.consts.webdav_ssl_cert_path) %}
     {% do webdav_entrypoint.x.append("-key.file=%s"|format(values.consts.webdav_ssl_key_path)) %}
     {% do webdav_entrypoint.x.append("-cert.file=%s"|format(values.consts.webdav_ssl_cert_path)) %}
   {% endif %}
