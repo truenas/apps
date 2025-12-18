@@ -1,5 +1,4 @@
 {% from "macros/app_init.sh" import app_init %}
-{% from "macros/proxy.yaml" import opencloud_proxy %}
 {% from "macros/radicale_config.ini" import radicale_config %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
@@ -62,20 +61,30 @@
   {% do c1.environment.add_env("SEARCH_EXTRACTOR_TIKA_TIKA_URL", tika.get_url()) %}
 {% endif %}
 
+{% set opencloud_proxy_routes = namespace(x=[]) %}
+
 {# Radicale (CalDAV/CardDAV) #}
-{% if values.radicale.enabled %}
+{% if values.opencloud.radicale.enabled %}
   {% set radicale = tpl.add_container(values.consts.radicale_container_name, "radicale_image") %}
-  {% do radicale.healthcheck.set_test("wget", {"port": values.consts.radicale.port}) %}
+  {% do radicale.healthcheck.set_test("wget", {"port": values.consts.radicale_port}) %}
   {% do c1.depends.add_dependency(values.consts.radicale_container_name, "service_healthy") %}
 
   {% do radicale.set_user(values.run_as.user, values.run_as.group) %}
-  {% do radicale.configs.add("radicale_config", radicale_config(values.consts.radicale), values.consts.radicale.config_file) %}
-  {% if values.radicale.overwrite_proxy %}
-    {% do c1.configs.add("radicale_opencloud_proxy", opencloud_proxy(values.consts.radicale), values.consts.opencloud_proxy_path) %}
-  {% endif %}
-
-  {% do radicale.add_storage(values.consts.radicale.data_path, values.radicale.data_storage) %}
+  {% do radicale.configs.add("radicale_config", radicale_config(values), "/etc/radicale/config") %}
+  {% set radicale_addr = "http://%s:%d"|format(values.consts.radicale_container_name, values.consts.radicale_port) %}
+  {% do opencloud_proxy_routes.x.extend([
+    {"endpoint": "/caldav/", "backend": radicale_addr, "remote_user_header": "X-Remote-User", "skip_x_access_token": true, "additional_headers": [{"X-Script-Name": "/caldav"}]},
+    {"endpoint": "/.well-known/caldav", "backend": radicale_addr, "remote_user_header": "X-Remote-User", "skip_x_access_token": true, "additional_headers": [{"X-Script-Name": "/caldav"}]},
+    {"endpoint": "/carddav/", "backend": radicale_addr, "remote_user_header": "X-Remote-User", "skip_x_access_token": true, "additional_headers": [{"X-Script-Name": "/carddav"}]},
+    {"endpoint": "/.well-known/carddav", "backend": radicale_addr, "remote_user_header": "X-Remote-User", "skip_x_access_token": true, "additional_headers": [{"X-Script-Name": "/carddav"}]}
+  ]) %}
+  {% do radicale.add_storage("/var/lib/radicale", values.radicale.data_storage) %}
   {% do perm_container.add_or_skip_action("radicale_data_storage", values.radicale.data_storage, perms_config) %}
+{% endif %}
+
+{% if opencloud_proxy_routes.x %}
+  {% set proxy_yaml = tpl.funcs.to_yaml({"additional_policies": [{"name": "default", "routes": opencloud_proxy_routes.x}]}) %}
+  {% do c1.configs.add("opencloud_proxy", proxy_yaml, values.consts.opencloud_proxy_path) %}
 {% endif %}
 
 {# Networking #}

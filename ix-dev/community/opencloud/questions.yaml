@@ -7,8 +7,6 @@ groups:
     description: Configure Network for OpenCloud
   - name: Storage Configuration
     description: Configure Storage for OpenCloud
-  - name: Radicale (CalDAV, CardDAV)
-    description: Configure calendar support for OpenCloud
   - name: Labels Configuration
     description: Configure Labels for OpenCloud
   - name: Resources Configuration
@@ -77,6 +75,19 @@ questions:
                 schema:
                   type: boolean
                   default: true
+        - variable: radicale
+          label: Radicale (CalDAV, CardDAV)
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enable calendar and contacts
+                description: |
+                  ⚠️ Enabling Radicale will also override the file `proxy.yaml` in your Config Storage.</br>
+                  Your original file will remain untouched. But a file will be created on a upper (docker) layer overriding the original file.</br>
+                schema:
+                  type: boolean
+                  default: false
         - variable: collaboration
           label: Collaboration
           schema:
@@ -626,6 +637,81 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: radicale_data
+          label: Radicale Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "radicale_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: additional_storage
           label: Additional Storage
           schema:
@@ -782,104 +868,7 @@ questions:
                             schema:
                               type: string
                               required: true
-  - variable: radicale
-    label: ""
-    group: Radicale (CalDAV, CardDAV)
-    schema:
-        type: dict
-        attrs:
-          - variable: enabled
-            label: Enable calendar and contacts
-            schema:
-              type: boolean
-              default: false
-          - variable: overwrite_proxy
-            label: Create proxy.yaml (read description)
-            description: |
-              Select the checkbox for the calendar to work out of the box.
-              For radicale to work, additional routes need to be added to the file `proxy.yaml` in your Config Storage.</br>
-              
-              ⚠️ Note: Selecting the checkbox will overwrite the file `proxy.yaml`.
-              This will delete all of your custom proxy configuration, if you have edited the file yourself.
-            schema:
-              type: boolean
-              default: false
-          - variable: data_storage
-            label: Radicale (CalDAV, CardDAV) data storage
-            show_if: [["enabled", "=", true]]
-            schema:
-              type: dict
-              attrs:
-                - variable: type
-                  label: Type
-                  description: |
-                    ixVolume: Is dataset created automatically by the system.</br>
-                    Host Path: Is a path that already exists on the system.
-                  schema:
-                    type: string
-                    required: true
-                    default: "ix_volume"
-                    enum:
-                      - value: "host_path"
-                        description: Host Path (Path that already exists on the system)
-                      - value: "ix_volume"
-                        description: ixVolume (Dataset created automatically by the system)
-                - variable: ix_volume_config
-                  label: ixVolume Configuration
-                  description: The configuration for the ixVolume dataset.
-                  schema:
-                    type: dict
-                    show_if: [["type", "=", "ix_volume"]]
-                    $ref:
-                      - "normalize/ix_volume"
-                    attrs:
-                      - variable: acl_enable
-                        label: Enable ACL
-                        description: Enable ACL for the storage.
-                        schema:
-                          type: boolean
-                          default: false
-                      - variable: dataset_name
-                        label: Dataset Name
-                        description: The name of the dataset to use for storage.
-                        schema:
-                          type: string
-                          required: true
-                          hidden: true
-                          default: "data"
-                      - variable: acl_entries
-                        label: ACL Configuration
-                        schema:
-                          type: dict
-                          show_if: [["acl_enable", "=", true]]
-                          attrs: []
-                - variable: host_path_config
-                  label: Host Path Configuration
-                  schema:
-                    type: dict
-                    show_if: [["type", "=", "host_path"]]
-                    attrs:
-                      - variable: acl_enable
-                        label: Enable ACL
-                        description: Enable 1ACL for the storage.
-                        schema:
-                          type: boolean
-                          default: false
-                      - variable: acl
-                        label: ACL Configuration
-                        schema:
-                          type: dict
-                          show_if: [["acl_enable", "=", true]]
-                          attrs: []
-                          $ref:
-                            - "normalize/acl"
-                      - variable: path
-                        label: Host Path
-                        description: The host path to use for storage.
-                        schema:
-                          type: hostpath
-                          show_if: [["acl_enable", "=", false]]
-                          required: true
+
   - variable: labels
     label: ""
     group: Labels Configuration
