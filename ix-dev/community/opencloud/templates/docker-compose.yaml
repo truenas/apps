@@ -9,6 +9,7 @@
 {% set extra_services = namespace(x=["notifications"]) %}
 
 {% set csp = namespace(x={}) %}
+{% set proxy_routes = namespace(x=[]) %}
 {% for x in values.opencloud.additional_csp %}
   {% set list_items = x['items'] | map(attribute="value") | list %}
   {% set values = csp.x.get(x.directive, []) + list_items %}
@@ -61,8 +62,6 @@
   {% do c1.environment.add_env("SEARCH_EXTRACTOR_TIKA_TIKA_URL", tika.get_url()) %}
 {% endif %}
 
-{% set opencloud_proxy_routes = namespace(x=[]) %}
-
 {# Radicale (CalDAV/CardDAV) #}
 {% if values.opencloud.radicale.enabled %}
   {% set radicale = tpl.add_container(values.consts.radicale_container_name, "radicale_image") %}
@@ -72,8 +71,8 @@
   {% do radicale.set_user(values.run_as.user, values.run_as.group) %}
   {% do radicale.configs.add("radicale_config", radicale_config(values), "/etc/radicale/config") %}
   {% set radicale_addr = "http://%s:%d"|format(values.consts.radicale_container_name, values.consts.radicale_port) %}
-  {% do opencloud_proxy_routes.x.extend([
     {"endpoint": "/caldav/", "backend": radicale_addr, "remote_user_header": "X-Remote-User", "skip_x_access_token": true, "additional_headers": [{"X-Script-Name": "/caldav"}]},
+  {% do proxy_routes.x.extend([
     {"endpoint": "/.well-known/caldav", "backend": radicale_addr, "remote_user_header": "X-Remote-User", "skip_x_access_token": true, "additional_headers": [{"X-Script-Name": "/caldav"}]},
     {"endpoint": "/carddav/", "backend": radicale_addr, "remote_user_header": "X-Remote-User", "skip_x_access_token": true, "additional_headers": [{"X-Script-Name": "/carddav"}]},
     {"endpoint": "/.well-known/carddav", "backend": radicale_addr, "remote_user_header": "X-Remote-User", "skip_x_access_token": true, "additional_headers": [{"X-Script-Name": "/carddav"}]}
@@ -82,10 +81,6 @@
   {% do perm_container.add_or_skip_action("radicale_data_storage", values.radicale.data_storage, perms_config) %}
 {% endif %}
 
-{% if opencloud_proxy_routes.x %}
-  {% set proxy_yaml = tpl.funcs.to_yaml({"additional_policies": [{"name": "default", "routes": opencloud_proxy_routes.x}]}) %}
-  {% do c1.configs.add("opencloud_proxy", proxy_yaml, values.consts.opencloud_proxy_path) %}
-{% endif %}
 
 {# Networking #}
 {% do c1.environment.add_env("PROXY_HTTP_ADDR", ":%d"|format(values.network.web_port.port_number)) %}
@@ -160,6 +155,12 @@
 {% for key, values in csp.x.items() %}
   {% do csp.x.update({key: values | unique | list}) %}
 {% endfor %}
+
+{% if proxy_routes.x %}
+  {% set proxy_yaml = tpl.funcs.to_yaml({"additional_policies": [{"name": "default", "routes": proxy_routes.x}]}) %}
+  {% do c1.configs.add("opencloud_proxy", proxy_yaml, values.consts.opencloud_proxy_path) %}
+{% endif %}
+
 {% set csp_yaml = tpl.funcs.to_yaml({"directives": csp.x}) %}
 {% set csp_notes = "CSP Rules that are added on top of the OpenCloud Defaults:\n\n```yaml\n%s```"|format(csp_yaml) %}
 {% set body.x = "%s\n\n%s"|format(body.x, csp_notes) %}
