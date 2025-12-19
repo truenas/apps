@@ -32,6 +32,14 @@ def test_add_config_with_empty_target(mock_values):
         c1.configs.add("test_config", "test_data", "")
 
 
+def test_add_config_with_empty_data(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.configs.add("test_config", "", "/some/path")
+
+
 def test_add_duplicate_target(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
