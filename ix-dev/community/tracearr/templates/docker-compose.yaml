@@ -1,0 +1,45 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.tracearr_container_name, "image") %}
+
+{# Supervised image runs as root to manage internal services #}
+{% do c1.set_user(0, 0) %}
+
+{# PostgreSQL requires shared memory #}
+{% do c1.set_shm_size_mb(256) %}
+
+{# Health check - longer start period for PostgreSQL/Redis initialization #}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_port, "path": "/health"}) %}
+{% do c1.healthcheck.set_start_period(60) %}
+
+{# Environment variables #}
+{% do c1.environment.add_env("LOG_LEVEL", values.tracearr.log_level) %}
+
+{# Optional secrets - only add if provided #}
+{% if values.tracearr.jwt_secret %}
+  {% do c1.environment.add_env("JWT_SECRET", values.tracearr.jwt_secret) %}
+{% endif %}
+{% if values.tracearr.cookie_secret %}
+  {% do c1.environment.add_env("COOKIE_SECRET", values.tracearr.cookie_secret) %}
+{% endif %}
+
+{# Additional user-defined environment variables #}
+{% do c1.environment.add_user_envs(values.tracearr.additional_envs) %}
+
+{# Port mapping #}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_port}) %}
+
+{# Storage mounts #}
+{% do c1.add_storage("/data/postgres", values.storage.postgres) %}
+{% do c1.add_storage("/data/redis", values.storage.redis) %}
+{% do c1.add_storage("/data/tracearr", values.storage.data) %}
+
+{# Additional storage #}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{# Web UI portal #}
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}
