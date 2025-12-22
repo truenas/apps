@@ -98,6 +98,7 @@ class PostgresContainer:
         self._data_dir = None
         self._upgrade_name = f"{self._name}_upgrade"
         self._upgrade_container = None
+        self._data_dir = "/var/lib/postgresql"
 
         for key in ("user", "password", "database", "volume"):
             if key not in config:
@@ -128,7 +129,6 @@ class PostgresContainer:
         if opts:
             c.set_command(opts)
 
-        self._data_dir = "/var/lib/postgresql"
         target_major_version = self._get_target_version(image)
         # This is the new format upstream Postgres uses/suggests.
         # E.g., for Postgres 17, the data dir is /var/lib/postgresql/17/docker
