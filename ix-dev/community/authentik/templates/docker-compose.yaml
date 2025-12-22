@@ -5,17 +5,23 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+
+{% if values.storage.uses_deprecated_media %}
+  {% set is_install = values.get("ix_context", {}).get("is_install", False) %}
+  {% if is_install %}
+    {% do tpl.funcs.fail("Cannot use deprecated media storage in new installs. Please disable it and try again.") %}
+  {% endif %}
+
+  {% do tpl.notes.add_deprecation("Using the deprecated media storage, see https://github.com/truenas/apps/pull/3928 for migration instructions") %}
+{% endif %}
+
 {% set pg_config = {
   "user": values.consts.db_user,
   "password": values.authentik.db_password,
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.authentik.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.authentik.postgres_image_selector, pg_config, perm_container) %}
 
 {% set containers = [server, worker] %}
 {% for c in containers %}
@@ -29,6 +35,14 @@
   {% do c.environment.add_env("AUTHENTIK_POSTGRESQL__USER", values.consts.db_user) %}
   {% do c.environment.add_env("AUTHENTIK_POSTGRESQL__PASSWORD", values.authentik.db_password) %}
   {% do c.environment.add_env("AUTHENTIK_SECRET_KEY", values.authentik.secret_key) %}
+
+  {% do c.environment.add_env("AUTHENTIK_STORAGE__BACKEND", "file") %}
+  {% do c.environment.add_env("AUTHENTIK_STORAGE__MEDIA__BACKEND", "file") %}
+  {% do c.environment.add_env("AUTHENTIK_STORAGE__REPORTS__BACKEND", "file") %}
+
+  {% do c.environment.add_env("AUTHENTIK_STORAGE__FILE__PATH", values.consts.data_base_path) %}
+  {% do c.environment.add_env("AUTHENTIK_STORAGE__FILE__MEDIA__PATH", "%s/media"|format(values.consts.data_base_path)) %}
+  {% do c.environment.add_env("AUTHENTIK_STORAGE__FILE__REPORTS__PATH", "%s/reports"|format(values.consts.data_base_path)) %}
 
   {% if values.authentik.setup_email %}
     {% do c.environment.add_env("AUTHENTIK_EMAIL__HOST", values.authentik.email.host) %}
@@ -46,9 +60,13 @@
 
   {% do c.environment.add_user_envs(values.authentik.additional_envs) %}
 
-  {% do c.add_storage("/media", values.storage.media) %}
+  {% do c.add_storage(values.consts.data_base_path, values.storage.data) %}
   {% do c.add_storage("/templates", values.storage.templates) %}
   {% do c.add_storage("/certs", values.storage.certs) %}
+  {% if values.storage.uses_deprecated_media %}
+    {# FIXME: Deprecated, to be removed in a future release #}
+    {% do c.add_storage("%s/media"|format(values.consts.data_base_path), values.storage.media) %}
+  {% endif %}
 
   {% for store in values.storage.additional_storage %}
     {% do c.add_storage(store.mount_path, store) %}
@@ -69,9 +87,13 @@
 {% do server.add_port(values.network.https_port) %}
 
 {# Permissions #}
-{% do perm_container.add_or_skip_action("media", values.storage.media, perm_config) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
 {% do perm_container.add_or_skip_action("templates", values.storage.templates, perm_config) %}
 {% do perm_container.add_or_skip_action("certs", values.storage.certs, perm_config) %}
+{% if values.storage.uses_deprecated_media %}
+  {# FIXME: Deprecated, to be removed in a future release #}
+  {% do perm_container.add_or_skip_action("media", values.storage.media, perm_config) %}
+{% endif %}
 {% for store in values.storage.additional_storage %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
 {% endfor %}
