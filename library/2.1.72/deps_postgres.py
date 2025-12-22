@@ -32,12 +32,14 @@ SUPPORTED_REPOS = [
     "postgres",
     "postgis/postgis",
     "pgvector/pgvector",
+    "timescale/timescaledb",
     "ghcr.io/immich-app/postgres",
 ]
 SUPPORTED_UPGRADE_REPOS = [
     "postgres",
     "postgis/postgis",
     "pgvector/pgvector",
+    "timescale/timescaledb",
     "ghcr.io/immich-app/postgres",
 ]
 
@@ -71,6 +73,14 @@ def get_major_version(variant: str, tag: str):
 
         def oper(x):
             return x.split("-")[0]
+
+    elif variant == "timescale/timescaledb":
+        # 2.24.0-pg18
+        regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
+
+        def oper(x):
+            parts = x.split("-")
+            return parts[1].lstrip("pg")
 
     if not regex.match(tag):
         raise RenderError(f"Could not determine major version from tag [{tag}] for variant [{variant}]")
