@@ -32,12 +32,14 @@ SUPPORTED_REPOS = [
     "postgres",
     "postgis/postgis",
     "pgvector/pgvector",
+    "timescale/timescaledb",
     "ghcr.io/immich-app/postgres",
 ]
 SUPPORTED_UPGRADE_REPOS = [
     "postgres",
     "postgis/postgis",
     "pgvector/pgvector",
+    # "timescale/timescaledb", // Currently NOT supported for upgrades
     "ghcr.io/immich-app/postgres",
 ]
 
@@ -71,6 +73,14 @@ def get_major_version(variant: str, tag: str):
 
         def oper(x):
             return x.split("-")[0]
+
+    elif variant == "timescale/timescaledb":
+        # 2.24.0-pg18
+        regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
+
+        def oper(x):
+            parts = x.split("-")
+            return parts[1].lstrip("pg")
 
     if not regex.match(tag):
         raise RenderError(f"Could not determine major version from tag [{tag}] for variant [{variant}]")
@@ -110,7 +120,7 @@ class PostgresContainer:
         }
 
         c = self._render_instance.add_container(name, image)
-        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"]})
+        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"], "port": port})
         c.set_shm_size_mb(256)
 
         if opts:
@@ -213,6 +223,7 @@ class PostgresContainer:
             "postgresql": f"postgresql://{creds}@{addr}/{db}?sslmode=disable",
             "postgresql_no_creds": f"postgresql://{addr}/{db}?sslmode=disable",
             "jdbc": f"jdbc:postgresql://{addr}/{db}",
+            "dotnet_pgsql": f"Host={addr};Database={db};Username={user};Password={password}",
             "host_port": addr,
         }
 
