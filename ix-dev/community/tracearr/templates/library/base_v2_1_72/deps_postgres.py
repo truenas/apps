@@ -39,6 +39,7 @@ SUPPORTED_UPGRADE_REPOS = [
     "postgres",
     "postgis/postgis",
     "pgvector/pgvector",
+    "timescale/timescaledb",
     "ghcr.io/immich-app/postgres",
 ]
 
