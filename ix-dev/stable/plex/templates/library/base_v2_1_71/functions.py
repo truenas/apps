@@ -87,11 +87,23 @@ class Functions:
     def _copy_dict(self, dict):
         return copy.deepcopy(dict)
 
-    def _merge_dicts(self, *dicts):
-        merged_dict = {}
-        for dictionary in dicts:
-            merged_dict.update(dictionary)
-        return merged_dict
+    def _deep_merge(self, dict1: dict, dict2: dict):
+        """
+        Deep merge: recursively merges nested dictionaries.
+        Values from dict2 override values from dict1.
+        Nested dicts are merged recursively rather than replaced.
+        """
+        result = dict1.copy()
+
+        for key, value in dict2.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                # Both values are dicts - merge them recursively
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                # Either not both dicts, or key doesn't exist - use dict2's value
+                result[key] = value
+
+        return result
 
     def _disallow_chars(self, string: str, chars: list[str], key: str):
         for char in chars:
@@ -203,7 +215,7 @@ class Functions:
             "is_boolean": self._is_boolean,
             "is_number": self._is_number,
             "match_regex": self._match_regex,
-            "merge_dicts": self._merge_dicts,
+            "deep_merge": self._deep_merge,
             "must_match_regex": self._must_match_regex,
             "secure_string": self._secure_string,
             "disallow_chars": self._disallow_chars,
