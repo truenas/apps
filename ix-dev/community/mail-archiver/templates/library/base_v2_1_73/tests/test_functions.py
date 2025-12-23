@@ -50,7 +50,11 @@ def test_funcs(mock_values):
         {"func": "is_number", "values": ["1.1"], "expected": True},
         {"func": "match_regex", "values": ["value", "^[a-zA-Z0-9]+$"], "expected": True},
         {"func": "match_regex", "values": ["value", "^[0-9]+$"], "expected": False},
-        {"func": "merge_dicts", "values": [{"a": 1}, {"b": 2}], "expected": {"a": 1, "b": 2}},
+        {
+            "func": "deep_merge",
+            "values": [{"a": 1, "b": {"b1": 2}}, {"b": {"b2": 3}}],
+            "expected": {"a": 1, "b": {"b1": 2, "b2": 3}},
+        },
         {"func": "must_match_regex", "values": ["my_user", "^[0-9]$"], "expect_raise": True},
         {"func": "must_match_regex", "values": ["1", "^[0-9]$"], "expected": "1"},
         {"func": "secure_string", "values": [10], "expect_regex": r"^[a-zA-Z0-9-_]+$"},

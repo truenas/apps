@@ -223,6 +223,7 @@ class PostgresContainer:
             "postgresql": f"postgresql://{creds}@{addr}/{db}?sslmode=disable",
             "postgresql_no_creds": f"postgresql://{addr}/{db}?sslmode=disable",
             "jdbc": f"jdbc:postgresql://{addr}/{db}",
+            "dotnet_pgsql": f"Host={addr};Database={db};Username={user};Password={password}",
             "host_port": addr,
         }
 
