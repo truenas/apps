@@ -1,0 +1,28 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set consts = values.consts %}
+{% set container = tpl.add_container(consts.container_name, "main") %}
+
+{% set base_dn = "dc=" + values.settings.domain.replace('.', ',dc=') %}
+{% do container.environment.add_env("LLDAP_JWT_SECRET", values.secrets.jwt_secret) %}
+{% do container.environment.add_env("LLDAP_ADMIN_USERNAME", values.settings.admin_user) %}
+{% do container.environment.add_env("LLDAP_LDAP_USER_PASS", values.secrets.admin_password) %}
+{% do container.environment.add_env("LLDAP_LDAP_BASE_DN", base_dn) %}
+{% do container.environment.add_env("LLDAP_LDAP_USER_BASE_DN", "ou=people," + base_dn) %}
+{% do container.environment.add_env("LLDAP_LDAP_GROUP_BASE_DN", "ou=groups," + base_dn) %}
+{% do container.environment.add_env("LLDAP_HTTP_PORT", values.networking.web_port.port_number) %}
+{% do container.environment.add_env("LLDAP_LDAP_PORT", values.networking.ldap_port.port_number) %}
+
+{% do container.clear_caps() %}
+{% do container.deploy.resources.remove_cpus_and_memory() %}
+
+{% do container.healthcheck.use_built_in() %}
+
+{% do container.add_port(values.networking.web_port) %}
+{% do container.add_port(values.networking.ldap_port) %}
+
+{% do container.add_storage(consts.data_dir, values.storage.data) %}
+
+{% do tpl.portals.add(values.networking.web_port, {"description": "LLDAP Web UI"}) %}
+
+{{ tpl.render() | tojson }}
