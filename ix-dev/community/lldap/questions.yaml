@@ -1,0 +1,298 @@
+
+groups:
+  - name: LLDAP Configuration
+    description: Configure directory settings
+  - name: User and Group Configuration
+    description: Configure container user and group
+  - name: Network Configuration
+    description: Configure external access
+  - name: Storage Configuration
+    description: Configure persistent storage
+  - name: Optional Services
+    description: Configure SMTP, TLS, and database settings
+  - name: Advanced Configuration
+    description: Additional options
+
+questions:
+  - variable: settings
+    group: LLDAP Configuration
+    label: Directory Settings
+    schema:
+      type: dict
+      attrs:
+        - variable: domain
+          label: LDAP Domain
+          description: Base domain used to construct the LDAP suffix (e.g. example.com).
+          schema:
+            type: string
+            default: example.com
+            required: true
+        - variable: admin_user
+          label: Admin Username
+          description: Username for the built-in admin account.
+          schema:
+            type: string
+            default: admin
+            required: true
+        - variable: admin_email
+          label: Admin Email
+          description: Initial email assigned to the admin account.
+          schema:
+            type: string
+            default: admin@example.com
+        - variable: admin_password_reset
+          label: Force Password Reset
+          description: Force the admin password to be reset on next start.
+          schema:
+            type: string
+            default: "never"
+            enum:
+              - value: "never"
+                description: Do not reset automatically
+              - value: "once"
+                description: Reset password on next start only
+              - value: "always"
+                description: Reset password on every start
+
+  - variable: run_as
+    group: User and Group Configuration
+    label: Container User
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: User ID that owns data inside the container. Defaults to 0 so the entrypoint can adjust permissions on first start.
+          schema:
+            type: int
+            min: 0
+            default: 0
+            required: true
+        - variable: group
+          label: Group ID
+          description: Group ID that owns data inside the container. Defaults to 0 to match the container user.
+          schema:
+            type: int
+            min: 0
+            default: 0
+            required: true
+        - variable: supplementary_groups
+          label: Supplementary Groups
+          description: Additional group IDs granted to the container user.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: group_id
+                label: Group ID
+                schema:
+                  type: int
+                  min: 568
+
+  - variable: networking
+    group: Network Configuration
+    label: Networking
+    schema:
+      type: dict
+      attrs:
+        - variable: http_port
+          label: Web UI Port
+          schema:
+            $ref:
+              - definitions/networkPortConfig
+            attrs:
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 17170
+        - variable: ldap_port
+          label: LDAP Port
+          schema:
+            $ref:
+              - definitions/networkPortConfig
+            attrs:
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 3890
+        - variable: ldaps_port
+          label: LDAPS Port
+          schema:
+            $ref:
+              - definitions/networkPortConfig
+            attrs:
+              - variable: bind_mode
+                schema:
+                  default: ""
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 6360
+
+  - variable: storage
+    group: Storage Configuration
+    label: Storage
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Data Storage
+          description: Persistent storage for configuration and database files.
+          schema:
+            $ref:
+              - definitions/storage
+            attrs:
+              - variable: type
+                schema:
+                  default: ix_volume
+              - variable: ix_volume_config
+                attrs:
+                  - variable: dataset_name
+                    default: lldap-data
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            $ref:
+              - definitions/additionalStorage
+
+  - variable: smtp
+    group: Optional Services
+    label: SMTP
+    schema:
+      type: dict
+      attrs:
+        - variable: enabled
+          label: Enable SMTP
+          schema:
+            type: boolean
+            default: false
+        - variable: server
+          label: SMTP Server
+          schema:
+            type: string
+            default: smtp.example.com
+            show_if: [["enabled", "=", true]]
+        - variable: port
+          label: SMTP Port
+          schema:
+            type: int
+            default: 587
+            show_if: [["enabled", "=", true]]
+        - variable: encryption
+          label: SMTP Encryption
+          schema:
+            type: string
+            default: STARTTLS
+            show_if: [["enabled", "=", true]]
+            enum:
+              - value: NONE
+                description: None
+              - value: STARTTLS
+                description: STARTTLS
+              - value: TLS
+                description: TLS
+        - variable: username
+          label: SMTP Username
+          schema:
+            type: string
+            default: user@example.com
+            show_if: [["enabled", "=", true]]
+        - variable: password
+          label: SMTP Password
+          schema:
+            type: password
+            show_if: [["enabled", "=", true]]
+        - variable: from
+          label: From Address
+          schema:
+            type: string
+            default: "LLDAP Admin <no-reply@example.com>"
+            show_if: [["enabled", "=", true]]
+        - variable: reply_to
+          label: Reply-To Address
+          schema:
+            type: string
+            default: "LLDAP Admin <no-reply@example.com>"
+            show_if: [["enabled", "=", true]]
+
+  - variable: tls
+    group: Optional Services
+    label: LDAPS
+    schema:
+      type: dict
+      attrs:
+        - variable: ldaps_enabled
+          label: Enable LDAPS
+          schema:
+            type: boolean
+            default: false
+        - variable: certificate_path
+          label: Certificate Path
+          description: Path inside the container to the certificate file.
+          schema:
+            type: string
+            default: /certs/ldaps.crt
+            show_if: [["ldaps_enabled", "=", true]]
+        - variable: key_path
+          label: Key Path
+          description: Path inside the container to the key file.
+          schema:
+            type: string
+            default: /certs/ldaps.key
+            show_if: [["ldaps_enabled", "=", true]]
+
+  - variable: database
+    group: Optional Services
+    label: External Database
+    schema:
+      type: dict
+      attrs:
+        - variable: type
+          label: Database Type
+          schema:
+            type: string
+            default: sqlite
+            enum:
+              - value: sqlite
+                description: Embedded SQLite (default)
+              - value: postgres
+                description: External PostgreSQL
+              - value: mysql
+                description: External MySQL / MariaDB
+        - variable: external_url
+          label: Database URL
+          description: Connection string when using an external database.
+          schema:
+            type: string
+            default: ""
+            show_if: [["type", "!=", "sqlite"]]
+
+  - variable: advanced
+    group: Advanced Configuration
+    label: Advanced Options
+    schema:
+      type: dict
+      attrs:
+        - variable: environment
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string

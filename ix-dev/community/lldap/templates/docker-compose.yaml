@@ -1,0 +1,107 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set container = tpl.add_container(values.consts.main_container_name, "image") %}
+{% set base_dn = "dc=" + values.settings.domain.replace('.', ',dc=') %}
+{% set jwt_secret = tpl.funcs.or_default(values.secrets.jwt_secret.value, values.secrets.jwt_secret) %}
+{% set key_seed = tpl.funcs.or_default(values.secrets.key_seed.value, values.secrets.key_seed) %}
+{% do container.environment.add_env("LLDAP_JWT_SECRET", jwt_secret) %}
+{% do container.environment.add_env("JWT_SECRET", jwt_secret) %}
+{% do container.environment.add_env("LLDAP_KEY_SEED", key_seed) %}
+{% do container.environment.add_env("KEY_SEED", key_seed) %}
+{% do container.environment.add_env("LLDAP_KEY_FILE", "") %}
+{% do container.environment.add_env("ADMIN_USER", values.settings.admin_user) %}
+{% do container.environment.add_env("ADMIN_EMAIL", values.settings.admin_email) %}
+{% do container.environment.add_env("USERS__DEFAULT_EMAIL", values.settings.admin_email) %}
+{% do container.environment.add_env("USERS__DEFAULT_USERNAME", values.settings.admin_user) %}
+{% set admin_pass = tpl.funcs.or_default(values.secrets.admin_password.value, values.secrets.admin_password) %}
+{% do container.environment.add_env("LLDAP_LDAP_USER_PASS", admin_pass) %}
+{% do container.environment.add_env("USERS__DEFAULT_PASSWORD", admin_pass) %}
+{% do container.environment.add_env("USERS__DEFAULT_GROUPS__0", "lldap_admin") %}
+{% if values.settings.admin_password_reset != "never" %}
+  {% do container.environment.add_env("FORCE_LDAP_USER_PASS_RESET", values.settings.admin_password_reset) %}
+{% endif %}
+{% do container.environment.add_env("LDAP_BASE_DN", base_dn) %}
+{% do container.environment.add_env("LDAP_USER_BASE_DN", "ou=people," + base_dn) %}
+{% do container.environment.add_env("LDAP_GROUP_BASE_DN", "ou=groups," + base_dn) %}
+{% do container.environment.add_env("HTTP_HOST", "0.0.0.0") %}
+{% do container.environment.add_env("HTTP_PORT", values.networking.http_port.port_number) %}
+{% do container.environment.add_env("LDAP_HOST", "0.0.0.0") %}
+{% do container.environment.add_env("LDAP_PORT", values.networking.ldap_port.port_number) %}
+
+{% if values.tls.ldaps_enabled %}
+  {% do container.environment.add_env("LDAPS_OPTIONS__ENABLED", true) %}
+  {% do container.environment.add_env("LDAPS_OPTIONS__CERT_FILE", values.tls.certificate_path) %}
+  {% do container.environment.add_env("LDAPS_OPTIONS__KEY_FILE", values.tls.key_path) %}
+  {% do container.add_port(values.networking.ldaps_port) %}
+{% else %}
+  {% do container.environment.add_env("LDAPS_OPTIONS__ENABLED", false) %}
+{% endif %}
+
+{% if values.smtp.enabled %}
+  {% do container.environment.add_env("SMTP_OPTIONS__ENABLE_PASSWORD_RESET", true) %}
+  {% do container.environment.add_env("SMTP_OPTIONS__SERVER", values.smtp.server) %}
+  {% do container.environment.add_env("SMTP_OPTIONS__PORT", values.smtp.port) %}
+  {% do container.environment.add_env("SMTP_OPTIONS__SMTP_ENCRYPTION", values.smtp.encryption) %}
+  {% do container.environment.add_env("SMTP_OPTIONS__USER", values.smtp.username) %}
+  {% if values.smtp.password %}
+    {% do container.environment.add_env("SMTP_OPTIONS__PASSWORD", values.smtp.password) %}
+  {% endif %}
+  {% if values.smtp.from %}
+    {% do container.environment.add_env("SMTP_OPTIONS__FROM", values.smtp.from) %}
+  {% endif %}
+  {% if values.smtp.reply_to %}
+    {% do container.environment.add_env("SMTP_OPTIONS__REPLY_TO", values.smtp.reply_to) %}
+  {% endif %}
+{% endif %}
+
+{% if values.database.type != "sqlite" %}
+  {% do container.environment.add_env("DATABASE_URL", values.database.external_url) %}
+{% else %}
+  {% do container.environment.add_env("DATABASE_URL", "sqlite:///data/users.db?mode=rwc") %}
+{% endif %}
+
+{% do container.environment.add_user_envs(values.advanced.environment) %}
+
+{% do container.healthcheck.set_custom_test(["CMD", "/app/lldap", "healthcheck", "--config-file", "/data/lldap_config.toml"]) %}
+
+{% if values.run_as.user is not none and values.run_as.group is not none %}
+  {% do container.set_user(values.run_as.user, values.run_as.group) %}
+  {% do container.environment.add_env("PUID", values.run_as.user) %}
+  {% do container.environment.add_env("UID", values.run_as.user) %}
+  {% do container.environment.add_env("USER_ID", values.run_as.user) %}
+  {% do container.environment.add_env("PGID", values.run_as.group) %}
+  {% do container.environment.add_env("GID", values.run_as.group) %}
+  {% do container.environment.add_env("GROUP_ID", values.run_as.group) %}
+{% endif %}
+
+{# Minimal capabilities so the entrypoint can adjust ownership and drop privileges #}
+{% do container.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+
+{% do container.add_port(values.networking.http_port) %}
+{% do container.add_port(values.networking.ldap_port) %}
+
+{% set data_storage = values.storage.data.copy() %}
+{% set _ = data_storage.setdefault("create_host_path", True) %}
+{% do container.add_storage(values.consts.data_mount_path, data_storage) %}
+{% for store in values.storage.additional_storage %}
+  {% do container.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.networking.http_port, {"description": "LLDAP Web UI"}) %}
+
+{% do container.deploy.resources.remove_cpus_and_memory() %}
+
+{% set compose = tpl.render() %}
+{# docker compose v3 schema lacks start_interval; strip it from generated healthchecks #}
+{% for service in compose["services"].values() %}
+  {% set healthcheck = service.get("healthcheck") %}
+  {% if healthcheck %}
+    {% set _ = healthcheck.pop("start_interval", None) %}
+  {% endif %}
+  {% if service.get("group_add") %}
+    {# docker compose expects group_add entries as strings #}
+    {% set _ = service.update({"group_add": service["group_add"] | map('string') | list}) %}
+  {% endif %}
+{% endfor %}
+
+{{ compose | tojson }}
