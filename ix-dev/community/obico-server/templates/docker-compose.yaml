@@ -1,0 +1,70 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set obico_container = tpl.add_container(values.consts.obico_container_name, "image") %}
+
+{# Obico Server Container Configuration #}
+{% do obico_container.add_port(values.network.port, values.consts.obico_port) %}
+
+{# Environment Variables #}
+{% do obico_container.environment.add_env("DJANGO_SETTINGS_MODULE", "config.settings") %}
+{% do obico_container.environment.add_env("DEBUG", values.obico.debug) %}
+{% do obico_container.environment.add_env("ALLOWED_HOSTS", values.obico.allowed_hosts) %}
+{% do obico_container.environment.add_env("TZ", values.obico.timezone) %}
+
+{# Database Configuration #}
+{% do obico_container.environment.add_env("DATABASE_HOST", values.consts.postgres_container_name) %}
+{% do obico_container.environment.add_env("DATABASE_PORT", values.consts.postgres_port) %}
+{% do obico_container.environment.add_env("DATABASE_NAME", values.postgres.database_name) %}
+{% do obico_container.environment.add_env("DATABASE_USER", values.postgres.database_user) %}
+{% do obico_container.environment.add_env("DATABASE_PASSWORD", values.postgres.database_password) %}
+
+{# Django Secret Key #}
+{% do obico_container.environment.add_env("DJANGO_SECRET_KEY", values.obico.secret_key) %}
+
+{# Email Configuration - Conditional #}
+{% if values.obico.email_enabled %}
+  {% do obico_container.environment.add_env("EMAIL_HOST", values.obico.email_host) %}
+  {% do obico_container.environment.add_env("EMAIL_PORT", values.obico.email_port) %}
+  {% do obico_container.environment.add_env("EMAIL_HOST_USER", values.obico.email_user) %}
+  {% do obico_container.environment.add_env("EMAIL_HOST_PASSWORD", values.obico.email_password) %}
+  {% do obico_container.environment.add_env("EMAIL_USE_TLS", values.obico.email_use_tls) %}
+  {% do obico_container.environment.add_env("DEFAULT_FROM_EMAIL", values.obico.email_from) %}
+{% endif %}
+
+{# Volumes #}
+{% do obico_container.add_volume(values.storage.obico_data, "/app/obico-server") %}
+
+{# Healthcheck #}
+{% do obico_container.healthcheck.configure(
+  ["CMD", "curl", "-f", "http://localhost:3334/"],
+  30,
+  30,
+  5,
+  3
+) %}
+
+{# PostgreSQL Container #}
+{% set postgres_container = tpl.add_container(values.consts.postgres_container_name, "image") %}
+
+{% do postgres_container.environment.add_env("POSTGRES_DB", values.postgres.database_name) %}
+{% do postgres_container.environment.add_env("POSTGRES_USER", values.postgres.database_user) %}
+{% do postgres_container.environment.add_env("POSTGRES_PASSWORD", values.postgres.database_password) %}
+{% do postgres_container.environment.add_env("PGDATA", "/var/lib/postgresql/data/pgdata") %}
+
+{# PostgreSQL Volume #}
+{% do postgres_container.add_volume(values.storage.postgres_data, "/var/lib/postgresql/data") %}
+
+{# PostgreSQL Healthcheck #}
+{% do postgres_container.healthcheck.configure(
+  ["CMD-SHELL", "pg_isready -U " ~ values.postgres.database_user ~ " -d " ~ values.postgres.database_name],
+  10,
+  10,
+  5,
+  5
+) %}
+
+{# Network Configuration #}
+{% do tpl.add_network(values.consts.network_name) %}
+
+{# Render the Docker Compose output #}
+{{ tpl.render() | safe }}
