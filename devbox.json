@@ -1,22 +1,36 @@
 {
-  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.7/.schema/devbox.schema.json",
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
   "packages": [
     "python@3.11",
-    "python3Packages.pyyaml",
-    "python3Packages.pytest",
-    "python3Packages.pytest-cov",
-    "python3Packages.bcrypt",
-    "python3Packages.pydantic",
-    "git@latest"
+    "python311Packages.pytest",
+    "python311Packages.pytest-cov",
+    "python311Packages.bcrypt",
+    "python311Packages.pydantic",
+    "git@latest",
+    "python311Packages.pyyaml@latest"
   ],
   "shell": {
     "init_hook": [],
     "scripts": {
-      "ports": ["python3 ./.github/scripts/port_validation.py"],
+      "ports": ["./.github/scripts/port_validation.py"],
+      "metadata": [
+        "./.github/scripts/generate_metadata.py --train \"$1\" --app \"$2\""
+      ],
       "lib-test": [
         "pytest library/ -vvv",
         "rm -r library/**/__pycache__",
         "rm -r library/**/tests/__pycache__"
+      ],
+      "app-test": [
+        "./.github/scripts/ci.py --train \"$1\" --app \"$2\" --test-file \"${3:-basic-values.yaml}\" --wait=true",
+        "./.github/scripts/generate_metadata.py --train \"$1\" --app \"$2\""
+      ],
+      "app-render": [
+        "./.github/scripts/ci.py --train \"$1\" --app \"$2\" --test-file \"${3:-basic-values.yaml}\" --render-only=true",
+        "./.github/scripts/generate_metadata.py --train \"$1\" --app \"$2\""
+      ],
+      "copy-lib": [
+        "docker run --platform linux/amd64 --quiet --rm -v $PWD:/workspace ghcr.io/truenas/apps_validation:latest apps_catalog_hash_generate --path /workspace"
       ]
     }
   }

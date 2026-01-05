@@ -179,7 +179,7 @@ module.exports = {
     customVersioning(
       // 9.0.2-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
-      ["lmscommunity/lyrionmusicserver"],
+      ["lmscommunity/lyrionmusicserver"]
     ),
     customVersioning(
       // 2.1.0.3-stable
@@ -258,8 +258,13 @@ module.exports = {
     ),
     customVersioning(
       // 17-3.5
-      "^17-(?<major>\\d+)\\.(?<minor>\\d+)$",
+      "^18-(?<major>\\d+)\\.(?<minor>\\d+)$",
       ["postgis/postgis"]
+    ),
+    customVersioning(
+      // 0.8.1-pg18-trixie
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pg18(-\\w+)?$",
+      ["pgvector/pgvector"]
     ),
     customVersioning(
       // 2.4-dev
@@ -267,8 +272,8 @@ module.exports = {
       ["wger/server"]
     ),
     customVersioning(
-      // 15-vectorchord0.3.0-pgvectors0.2.0
-      "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pgvectors0.2.0$",
+      // 15-vectorchord0.3.0
+      "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/immich-app/postgres"]
     ),
     customVersioning(
@@ -305,6 +310,16 @@ module.exports = {
       // appname-1.2.3
       `^(?<compatibility>draw-io|progress-bars|json-viewer|external-sites|unzip|cast|importer|arcade|maps)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$`,
       [`opencloudeu/web-extensions`]
+    ),
+    customVersioning(
+      // 1.0.0-alpha.67
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-alpha\\.(?<build>\\d+))?$",
+      ["rustfs/rustfs"]
+    ),
+    customVersioning(
+      // 10.0.160-mongo8
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-mongo8$",
+      ["ghcr.io/goofball222/unifi"]
     ),
   ],
 };

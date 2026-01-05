@@ -247,11 +247,28 @@ def docker_cleanup():
 
 
 def print_logs():
-    cmd = f"{get_base_cmd()} logs"
-    print_cmd(cmd)
-    separator_start()
-    subprocess.run(cmd, shell=True)
-    separator_end()
+    # Get all service names
+    ps = f"{get_base_cmd()} ps --all --format" + " {{.Service}}"
+    print_cmd(ps)
+    res = subprocess.run(ps, shell=True, capture_output=True)
+    if res.returncode != 0:
+        print_stderr("Failed to get running containers")
+        sys.exit(1)
+
+    # Parse output
+    services = res.stdout.decode("utf-8").split("\n")
+    if not services:
+        print_stderr("No services found to print logs for")
+        return
+
+    # Remove empty lines and whitespace
+    services = [s.strip() for s in services if s.strip()]
+    for service in services:
+        cmd = f"{get_base_cmd()} logs {service}"
+        print_cmd(cmd)
+        separator_start()
+        subprocess.run(cmd, shell=True)
+        separator_end()
 
 
 def print_docker_processes():
@@ -437,7 +454,7 @@ def copy_lib():
     cmd = " ".join(
         [
             f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
-            "apps_catalog_hash_generate --path /workspace",
+            f"apps_catalog_hash_generate --path /workspace --train {args['train']} --app {args['app']}",
         ]
     )
     print_cmd(cmd)
