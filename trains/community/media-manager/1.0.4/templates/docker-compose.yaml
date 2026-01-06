@@ -1,0 +1,81 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% if not values.media_manager.admin_emails %}
+  {% do tpl.funcs.fail("At least one admin email must be provided") %}
+{% endif %}
+
+{% set c1 = tpl.add_container(values.consts.media_manager_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.media_manager.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.media_manager.postgres_image_selector, pg_config, perm_container) %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/v1/health"}) %}
+{% do c1.configs.add("example_config", "# Empty Config", "/app/config.example.toml") %}
+
+{% do c1.environment.add_env("MEDIAMANAGER_MISC__FRONTEND_URL", values.media_manager.frontend_url.rstrip("/")) %}
+
+{# This path needs to exist at all times, as it also used for static file serving #}
+{% do c1.environment.add_env("MEDIAMANAGER_MISC__IMAGE_DIRECTORY", values.consts.images_path) %}
+
+{# Those paths are "optional", but their base directory needs to exist #}
+{% do c1.environment.add_env("MEDIAMANAGER_MISC__TV_DIRECTORY", "%s/tv"|format(values.consts.data_path)) %}
+{% do c1.environment.add_env("MEDIAMANAGER_MISC__MOVIE_DIRECTORY", "%s/movies"|format(values.consts.data_path)) %}
+{% do c1.environment.add_env("MEDIAMANAGER_MISC__TORRENT_DIRECTORY", "%s/torrents"|format(values.consts.data_path)) %}
+
+{% do c1.environment.add_env("MEDIAMANAGER_AUTH__TOKEN_SECRET", values.media_manager.auth_token_secret) %}
+{% do c1.environment.add_env("MEDIAMANAGER_AUTH__ADMIN_EMAILS", values.media_manager.admin_emails | tojson) %}
+{% do c1.environment.add_env("MEDIAMANAGER_DATABASE__HOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("MEDIAMANAGER_DATABASE__PORT", postgres.get_port()) %}
+{% do c1.environment.add_env("MEDIAMANAGER_DATABASE__USER", values.consts.db_user) %}
+{% do c1.environment.add_env("MEDIAMANAGER_DATABASE__PASSWORD", values.media_manager.db_password) %}
+{% do c1.environment.add_env("MEDIAMANAGER_DATABASE__DBNAME", values.consts.db_name) %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("CONFIG_DIR", "/app/config") %}
+{% do c1.environment.add_env("CONFIG_FILE", "/app/config/config.toml") %}
+{% do c1.environment.add_env("UV_CACHE_DIR", values.consts.cache_dir) %}
+
+{% do c1.environment.add_user_envs(values.media_manager.additional_envs) %}
+
+{% set cache_temp = tpl.funcs.temp_config("cache") %}
+{% do c1.add_storage(values.consts.cache_dir, cache_temp) %}
+{% do perm_container.add_or_skip_action("cache", cache_temp, perms_config) %}
+
+{% do c1.add_storage("/app/config", values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+
+{% do c1.add_storage(values.consts.images_path, values.storage.images) %}
+{% do perm_container.add_or_skip_action("images", values.storage.images, perms_config) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% set note = "Default credentials:\n" %}
+{% set note = note + "  - Email: `%s`\n"|format(values.media_manager.admin_emails[0]) %}
+{% set note = note + "  - Password: `admin`\n" %}
+{% do tpl.notes.set_body(note) %}
+
+{{ tpl.render() | tojson }}
