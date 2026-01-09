@@ -1,0 +1,64 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.lldap_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/app/lldap", "healthcheck", "--config-file", "/data/lldap_config.toml"]) %}
+
+{% do c1.environment.add_env("LLDAP_LDAP_BASE_DN", values.lldap.ldap_base_dn) %}
+{% do c1.environment.add_env("LLDAP_LDAP_USER_DN", values.lldap.admin_username) %}
+{% do c1.environment.add_env("LLDAP_LDAP_USER_EMAIL", values.lldap.admin_email) %}
+{% do c1.environment.add_env("LLDAP_LDAP_USER_PASS", values.lldap.admin_password) %}
+{% do c1.environment.add_env("LLDAP_JWT_SECRET", values.lldap.jwt_secret) %}
+{% do c1.environment.add_env("LLDAP_KEY_SEED", values.lldap.key_seed) %}
+{% do c1.environment.add_env("LLDAP_HTTP_PORT", values.network.http_port.port_number) %}
+{% do c1.environment.add_env("LLDAP_LDAP_PORT", values.network.ldap_port.port_number) %}
+{% do c1.environment.add_user_envs(values.lldap.additional_envs) %}
+
+{% if values.lldap.http_url %}
+  {% do c1.environment.add_env("LLDAP_HTTP_URL", values.lldap.http_url) %}
+{% endif %}
+
+{% if values.lldap.smtp.enabled %}
+  {% do c1.environment.add_env("LLDAP_SMTP_OPTIONS__ENABLE_PASSWORD_RESET", "true") %}
+  {% do c1.environment.add_env("LLDAP_SMTP_OPTIONS__SERVER", values.lldap.smtp.server) %}
+  {% do c1.environment.add_env("LLDAP_SMTP_OPTIONS__PORT", values.lldap.smtp.port) %}
+  {% do c1.environment.add_env("LLDAP_SMTP_OPTIONS__SMTP_ENCRYPTION", values.lldap.smtp.encryption) %}
+  {% if values.lldap.smtp.user %}
+    {% do c1.environment.add_env("LLDAP_SMTP_OPTIONS__USER", values.lldap.smtp.user) %}
+  {% endif %}
+  {% if values.lldap.smtp.password %}
+    {% do c1.environment.add_env("LLDAP_SMTP_OPTIONS__PASSWORD", values.lldap.smtp.password) %}
+  {% endif %}
+  {% if values.lldap.smtp.from_address %}
+    {% do c1.environment.add_env("LLDAP_SMTP_OPTIONS__FROM", values.lldap.smtp.from_address) %}
+  {% endif %}
+  {% if values.lldap.smtp.reply_to %}
+    {% do c1.environment.add_env("LLDAP_SMTP_OPTIONS__REPLY_TO", values.lldap.smtp.reply_to) %}
+  {% endif %}
+{% endif %}
+
+{% if values.network.ldaps_port.enable_ldaps and values.network.ldaps_port.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.ldaps_port.certificate_id] %}
+  {% do c1.environment.add_env("LLDAP_LDAPS_OPTIONS__ENABLED", "true") %}
+  {% do c1.environment.add_env("LLDAP_LDAPS_OPTIONS__PORT", values.network.ldaps_port.port_number) %}
+  {% do c1.environment.add_env("LLDAP_LDAPS_OPTIONS__CERT_FILE", values.consts.ssl_cert_path) %}
+  {% do c1.environment.add_env("LLDAP_LDAPS_OPTIONS__KEY_FILE", values.consts.ssl_key_path) %}
+  {% do c1.configs.add("ldaps_cert", cert.certificate, values.consts.ssl_cert_path) %}
+  {% do c1.configs.add("ldaps_key", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.add_port(values.network.ldaps_port) %}
+{% endif %}
+
+{% do c1.add_port(values.network.http_port) %}
+{% do c1.add_port(values.network.ldap_port) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.http_port) %}
+
+{{ tpl.render() | tojson }}
