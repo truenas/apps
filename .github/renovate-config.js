@@ -321,6 +321,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-mongo8$",
       ["ghcr.io/goofball222/unifi"]
     ),
+    customVersioning(
+      // hardcover-v0.4.20.91
+      "^(?<compatibility>hardcover|softcover)-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["ghcr.io/pennydreadful/bookshelf"]
+    ),
   ],
 };
 
