@@ -384,7 +384,7 @@ Most groups should exist across all apps. For example:
 - Resources Configuration
 
 Also keep in mind that most groups and their fields structure is "fixed" and cannot be changed.
-Rendering library does does lots of automated things based on this structure.
+Rendering library does lots of automated things based on this structure.
 
 It uses a schema-based approach:
 
