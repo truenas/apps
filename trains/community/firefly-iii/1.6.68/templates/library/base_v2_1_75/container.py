@@ -171,7 +171,7 @@ class Container:
                 )
             dockerfile += line + "\n"
 
-        self._build_image = dockerfile
+        self._build_image = escape_dollar(dockerfile)
         self._image = get_image_with_hashed_data(self._image, dockerfile)
 
     def set_pull_policy(self, pull_policy: str):

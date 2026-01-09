@@ -70,6 +70,7 @@ def test_add_postgres(mock_values):
             "password": "test_@password",
             "database": "test_database",
             "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "port": 5000,
         },
         perms_container,
     )
@@ -78,7 +79,7 @@ def test_add_postgres(mock_values):
         p.container.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
     assert (
-        p.get_url("postgres") == "postgres://test_user:test_%40password@pg_container:5432/test_database?sslmode=disable"
+        p.get_url("postgres") == "postgres://test_user:test_%40password@pg_container:5000/test_database?sslmode=disable"
     )
     assert "devices" not in output["services"]["pg_container"]
     assert "reservations" not in output["services"]["pg_container"]["deploy"]["resources"]
@@ -93,7 +94,7 @@ def test_add_postgres(mock_values):
             "-h",
             "127.0.0.1",
             "-p",
-            "5432",
+            "5000",
             "-U",
             "test_user",
             "-d",
@@ -122,7 +123,7 @@ def test_add_postgres(mock_values):
         "POSTGRES_USER": "test_user",
         "POSTGRES_PASSWORD": "test_@password",
         "POSTGRES_DB": "test_database",
-        "PGPORT": "5432",
+        "PGPORT": "5000",
         "PGDATA": "/var/lib/postgresql/16/docker",
     }
     assert output["services"]["pg_container"]["depends_on"] == {
@@ -536,33 +537,6 @@ def test_add_postgres_with_invalid_tag(mock_values):
         )
 
 
-def test_no_upgrade_container_with_non_postgres_image(mock_values):
-    mock_values["images"]["postgres_image"] = {"repository": "pgvector/pgvector", "tag": "0.8.1-pg17"}
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("test_perms_container")
-    pg = render.deps.postgres(
-        "postgres_container",
-        "postgres_image",
-        {
-            "user": "test_user",
-            "password": "test_password",
-            "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
-        },
-        perms_container,
-    )
-    if perms_container.has_actions():
-        perms_container.activate()
-        pg.add_dependency("test_perms_container", "service_completed_successfully")
-    output = render.render()
-    assert len(output["services"]) == 3  # c1, pg, perms
-    assert output["services"]["postgres_container"]["depends_on"] == {
-        "test_perms_container": {"condition": "service_completed_successfully"}
-    }
-
-
 def test_postgres_with_upgrade_container(mock_values):
     mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
     render = Render(mock_values)
@@ -605,7 +579,7 @@ def test_postgres_with_upgrade_container(mock_values):
 
 
 def test_add_mongodb(mock_values):
-    mock_values["images"]["mongodb_image"] = {"repository": "mongodb", "tag": "latest"}
+    mock_values["images"]["mongodb_image"] = {"repository": "mongo", "tag": "latest"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -627,7 +601,7 @@ def test_add_mongodb(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["mongodb_container"]
     assert "reservations" not in output["services"]["mongodb_container"]["deploy"]["resources"]
-    assert output["services"]["mongodb_container"]["image"] == "mongodb:latest"
+    assert output["services"]["mongodb_container"]["image"] == "mongo:latest"
     assert output["services"]["mongodb_container"]["user"] == "568:568"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
@@ -781,7 +755,7 @@ def test_add_meilisearch_unsupported_repo(mock_values):
 
 def test_add_elasticsearch(mock_values):
     mock_values["images"]["elastic_image"] = {
-        "repository": "docker.elastic.co/elasticsearch/elasticsearch",
+        "repository": "elasticsearch",
         "tag": "9.1.2",
     }
     render = Render(mock_values)
@@ -804,7 +778,7 @@ def test_add_elasticsearch(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["elastic_container"]
     assert "reservations" not in output["services"]["elastic_container"]["deploy"]["resources"]
-    assert output["services"]["elastic_container"]["image"] == "docker.elastic.co/elasticsearch/elasticsearch:9.1.2"
+    assert output["services"]["elastic_container"]["image"] == "elasticsearch:9.1.2"
     assert output["services"]["elastic_container"]["user"] == "1000:1000"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
