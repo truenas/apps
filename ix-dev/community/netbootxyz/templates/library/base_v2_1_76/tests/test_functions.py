@@ -36,6 +36,16 @@ def test_funcs(mock_values):
             "values": ["my_pass"],
             "expect_regex": r"^\$2b\$12\$[a-zA-Z0-9-_\.\/]+$",
         },
+        {
+            "func": "bcrypt_hash",
+            "values": ["a" * 72],
+            "expect_regex": r"^\$2b\$12\$[a-zA-Z0-9-_\.\/]+$",
+        },
+        {
+            "func": "bcrypt_hash",
+            "values": ["a" * 73],
+            "expect_raise": True,
+        },
         {"func": "camel_case", "values": ["my_user"], "expected": "My_User"},
         {"func": "copy_dict", "values": [{"a": 1}], "expected": {"a": 1}},
         {"func": "fail", "values": ["my_message"], "expect_raise": True},
@@ -43,6 +53,21 @@ def test_funcs(mock_values):
             "func": "htpasswd",
             "values": ["my_user", "my_pass"],
             "expect_regex": r"^my_user:\$2b\$12\$[a-zA-Z0-9-_\.\/]+$",
+        },
+        {
+            "func": "htpasswd",
+            "values": ["my_user", "my_pass", 10],
+            "expect_regex": r"^my_user:\$2b\$10\$[a-zA-Z0-9-_\.\/]+$",
+        },
+        {
+            "func": "htpasswd",
+            "values": ["my_user", "a" * 73],
+            "expect_raise": True,
+        },
+        {
+            "func": "htpasswd",
+            "values": ["my_user", "my_pass", 32],
+            "expect_raise": True,
         },
         {"func": "is_boolean", "values": ["true"], "expected": True},
         {"func": "is_boolean", "values": ["false"], "expected": True},

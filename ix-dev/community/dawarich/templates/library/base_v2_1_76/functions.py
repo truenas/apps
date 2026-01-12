@@ -25,12 +25,17 @@ class Functions:
     def _to_yaml(self, data):
         return yaml.dump(data)
 
-    def _bcrypt_hash(self, password):
-        hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    def _bcrypt_hash(self, password: str, rounds: int = 12):
+        if rounds < 4 or rounds > 31:
+            raise RenderError("bcrypt rounds must be between 4 and 31")
+        password_bytes = password.encode("utf-8")
+        if len(password_bytes) > 72:
+            raise RenderError(f"Expected bcrypt password to be at most 72 bytes. Got {len(password_bytes)} bytes.")
+        hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=rounds)).decode("utf-8")
         return hashed
 
-    def _htpasswd(self, username, password):
-        hashed = self._bcrypt_hash(password)
+    def _htpasswd(self, username: str, password: str, rounds: int = 12):
+        hashed = self._bcrypt_hash(password, rounds=rounds)
         return username + ":" + hashed
 
     def _secure_string(self, length):

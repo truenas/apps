@@ -415,6 +415,6 @@ def test_pgrep(mock_values):
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
         "pgrep",
-        "--full",
+        "-f",
         "some-process",
     ]
