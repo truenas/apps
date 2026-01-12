@@ -124,7 +124,7 @@ module.exports = {
     customVersioning(
       // RELEASE.2024-08-26T15-33-07Z
       "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
-      ["minio/minio"]
+      ["minio/minio", "quay.io/minio/aistor/minio"]
     ),
     customVersioning(
       // version-6.0.0
