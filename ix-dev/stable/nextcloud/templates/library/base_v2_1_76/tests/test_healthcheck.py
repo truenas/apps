@@ -401,7 +401,6 @@ def test_pidof(mock_values):
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
         "pidof",
-        "-q",
         "-s",
         "some-process",
     ]

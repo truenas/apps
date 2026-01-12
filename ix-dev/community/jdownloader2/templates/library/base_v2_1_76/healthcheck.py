@@ -285,9 +285,8 @@ def pidof_test(config: dict) -> list[str]:
     config = config or {}
     process = get_key(config, "process", None, True)
 
-    # -q - Quiet mode
     # -s - Single shot, return 0 if at least one process found
-    return ["CMD", "pidof", "-q", "-s", process]
+    return ["CMD", "pidof", "-s", process]
 
 
 def pgrep_test(config: dict) -> list[str]:
