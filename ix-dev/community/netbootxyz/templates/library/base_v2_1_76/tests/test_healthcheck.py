@@ -393,7 +393,7 @@ def test_mongodb_healthcheck(mock_values):
     ]
 
 
-def test_pidof():
+def test_pidof(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("pidof", {"process": "some-process"})
@@ -407,7 +407,7 @@ def test_pidof():
     ]
 
 
-def test_pgrep():
+def test_pgrep(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.set_test("pgrep", {"process": "some-process"})
