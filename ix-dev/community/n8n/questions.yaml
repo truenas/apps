@@ -58,7 +58,7 @@ questions:
             192.168.1.100
           schema:
             type: string
-            default: "localhost"
+            default: ""
             required: true
         - variable: db_password
           label: Database Password
@@ -84,8 +84,55 @@ questions:
             default: ""
             required: true
             private: true
+        - variable: enable_runners
+          label: Enable Runners
+          description: Enable runners for n8n.
+          schema:
+            type: boolean
+            default: false
+        - variable: runners_mode
+          label: Runners Mode
+          description: The runners mode for n8n.
+          schema:
+            type: string
+            show_if: [["enable_runners", "=", true]]
+            enum:
+              - value: "external"
+                description: External
+              - value: "internal"
+                description: Internal
+        - variable: runners_auth_token
+          label: Runners Auth Token
+          description: The runners auth token for n8n.
+          schema:
+            type: string
+            show_if:
+              [["enable_runners", "=", true], ["runners_mode", "=", "external"]]
+            default: ""
+            required: true
+            private: true
         - variable: additional_envs
           label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+        - variable: additional_runner_envs
+          label: Additional Runner Environment Variables
           schema:
             type: list
             default: []
@@ -162,6 +209,53 @@ questions:
                 schema:
                   type: int
                   default: 30109
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: broker_port
+          label: Broker Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30322
                   min: 1
                   max: 65535
                   required: true

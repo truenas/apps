@@ -22,11 +22,7 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.n8n.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.n8n.postgres_image_selector, pg_config, perm_container) %}
 
 {% set redis_config = {
   "password": values.n8n.redis_password,
@@ -63,7 +59,26 @@
 {% do c1.environment.add_env("QUEUE_BULL_REDIS_PORT", 6379) %}
 {% do c1.environment.add_env("QUEUE_BULL_REDIS_HOST", values.consts.redis_container_name) %}
 {% do c1.environment.add_env("QUEUE_BULL_REDIS_PASSWORD", values.n8n.redis_password) %}
+{% do c1.environment.add_env("N8N_RUNNERS_BROKER_LISTEN_ADDRESS", "0.0.0.0") %}
+{% do c1.environment.add_env("N8N_RUNNERS_BROKER_PORT", values.network.broker_port.port_number) %}
+{% do c1.environment.add_env("N8N_RUNNERS_ENABLED", values.n8n.enable_runners) %}
+{% do c1.environment.add_env("N8N_RUNNERS_MODE", values.n8n.runners_mode) %}
+{% do c1.environment.add_env("N8N_RUNNERS_AUTH_TOKEN", values.n8n.runners_auth_token) %}
+
+{% if values.n8n.enable_runners and values.n8n.runners_mode == "external" %}
+  {% set runner = tpl.add_container(values.consts.task_runner_container_name, "task_runner_image") %}
+  {% do runner.set_user(values.run_as.user, values.run_as.group) %}
+  {% do runner.environment.add_env("GENERIC_TIMEZONE", values.TZ) %}
+  {% do runner.environment.add_env("N8N_RUNNERS_AUTH_TOKEN", values.n8n.runners_auth_token) %}
+  {% do runner.environment.add_env("N8N_RUNNERS_TASK_BROKER_URI", "%s://%s:%d"|format(proto, values.consts.n8n_container_name, values.network.broker_port.port_number)) %}
+  {% do runner.environment.add_user_envs(values.n8n.additional_runner_envs) %}
+  {% do runner.depends.add_dependency(values.consts.n8n_container_name, "service_healthy") %}
+{% endif %}
+
 {% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
   {% do c1.environment.add_env("N8N_SSL_KEY", values.consts.ssl_key_path) %}
   {% do c1.environment.add_env("N8N_SSL_CERT", values.consts.ssl_cert_path) %}
 {% endif %}
@@ -87,13 +102,8 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{% if values.network.certificate_id %}
-  {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
-  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
-{% endif %}
-
 {% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.broker_port) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
