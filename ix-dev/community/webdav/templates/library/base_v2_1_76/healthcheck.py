@@ -99,6 +99,8 @@ def test_mapping(variant: str, config: dict | None = None) -> list[str]:
         "postgres": postgres_test,
         "mariadb": mariadb_test,
         "mongodb": mongodb_test,
+        "pidof": pidof_test,
+        "pgrep": pgrep_test,
     }
 
     if variant not in tests:
@@ -146,12 +148,19 @@ def wget_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", None, True)
     path = valid_http_path_or_raise(get_key(config, "path", "/", False))
+    method = get_key(config, "method", "", False)
     scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     headers = get_key(config, "headers", [], False)
     spider = get_key(config, "spider", True, False)
+    data = get_key(config, "data", None, False)
+    busybox = get_key(config, "busybox", False, False)
 
     cmd = ["CMD", "wget", "--quiet"]
+    if method:
+        if busybox:
+            raise RenderError("Cannot use method with busybox's wget")
+        cmd.extend(["--method", method])
 
     if spider:
         cmd.append("--spider")
@@ -165,6 +174,12 @@ def wget_test(config: dict) -> list[str]:
         if not header[0] or not header[1]:
             raise RenderError("Expected [header] to be a list of two items for wget test")
         cmd.extend(["--header", f"{header[0]}: {header[1]}"])
+
+    if data is not None:
+        if busybox:
+            cmd.extend(["--post-data", json.dumps(data)])
+        else:
+            cmd.extend(["--body-data", json.dumps(data)])
 
     cmd.append(f"{scheme}://{host}:{port}{path}")
 
@@ -264,3 +279,19 @@ def mongodb_test(config: dict) -> list[str]:
         'db.adminCommand("ping")',
         "--quiet",
     ]
+
+
+def pidof_test(config: dict) -> list[str]:
+    config = config or {}
+    process = get_key(config, "process", None, True)
+
+    # -s - Single shot, return 0 if at least one process found
+    return ["CMD", "pidof", "-s", process]
+
+
+def pgrep_test(config: dict) -> list[str]:
+    config = config or {}
+    process = get_key(config, "process", None, True)
+
+    # -f - Match against full process name
+    return ["CMD", "pgrep", "-f", process]
