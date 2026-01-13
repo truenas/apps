@@ -63,14 +63,17 @@
 {% do c1.environment.add_env("N8N_RUNNERS_BROKER_PORT", values.network.broker_port.port_number) %}
 {% do c1.environment.add_env("N8N_RUNNERS_ENABLED", values.n8n.enable_runners) %}
 {% do c1.environment.add_env("N8N_RUNNERS_MODE", values.n8n.runners_mode) %}
-{% do c1.environment.add_env("N8N_RUNNERS_AUTH_TOKEN", values.n8n.runners_auth_token) %}
 
 {% if values.n8n.enable_runners and values.n8n.runners_mode == "external" %}
+  {% do c1.environment.add_env("N8N_RUNNERS_AUTH_TOKEN", values.n8n.runners_auth_token) %}
+
   {% set runner = tpl.add_container(values.consts.task_runner_container_name, "task_runner_image") %}
   {% do runner.set_user(values.run_as.user, values.run_as.group) %}
+  {% do runner.healthcheck.set_test("wget", {"port": values.consts.runners_health_check_port}) %}
   {% do runner.environment.add_env("GENERIC_TIMEZONE", values.TZ) %}
   {% do runner.environment.add_env("N8N_RUNNERS_AUTH_TOKEN", values.n8n.runners_auth_token) %}
   {% do runner.environment.add_env("N8N_RUNNERS_TASK_BROKER_URI", "%s://%s:%d"|format(proto, values.consts.n8n_container_name, values.network.broker_port.port_number)) %}
+  {% do runner.environment.add_env("N8N_RUNNERS_LAUNCHER_HEALTH_CHECK_PORT", values.consts.runners_health_check_port) %}
   {% do runner.environment.add_user_envs(values.n8n.additional_runner_envs) %}
   {% do runner.depends.add_dependency(values.consts.n8n_container_name, "service_healthy") %}
 {% endif %}
