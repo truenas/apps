@@ -121,6 +121,14 @@ class Notes:
             if c.restart._policy == "on-failure":
                 self._security[name].append(Security(header=SHORT_LIVED, items=[]))
 
+            if c._grace_period and c._grace_period > 60:
+                self.add_warning(
+                    f"Container [{name}] has a grace period of [{c._grace_period}] seconds. "
+                    "TrueNAS middleware waits a maximum of 60 seconds for containers to stop "
+                    "during system reboot/shutdown. If the container needs the full configured grace period, "
+                    "manually stop it before reboot/shutdown to ensure the full wait time is honored."
+                )
+
             if c._privileged:
                 self._security[name].append(
                     Security(
