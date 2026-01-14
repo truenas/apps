@@ -83,6 +83,7 @@ def test_add_postgres(mock_values):
     )
     assert "devices" not in output["services"]["pg_container"]
     assert "reservations" not in output["services"]["pg_container"]["deploy"]["resources"]
+    assert output["services"]["pg_container"]["stop_grace_period"] == "60s"
     assert output["services"]["pg_container"]["image"] == "postgres:16.6-bookworm"
     assert output["services"]["pg_container"]["user"] == "999:999"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -231,6 +232,7 @@ def test_add_redis(mock_values):
         output["services"]["test_container"]["environment"]["REDIS_URL"]
         == "redis://default:test%26password%40@redis_container:6379"
     )
+    assert output["services"]["redis_container"]["stop_grace_period"] == "60s"
     assert output["services"]["redis_container"]["image"] == "valkey/valkey:latest"
     assert output["services"]["redis_container"]["user"] == "568:568"
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -329,6 +331,7 @@ def test_add_mariadb(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["mariadb_container"]
     assert "reservations" not in output["services"]["mariadb_container"]["deploy"]["resources"]
+    assert output["services"]["mariadb_container"]["stop_grace_period"] == "60s"
     assert output["services"]["mariadb_container"]["image"] == "mariadb:latest"
     assert output["services"]["mariadb_container"]["user"] == "999:999"
     assert output["services"]["mariadb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -601,6 +604,7 @@ def test_add_mongodb(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["mongodb_container"]
     assert "reservations" not in output["services"]["mongodb_container"]["deploy"]["resources"]
+    assert output["services"]["mongodb_container"]["stop_grace_period"] == "60s"
     assert output["services"]["mongodb_container"]["image"] == "mongo:latest"
     assert output["services"]["mongodb_container"]["user"] == "568:568"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -688,6 +692,7 @@ def test_add_meilisearch(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["meili_container"]
     assert "reservations" not in output["services"]["meili_container"]["deploy"]["resources"]
+    assert output["services"]["meili_container"]["stop_grace_period"] == "60s"
     assert output["services"]["meili_container"]["image"] == "getmeili/meilisearch:v1.17.0"
     assert output["services"]["meili_container"]["user"] == "568:568"
     assert output["services"]["meili_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -778,6 +783,7 @@ def test_add_elasticsearch(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["elastic_container"]
     assert "reservations" not in output["services"]["elastic_container"]["deploy"]["resources"]
+    assert output["services"]["elastic_container"]["stop_grace_period"] == "60s"
     assert output["services"]["elastic_container"]["image"] == "elasticsearch:9.1.2"
     assert output["services"]["elastic_container"]["user"] == "1000:1000"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -872,6 +878,7 @@ def test_add_solr(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["solr_container"]
     assert "reservations" not in output["services"]["solr_container"]["deploy"]["resources"]
+    assert output["services"]["solr_container"]["stop_grace_period"] == "60s"
     assert output["services"]["solr_container"]["image"] == "solr:9.9.0"
     assert output["services"]["solr_container"]["user"] == "568:568"
     assert output["services"]["solr_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -951,6 +958,7 @@ def test_add_tika(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["tika_container"]
     assert "reservations" not in output["services"]["tika_container"]["deploy"]["resources"]
+    assert output["services"]["tika_container"]["stop_grace_period"] == "60s"
     assert output["services"]["tika_container"]["image"] == "apache/tika:3.2.3.0-full"
     assert output["services"]["tika_container"]["user"] == "568:568"
     assert output["services"]["tika_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"

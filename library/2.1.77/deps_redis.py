@@ -49,6 +49,7 @@ class RedisContainer:
         c = self._render_instance.add_container(name, image)
         c.set_user(user, group)
         c.remove_devices()
+        c.set_grace_period(60)
         c.healthcheck.set_test("redis", {"password": config["password"]})
 
         cmd = []

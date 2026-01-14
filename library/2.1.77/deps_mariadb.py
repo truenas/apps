@@ -48,6 +48,7 @@ class MariadbContainer:
         c.set_user(999, 999)
         c.healthcheck.set_test("mariadb", {"password": root_password})
         c.remove_devices()
+        c.set_grace_period(60)
 
         c.add_storage("/var/lib/mysql", config["volume"])
         perms_instance.add_or_skip_action(
