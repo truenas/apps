@@ -124,7 +124,7 @@ module.exports = {
     customVersioning(
       // RELEASE.2024-08-26T15-33-07Z
       "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
-      ["minio/minio"]
+      ["minio/minio", "quay.io/minio/aistor/minio"]
     ),
     customVersioning(
       // version-6.0.0
@@ -320,6 +320,11 @@ module.exports = {
       // 10.0.160-mongo8
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-mongo8$",
       ["ghcr.io/goofball222/unifi"]
+    ),
+    customVersioning(
+      // hardcover-v0.4.20.91
+      "^(?<compatibility>hardcover|softcover)-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["ghcr.io/pennydreadful/bookshelf"]
     ),
   ],
 };
