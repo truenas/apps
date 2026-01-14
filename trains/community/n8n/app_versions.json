@@ -1,13 +1,13 @@
 {
-    "1.6.102": {
+    "1.7.0": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/n8n/1.6.102",
-        "last_update": "2026-01-14 13:43:07",
+        "location": "/__w/apps/apps/trains/community/n8n/1.7.0",
+        "last_update": "2026-01-14 16:22:43",
         "required_features": [],
-        "human_version": "2.4.1_1.6.102",
-        "version": "1.6.102",
+        "human_version": "2.4.1_1.7.0",
+        "version": "1.7.0",
         "app_metadata": {
             "annotations": {
                 "min_scale_version": "24.10.2.2"
@@ -68,11 +68,11 @@
             ],
             "sources": [
                 "https://github.com/n8n-io/n8n",
-                "https://hub.docker.com/r/n8nio/n8n"
+                "https://ghcr.io/n8n-io/n8n"
             ],
             "title": "n8n",
             "train": "community",
-            "version": "1.6.102"
+            "version": "1.7.0"
         },
         "schema": {
             "groups": [
@@ -152,14 +152,13 @@
                                 "description": "The host address.</br>\nExamples:</br>\nn8n.example.com </br>\n192.168.1.100\n",
                                 "schema": {
                                     "type": "string",
-                                    "default": "localhost",
+                                    "default": "",
                                     "required": true
                                 }
                             },
                             {
                                 "variable": "db_password",
                                 "label": "Database Password",
-                                "description": "The password for n8n.",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -170,7 +169,6 @@
                             {
                                 "variable": "redis_password",
                                 "label": "Redis Password",
-                                "description": "The password for n8n.",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -181,12 +179,108 @@
                             {
                                 "variable": "encryption_key",
                                 "label": "Encryption Key",
-                                "description": "The encryption key for n8n.",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
                                     "required": true,
                                     "private": true
+                                }
+                            },
+                            {
+                                "variable": "runners_mode",
+                                "label": "Runners Mode",
+                                "description": "How to launch and run the task runner. </br>\n- Disabled: n8n will not launch any task runner. </br>\n- Internal: n8n will launch a task runner as child process. </br>\n- External: n8n will use external task runners. </br>\n",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "internal",
+                                    "enum": [
+                                        {
+                                            "value": "",
+                                            "description": "Disabled"
+                                        },
+                                        {
+                                            "value": "external",
+                                            "description": "External"
+                                        },
+                                        {
+                                            "value": "internal",
+                                            "description": "Internal"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "runners_auth_token",
+                                "label": "Runners Auth Token",
+                                "schema": {
+                                    "type": "string",
+                                    "show_if": [
+                                        [
+                                            "runners_mode",
+                                            "=",
+                                            "external"
+                                        ]
+                                    ],
+                                    "default": "",
+                                    "required": true,
+                                    "private": true
+                                }
+                            },
+                            {
+                                "variable": "enable_bundled_external_runner",
+                                "label": "Deploy container for external runner",
+                                "description": "Without this, you have to deploy your own runners.",
+                                "schema": {
+                                    "type": "boolean",
+                                    "show_if": [
+                                        [
+                                            "runners_mode",
+                                            "=",
+                                            "external"
+                                        ]
+                                    ],
+                                    "default": true
+                                }
+                            },
+                            {
+                                "variable": "additional_runner_envs",
+                                "label": "Additional Runner Environment Variables",
+                                "schema": {
+                                    "type": "list",
+                                    "show_if": [
+                                        [
+                                            "enable_bundled_external_runner",
+                                            "=",
+                                            true
+                                        ]
+                                    ],
+                                    "default": [],
+                                    "items": [
+                                        {
+                                            "variable": "env",
+                                            "label": "Environment Variable",
+                                            "schema": {
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "name",
+                                                        "label": "Name",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "value",
+                                                        "label": "Value",
+                                                        "schema": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
                                 }
                             },
                             {
@@ -338,6 +432,79 @@
                                 }
                             },
                             {
+                                "variable": "broker_port",
+                                "label": "Broker Port",
+                                "description": "Only used when Runners Mode is set to External.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 30322,
+                                                "min": 1,
+                                                "max": 65535,
+                                                "required": true
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
                                 "variable": "certificate_id",
                                 "label": "Certificate ID",
                                 "description": "The certificate ID to use for n8n.",
@@ -361,8 +528,7 @@
                         "attrs": [
                             {
                                 "variable": "data",
-                                "label": "n8n Data Storage",
-                                "description": "The path to store n8n Data.",
+                                "label": "Data Storage",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -505,8 +671,7 @@
                             },
                             {
                                 "variable": "postgres_data",
-                                "label": "n8n Postgres Data Storage",
-                                "description": "The path to store n8n Postgres Data.",
+                                "label": "Postgres Data Storage",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -993,6 +1158,10 @@
                                                                     "description": "n8n"
                                                                 },
                                                                 {
+                                                                    "value": "task-runner",
+                                                                    "description": "task-runner"
+                                                                },
+                                                                {
                                                                     "value": "postgres",
                                                                     "description": "postgres"
                                                                 },
@@ -1115,11 +1284,11 @@
             ],
             "sources": [
                 "https://github.com/n8n-io/n8n",
-                "https://hub.docker.com/r/n8nio/n8n"
+                "https://ghcr.io/n8n-io/n8n"
             ],
             "title": "n8n",
             "train": "community",
-            "version": "1.6.102"
+            "version": "1.7.0"
         }
     }
 }
