@@ -125,6 +125,8 @@ class PostgresContainer:
 
         c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"], "port": port})
         c.set_shm_size_mb(256)
+        c.remove_devices()
+        c.set_grace_period(60)
 
         if opts:
             c.set_command(opts)

@@ -50,6 +50,7 @@ class ElasticSearchContainer:
             },
         )
         c.remove_devices()
+        c.set_grace_period(60)
         c.add_storage(self._data_dir, config["volume"])
 
         c.environment.add_env("ELASTIC_PASSWORD", config["password"])
