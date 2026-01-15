@@ -1,5 +1,4 @@
-import urllib.parse
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, TypedDict, NotRequired, List
 
 
 if TYPE_CHECKING:
@@ -15,28 +14,28 @@ except ImportError:
     from deps_perms import PermsContainer
 
 
-class MongoDBConfig(TypedDict):
-    user: str
-    password: str
-    database: str
+class SolrConfig(TypedDict):
+    core: str
+    modules: NotRequired[List[str]]
+    port: NotRequired[int]
     volume: "IxStorage"
 
 
-SUPPORTED_REPOS = ["mongo"]
+SUPPORTED_REPOS = ["solr"]
 
 
-class MongoDBContainer:
+class SolrContainer:
     def __init__(
-        self, render_instance: "Render", name: str, image: str, config: MongoDBConfig, perms_instance: PermsContainer
+        self, render_instance: "Render", name: str, image: str, config: SolrConfig, perms_instance: PermsContainer
     ):
         self._render_instance = render_instance
         self._name = name
         self._config = config
-        self._data_dir = "/data/db"
+        self._data_dir = "/var/solr"
 
-        for key in ("user", "password", "database", "volume"):
+        for key in ("core", "volume"):
             if key not in config:
-                raise RenderError(f"Expected [{key}] to be set for mongodb")
+                raise RenderError(f"Expected [{key}] to be set for solr")
 
         c = self._render_instance.add_container(name, image)
 
@@ -47,16 +46,19 @@ class MongoDBContainer:
             group = run_as["group"] or group  # Avoids running as root
 
         c.set_user(user, group)
-        c.healthcheck.set_test("mongodb", {"db": config["database"]})
+        c.healthcheck.set_test("curl", {"port": self.get_port(), "path": f"/solr/{config['core']}/admin/ping"})
         c.remove_devices()
+        c.set_grace_period(60)
         c.add_storage(self._data_dir, config["volume"])
 
-        c.environment.add_env("MONGO_INITDB_ROOT_USERNAME", config["user"])
-        c.environment.add_env("MONGO_INITDB_ROOT_PASSWORD", config["password"])
-        c.environment.add_env("MONGO_INITDB_DATABASE", config["database"])
+        c.set_command(["solr-precreate", config["core"]])
+
+        c.environment.add_env("SOLR_PORT", self.get_port())
+        if modules := config.get("modules"):
+            c.environment.add_env("SOLR_MODULES", ",".join(modules))
 
         perms_instance.add_or_skip_action(
-            f"{self._name}_mongodb_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
+            f"{self._name}_solr_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
         )
 
         self._get_repo(image)
@@ -77,24 +79,11 @@ class MongoDBContainer:
         if not repo:
             raise RenderError("Could not determine repo")
         if repo not in SUPPORTED_REPOS:
-            raise RenderError(f"Unsupported repo [{repo}] for mongodb. Supported repos: {', '.join(SUPPORTED_REPOS)}")
+            raise RenderError(f"Unsupported repo [{repo}] for solr. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
     def get_port(self):
-        return self._config.get("port") or 27017
+        return self._config.get("port") or 8983
 
-    def get_url(self, variant: str):
-        user = urllib.parse.quote_plus(self._config["user"])
-        password = urllib.parse.quote_plus(self._config["password"])
-        creds = f"{user}:{password}"
-        addr = f"{self._name}:{self.get_port()}"
-        db = self._config["database"]
-
-        urls = {
-            "mongodb": f"mongodb://{creds}@{addr}/{db}",
-            "host_port": addr,
-        }
-
-        if variant not in urls:
-            raise RenderError(f"Expected [variant] to be one of [{', '.join(urls.keys())}], got [{variant}]")
-        return urls[variant]
+    def get_url(self):
+        return f"http://{self._name}:{self.get_port()}/solr/{self._config['core']}"

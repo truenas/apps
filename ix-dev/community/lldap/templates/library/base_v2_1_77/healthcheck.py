@@ -99,6 +99,8 @@ def test_mapping(variant: str, config: dict | None = None) -> list[str]:
         "postgres": postgres_test,
         "mariadb": mariadb_test,
         "mongodb": mongodb_test,
+        "pidof": pidof_test,
+        "pgrep": pgrep_test,
     }
 
     if variant not in tests:
@@ -277,3 +279,19 @@ def mongodb_test(config: dict) -> list[str]:
         'db.adminCommand("ping")',
         "--quiet",
     ]
+
+
+def pidof_test(config: dict) -> list[str]:
+    config = config or {}
+    process = get_key(config, "process", None, True)
+
+    # -s - Single shot, return 0 if at least one process found
+    return ["CMD", "pidof", "-s", process]
+
+
+def pgrep_test(config: dict) -> list[str]:
+    config = config or {}
+    process = get_key(config, "process", None, True)
+
+    # -f - Match against full process name
+    return ["CMD", "pgrep", "-f", process]
