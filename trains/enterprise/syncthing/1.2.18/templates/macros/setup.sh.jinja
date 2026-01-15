@@ -1,0 +1,45 @@
+{% macro setup_script(values, settings) -%}
+{%- set config_dir = "%s/config"|format(values.consts.home_path) %}
+{%- set cli = "syncthing cli --home %s config"|format(config_dir) %}
+#!/bin/sh
+set -e
+trap cleanup EXIT TERM
+cleanup() {
+    echo "Gracefully stopping Syncthing..."
+    if kill -0 $SYNCTHING_PID > /dev/null 2>&1; then
+        kill -SIGTERM $SYNCTHING_PID
+        wait $SYNCTHING_PID
+    fi
+    echo "Syncthing stopped."
+}
+try_for() {
+    local max_tries=$1
+    local sleep_time=$2
+    local cmd=$3
+    tries=0
+    until eval "$cmd"; do
+        [ $tries -ge $max_tries ] && return 1
+        tries=$((tries+1))
+        sleep $sleep_time
+    done
+}
+echo "Starting Syncthing in the background"
+/bin/entrypoint.sh /bin/syncthing &
+SYNCTHING_PID=$!
+echo "Syncthing started with PID [$SYNCTHING_PID]"
+echo "Waiting for Syncthing to be ready..."
+
+try_for 15 2 "[ -f '{{ config_dir }}/config.xml' ]" || { echo "Syncthing did not become ready in time. Exiting..."; exit 1; }
+try_for 15 2 "curl --silent --output /dev/null http://127.0.0.1:{{ values.network.web_port.port_number }}/rest/noauth/health" || { echo "Syncthing did not become ready in time. Exiting..."; exit 1; }
+echo "Syncthing is ready."
+
+{%- for cfg in settings %}
+echo 'Using subcommand [{{ cfg.cmd }}] to set value [{{ '\"%s\"' | format(cfg.value) if cfg.quote else cfg.value }}]'
+{{ cli }} {{ cfg.cmd }} set -- {{ '"%s"' | format(cfg.value) if cfg.quote else cfg.value }} || { echo "Failed to apply. Exiting..."; exit 1; }
+{%- endfor %}
+
+echo "Gracefully stopping Syncthing..."
+kill -SIGTERM $SYNCTHING_PID
+wait $SYNCTHING_PID
+echo "Syncthing stopped."
+{%- endmacro %}
