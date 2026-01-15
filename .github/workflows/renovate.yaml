@@ -16,13 +16,29 @@ jobs:
   renovate:
     runs-on: ubuntu-latest
     steps:
+      # https://github.com/kou/arrow/blob/main/ci/scripts/util_free_space.sh
       - name: Free Disk Space
+        shell: bash
         run: |
-          # https://github.com/kou/arrow/blob/main/ci/scripts/util_free_space.sh
-          # ~15 GB
-          sudo rm -rf /usr/local/lib/android || :
-          # ~5GB
-          sudo rm -rf /opt/hostedtoolcache/CodeQL || :
+          items=(
+            /usr/local/lib/android        # ~15GB
+            /opt/hostedtoolcache/CodeQL   # ~5GB
+          )
+          echo "Before cleanup:"
+          df -h /
+          for item in "${items[@]}"; do
+            echo "Processing $item"
+            if [ ! -e "$item" ]; then
+              continue
+            fi
+
+            sudo rm -rf "$item" || :
+            echo "After cleanup of $item:"
+            df -h /
+          done
+
+          echo "After cleanup:"
+          df -h /
 
       - name: Checkout
         uses: actions/checkout@v6
