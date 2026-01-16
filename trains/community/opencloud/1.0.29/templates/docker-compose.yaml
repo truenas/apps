@@ -87,9 +87,13 @@
 {% if values.network.metrics_port.bind_mode %}
   {% do c1.environment.add_env("PROXY_DEBUG_ADDR", ":%d"|format(values.network.metrics_port.port_number)) %}
 {% endif %}
-{% set url = tpl.funcs.url_to_dict(values.opencloud.app_url, true) %}
+
+{% set opencloud_url = values.opencloud.app_url.rstrip("/") %}
+
+{% set url = tpl.funcs.url_to_dict(opencloud_url, true) %}
 {% if url.scheme != "https" %}{% do tpl.funcs.fail("The app URL must be HTTPS") %}{% endif %}
-{% do c1.environment.add_env("OC_URL", values.opencloud.app_url.rstrip("/")) %}
+
+{% do c1.environment.add_env("OC_URL", opencloud_url) %}
 {% do c1.environment.add_env("OC_INSECURE", values.opencloud.insecure) %}
 {% if values.network.certificate_id %}
   {% do c1.environment.add_env("PROXY_TRANSPORT_TLS_KEY", values.consts.ssl_key_path) %}
@@ -110,24 +114,24 @@
     "img-src": csp.x.get("img-src", []) + [values.opencloud.collaboration.url],
   }) %}
 
-  {% set app_url = values.opencloud.collaboration.url.rstrip("/") %}
+  {% set collaboration_url = values.opencloud.collaboration.url.rstrip("/") %}
 
   {% do c1.environment.add_env("FRONTEND_APP_HANDLER_SECURE_VIEW_APP_ADDR", "eu.opencloud.api.collaboration") %}
   {% do c1.environment.add_env("COLLABORATION_STORE", "nats-js-kv") %}
   {% do c1.environment.add_env("COLLABORATION_APP_ADDR", values.opencloud.collaboration.url.rstrip("/")) %}
   {% do c1.environment.add_env("COLLABORATION_APP_INSECURE", values.opencloud.collaboration.insecure) %}
   {% do c1.environment.add_env("COLLABORATION_CS3API_DATAGATEWAY_INSECURE", values.opencloud.collaboration.insecure) %}
-  {% do c1.environment.add_env("COLLABORATION_WOPI_SRC", values.opencloud.app_url.rstrip("/")) %}
+  {% do c1.environment.add_env("COLLABORATION_WOPI_SRC", opencloud_url) %}
   {% do c1.environment.add_env("COLLABORATION_APP_PROOF_DISABLE", values.opencloud.collaboration.proof_disable) %}
 
   {% if values.opencloud.collaboration.type == "collabora" %}
     {% do c1.environment.add_env("COLLABORATION_APP_NAME", "CollaboraOnline") %}
     {% do c1.environment.add_env("COLLABORATION_APP_PRODUCT", "Collabora") %}
-    {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/favicon.ico"|format(app_url)) %}
+    {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/favicon.ico"|format(collaboration_url)) %}
   {% elif values.opencloud.collaboration.type == "onlyoffice" %}
     {% do c1.environment.add_env("COLLABORATION_APP_NAME", "OnlyOffice") %}
     {% do c1.environment.add_env("COLLABORATION_APP_PRODUCT", "OnlyOffice") %}
-    {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/web-apps/apps/documenteditor/main/resources/img/favicon.ico"|format(app_url)) %}
+    {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/web-apps/apps/documenteditor/main/resources/img/favicon.ico"|format(collaboration_url)) %}
     {% do c1.environment.add_env("COLLABORATION_JWT_SECRET", values.opencloud.collaboration.jwt_secret) %}
   {% endif %}
 {% endif %}
