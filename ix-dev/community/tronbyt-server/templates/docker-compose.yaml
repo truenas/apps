@@ -1,0 +1,35 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set app = tpl.add_container(values.consts.app_container_name, "image") %}
+
+{# Capabilities #}
+{% do app.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+
+{# Environment Variables #}
+{% do app.environment.add_env("TRONBYT_PORT", values.network.web_port.port_number) %}
+
+{% if values.tronbyt.enable_registration %}
+  {% do app.environment.add_env("ENABLE_USER_REGISTRATION", "1") %}
+{% endif %}
+
+{% if values.tronbyt.system_apps_repo %}
+  {% do app.environment.add_env("SYSTEM_APPS_REPO", values.tronbyt.system_apps_repo) %}
+{% endif %}
+
+{# Networking #}
+{% do app.add_port(values.network.web_port) %}
+
+{# Storage #}
+{% do app.add_storage("/app/data", values.storage.data) %}
+
+{# Healthcheck #}
+{% do app.healthcheck.set_custom_test(["CMD", "/app/tronbyt-server", "health", "http://localhost:" ~ values.network.web_port.port_number ~ "/health"]) %}
+{% do app.healthcheck.set_interval(90) %}
+{% do app.healthcheck.set_timeout(10) %}
+{% do app.healthcheck.set_retries(3) %}
+{% do app.healthcheck.set_start_period(10) %}
+
+{# Portal #}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "http", "path": "/"}) %}
+
+{{ tpl.render() | tojson }}

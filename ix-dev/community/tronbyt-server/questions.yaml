@@ -1,0 +1,186 @@
+groups:
+  - name: Container Configuration
+    description: Configure container settings
+  - name: Tronbyt Configuration
+    description: Configure Tronbyt Server settings
+  - name: Network
+    description: Configure network settings
+  - name: Storage
+    description: Configure storage settings
+  - name: Resources
+    description: Configure resource limits
+
+questions:
+  - variable: global
+    label: ""
+    group: Container Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: timezone
+          label: Timezone
+          schema:
+            type: string
+            default: "Etc/UTC"
+            required: true
+            $ref:
+              - "definitions/timezone"
+
+  - variable: run_as
+    label: ""
+    group: Container Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          schema:
+            type: int
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          schema:
+            type: int
+            default: 568
+            required: true
+
+  - variable: tronbyt
+    label: ""
+    group: Tronbyt Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enable_registration
+          label: Enable User Registration
+          schema:
+            type: boolean
+            default: false
+            description: "Set to true to enable open user registration."
+        - variable: system_apps_repo
+          label: System Apps Repository
+          schema:
+            type: string
+            default: ""
+            description: "Git repository URL for system apps. Leave empty for default."
+
+  - variable: network
+    label: ""
+    group: Network
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: Web Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port
+                schema:
+                  type: int
+                  default: 10225
+                  min: 1024
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+  - variable: storage
+    label: ""
+    group: Storage
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  default: "ix_volume"
+                  enum:
+                    - value: "ix_volume"
+                      description: "TrueNAS Dataset"
+                    - value: "host_path"
+                      description: "Host Path"
+              - variable: ix_volume_config
+                label: Dataset Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  attrs:
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        default: "data"
+                        required: true
+                        hidden: true
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        required: true
+
+  - variable: resources
+    label: ""
+    group: Resources
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPU Limit
+                schema:
+                  type: float
+                  default: 2.0
+                  required: true
+              - variable: memory
+                label: Memory Limit (MB)
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
