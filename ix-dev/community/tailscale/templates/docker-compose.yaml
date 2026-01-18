@@ -46,6 +46,38 @@
 
 {% do c1.environment.add_user_envs(values.tailscale.additional_envs) %}
 
+{# === Tailscale Serve Configuration === #}
+{% if values.tailscale.serve.enabled and values.tailscale.serve.services %}
+  {% set serve_config_path = "%s/%s"|format(values.consts.serve_config_dir, values.consts.serve_config_filename) %}
+  {% do c1.environment.add_env("TS_SERVE_CONFIG", serve_config_path) %}
+
+  {# Build JSON from services list #}
+  {% set tcp_config = {} %}
+  {% set web_config = {} %}
+  {% set funnel_config = {} %}
+
+  {% for svc in values.tailscale.serve.services %}
+    {% do tcp_config.update({svc.port|string: {"HTTPS": true}}) %}
+
+    {% set domain_key = "${TS_CERT_DOMAIN}:%d"|format(svc.port) %}
+    {% if domain_key not in web_config %}
+      {% do web_config.update({domain_key: {"Handlers": {}}}) %}
+    {% endif %}
+    {% do web_config[domain_key]["Handlers"].update({svc.path_prefix: {"Proxy": svc.proxy_target}}) %}
+
+    {% if values.tailscale.serve.funnel %}
+      {% do funnel_config.update({svc.port|string: true}) %}
+    {% endif %}
+  {% endfor %}
+
+  {% set serve_json = {"TCP": tcp_config, "Web": web_config} %}
+  {% if funnel_config %}
+    {% do serve_json.update({"AllowFunnel": funnel_config}) %}
+  {% endif %}
+
+  {% do c1.configs.add("serve-config", serve_json|tojson, serve_config_path) %}
+{% endif %}
+
 {% if not values.tailscale.userspace %}
   {% do c1.add_tun_device() %}
 {% endif %}
