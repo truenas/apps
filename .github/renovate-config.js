@@ -326,6 +326,11 @@ module.exports = {
       "^(?<compatibility>hardcover|softcover)-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
       ["ghcr.io/pennydreadful/bookshelf"]
     ),
+    customVersioning(
+      // 2026.01.10-01
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)",
+      ["finachium/finachy"]
+    ),
   ],
 };
 

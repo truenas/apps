@@ -1,5 +1,5 @@
 groups:
-  - name: Finachy Config
+  - name: Finachy Configuration
     description: Finachy Application Configuration
   - name: Network
     description: Network Configuration
@@ -11,13 +11,16 @@ groups:
 questions:
   - variable: finachy
     label: ""
-    group: Finachy Config
+    group: Finachy Configuration
     schema:
       type: dict
       attrs:
         - variable: secret_key_base
           label: Secret Key Base
-          description: "Secret key for verifying the integrity of signed cookies. Use `openssl rand -hex 64` to generate one."
+          description: |
+            The secret key base is used to encrypt sensitive data.  Use `openssl rand -hex 64` to generate one.<br />
+            It should be a long, random string.<br />
+            If you change this, all existing sessions will be invalidated.
           schema:
             type: string
             required: true
@@ -60,7 +63,7 @@ questions:
 
   - variable: run_as
     label: ""
-    group: Finachy Config
+    group: Finachy Configuration
     schema:
       type: dict
       attrs:
@@ -68,12 +71,12 @@ questions:
           label: User ID
           schema:
             type: int
-            default: 1000
+            default: 568
         - variable: group
           label: Group ID
           schema:
             type: int
-            default: 1000
+            default: 568
 
   - variable: network
     label: ""
@@ -87,7 +90,7 @@ questions:
           schema:
             type: dict
             attrs:
-              - variable: port
+              - variable: port_number
                 label: Port
                 schema:
                   type: int
@@ -105,6 +108,44 @@ questions:
         - variable: app_storage
           label: App Storage
           description: Persistent storage for uploads and other application data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: "TrueNAS Dataset"
+                    - value: host_path
+                      description: "Host Path"
+              - variable: ix_volume_config
+                label: Dataset Config
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  attrs:
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+              - variable: host_path_config
+                label: Host Path Config
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        required: true
+        - variable: tmp_storage
+          label: Tmp Storage
+          description: Temporary storage
           schema:
             type: dict
             attrs:

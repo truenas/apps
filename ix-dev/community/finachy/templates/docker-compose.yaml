@@ -29,7 +29,9 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_port}) %}
 {% do c1.add_storage("/rails/storage", values.storage.app_storage) %}
+{% do c1.add_storage("/rails/tmp", values.storage.tmp_storage) %}
 {% do perm_container.add_or_skip_action("app_storage", values.storage.app_storage, perms_config) %}
+{% do perm_container.add_or_skip_action("tmp_storage", values.storage.tmp_storage, perms_config) %}
 
 {% set envs = {
     "SECRET_KEY_BASE": values.finachy.secret_key_base,
@@ -59,6 +61,7 @@
 {# Worker Config #}
 {% do worker.set_user(values.run_as.user, values.run_as.group) %}
 {% do worker.add_storage("/rails/storage", values.storage.app_storage) %}
+{% do worker.add_storage("/rails/tmp", values.storage.tmp_storage) %}
 {% do worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do worker.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do worker.set_command(["bundle", "exec", "sidekiq"]) %}
