@@ -50,38 +50,54 @@
   {% set serve_config_path = "%s/%s"|format(values.consts.serve_config_dir, values.consts.serve_config_filename) %}
   {% do c1.environment.add_env("TS_SERVE_CONFIG", serve_config_path) %}
 
-  {# Build JSON from services list #}
-  {% set tcp_config = {} %}
-  {% set web_config = {} %}
-  {% set funnel_config = {} %}
-
+  {# Group services by service_name #}
+  {% set services_by_name = {} %}
   {% for svc in values.tailscale.serve.services %}
-    {% if svc.protocol == "https" %}
-      {# HTTPS Proxy mode - TLS termination with HTTP proxy #}
-      {% do tcp_config.update({svc.port|string: {"HTTPS": true}}) %}
-
-      {% set domain_key = "${TS_CERT_DOMAIN}:%d"|format(svc.port) %}
-      {% if domain_key not in web_config %}
-        {% do web_config.update({domain_key: {"Handlers": {}}}) %}
-      {% endif %}
-      {% do web_config[domain_key]["Handlers"].update({svc.path_prefix: {"Proxy": svc.proxy_target}}) %}
-
-      {% if values.tailscale.serve.funnel %}
-        {% do funnel_config.update({svc.port|string: true}) %}
-      {% endif %}
-    {% elif svc.protocol == "tcp" %}
-      {# TCP Passthrough mode - raw TCP forwarding #}
-      {% do tcp_config.update({svc.port|string: {"TCP": true}}) %}
-
-      {% set domain_key = "${TS_CERT_DOMAIN}:%d"|format(svc.port) %}
-      {% do web_config.update({domain_key: {"TCPForward": svc.tcp_target}}) %}
+    {% set svc_name = svc.service_name %}
+    {% if svc_name not in services_by_name %}
+      {% do services_by_name.update({svc_name: []}) %}
     {% endif %}
+    {% do services_by_name[svc_name].append(svc) %}
   {% endfor %}
 
-  {% set serve_json = {"TCP": tcp_config, "Web": web_config} %}
-  {% if funnel_config %}
-    {% do serve_json.update({"AllowFunnel": funnel_config}) %}
-  {% endif %}
+  {# Build config for each service group #}
+  {% set serve_json = {"Services": {}} %}
+
+  {% for svc_name, svcs in services_by_name.items() %}
+    {% set tcp_config = {} %}
+    {% set web_config = {} %}
+    {% set funnel_config = {} %}
+
+    {% for svc in svcs %}
+      {% if svc.protocol == "https" %}
+        {# HTTPS Proxy mode - TLS termination with HTTP proxy #}
+        {% do tcp_config.update({svc.port|string: {"HTTPS": true}}) %}
+
+        {% set domain_key = "${TS_CERT_DOMAIN}:%d"|format(svc.port) %}
+        {% if domain_key not in web_config %}
+          {% do web_config.update({domain_key: {"Handlers": {}}}) %}
+        {% endif %}
+        {% do web_config[domain_key]["Handlers"].update({svc.path_prefix: {"Proxy": svc.proxy_target}}) %}
+
+        {% if values.tailscale.serve.funnel %}
+          {% do funnel_config.update({svc.port|string: true}) %}
+        {% endif %}
+      {% elif svc.protocol == "tcp" %}
+        {# TCP Passthrough mode - raw TCP forwarding #}
+        {% do tcp_config.update({svc.port|string: {"TCP": true}}) %}
+
+        {% set domain_key = "${TS_CERT_DOMAIN}:%d"|format(svc.port) %}
+        {% do web_config.update({domain_key: {"TCPForward": svc.tcp_target}}) %}
+      {% endif %}
+    {% endfor %}
+
+    {% set svc_config = {"TCP": tcp_config, "Web": web_config} %}
+    {% if funnel_config %}
+      {% do svc_config.update({"AllowFunnel": funnel_config}) %}
+    {% endif %}
+
+    {% do serve_json["Services"].update({"svc:" ~ svc_name: svc_config}) %}
+  {% endfor %}
 
   {% do c1.configs.add("serve-config", serve_json|tojson, serve_config_path) %}
 {% endif %}
