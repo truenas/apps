@@ -1,0 +1,78 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.steam_headless_container_name, "image") %}
+
+{% do c1.set_ipc_mode("host") %}
+{% do c1.add_device_cgroup_rule("c 13:* rwm") %}
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.add_security_opt("seccomp", "unconfined") %}
+{% do c1.add_security_opt("apparmor", "unconfined") %}
+{% do c1.add_caps([
+    "AUDIT_WRITE",
+    "CHOWN",
+    "DAC_OVERRIDE",
+    "FOWNER",
+    "FSETID",
+    "KILL",
+    "MKNOD",
+    "NET_ADMIN",
+    "SETGID",
+    "SETUID",
+    "SYS_ADMIN",
+    "SYS_NICE",
+    "SYS_RESOURCE",
+]) %}
+{% do c1.set_shm_size_mb(values.steam_headless.shm_size_mb) %}
+{% do c1.set_hostname(values.steam_headless.name) %}
+{% do c1.add_extra_host(values.steam_headless.name, "127.0.0.1") %}
+
+{% do c1.add_port(values.network.vnc_port) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.vnc_port.port_number}) %}
+
+{% do c1.environment.add_user_envs(values.steam_headless.additional_envs) %}
+{% do c1.environment.add_env("WEB_UI_MODE", "vnc") %}
+{% do c1.environment.add_env("DISPLAY", values.steam_headless.display or ":99") %}
+{% do c1.environment.add_env("USER_PASSWORD", values.steam_headless.user_password) %}
+{% do c1.environment.add_env("PORT_NOVNC_WEB", values.network.vnc_port.port_number) %}
+{% do c1.environment.add_env("HOST_DBUS", true) %}
+{% do c1.environment.add_env("ENABLE_EVDEV_INPUTS", values.steam_headless.enable_ev_dev_inputs) %}
+{% do c1.environment.add_env("MODE", values.steam_headless.mode) %}
+{% if values.steam_headless.mode == "primary" %}
+  {% do c1.environment.add_env("FORCE_X11_DUMMY_CONFIG", values.steam_headless.force_x11_dummy_config) %}
+{% endif %}
+{% if values.steam_headless.steam.enable %}
+  {% do c1.environment.add_env("ENABLE_STEAM", true) %}
+  {% do c1.environment.add_env("STEAM_ARGS", values.steam_headless.steam.args|unique|list|join(" ")) %}
+{% endif %}
+{% if values.steam_headless.sunshine.enable %}
+  {% do c1.environment.add_env("ENABLE_SUNSHINE", true) %}
+  {% do c1.environment.add_env("SUNSHINE_USER", values.steam_headless.sunshine.username) %}
+  {% do c1.environment.add_env("SUNSHINE_PASS", values.steam_headless.sunshine.password) %}
+{% endif %}
+
+{# TODO: Does one affect another?
+  MODE: primary/secondary
+  FORCE_X11_DUMMY_CONFIG: true/false
+  WEB_UI_MODE: vnc/neko
+#}
+
+{% do c1.devices.add_device("/dev/fuse", "/dev/fuse") %}
+{% if values.steam_headless.enable_ev_dev_inputs %}
+  {% do c1.devices.add_device("/dev/uinput", "/dev/uinput") %}
+{% endif %}
+
+{% do c1.add_storage("/run/dbus", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/run/dbus"}}) %}
+
+{% do c1.add_storage("/home/default", values.storage.home) %}
+{% do c1.add_storage("/mnt/games", values.storage.games) %}
+
+{% do c1.add_storage("/tmp/.X11-unix", values.storage.x11_socket) %}
+{% do c1.add_storage("/tmp/pulse", values.storage.pulse_socket) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.vnc_port) %}
+
+{{ tpl.render() | tojson }}

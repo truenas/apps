@@ -1,0 +1,39 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.monitee_agent_container_name, "image") %}
+{% do c1.add_caps(["SYS_RAWIO"]) %}
+
+{% do c1.healthcheck.set_test("curl", {"port": values.network.http_port.port_number, "path": "/actuator/health"}) %}
+{% do c1.environment.add_env("http.port", values.network.http_port.port_number) %}
+{% do c1.environment.add_env("server.port", values.network.https_port.port_number) %}
+{% do c1.environment.add_user_envs(values.monitee_agent.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.https_port) %}
+  {% do c1.add_port(values.network.http_port) %}
+{% endif %}
+
+{% if values.monitee_agent.docker_enable %}
+  {% do c1.add_docker_socket(read_only=False) %}
+{% endif %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage("/data", values.storage.data) %}
+
+{% do c1.add_storage("/etc/os-release", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/etc/os-release" } }) %}
+{% if values.monitee_agent.storage_monitoring_enable %}
+  {% do c1.add_storage("/run/udev", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/run/udev" } }) %}
+  {% do c1.add_storage("/dev", { "type": "host_path", "read_only": true, "host_path_config": { "path": "/dev" } }) %}
+{% endif %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% for device in values.monitee_agent.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.http_port, {"path": "/graphiql?path=/graphql"}) %}
+
+{{ tpl.render() | tojson }}

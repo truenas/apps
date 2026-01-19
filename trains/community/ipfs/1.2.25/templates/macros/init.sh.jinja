@@ -1,0 +1,55 @@
+{% macro init_script(values) -%}
+{#- Default API Address https://github.com/ipfs/kubo/blob/master/docs/config.md#addressesapi #}
+{%- set api_addresses = [
+  "/ip4/0.0.0.0/tcp/%s"|format(values.network.api_port.port_number),
+  "/ip6/::/tcp/%s"|format(values.network.api_port.port_number),
+] %}
+{#- Default Gateway Address https://github.com/ipfs/kubo/blob/master/docs/config.md#addressesgateway #}
+{%- set gateway_addresses = [
+  "/ip4/0.0.0.0/tcp/%s"|format(values.network.gateway_port.port_number),
+  "/ip6/::/tcp/%s"|format(values.network.gateway_port.port_number),
+] %}
+{#- Default Swarm Addresses https://github.com/ipfs/kubo/blob/master/docs/config.md#addressesswarm #}
+{%- set swarm_addresses = [
+  "/ip4/0.0.0.0/tcp/%s"|format(values.network.swarm_port.port_number),
+  "/ip6/::/tcp/%s"|format(values.network.swarm_port.port_number),
+  "/ip4/0.0.0.0/udp/%s/quic"|format(values.network.swarm_port.port_number),
+  "/ip4/0.0.0.0/udp/%s/quic-v1"|format(values.network.swarm_port.port_number),
+  "/ip4/0.0.0.0/udp/%s/quic-v1/webtransport"|format(values.network.swarm_port.port_number),
+  "/ip6/::/udp/%s/quic"|format(values.network.swarm_port.port_number),
+  "/ip6/::/udp/%s/quic-v1"|format(values.network.swarm_port.port_number),
+  "/ip6/::/udp/%s/quic-v1/webtransport"|format(values.network.swarm_port.port_number),
+] %}
+{%- set allowed_origins = ["*"] %}
+{%- set allowed_methods = ["POST", "PUT"] %}
+#!/bin/sh
+set -e
+
+if [ ! -f {{ values.consts.data_path }}/config ]; then
+  # Create the IPFS config file
+  echo "Initializing IPFS"
+  ipfs init
+fi
+
+# Configure the Addresses.API
+echo 'Configuring the Addresses.API to {{ api_addresses }}'
+ipfs config Addresses.API --json '{{ api_addresses | tojson }}'
+
+# Configure the Addresses.Gateway
+echo 'Configuring the Addresses.Gateway to {{ gateway_addresses }}'
+ipfs config Addresses.Gateway --json '{{ gateway_addresses | tojson }}'
+
+# Configure the Addresses.Swarm
+echo 'Configuring the Addresses.Swarm to {{ swarm_addresses | tojson }}'
+ipfs config Addresses.Swarm --json '{{ swarm_addresses | tojson }}'
+
+# Configure the API.HTTPHeaders.Access-Control-Allow-Origin
+echo 'Configuring the API.HTTPHeaders.Access-Control-Allow-Origin to {{ allowed_origins | tojson }}'
+ipfs config API.HTTPHeaders.Access-Control-Allow-Origin --json '{{ allowed_origins | tojson }}'
+
+# Configure the API.HTTPHeaders.Access-Control-Allow-Methods
+echo 'Configuring the API.HTTPHeaders.Access-Control-Allow-Methods to {{ allowed_methods | tojson }}'
+ipfs config API.HTTPHeaders.Access-Control-Allow-Methods --json '{{ allowed_methods | tojson }}'
+
+echo "Finished configuring IPFS"
+{%- endmacro %}

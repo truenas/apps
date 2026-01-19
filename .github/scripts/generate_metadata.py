@@ -485,6 +485,8 @@ class AppQuestionsValidator:
             for attr in schema["attrs"]:
                 self.validate_question(attr)
         elif schema_type == "list":
+            if "min_length" in schema:
+                raise ValueError(f"List schema with min_length not supported, use min: {schema}")
             for item in schema["items"]:
                 self.validate_question(item)
 

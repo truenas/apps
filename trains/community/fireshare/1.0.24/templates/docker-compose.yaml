@@ -1,0 +1,33 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% if values.fireshare.domain and (values.fireshare.domain.startswith("http://") or values.fireshare.domain.startswith("https://")) %}
+  {% do tpl.funcs.fail("Domain must not start with http:// or https://") %}
+{% endif %}
+
+{% set c1 = tpl.add_container(values.consts.fireshare_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_test("http", {"port": values.consts.internal_web_port}) %}
+
+{% do c1.environment.add_env("ADMIN_USERNAME", values.fireshare.admin_username) %}
+{% do c1.environment.add_env("ADMIN_PASSWORD", values.fireshare.admin_password) %}
+{% do c1.environment.add_env("SECRET_KEY", values.fireshare.secret_key) %}
+{% do c1.environment.add_env("MINUTES_BETWEEN_VIDEO_SCANS", values.fireshare.minutes_between_video_scans) %}
+{% do c1.environment.add_env("THUMBNAIL_VIDEO_LOCATION", values.fireshare.thumbnail_video_location) %}
+{% do c1.environment.add_env("DOMAIN", values.fireshare.domain) %}
+{% do c1.environment.add_env("DATA_DIRECTORY", values.consts.data_directory) %}
+{% do c1.environment.add_env("VIDEO_DIRECTORY", values.consts.video_directory) %}
+{% do c1.environment.add_env("PROCESSED_DIRECTORY", values.consts.processed_directory) %}
+{% do c1.environment.add_user_envs(values.fireshare.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do c1.add_storage(values.consts.data_directory, values.storage.data) %}
+{% do c1.add_storage(values.consts.processed_directory, values.storage.processed) %}
+{% do c1.add_storage(values.consts.video_directory, values.storage.videos) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}

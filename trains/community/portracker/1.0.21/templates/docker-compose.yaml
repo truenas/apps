@@ -1,0 +1,26 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.portracker_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.set_pid_mode("host") %}
+{% do c1.add_caps(["NET_RAW", "SYS_PTRACE"]) %}
+{% do c1.add_security_opt("apparmor", "unconfined") %}
+
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
+{% do c1.environment.add_env("DATABASE_PATH", "%s/portracker.db"|format(values.consts.data_path)) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_user_envs(values.portracker.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_docker_socket() %}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

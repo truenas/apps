@@ -4,4 +4,4 @@
 
 Please go to the **Preview** tab and select the appropriate template: 
 
-* [🚀 Add Addition](?expand=1&template=app_addition.md)
+* [🚀 App Addition](?expand=1&template=app_addition.md)
