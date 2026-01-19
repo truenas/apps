@@ -391,3 +391,29 @@ def test_mongodb_healthcheck(mock_values):
         'db.adminCommand("ping")',
         "--quiet",
     ]
+
+
+def test_pidof(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("pidof", {"process": "some-process"})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "pidof",
+        "-s",
+        "some-process",
+    ]
+
+
+def test_pgrep(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("pgrep", {"process": "some-process"})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "pgrep",
+        "-f",
+        "some-process",
+    ]

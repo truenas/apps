@@ -25,12 +25,17 @@ class Functions:
     def _to_yaml(self, data):
         return yaml.dump(data)
 
-    def _bcrypt_hash(self, password):
-        hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    def _bcrypt_hash(self, password: str, rounds: int = 12):
+        if rounds < 4 or rounds > 31:
+            raise RenderError("bcrypt rounds must be between 4 and 31")
+        password_bytes = password.encode("utf-8")
+        if len(password_bytes) > 72:
+            raise RenderError(f"Expected bcrypt password to be at most 72 bytes. Got {len(password_bytes)} bytes.")
+        hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=rounds)).decode("utf-8")
         return hashed
 
-    def _htpasswd(self, username, password):
-        hashed = self._bcrypt_hash(password)
+    def _htpasswd(self, username: str, password: str, rounds: int = 12):
+        hashed = self._bcrypt_hash(password, rounds=rounds)
         return username + ":" + hashed
 
     def _secure_string(self, length):
@@ -87,11 +92,23 @@ class Functions:
     def _copy_dict(self, dict):
         return copy.deepcopy(dict)
 
-    def _merge_dicts(self, *dicts):
-        merged_dict = {}
-        for dictionary in dicts:
-            merged_dict.update(dictionary)
-        return merged_dict
+    def _deep_merge(self, dict1: dict, dict2: dict):
+        """
+        Deep merge: recursively merges nested dictionaries.
+        Values from dict2 override values from dict1.
+        Nested dicts are merged recursively rather than replaced.
+        """
+        result = dict1.copy()
+
+        for key, value in dict2.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                # Both values are dicts - merge them recursively
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                # Either not both dicts, or key doesn't exist - use dict2's value
+                result[key] = value
+
+        return result
 
     def _disallow_chars(self, string: str, chars: list[str], key: str):
         for char in chars:
@@ -203,7 +220,7 @@ class Functions:
             "is_boolean": self._is_boolean,
             "is_number": self._is_number,
             "match_regex": self._match_regex,
-            "merge_dicts": self._merge_dicts,
+            "deep_merge": self._deep_merge,
             "must_match_regex": self._must_match_regex,
             "secure_string": self._secure_string,
             "disallow_chars": self._disallow_chars,
