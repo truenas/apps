@@ -1,0 +1,24 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.signal_cli_rest_api_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.rest_port.port_number, "path": "/v1/health"}) %}
+{% do c1.environment.add_env("SIGNAL_CLI_UID", values.run_as.user) %}
+{% do c1.environment.add_env("SIGNAL_CLI_GID", values.run_as.group) %}
+{% do c1.environment.add_env("SIGNAL_CLI_CONFIG_DIR", values.consts.config_path) %}
+{% do c1.environment.add_env("MODE", values.signal_cli_rest_api.mode) %}
+{% do c1.environment.add_env("PORT", values.network.rest_port.port_number) %}
+{% do c1.environment.add_user_envs(values.signal_cli_rest_api.additional_envs) %}
+
+{% do c1.add_port(values.network.rest_port) %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.rest_port, {"path": "/swagger/index.html"}) %}
+
+{{ tpl.render() | tojson }}

@@ -1,15 +1,15 @@
 {
-    "1.0.1": {
+    "1.0.35": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/keycloak/1.0.1",
-        "last_update": "2025-08-14 23:28:22",
+        "location": "/__w/apps/apps/trains/community/keycloak/1.0.35",
+        "last_update": "2026-01-16 13:03:11",
         "required_features": [],
-        "human_version": "26.3.2_1.0.1",
-        "version": "1.0.1",
+        "human_version": "26.5.1_1.0.35",
+        "version": "1.0.35",
         "app_metadata": {
-            "app_version": "26.3.2",
+            "app_version": "26.5.1",
             "capabilities": [],
             "categories": [
                 "security"
@@ -25,11 +25,11 @@
                 "authorization",
                 "sso"
             ],
-            "lib_version": "2.1.43",
-            "lib_version_hash": "4dfe5c38b4319c62c2f1ca4db1f35dfa3bfc6cfe2836f14c7afff11fd85e13be",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -58,7 +58,7 @@
             ],
             "title": "Keycloak",
             "train": "community",
-            "version": "1.0.1"
+            "version": "1.0.35"
         },
         "schema": {
             "groups": [
@@ -110,12 +110,16 @@
                                 "description": "If you are changing this after the postgres directory has been initialized,</br>\nSTOP! and make sure you have a backup of your data.</br>\nChanging this will trigger an one way database upgrade.</br>\nYou can only select newer versions of postgres.</br>\nSelecting an older version will refuse to start.</br>\nIf something goes wrong, you will have to restore from backup.\n",
                                 "schema": {
                                     "type": "string",
-                                    "default": "postgres_17_image",
+                                    "default": "postgres_18_image",
                                     "required": true,
                                     "enum": [
                                         {
                                             "value": "postgres_17_image",
                                             "description": "Postgres 17"
+                                        },
+                                        {
+                                            "value": "postgres_18_image",
+                                            "description": "Postgres 18"
                                         }
                                     ]
                                 }
@@ -133,9 +137,9 @@
                             {
                                 "variable": "hostname",
                                 "label": "Hostname",
-                                "description": "Address at which is the server exposed.\nCan be a full URL, or just a hostname. When only hostname is provided,\nscheme, port and context path are resolved from the request.\n",
+                                "description": "Address at which is the server exposed.\nCan be a full URL, or just a hostname. When only hostname is provided,\nscheme, port and context path are resolved from the request.</br>\nIf you want to not set a hostname explicitly, set this value to `-`.</br>\nLeaving this empty requires additional configuration.\n",
                                 "schema": {
-                                    "type": "uri",
+                                    "type": "string",
                                     "default": "",
                                     "required": true
                                 }
@@ -143,6 +147,7 @@
                             {
                                 "variable": "additional_envs",
                                 "label": "Additional Environment Variables",
+                                "description": "See https://www.keycloak.org/server/all-config",
                                 "schema": {
                                     "type": "list",
                                     "default": [],
@@ -291,7 +296,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -338,7 +342,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "postgres_data"
                                                         }
@@ -442,7 +445,6 @@
                             {
                                 "variable": "additional_storage",
                                 "label": "Additional Storage",
-                                "description": "Additional storage for Keycloak.",
                                 "schema": {
                                     "type": "list",
                                     "default": [],
@@ -456,12 +458,11 @@
                                                     {
                                                         "variable": "type",
                                                         "label": "Type",
-                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.\n",
+                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.</br>\nNFS Share: Is a NFS share that is mounted to as a volume.\n",
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
                                                             "default": "ix_volume",
-                                                            "immutable": true,
                                                             "enum": [
                                                                 {
                                                                     "value": "host_path",
@@ -474,6 +475,10 @@
                                                                 {
                                                                     "value": "cifs",
                                                                     "description": "SMB/CIFS Share (Mounts a volume to a SMB share)"
+                                                                },
+                                                                {
+                                                                    "value": "nfs",
+                                                                    "description": "NFS Share (Mounts a volume to a NFS share)"
                                                                 }
                                                             ]
                                                         }
@@ -588,7 +593,6 @@
                                                                     "schema": {
                                                                         "type": "string",
                                                                         "required": true,
-                                                                        "immutable": true,
                                                                         "default": "storage_entry"
                                                                     }
                                                                 },
@@ -670,6 +674,41 @@
                                                                     "description": "The domain to use for the SMB share.",
                                                                     "schema": {
                                                                         "type": "string"
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "nfs_config",
+                                                        "label": "NFS Configuration",
+                                                        "description": "The configuration for the NFS dataset.",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "type",
+                                                                    "=",
+                                                                    "nfs"
+                                                                ]
+                                                            ],
+                                                            "attrs": [
+                                                                {
+                                                                    "variable": "server",
+                                                                    "label": "Server",
+                                                                    "description": "The server to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "variable": "path",
+                                                                    "label": "Path",
+                                                                    "description": "The path to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
                                                                     }
                                                                 }
                                                             ]
@@ -792,7 +831,7 @@
         "readme": "<h1>Keycloak</h1> <p><a href=\"https://www.keycloak.org/\">Keycloak</a> is an Open Source Identity and Access Management For Modern Applications and Services</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "26.3.2",
+            "app_version": "26.5.1",
             "capabilities": [],
             "categories": [
                 "security"
@@ -808,11 +847,11 @@
                 "authorization",
                 "sso"
             ],
-            "lib_version": "2.1.43",
-            "lib_version_hash": "4dfe5c38b4319c62c2f1ca4db1f35dfa3bfc6cfe2836f14c7afff11fd85e13be",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -841,7 +880,7 @@
             ],
             "title": "Keycloak",
             "train": "community",
-            "version": "1.0.1"
+            "version": "1.0.35"
         }
     }
 }

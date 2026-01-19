@@ -1,15 +1,15 @@
 {
-    "1.0.69": {
+    "1.0.143": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/tianji/1.0.69",
-        "last_update": "2025-08-14 23:28:22",
+        "location": "/__w/apps/apps/trains/community/tianji/1.0.143",
+        "last_update": "2026-01-16 13:03:11",
         "required_features": [],
-        "human_version": "1.24.14_1.0.69",
-        "version": "1.0.69",
+        "human_version": "1.31.7_1.0.143",
+        "version": "1.0.143",
         "app_metadata": {
-            "app_version": "1.24.14",
+            "app_version": "1.31.7",
             "capabilities": [],
             "categories": [
                 "monitoring"
@@ -26,11 +26,11 @@
                 "uptime",
                 "status"
             ],
-            "lib_version": "2.1.35",
-            "lib_version_hash": "1bd4e0058fbd4d7c207df2cae606580065e8e6dba3e232f41bc1b006848b05d2",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -43,6 +43,13 @@
                     "group_name": "root",
                     "uid": 0,
                     "user_name": "root"
+                },
+                {
+                    "description": "Postgres runs as non-root user.",
+                    "gid": 999,
+                    "group_name": "postgres",
+                    "uid": 999,
+                    "user_name": "postgres"
                 }
             ],
             "screenshots": [
@@ -58,7 +65,7 @@
             ],
             "title": "Tianji",
             "train": "community",
-            "version": "1.0.69"
+            "version": "1.0.143"
         },
         "schema": {
             "groups": [
@@ -110,12 +117,16 @@
                                 "description": "If you are changing this after the postgres directory has been initialized,</br>\nSTOP! and make sure you have a backup of your data.</br>\nChanging this will trigger an one way database upgrade.</br>\nYou can only select newer versions of postgres.</br>\nSelecting an older version will refuse to start.</br>\nIf something goes wrong, you will have to restore from backup.\n",
                                 "schema": {
                                     "type": "string",
-                                    "default": "postgres_17_image",
+                                    "default": "postgres_18_image",
                                     "required": true,
                                     "enum": [
                                         {
                                             "value": "postgres_17_image",
                                             "description": "Postgres 17"
+                                        },
+                                        {
+                                            "value": "postgres_18_image",
+                                            "description": "Postgres 18"
                                         }
                                     ]
                                 }
@@ -290,7 +301,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -337,7 +347,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "postgres_data"
                                                         }
@@ -441,7 +450,6 @@
                             {
                                 "variable": "additional_storage",
                                 "label": "Additional Storage",
-                                "description": "Additional storage for Tianji.",
                                 "schema": {
                                     "type": "list",
                                     "default": [],
@@ -455,12 +463,11 @@
                                                     {
                                                         "variable": "type",
                                                         "label": "Type",
-                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.\n",
+                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.</br>\nNFS Share: Is a NFS share that is mounted to as a volume.\n",
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
                                                             "default": "ix_volume",
-                                                            "immutable": true,
                                                             "enum": [
                                                                 {
                                                                     "value": "host_path",
@@ -473,6 +480,10 @@
                                                                 {
                                                                     "value": "cifs",
                                                                     "description": "SMB/CIFS Share (Mounts a volume to a SMB share)"
+                                                                },
+                                                                {
+                                                                    "value": "nfs",
+                                                                    "description": "NFS Share (Mounts a volume to a NFS share)"
                                                                 }
                                                             ]
                                                         }
@@ -587,7 +598,6 @@
                                                                     "schema": {
                                                                         "type": "string",
                                                                         "required": true,
-                                                                        "immutable": true,
                                                                         "default": "storage_entry"
                                                                     }
                                                                 },
@@ -666,6 +676,41 @@
                                                                     "description": "The domain to use for the SMB share.",
                                                                     "schema": {
                                                                         "type": "string"
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "nfs_config",
+                                                        "label": "NFS Configuration",
+                                                        "description": "The configuration for the NFS dataset.",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "type",
+                                                                    "=",
+                                                                    "nfs"
+                                                                ]
+                                                            ],
+                                                            "attrs": [
+                                                                {
+                                                                    "variable": "server",
+                                                                    "label": "Server",
+                                                                    "description": "The server to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "variable": "path",
+                                                                    "label": "Path",
+                                                                    "description": "The path to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
                                                                     }
                                                                 }
                                                             ]
@@ -788,7 +833,7 @@
         "readme": "<h1>Tianji</h1> <p><a href=\"https://github.com/msgbyte/tianji\">Tianji</a> - Insight into everything, Website Analytics + Uptime Monitor + Server Status. not only another GA alternatives</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "1.24.14",
+            "app_version": "1.31.7",
             "capabilities": [],
             "categories": [
                 "monitoring"
@@ -805,11 +850,11 @@
                 "uptime",
                 "status"
             ],
-            "lib_version": "2.1.35",
-            "lib_version_hash": "1bd4e0058fbd4d7c207df2cae606580065e8e6dba3e232f41bc1b006848b05d2",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -822,6 +867,13 @@
                     "group_name": "root",
                     "uid": 0,
                     "user_name": "root"
+                },
+                {
+                    "description": "Postgres runs as non-root user.",
+                    "gid": 999,
+                    "group_name": "postgres",
+                    "uid": 999,
+                    "user_name": "postgres"
                 }
             ],
             "screenshots": [
@@ -837,7 +889,7 @@
             ],
             "title": "Tianji",
             "train": "community",
-            "version": "1.0.69"
+            "version": "1.0.143"
         }
     }
 }

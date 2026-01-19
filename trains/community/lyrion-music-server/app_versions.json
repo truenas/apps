@@ -1,15 +1,15 @@
 {
-    "1.0.18": {
+    "1.0.35": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/lyrion-music-server/1.0.18",
-        "last_update": "2025-06-10 12:44:46",
+        "location": "/__w/apps/apps/trains/community/lyrion-music-server/1.0.35",
+        "last_update": "2026-01-14 21:46:13",
         "required_features": [],
-        "human_version": "9.0.2_1.0.18",
-        "version": "1.0.18",
+        "human_version": "9.0.4_1.0.35",
+        "version": "1.0.35",
         "app_metadata": {
-            "app_version": "9.0.2",
+            "app_version": "9.0.4",
             "capabilities": [
                 {
                     "description": "Lyrion Media Server is able to change file ownership arbitrarily",
@@ -39,11 +39,11 @@
                 "music",
                 "streaming"
             ],
-            "lib_version": "2.1.35",
-            "lib_version_hash": "1bd4e0058fbd4d7c207df2cae606580065e8e6dba3e232f41bc1b006848b05d2",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -66,7 +66,7 @@
             ],
             "title": "Lyrion Music Server",
             "train": "community",
-            "version": "1.0.18"
+            "version": "1.0.35"
         },
         "schema": {
             "groups": [
@@ -116,6 +116,34 @@
                     "schema": {
                         "type": "dict",
                         "attrs": [
+                            {
+                                "variable": "attach_sound_device",
+                                "label": "Attach Sound Device",
+                                "description": "Attach the host sound device to the LMS container.",
+                                "schema": {
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            },
+                            {
+                                "variable": "additional_flags",
+                                "label": "Extra Flags",
+                                "description": "Additional flags to pass to LMS.</br>\nhttps://hub.docker.com/r/lmscommunity/lyrionmusicserver#passing-additional-launch-arguments\n",
+                                "schema": {
+                                    "type": "list",
+                                    "default": [],
+                                    "items": [
+                                        {
+                                            "variable": "flag",
+                                            "label": "Flag",
+                                            "schema": {
+                                                "type": "string",
+                                                "required": true
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
                             {
                                 "variable": "additional_envs",
                                 "label": "Additional Environment Variables",
@@ -298,13 +326,6 @@
                                             "label": "Port Number",
                                             "schema": {
                                                 "type": "int",
-                                                "show_if": [
-                                                    [
-                                                        "bind_mode",
-                                                        "=",
-                                                        "published"
-                                                    ]
-                                                ],
                                                 "default": 31102,
                                                 "min": 1,
                                                 "max": 65535,
@@ -424,6 +445,118 @@
                                 }
                             },
                             {
+                                "variable": "additional_ports",
+                                "label": "Additional Ports",
+                                "schema": {
+                                    "type": "list",
+                                    "show_if": [
+                                        [
+                                            "host_network",
+                                            "=",
+                                            false
+                                        ]
+                                    ],
+                                    "items": [
+                                        {
+                                            "variable": "port",
+                                            "label": "Port",
+                                            "schema": {
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "bind_mode",
+                                                        "label": "Port Bind Mode",
+                                                        "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "published",
+                                                            "enum": [
+                                                                {
+                                                                    "value": "published",
+                                                                    "description": "Publish port on the host for external access"
+                                                                },
+                                                                {
+                                                                    "value": "exposed",
+                                                                    "description": "Expose port for inter-container communication"
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "port_number",
+                                                        "label": "Port Number",
+                                                        "schema": {
+                                                            "type": "int",
+                                                            "min": 1,
+                                                            "max": 65535,
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "container_port",
+                                                        "label": "Container Port",
+                                                        "schema": {
+                                                            "type": "int",
+                                                            "min": 1,
+                                                            "max": 65535,
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "protocol",
+                                                        "label": "Protocol",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "default": "tcp",
+                                                            "enum": [
+                                                                {
+                                                                    "value": "tcp",
+                                                                    "description": "TCP"
+                                                                },
+                                                                {
+                                                                    "value": "udp",
+                                                                    "description": "UDP"
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "host_ips",
+                                                        "label": "Host IPs",
+                                                        "description": "IPs on the host to bind this port",
+                                                        "schema": {
+                                                            "type": "list",
+                                                            "show_if": [
+                                                                [
+                                                                    "bind_mode",
+                                                                    "=",
+                                                                    "published"
+                                                                ]
+                                                            ],
+                                                            "default": [],
+                                                            "items": [
+                                                                {
+                                                                    "variable": "host_ip",
+                                                                    "label": "Host IP",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true,
+                                                                        "$ref": [
+                                                                            "definitions/node_bind_ip"
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
                                 "variable": "host_network",
                                 "label": "Host Network",
                                 "description": "Bind to the host network. It's recommended to keep this disabled.\n",
@@ -456,7 +589,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -503,7 +635,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "config"
                                                         }
@@ -602,7 +733,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -649,7 +779,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "music"
                                                         }
@@ -748,7 +877,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -795,7 +923,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "playlist"
                                                         }
@@ -883,7 +1010,6 @@
                             {
                                 "variable": "additional_storage",
                                 "label": "Additional Storage",
-                                "description": "Additional storage for GitLab.",
                                 "schema": {
                                     "type": "list",
                                     "default": [],
@@ -897,12 +1023,11 @@
                                                     {
                                                         "variable": "type",
                                                         "label": "Type",
-                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.\n",
+                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.</br>\nNFS Share: Is a NFS share that is mounted to as a volume.\n",
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
                                                             "default": "ix_volume",
-                                                            "immutable": true,
                                                             "enum": [
                                                                 {
                                                                     "value": "host_path",
@@ -915,6 +1040,10 @@
                                                                 {
                                                                     "value": "cifs",
                                                                     "description": "SMB/CIFS Share (Mounts a volume to a SMB share)"
+                                                                },
+                                                                {
+                                                                    "value": "nfs",
+                                                                    "description": "NFS Share (Mounts a volume to a NFS share)"
                                                                 }
                                                             ]
                                                         }
@@ -1029,7 +1158,6 @@
                                                                     "schema": {
                                                                         "type": "string",
                                                                         "required": true,
-                                                                        "immutable": true,
                                                                         "default": "storage_entry"
                                                                     }
                                                                 },
@@ -1111,6 +1239,41 @@
                                                                     "description": "The domain to use for the SMB share.",
                                                                     "schema": {
                                                                         "type": "string"
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "nfs_config",
+                                                        "label": "NFS Configuration",
+                                                        "description": "The configuration for the NFS dataset.",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "type",
+                                                                    "=",
+                                                                    "nfs"
+                                                                ]
+                                                            ],
+                                                            "attrs": [
+                                                                {
+                                                                    "variable": "server",
+                                                                    "label": "Server",
+                                                                    "description": "The server to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "variable": "path",
+                                                                    "label": "Path",
+                                                                    "description": "The path to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
                                                                     }
                                                                 }
                                                             ]
@@ -1229,7 +1392,7 @@
         "readme": "<h1>Lyrion Music Server (AKA LMS)</h1> <p><a href=\"https://lyrion.org/\">Lyrion Music Server</a> - software to control Squeezebox audio players</p> <p>Lyrion Music Server (formerly Logitech Media Server) is open-source server software which controls a wide range of Squeezebox audio players. Lyrion can stream your local music collection, internet radio stations, and content from many streaming services (with and without subscriptions).</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "9.0.2",
+            "app_version": "9.0.4",
             "capabilities": [
                 {
                     "description": "Lyrion Media Server is able to change file ownership arbitrarily",
@@ -1259,11 +1422,11 @@
                 "music",
                 "streaming"
             ],
-            "lib_version": "2.1.35",
-            "lib_version_hash": "1bd4e0058fbd4d7c207df2cae606580065e8e6dba3e232f41bc1b006848b05d2",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -1286,7 +1449,7 @@
             ],
             "title": "Lyrion Music Server",
             "train": "community",
-            "version": "1.0.18"
+            "version": "1.0.35"
         }
     }
 }

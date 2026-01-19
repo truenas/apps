@@ -1,15 +1,15 @@
 {
-    "1.0.26": {
+    "1.0.60": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/authelia/1.0.26",
-        "last_update": "2025-08-14 23:28:22",
+        "location": "/__w/apps/apps/trains/community/authelia/1.0.60",
+        "last_update": "2026-01-16 13:03:11",
         "required_features": [],
-        "human_version": "4.39.6_1.0.26",
-        "version": "1.0.26",
+        "human_version": "4.39.15_1.0.60",
+        "version": "1.0.60",
         "app_metadata": {
-            "app_version": "4.39.6",
+            "app_version": "4.39.15",
             "capabilities": [],
             "categories": [
                 "authentication"
@@ -24,11 +24,11 @@
                 "authentication",
                 "sso"
             ],
-            "lib_version": "2.1.45",
-            "lib_version_hash": "2b78b1918738cd8bbb292da9a3f5060f5122e085fa34559c5ae748ead981cff4",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -63,7 +63,7 @@
             ],
             "title": "Authelia",
             "train": "community",
-            "version": "1.0.26"
+            "version": "1.0.60"
         },
         "schema": {
             "groups": [
@@ -119,12 +119,16 @@
                                 "description": "If you are changing this after the postgres directory has been initialized,</br>\nSTOP! and make sure you have a backup of your data.</br>\nChanging this will trigger an one way database upgrade.</br>\nYou can only select newer versions of postgres.</br>\nSelecting an older version will refuse to start.</br>\nIf something goes wrong, you will have to restore from backup.\n",
                                 "schema": {
                                     "type": "string",
-                                    "default": "postgres_17_image",
+                                    "default": "postgres_18_image",
                                     "required": true,
                                     "enum": [
                                         {
                                             "value": "postgres_17_image",
                                             "description": "Postgres 17"
+                                        },
+                                        {
+                                            "value": "postgres_18_image",
+                                            "description": "Postgres 18"
                                         }
                                     ]
                                 }
@@ -403,7 +407,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -450,7 +453,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "config"
                                                         }
@@ -565,7 +567,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -612,7 +613,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "pg_data"
                                                         }
@@ -716,7 +716,6 @@
                             {
                                 "variable": "additional_storage",
                                 "label": "Additional Storage",
-                                "description": "Additional storage for Authelia.",
                                 "schema": {
                                     "type": "list",
                                     "default": [],
@@ -730,12 +729,11 @@
                                                     {
                                                         "variable": "type",
                                                         "label": "Type",
-                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.\n",
+                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.</br>\nNFS Share: Is a NFS share that is mounted to as a volume.\n",
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
                                                             "default": "ix_volume",
-                                                            "immutable": true,
                                                             "enum": [
                                                                 {
                                                                     "value": "host_path",
@@ -748,6 +746,10 @@
                                                                 {
                                                                     "value": "cifs",
                                                                     "description": "SMB/CIFS Share (Mounts a volume to a SMB share)"
+                                                                },
+                                                                {
+                                                                    "value": "nfs",
+                                                                    "description": "NFS Share (Mounts a volume to a NFS share)"
                                                                 }
                                                             ]
                                                         }
@@ -862,7 +864,6 @@
                                                                     "schema": {
                                                                         "type": "string",
                                                                         "required": true,
-                                                                        "immutable": true,
                                                                         "default": "storage_entry"
                                                                     }
                                                                 },
@@ -944,6 +945,41 @@
                                                                     "description": "The domain to use for the SMB share.",
                                                                     "schema": {
                                                                         "type": "string"
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "nfs_config",
+                                                        "label": "NFS Configuration",
+                                                        "description": "The configuration for the NFS dataset.",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "type",
+                                                                    "=",
+                                                                    "nfs"
+                                                                ]
+                                                            ],
+                                                            "attrs": [
+                                                                {
+                                                                    "variable": "server",
+                                                                    "label": "Server",
+                                                                    "description": "The server to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "variable": "path",
+                                                                    "label": "Path",
+                                                                    "description": "The path to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
                                                                     }
                                                                 }
                                                             ]
@@ -1070,7 +1106,7 @@
         "readme": "<h1>Authelia</h1> <p><a href=\"https://www.authelia.com/\">Authelia</a> is a Single Sign-On Multi-Factor portal for web apps.</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "4.39.6",
+            "app_version": "4.39.15",
             "capabilities": [],
             "categories": [
                 "authentication"
@@ -1085,11 +1121,11 @@
                 "authentication",
                 "sso"
             ],
-            "lib_version": "2.1.45",
-            "lib_version_hash": "2b78b1918738cd8bbb292da9a3f5060f5122e085fa34559c5ae748ead981cff4",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -1124,7 +1160,7 @@
             ],
             "title": "Authelia",
             "train": "community",
-            "version": "1.0.26"
+            "version": "1.0.60"
         }
     }
 }

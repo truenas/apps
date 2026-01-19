@@ -45,7 +45,7 @@ module.exports = {
         executionMode: "update",
         commands: [
           // https://docs.renovatebot.com/templates/#other-available-fields
-          "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} patch {{{depName}}} {{{newVersion}}}",
+          "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} patch {{{depName}}} {{{newValue}}} {{{branchName}}}",
         ],
       },
     },
@@ -124,7 +124,7 @@ module.exports = {
     customVersioning(
       // RELEASE.2024-08-26T15-33-07Z
       "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
-      ["minio/minio"]
+      ["minio/minio", "quay.io/minio/aistor/minio"]
     ),
     customVersioning(
       // version-6.0.0
@@ -132,19 +132,9 @@ module.exports = {
       ["fireflyiii/core", "fireflyiii/data-importer"]
     ),
     customVersioning(
-      // 2024-08-29
-      "^(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)$",
-      ["alexta69/metube"]
-    ),
-    customVersioning(
       // 2.462.1-jdk17
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-jdk17$",
       ["jenkins/jenkins"]
-    ),
-    customVersioning(
-      // 1d42f9ac3-v1.68.2-go1.18.8
-      "^[a-z0-9]{9}-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-go\\d+\\.\\d+\\.\\d+$",
-      ["storjlabs/storagenode"]
     ),
     customVersioning(
       // 1.2.3.4, but not 1.2.0.4 (3rd digit 0 equals beta)
@@ -167,17 +157,7 @@ module.exports = {
       ["apache/tika"]
     ),
     customVersioning(
-      // 2.0.0-beta.1
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
-      ["ghcr.io/louislam/uptime-kuma"]
-    ),
-    customVersioning(
-      // postgresql-v2.15.1
-      "^postgresql-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["ghcr.io/umami-software/umami"]
-    ),
-    customVersioning(
-      // 20250122_091948  {year}{month}{day}_{build}
+      // 20250122_091948 {year}{month}{day}_{build}
       "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
       ["ghcr.io/nextcloud-releases/aio-imaginary"]
     ),
@@ -202,14 +182,14 @@ module.exports = {
       ["lmscommunity/lyrionmusicserver"]
     ),
     customVersioning(
-      // 2.1.0.3-beta
+      // 2.1.0.3-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-stable$",
       ["duplicati/duplicati"]
     ),
     customVersioning(
       // 18.0-20250218
       "^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)$",
-      ["odoo/odoo"]
+      ["odoo"]
     ),
     customVersioning(
       // 1.0.0-hash
@@ -278,8 +258,13 @@ module.exports = {
     ),
     customVersioning(
       // 17-3.5
-      "^17-(?<major>\\d+)\\.(?<minor>\\d+)$",
+      "^18-(?<major>\\d+)\\.(?<minor>\\d+)$",
       ["postgis/postgis"]
+    ),
+    customVersioning(
+      // 0.8.1-pg18-trixie
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pg18(-\\w+)?$",
+      ["pgvector/pgvector"]
     ),
     customVersioning(
       // 2.4-dev
@@ -287,8 +272,8 @@ module.exports = {
       ["wger/server"]
     ),
     customVersioning(
-      // 15-vectorchord0.3.0-pgvectors0.2.0
-      "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pgvectors0.2.0$",
+      // 15-vectorchord0.3.0
+      "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/immich-app/postgres"]
     ),
     customVersioning(
@@ -310,6 +295,36 @@ module.exports = {
       // apache-2.37.0
       "^apache-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["kimai/kimai2"]
+    ),
+    customVersioning(
+      // 4.0.0-beta.434
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
+      ["ghcr.io/coollabsio/coolify"]
+    ),
+    customVersioning(
+      // some-app-1.0.2
+      "^.+-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["opencloudeu/web-extensions"]
+    ),
+    customVersioning(
+      // appname-1.2.3
+      `^(?<compatibility>draw-io|progress-bars|json-viewer|external-sites|unzip|cast|importer|arcade|maps)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$`,
+      [`opencloudeu/web-extensions`]
+    ),
+    customVersioning(
+      // 1.0.0-alpha.67
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-alpha\\.(?<build>\\d+))?$",
+      ["rustfs/rustfs"]
+    ),
+    customVersioning(
+      // 10.0.160-mongo8
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-mongo8$",
+      ["ghcr.io/goofball222/unifi"]
+    ),
+    customVersioning(
+      // hardcover-v0.4.20.91
+      "^(?<compatibility>hardcover|softcover)-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["ghcr.io/pennydreadful/bookshelf"]
     ),
   ],
 };

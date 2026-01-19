@@ -1,18 +1,18 @@
 {
-    "1.6.30": {
+    "1.7.5": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/n8n/1.6.30",
-        "last_update": "2025-08-18 10:29:12",
+        "location": "/__w/apps/apps/trains/community/n8n/1.7.5",
+        "last_update": "2026-01-16 15:45:12",
         "required_features": [],
-        "human_version": "1.107.2_1.6.30",
-        "version": "1.6.30",
+        "human_version": "2.4.4_1.7.5",
+        "version": "1.7.5",
         "app_metadata": {
             "annotations": {
                 "min_scale_version": "24.10.2.2"
             },
-            "app_version": "1.107.2",
+            "app_version": "2.4.4",
             "capabilities": [],
             "categories": [
                 "productivity"
@@ -27,11 +27,11 @@
                 "workflows",
                 "automation"
             ],
-            "lib_version": "2.1.45",
-            "lib_version_hash": "2b78b1918738cd8bbb292da9a3f5060f5122e085fa34559c5ae748ead981cff4",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -68,11 +68,11 @@
             ],
             "sources": [
                 "https://github.com/n8n-io/n8n",
-                "https://hub.docker.com/r/n8nio/n8n"
+                "https://ghcr.io/n8n-io/n8n"
             ],
             "title": "n8n",
             "train": "community",
-            "version": "1.6.30"
+            "version": "1.7.5"
         },
         "schema": {
             "groups": [
@@ -128,16 +128,20 @@
                                 "description": "If you are changing this after the postgres directory has been initialized,</br>\nSTOP! and make sure you have a backup of your data.</br>\nChanging this will trigger an one way database upgrade.</br>\nYou can only select newer versions of postgres.</br>\nSelecting an older version will refuse to start.</br>\nIf something goes wrong, you will have to restore from backup.\n",
                                 "schema": {
                                     "type": "string",
-                                    "default": "postgres_17_image",
+                                    "default": "postgres_18_image",
                                     "required": true,
                                     "enum": [
                                         {
                                             "value": "postgres_15_image",
-                                            "description": "Postgres 15"
+                                            "description": "Postgres 15 (Deprecated)"
                                         },
                                         {
                                             "value": "postgres_17_image",
                                             "description": "Postgres 17"
+                                        },
+                                        {
+                                            "value": "postgres_18_image",
+                                            "description": "Postgres 18"
                                         }
                                     ]
                                 }
@@ -148,14 +152,13 @@
                                 "description": "The host address.</br>\nExamples:</br>\nn8n.example.com </br>\n192.168.1.100\n",
                                 "schema": {
                                     "type": "string",
-                                    "default": "localhost",
+                                    "default": "",
                                     "required": true
                                 }
                             },
                             {
                                 "variable": "db_password",
                                 "label": "Database Password",
-                                "description": "The password for n8n.",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -166,7 +169,6 @@
                             {
                                 "variable": "redis_password",
                                 "label": "Redis Password",
-                                "description": "The password for n8n.",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
@@ -177,12 +179,108 @@
                             {
                                 "variable": "encryption_key",
                                 "label": "Encryption Key",
-                                "description": "The encryption key for n8n.",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
                                     "required": true,
                                     "private": true
+                                }
+                            },
+                            {
+                                "variable": "runners_mode",
+                                "label": "Runners Mode",
+                                "description": "How to launch and run the task runner. </br>\n- Disabled: n8n will not launch any task runner. </br>\n- Internal: n8n will launch a task runner as child process. </br>\n- External: n8n will use external task runners. </br>\n",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "internal",
+                                    "enum": [
+                                        {
+                                            "value": "",
+                                            "description": "Disabled"
+                                        },
+                                        {
+                                            "value": "external",
+                                            "description": "External"
+                                        },
+                                        {
+                                            "value": "internal",
+                                            "description": "Internal"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "runners_auth_token",
+                                "label": "Runners Auth Token",
+                                "schema": {
+                                    "type": "string",
+                                    "show_if": [
+                                        [
+                                            "runners_mode",
+                                            "=",
+                                            "external"
+                                        ]
+                                    ],
+                                    "default": "",
+                                    "required": true,
+                                    "private": true
+                                }
+                            },
+                            {
+                                "variable": "enable_bundled_external_runner",
+                                "label": "Deploy container for external runner",
+                                "description": "Without this, you have to deploy your own runners.",
+                                "schema": {
+                                    "type": "boolean",
+                                    "show_if": [
+                                        [
+                                            "runners_mode",
+                                            "=",
+                                            "external"
+                                        ]
+                                    ],
+                                    "default": true
+                                }
+                            },
+                            {
+                                "variable": "additional_runner_envs",
+                                "label": "Additional Runner Environment Variables",
+                                "schema": {
+                                    "type": "list",
+                                    "show_if": [
+                                        [
+                                            "enable_bundled_external_runner",
+                                            "=",
+                                            true
+                                        ]
+                                    ],
+                                    "default": [],
+                                    "items": [
+                                        {
+                                            "variable": "env",
+                                            "label": "Environment Variable",
+                                            "schema": {
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "name",
+                                                        "label": "Name",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "value",
+                                                        "label": "Value",
+                                                        "schema": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
                                 }
                             },
                             {
@@ -334,6 +432,79 @@
                                 }
                             },
                             {
+                                "variable": "broker_port",
+                                "label": "Broker Port",
+                                "description": "Only used when Runners Mode is set to External.",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 30322,
+                                                "min": 1,
+                                                "max": 65535,
+                                                "required": true
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
                                 "variable": "certificate_id",
                                 "label": "Certificate ID",
                                 "description": "The certificate ID to use for n8n.",
@@ -357,8 +528,7 @@
                         "attrs": [
                             {
                                 "variable": "data",
-                                "label": "n8n Data Storage",
-                                "description": "The path to store n8n Data.",
+                                "label": "Data Storage",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -369,7 +539,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -416,7 +585,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "data"
                                                         }
@@ -503,8 +671,7 @@
                             },
                             {
                                 "variable": "postgres_data",
-                                "label": "n8n Postgres Data Storage",
-                                "description": "The path to store n8n Postgres Data.",
+                                "label": "Postgres Data Storage",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -515,7 +682,6 @@
                                             "schema": {
                                                 "type": "string",
                                                 "required": true,
-                                                "immutable": true,
                                                 "default": "ix_volume",
                                                 "enum": [
                                                     {
@@ -562,7 +728,6 @@
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
-                                                            "immutable": true,
                                                             "hidden": true,
                                                             "default": "postgres_data"
                                                         }
@@ -666,7 +831,6 @@
                             {
                                 "variable": "additional_storage",
                                 "label": "Additional Storage",
-                                "description": "Additional storage for n8n.",
                                 "schema": {
                                     "type": "list",
                                     "default": [],
@@ -680,12 +844,11 @@
                                                     {
                                                         "variable": "type",
                                                         "label": "Type",
-                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.\n",
+                                                        "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.</br>\nSMB Share: Is a SMB share that is mounted to as a volume.</br>\nNFS Share: Is a NFS share that is mounted to as a volume.\n",
                                                         "schema": {
                                                             "type": "string",
                                                             "required": true,
                                                             "default": "ix_volume",
-                                                            "immutable": true,
                                                             "enum": [
                                                                 {
                                                                     "value": "host_path",
@@ -698,6 +861,10 @@
                                                                 {
                                                                     "value": "cifs",
                                                                     "description": "SMB/CIFS Share (Mounts a volume to a SMB share)"
+                                                                },
+                                                                {
+                                                                    "value": "nfs",
+                                                                    "description": "NFS Share (Mounts a volume to a NFS share)"
                                                                 }
                                                             ]
                                                         }
@@ -812,7 +979,6 @@
                                                                     "schema": {
                                                                         "type": "string",
                                                                         "required": true,
-                                                                        "immutable": true,
                                                                         "default": "storage_entry"
                                                                     }
                                                                 },
@@ -898,6 +1064,41 @@
                                                                 }
                                                             ]
                                                         }
+                                                    },
+                                                    {
+                                                        "variable": "nfs_config",
+                                                        "label": "NFS Configuration",
+                                                        "description": "The configuration for the NFS dataset.",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "type",
+                                                                    "=",
+                                                                    "nfs"
+                                                                ]
+                                                            ],
+                                                            "attrs": [
+                                                                {
+                                                                    "variable": "server",
+                                                                    "label": "Server",
+                                                                    "description": "The server to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "variable": "path",
+                                                                    "label": "Path",
+                                                                    "description": "The path to mount the NFS share.",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
                                                     }
                                                 ]
                                             }
@@ -955,6 +1156,10 @@
                                                                 {
                                                                     "value": "n8n",
                                                                     "description": "n8n"
+                                                                },
+                                                                {
+                                                                    "value": "task-runner",
+                                                                    "description": "task-runner"
                                                                 },
                                                                 {
                                                                     "value": "postgres",
@@ -1023,7 +1228,7 @@
             "annotations": {
                 "min_scale_version": "24.10.2.2"
             },
-            "app_version": "1.107.2",
+            "app_version": "2.4.4",
             "capabilities": [],
             "categories": [
                 "productivity"
@@ -1038,11 +1243,11 @@
                 "workflows",
                 "automation"
             ],
-            "lib_version": "2.1.45",
-            "lib_version_hash": "2b78b1918738cd8bbb292da9a3f5060f5122e085fa34559c5ae748ead981cff4",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
-                    "email": "dev@ixsystems.com",
+                    "email": "dev@truenas.com",
                     "name": "truenas",
                     "url": "https://www.truenas.com/"
                 }
@@ -1079,11 +1284,11 @@
             ],
             "sources": [
                 "https://github.com/n8n-io/n8n",
-                "https://hub.docker.com/r/n8nio/n8n"
+                "https://ghcr.io/n8n-io/n8n"
             ],
             "title": "n8n",
             "train": "community",
-            "version": "1.6.30"
+            "version": "1.7.5"
         }
     }
 }

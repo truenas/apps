@@ -1,0 +1,229 @@
+{% from "macros/nc.jinja.sh" import occ, hosts_update, trusted_domains_update, imaginary_url %}
+{% from "macros/nc.jinja.conf" import opcache, php, limit_request_body, use_x_real_ip_in_logs, nginx_conf %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{# TODO: Remove this in the future #}
+{% if values.nextcloud.postgres_image_selector == "postgres_13_image" %}
+  {% do tpl.notes.add_deprecation("Postgres 13 is deprecated and will be removed in the near future. Please upgrade.") %}
+{% endif %}
+
+{% set nc_custom_image = namespace(x=[]) %}
+{% if values.nextcloud.apt_packages %}
+  {% do nc_custom_image.x.append("RUN apt update || { echo 'Failed to update apt cache. Exiting...'; exit 1; }") %}
+
+  {# Main packages #}
+  {% for pkg in values.nextcloud.apt_packages %}
+    {% do nc_custom_image.x.append("RUN apt install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(pkg, pkg)) %}
+  {% endfor %}
+
+  {# Additional Dependencies #}
+  {% for pkg in values.nextcloud.apt_packages if values.consts.packages[pkg] %}
+    {% for dep in values.consts.packages[pkg].additional_apt %}
+      {% do nc_custom_image.x.append("RUN apt install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(dep, dep)) %}
+    {% endfor %}
+    {% for dep in values.consts.packages[pkg].pecl %}
+      {% do nc_custom_image.x.append("RUN pecl install %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(dep, dep)) %}
+    {% endfor %}
+    {% for dep in values.consts.packages[pkg].docker_php_ext %}
+      {% do nc_custom_image.x.append("RUN docker-php-ext-enable %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(dep, dep)) %}
+    {% endfor %}
+    {% for dep in values.consts.packages[pkg].ldd %}
+      {% do nc_custom_image.x.append("RUN ldd \"$(php -r 'echo ini_get(\"extension_dir\");')\"/%s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(dep, dep)) %}
+    {% endfor %}
+
+    {# Tesseract OCR #}
+    {% for lang in values.nextcloud.tesseract_languages if "ocrmypdf" in values.nextcloud.apt_packages %}
+      {% set lang_pack = "tesseract-ocr-%s" | format(lang|replace("_", "-")) %}
+      {% do nc_custom_image.x.append("RUN apt install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(lang_pack, lang_pack)) %}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set nc_container = tpl.add_container(values.consts.nextcloud_container_name, "image") %}
+
+{% set pg_config = {
+  "user": values.nextcloud.db_user,
+  "password": values.nextcloud.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(
+  values.consts.postgres_container_name,
+  values.nextcloud.postgres_image_selector,
+  pg_config, perm_container
+) %}
+
+{% do tpl.funcs.disallow_chars(values.nextcloud.redis_password, ["&", "@", "#", "%"], "redis_password") %}
+{% set redis_config = {
+  "password": values.nextcloud.redis_password,
+  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+
+{% set nc_caps = ["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "NET_BIND_SERVICE", "NET_RAW"] %}
+{# https://github.com/nextcloud/docker/issues/1796 #}
+{% set nc_confs = [
+  ("occ", occ(values), "/usr/local/bin/occ", "0755"),
+  ("opcache.ini", opcache(values), "/usr/local/etc/php/conf.d/opcache-z-99.ini", ""),
+  ("php.ini", php(values), "/usr/local/etc/php/conf.d/nextcloud-z-99.ini", ""),
+  ("limitrequestbody.conf", limit_request_body(values), "/etc/apache2/conf-enabled/limitrequestbody.conf", ""),
+] %}
+{% set nc_storage = namespace(x=[
+  ("/tmp", {"type": "anonymous", "volume_config": {}}),
+]) %}
+
+{% do nc_storage.x.append(("/var/www/html", values.storage.html)) %}
+{% do nc_storage.x.append((values.nextcloud.data_dir_path, values.storage.data)) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do nc_storage.x.append((store.mount_path, store)) %}
+{% endfor %}
+
+{% set nc_env = namespace(x=[
+  ("NEXTCLOUD_DATA_DIR", values.nextcloud.data_dir_path),
+  ("PHP_UPLOAD_LIMIT", "%dG"|format(values.nextcloud.php_upload_limit)),
+  ("PHP_MEMORY_LIMIT", "%dM"|format(values.nextcloud.php_memory_limit)),
+  ("NEXTCLOUD_ADMIN_USER", values.nextcloud.admin_user),
+  ("NEXTCLOUD_ADMIN_PASSWORD", values.nextcloud.admin_password),
+  ("REDIS_HOST_PORT", 6379),
+  ("REDIS_HOST", values.consts.redis_container_name),
+  ("REDIS_HOST_PASSWORD", values.nextcloud.redis_password),
+  ("POSTGRES_PASSWORD", values.nextcloud.db_password),
+  ("POSTGRES_HOST", postgres.get_url("host_port")),
+  ("POSTGRES_DB", values.consts.db_name),
+  ("POSTGRES_USER", values.nextcloud.db_user),
+]) %}
+{% set trusted_domains = namespace(x=["127.0.0.1", "localhost", values.consts.nextcloud_container_name]) %}
+
+{% set host = namespace(x="") %}
+{% if values.nextcloud.host %}
+  {% set host.x = values.nextcloud.host if ":" in values.nextcloud.host else "%s:%d"|format(values.nextcloud.host, values.network.web_port.port_number) %}
+  {% set host.x = host.x.replace("https://", "").replace("http://", "") %}
+{% endif %}
+
+{% if values.network.certificate_id %}
+  {% do trusted_domains.x.append(values.consts.nginx_container_name) %}
+
+  {% do nc_env.x.append(("APACHE_DISABLE_REWRITE_IP", 1)) %}
+  {% do nc_env.x.append(("OVERWRITEPROTOCOL", "https")) %}
+  {% do nc_env.x.append(("TRUSTED_PROXIES", ["127.0.0.1", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"] | join(" "))) %}
+  {% do nc_confs.append(("logformat.conf", use_x_real_ip_in_logs(), "/etc/apache2/conf-enabled/logformat.conf", "")) %}
+  {% if values.nextcloud.host and values.network.nginx.use_different_port %}
+    {% set temp_host = values.nextcloud.host.split(":") %}
+    {% if temp_host[1] and temp_host[1] != values.network.nginx.external_port %}
+      {% do tpl.notes.add_warning("The port in the Host field is different from the external port. The port from the Host field will be ignored.") %}
+    {% endif %}
+    {% set host.x = "%s:%d"|format(temp_host[0], values.network.nginx.external_port) %}
+    {% set host.x = host.x.replace("https://", "").replace("http://", "") %}
+    {% do nc_env.x.append(("OVERWRITEHOST", host.x)) %}
+  {% endif %}
+{% endif %}
+
+{% if host.x %}
+  {% set parsed_url = tpl.funcs.url_to_dict(host.x, true) %}
+  {% do trusted_domains.x.append(parsed_url.host) %}
+{% endif %}
+{% do nc_env.x.append(("NEXTCLOUD_TRUSTED_DOMAINS", trusted_domains.x|unique|list|join(" "))) %}
+
+{% do nc_container.build_image(nc_custom_image.x) %}
+{% do nc_container.set_user(0, 0) %}
+{% do nc_container.add_caps(nc_caps) %}
+{% do nc_container.healthcheck.set_test("curl", {"port": 80, "path": "/status.php", "headers": [("Host", "localhost")]}) %}
+{% do nc_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do nc_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do nc_container.configs.add("ix-update-hosts-script.sh", hosts_update(values), "/docker-entrypoint-hooks.d/before-starting/ix-update-hosts-script.sh", "0755") %}
+{% do nc_container.configs.add("ix-update-trusted-domains-script.sh", trusted_domains_update(), "/docker-entrypoint-hooks.d/before-starting/ix-update-trusted-domains-script.sh", "0755") %}
+{% for c in nc_confs %}
+  {% do nc_container.configs.add(c[0], c[1], c[2], c[3]) %}
+{% endfor %}
+{% for e in nc_env.x %}
+  {% do nc_container.environment.add_env(e[0], e[1]) %}
+{% endfor %}
+{% for s in nc_storage.x %}
+  {% do nc_container.add_storage(s[0], s[1]) %}
+{% endfor %}
+{% if not values.network.certificate_id %}
+  {# We need to allow show the `port_number` field, because it applies when nginx is used #}
+  {# But when only nextcloud is used with exposed bind_mode, port_number is not applied, hence the warning #}
+  {% if values.network.web_port.bind_mode == "exposed" %}
+    {% do tpl.notes.add_warning(
+      "Nextcloud 'Web Port' is set to 'exposed', 'Port Number' is not applied to the internal container port."
+      " Make sure you have explicitly set a port in the `Host` field in this case, otherwise it may lead to misconfiguration."
+      " Nextcloud internally will always use port 80."
+    ) %}
+  {% endif %}
+  {% do nc_container.add_port(values.network.web_port, {"container_port": 80}) %}
+{% endif %}
+{% if values.nextcloud.imaginary.enabled %}
+  {% do nc_container.configs.add(
+    "ix-imaginary-url.sh",
+    imaginary_url(values.consts.imaginary_container_name, values.consts.imaginary_port),
+    "/docker-entrypoint-hooks.d/before-starting/ix-imaginary-url.sh", "0755",
+  ) %}
+{% endif %}
+
+{% do nc_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
+
+{% if values.nextcloud.cron.enabled %}
+  {% set cron_container = tpl.add_container(values.consts.cron_container_name, "image") %}
+  {% do cron_container.build_image(nc_custom_image.x) %}
+  {% do cron_container.set_user(0,0) %}
+  {% do cron_container.add_caps(nc_caps) %}
+  {% do cron_container.healthcheck.set_custom_test("pidof busybox > /dev/null") %}
+  {% do cron_container.set_entrypoint(["/bin/sh", "-c"]) %}
+  {% set cmd = [
+    "echo '%s php -f /var/www/html/cron.php' > /var/spool/cron/crontabs/www-data || { echo 'Failed to create crontab'; exit 1; }"|format(values.nextcloud.cron.schedule),
+    "/cron.sh || { echo 'Failed to run cron'; exit 1; }"
+  ]|join("\n") %}
+  {% do cron_container.set_command([cmd]) %}
+  {% do cron_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
+  {% for c in nc_confs %}
+    {% do cron_container.configs.add(c[0], c[1], c[2], c[3]) %}
+  {% endfor %}
+  {% for e in nc_env.x %}
+    {% do cron_container.environment.add_env(e[0], e[1]) %}
+  {% endfor %}
+  {% for s in nc_storage.x %}
+    {% do cron_container.add_storage(s[0], s[1]) %}
+  {% endfor %}
+  {% do cron_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
+{% endif %}
+
+{% if values.nextcloud.imaginary.enabled %}
+  {% set imaginary_container = tpl.add_container(values.consts.imaginary_container_name, "imaginary_image") %}
+  {% do imaginary_container.add_caps(["SYS_NICE"]) %}
+  {% do imaginary_container.set_user(568, 568) %}
+  {% do imaginary_container.healthcheck.set_test("wget", {"port": 9000, "path": "/health"}) %}
+{% endif %}
+
+{% if values.network.certificate_id %}
+  {% set nginx_container = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
+  {% do nginx_container.deploy.resources.remove_devices() %}
+  {% do nginx_container.add_caps(["NET_BIND_SERVICE", "CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "NET_RAW"]) %}
+  {% do nginx_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
+  {% do nginx_container.configs.add("private", values.ix_certificates[values.network.certificate_id].privatekey, values.consts.ssl_key_path) %}
+  {% do nginx_container.configs.add("public", values.ix_certificates[values.network.certificate_id].certificate, values.consts.ssl_cert_path) %}
+  {% do nginx_container.configs.add("nginx.conf", nginx_conf(values), "/etc/nginx/nginx.conf", "0600") %}
+  {% for conf_path in values.network.nginx.custom_confs %}
+    {% do nginx_container.add_storage("/etc/nginx/includes/%d.conf"|format(loop.index0), {"type": "host_path", "host_path_config": {"path": conf_path}}) %}
+  {% endfor %}
+  {% do nginx_container.add_storage("/tmp", {"type": "anonymous", "volume_config": {}}) %}
+  {% do nginx_container.healthcheck.set_test("curl", {
+    "port": values.network.web_port.port_number, "path": "/status.php",
+    "headers": [("Host", "localhost")], "scheme": "https"
+  }) %}
+  {% do nginx_container.add_port(values.network.web_port) %}
+{% endif %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do nc_container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https" if values.network.certificate_id else "http"}) %}
+
+{{ tpl.render() | tojson }}

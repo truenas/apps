@@ -485,6 +485,8 @@ class AppQuestionsValidator:
             for attr in schema["attrs"]:
                 self.validate_question(attr)
         elif schema_type == "list":
+            if "min_length" in schema:
+                raise ValueError(f"List schema with min_length not supported, use min: {schema}")
             for item in schema["items"]:
                 self.validate_question(item)
 
@@ -616,6 +618,11 @@ class AppMetadataUpdater:
             needs_version_bump = True
         app_config["capabilities"] = new_capabilities_data
 
+        new_maintainers = [{"email": "dev@truenas.com", "name": "truenas", "url": "https://www.truenas.com/"}]
+        if app_config.get("maintainers", []) != new_maintainers:
+            app_config["maintainers"] = new_maintainers
+            needs_version_bump = True
+
         # Bump version if needed
         if needs_version_bump and should_bump_version:
             old_version = app_config["version"]
@@ -642,15 +649,25 @@ class AppMetadataUpdater:
             logger.warning(f"{app_manifest.name}: missing changelog_url")
 
         # Validate media URLs
-        expected_base_url = f"https://media.sys.truenas.net/apps/{app_name}"
+        expected_base_url = "https://media.sys.truenas.net/apps"
+        app_expected_base_url = f"{expected_base_url}/{app_name}"
 
         icon_url = app_config.get("icon", "")
-        if not icon_url.startswith(f"{expected_base_url}/icons/"):
+        if not icon_url.startswith(expected_base_url):
+            logger.error(f"{app_manifest.name}: invalid icon URL: {icon_url}. Must use {expected_base_url} as base")
+            sys.exit(1)
+
+        if not icon_url.startswith(f"{app_expected_base_url}/icons/"):
             logger.warning(f"{app_manifest.name}: invalid icon URL: {icon_url}")
 
-        for screenshot_url in app_config.get("screenshots", []):
-            if not screenshot_url.startswith(f"{expected_base_url}/screenshots/"):
-                logger.warning(f"{app_manifest.name}: invalid screenshot URL: {screenshot_url}")
+        for ss_url in app_config.get("screenshots", []):
+            if not ss_url.startswith(expected_base_url):
+                logger.error(
+                    f"{app_manifest.name}: invalid screenshot URL: {ss_url}. Must use {expected_base_url} as base"
+                )
+                sys.exit(1)
+            if not ss_url.startswith(f"{app_expected_base_url}/screenshots/"):
+                logger.warning(f"{app_manifest.name}: invalid screenshot URL: {ss_url}")
 
 
 class TrueNASAppCapabilityManager:
