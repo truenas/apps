@@ -3,7 +3,7 @@
 {%- set cfg_file = values.consts.config_file_path %}
 if [ ! -f {{ cfg_file }} ]; then
     echo "Creating a new configuration file at {{ cfg_file }}"
-    touch {{ cfg_file }}
+    /usr/local/bin/stalwart --init /opt/stalwart
 fi
 
 {%- set base_cmd = "dasel put --file %s --type" |format(cfg_file) %}
