@@ -1,9 +1,19 @@
+{% macro init(values) -%}
+#!/bin/bash
+
+{% set cfg_file = values.consts.config_file_path %}
+if [ ! -f {{ cfg_file }} ]; then
+    echo "Creating a new configuration file at {{ cfg_file }}"
+    /usr/local/bin/stalwart --init /opt/stalwart
+fi
+{%- endmacro %}
+
 {% macro setup(values, cfg) -%}
 #!/bin/bash
 {%- set cfg_file = values.consts.config_file_path %}
 if [ ! -f {{ cfg_file }} ]; then
-    echo "Creating a new configuration file at {{ cfg_file }}"
-    /usr/local/bin/stalwart --init /opt/stalwart
+    echo "Stalwart configuration file not found at {{ cfg_file }}"
+    exit 1
 fi
 
 {%- set base_cmd = "dasel put --file %s --type" |format(cfg_file) %}

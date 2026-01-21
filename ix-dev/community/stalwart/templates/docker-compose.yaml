@@ -1,8 +1,9 @@
-{% from "macros/setup.sh" import setup %}
+{% from "macros/setup.sh" import setup, init %}
 
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.stalwart_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "image") %}
 {% set config = tpl.add_container(values.consts.config_container_name, "toml_image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
@@ -14,15 +15,23 @@
   {"type": "string", "path": ".server.listener.management.protocol", "value": "http"},
 ] %}
 
-{% do config.setup_as_helper() %}
+{% for c in [config, init] %}
+  {% do c.setup_as_helper() %}
+{% endfor %}
+
+{% do init.configs.add("init", init(values), "/init.sh", "0755") %}
+{% do init.set_entrypoint(["/init.sh"]) %}
+
+{% do config.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
 {% do config.configs.add("config", setup(values, cfg), "/config.sh", "0755") %}
 {% do config.set_entrypoint(["/config.sh"]) %}
 
-{% set containers = [c1, config] %}
+{% set containers = [c1, config, init] %}
 {% for c in containers %}
   {% do c.set_user(values.run_as.user, values.run_as.group) %}
   {% do c.add_storage("/opt/stalwart", values.storage.data) %}
 {% endfor %}
+
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
