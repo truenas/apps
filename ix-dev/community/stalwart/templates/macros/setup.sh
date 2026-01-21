@@ -1,4 +1,4 @@
-{% macro init(values) -%}
+{% macro init_file(values) -%}
 #!/bin/bash
 
 {% set cfg_file = values.consts.config_file_path %}
