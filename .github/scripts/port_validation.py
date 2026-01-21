@@ -112,7 +112,7 @@ def main():
     if dupe_found:
         print("Duplicate ports found, please use one of the available ports.")
         sys.exit(1)
-    if sys.argv[1] == "docs":
+    if len(sys.argv) > 1 and sys.argv[1] == "docs":
         print("Ports with documentation:")
         for app_info, port_name, app_port in port_docs:
             print(f"{app_info},{port_name},{app_port}")
