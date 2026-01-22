@@ -4,7 +4,7 @@
 {% set cfg_file = values.consts.config_file_path %}
 if [ ! -f {{ cfg_file }} ]; then
     echo "Creating a new configuration file at {{ cfg_file }}"
-    /usr/local/bin/stalwart --init /opt/stalwart
+    /usr/local/bin/stalwart --init {{ values.consts.base_path }}
 fi
 {%- endmacro %}
 
