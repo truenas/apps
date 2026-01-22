@@ -161,11 +161,18 @@
   {% do csp.x.update({key: values | unique | list}) %}
 {% endfor %}
 
+{% set proxy_config = namespace(x={}) %}
 {% if proxy_routes.x %}
-  {% set proxy_yaml = tpl.funcs.to_yaml({"additional_policies": [{"name": "default", "routes": proxy_routes.x}]}) %}
-  {% do c1.configs.add("opencloud_proxy", proxy_yaml, values.consts.opencloud_proxy_path) %}
+  {% do proxy_config.x.update({"additional_policies": [{"name": "default", "routes": proxy_routes.x}]}) %}
+{% endif %}
+{% if values.opencloud.enabled_role_assignment %}
+  {% do proxy_config.x.update({"role_assignment": values.opencloud.role_assignment}) %}
 {% endif %}
 
+{% if proxy_config.x %}
+  {% set proxy_yaml = tpl.funcs.to_yaml(proxy_config.x) %}
+  {% do c1.configs.add("opencloud_proxy", proxy_yaml, values.consts.opencloud_proxy_path) %}
+{% endif %}
 {% set csp_yaml = tpl.funcs.to_yaml({"directives": csp.x}) %}
 {% set csp_notes = "CSP Rules that are added on top of the OpenCloud Defaults:\n\n```yaml\n%s```"|format(csp_yaml) %}
 {% set body.x = "%s\n\n%s"|format(body.x, csp_notes) %}
