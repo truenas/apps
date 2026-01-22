@@ -16,8 +16,12 @@ function check_path() {
 check_path "{{ store.mount_path }}"
 {%- endfor %}
 
-echo "Merging {{ values.consts.cron_file_path }} with /etc/crontabs/abc"
-cat {{ values.consts.cron_file_path }} /etc/crontabs/abc | sort | uniq > /tmp/crontab-abc
-crontab -u abc /tmp/crontab-abc || { echo "Failed to setup crontab"; exit 1; }
-echo "Finished merging {{ values.consts.cron_file_path }} with /etc/crontabs/abc"
+echo "Deduplicating {{ values.consts.cron_file_path }} and /etc/crontabs/abc"
+cat /etc/crontabs/abc | sort | uniq > /tmp/crontab-abc
+cat {{ values.consts.cron_file_path }} | sort | uniq > /tmp/crontab-root
+
+echo "Setting up crontabs for abc and root users"
+crontab -u abc /tmp/crontab-abc || { echo "Failed to setup abc crontab"; exit 1; }
+crontab -u root /tmp/crontab-root || { echo "Failed to setup root crontab"; exit 1; }
+echo "Crontabs setup complete"
 {%- endmacro %}
