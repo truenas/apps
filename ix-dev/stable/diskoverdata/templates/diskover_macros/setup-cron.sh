@@ -16,7 +16,7 @@ function check_path() {
 check_path "{{ store.mount_path }}"
 {%- endfor %}
 
-echo "Deduplicating {{ values.consts.cron_file_path }} and /etc/crontabs/abc"
+echo "Deduplicating individual crontab files for abc and root users"
 cat /etc/crontabs/abc | sort | uniq > /tmp/crontab-abc
 cat {{ values.consts.cron_file_path }} | sort | uniq > /tmp/crontab-root
 
