@@ -8,43 +8,54 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% set cfg = [
-  {"path": ".server.listener.http.bind", "type": "string", "value": "[::]:%d"|format(values.network.http_port.port_number)},
-  {"path": ".server.listener.http.protocol", "type": "string", "value": "http"},
-
-  {"path": ".server.listener.https.bind", "type": "string", "value": "[::]:%d"|format(values.network.https_port.port_number)},
-  {"path": ".server.listener.https.protocol", "type": "string", "value": "http"},
-  {"path": ".server.listener.https.tls.implicit", "type": "bool", "value": true},
-
-  {"path": ".server.listener.smtp.bind", "type": "string", "value": "[::]:%d"|format(values.network.smtp_port.port_number)},
-  {"path": ".server.listener.smtp.protocol", "type": "string", "value": "smtp"},
-
-  {"path": ".server.listener.submission.bind", "type": "string", "value": "[::]:%d"|format(values.network.submission_port.port_number)},
-  {"path": ".server.listener.submission.protocol", "type": "string", "value": "smtp"},
-
-  {"path": ".server.listener.submissions.bind", "type": "string", "value": "[::]:%d"|format(values.network.submissions_port.port_number)},
-  {"path": ".server.listener.submissions.protocol", "type": "string", "value": "smtp"},
-  {"path": ".server.listener.submissions.tls.implicit", "type": "bool", "value": true},
-
-  {"path": ".server.listener.imap.bind", "type": "string", "value": "[::]:%d"|format(values.network.imap_port.port_number)},
-  {"path": ".server.listener.imap.protocol", "type": "string", "value": "imap"},
-
-  {"path": ".server.listener.imaptls.bind", "type": "string", "value": "[::]:%d"|format(values.network.imaptls_port.port_number)},
-  {"path": ".server.listener.imaptls.protocol", "type": "string", "value": "imap"},
-  {"path": ".server.listener.imaptls.tls.implicit", "type": "bool", "value": true},
-
-  {"path": ".server.listener.pop3.bind", "type": "string", "value": "[::]:%d"|format(values.network.pop3_port.port_number)},
-  {"path": ".server.listener.pop3.protocol", "type": "string", "value": "pop3"},
-
-  {"path": ".server.listener.pop3s.bind", "type": "string", "value": "[::]:%d"|format(values.network.pop3s_port.port_number)},
-  {"path": ".server.listener.pop3s.protocol", "type": "string", "value": "pop3"},
-  {"path": ".server.listener.pop3s.tls.implicit", "type": "bool", "value": true},
-
-  {"path": ".server.listener.sieve.bind", "type": "string", "value": "[::]:%d"|format(values.network.sieve_port.port_number)},
-  {"path": ".server.listener.sieve.protocol", "type": "string", "value": "managesieve"},
-
+{% set cfg = namespace(x=[
   {"path": ".store.rocksdb.path", "type": "string", "value": "%s/data"|format(values.consts.base_path)},
-] %}
+]) %}
+{% if values.network.http_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.http.bind", "type": "string", "value": "[::]:%d"|format(values.network.http_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.http.protocol", "type": "string", "value": "http"}) %}
+{% endif %}
+{% if values.network.https_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.https.bind", "type": "string", "value": "[::]:%d"|format(values.network.https_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.https.protocol", "type": "string", "value": "http"}) %}
+  {% do cfg.x.append({"path": ".server.listener.https.tls.implicit", "type": "bool", "value": true}) %}
+{% endif %}
+{% if values.network.smtp_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.smtp.bind", "type": "string", "value": "[::]:%d"|format(values.network.smtp_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.smtp.protocol", "type": "string", "value": "smtp"}) %}
+{% endif %}
+{% if values.network.submission_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.submission.bind", "type": "string", "value": "[::]:%d"|format(values.network.submission_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.submission.protocol", "type": "string", "value": "smtp"}) %}
+  ]) %}
+{% endif %}
+{% if values.network.submissions_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.submissions.bind", "type": "string", "value": "[::]:%d"|format(values.network.submissions_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.submissions.protocol", "type": "string", "value": "smtp"}) %}
+  {% do cfg.x.append({"path": ".server.listener.submissions.tls.implicit", "type": "bool", "value": true}) %}
+{% endif %}
+{% if values.network.imap_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.imap.bind", "type": "string", "value": "[::]:%d"|format(values.network.imap_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.imap.protocol", "type": "string", "value": "imap"}) %}
+{% endif %}
+{% if values.network.imaptls_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.imaptls.bind", "type": "string", "value": "[::]:%d"|format(values.network.imaptls_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.imaptls.protocol", "type": "string", "value": "imap"}) %}
+  {% do cfg.x.append({"path": ".server.listener.imaptls.tls.implicit", "type": "bool", "value": true}) %}
+{% endif %}
+{% if values.network.pop3_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.pop3.bind", "type": "string", "value": "[::]:%d"|format(values.network.pop3_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.pop3.protocol", "type": "string", "value": "pop3"}) %}
+{% endif %}
+{% if values.network.pop3s_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.pop3s.bind", "type": "string", "value": "[::]:%d"|format(values.network.pop3s_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.pop3s.protocol", "type": "string", "value": "pop3"}) %}
+  {% do cfg.x.append({"path": ".server.listener.pop3s.tls.implicit", "type": "bool", "value": true}) %}
+{% endif %}
+{% if values.network.sieve_port.bind_mode %}
+  {% do cfg.x.append({"path": ".server.listener.sieve.bind", "type": "string", "value": "[::]:%d"|format(values.network.sieve_port.port_number)}) %}
+  {% do cfg.x.append({"path": ".server.listener.sieve.protocol", "type": "string", "value": "managesieve"}) %}
+{% endif %}
 
 {% for c in [config, init] %}
   {% do c.setup_as_helper() %}
@@ -54,7 +65,7 @@
 {% do init.set_entrypoint(["/init.sh"]) %}
 
 {% do config.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
-{% do config.configs.add("config", setup(values, cfg), "/config.sh", "0755") %}
+{% do config.configs.add("config", setup(values, cfg.x), "/config.sh", "0755") %}
 {% do config.set_entrypoint(["/config.sh"]) %}
 
 {% set containers = [c1, config, init] %}
