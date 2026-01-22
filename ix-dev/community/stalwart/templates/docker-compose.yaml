@@ -9,10 +9,39 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set cfg = [
-  {"type": "string", "path": ".server.listener.smtp.bind", "value": "[::]:%d"|format(values.network.smtp_port.port_number)},
-  {"type": "string", "path": ".server.listener.smtp.protocol", "value": "smtp"},
-  {"type": "string", "path": ".server.listener.management.bind", "value": "[::]:%d"|format(values.network.web_port.port_number)},
-  {"type": "string", "path": ".server.listener.management.protocol", "value": "http"},
+  {"path": ".server.listener.http.bind", "type": "string", "value": "[::]:%d"|format(values.network.http_port.port_number)},
+  {"path": ".server.listener.http.protocol", "type": "string", "value": "http"},
+
+  {"path": ".server.listener.https.bind", "type": "string", "value": "[::]:%d"|format(values.network.https_port.port_number)},
+  {"path": ".server.listener.https.protocol", "type": "string", "value": "http"},
+  {"path": ".server.listener.https.tls.implicit", "type": "bool", "value": true},
+
+  {"path": ".server.listener.smtp.bind", "type": "string", "value": "[::]:%d"|format(values.network.smtp_port.port_number)},
+  {"path": ".server.listener.smtp.protocol", "type": "string", "value": "smtp"},
+
+  {"path": ".server.listener.submission.bind", "type": "string", "value": "[::]:%d"|format(values.network.submission_port.port_number)},
+  {"path": ".server.listener.submission.protocol", "type": "string", "value": "smtp"},
+
+  {"path": ".server.listener.submissions.bind", "type": "string", "value": "[::]:%d"|format(values.network.submissions_port.port_number)},
+  {"path": ".server.listener.submissions.protocol", "type": "string", "value": "smtp"},
+  {"path": ".server.listener.submissions.tls.implicit", "type": "bool", "value": true},
+
+  {"path": ".server.listener.imap.bind", "type": "string", "value": "[::]:%d"|format(values.network.imap_port.port_number)},
+  {"path": ".server.listener.imap.protocol", "type": "string", "value": "imap"},
+
+  {"path": ".server.listener.imaptls.bind", "type": "string", "value": "[::]:%d"|format(values.network.imaptls_port.port_number)},
+  {"path": ".server.listener.imaptls.protocol", "type": "string", "value": "imap"},
+  {"path": ".server.listener.imaptls.tls.implicit", "type": "bool", "value": true},
+
+  {"path": ".server.listener.pop3.bind", "type": "string", "value": "[::]:%d"|format(values.network.pop3_port.port_number)},
+  {"path": ".server.listener.pop3.protocol", "type": "string", "value": "pop3"},
+
+  {"path": ".server.listener.pop3s.bind", "type": "string", "value": "[::]:%d"|format(values.network.pop3s_port.port_number)},
+  {"path": ".server.listener.pop3s.protocol", "type": "string", "value": "pop3"},
+  {"path": ".server.listener.pop3s.tls.implicit", "type": "bool", "value": true},
+
+  {"path": ".server.listener.sieve.bind", "type": "string", "value": "[::]:%d"|format(values.network.sieve_port.port_number)},
+  {"path": ".server.listener.sieve.protocol", "type": "string", "value": "managesieve"},
 ] %}
 
 {% for c in [config, init] %}
@@ -35,11 +64,19 @@
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
-{% do c1.healthcheck.set_custom_test(["CMD", "stalwart-cli", "-u", "http://127.0.0.1:%d"|format(values.network.web_port.port_number), "-a", "server", "healthcheck"]) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "stalwart-cli", "-u", "http://127.0.0.1:%d"|format(values.network.http_port.port_number), "-a", "server", "healthcheck"]) %}
 
 {% do c1.environment.add_user_envs(values.stalwart.additional_envs) %}
-{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_port(values.network.http_port) %}
 {% do c1.add_port(values.network.smtp_port) %}
+{% do c1.add_port(values.network.submission_port) %}
+{% do c1.add_port(values.network.submissions_port) %}
+{% do c1.add_port(values.network.imap_port) %}
+{% do c1.add_port(values.network.imaptls_port) %}
+{% do c1.add_port(values.network.pop3_port) %}
+{% do c1.add_port(values.network.pop3s_port) %}
+{% do c1.add_port(values.network.sieve_port) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
