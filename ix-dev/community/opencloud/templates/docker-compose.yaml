@@ -165,23 +165,30 @@
 {% if proxy_routes.x %}
   {% do proxy_config.x.update({"additional_policies": [{"name": "default", "routes": proxy_routes.x}]}) %}
 {% endif %}
-{% if values.opencloud.oidc_role_mapper.role_mapping %}
+{% if values.opencloud.additional_oidc_role_config.enabled %}
   {% do c1.environment.add_env("PROXY_ROLE_ASSIGNMENT_DRIVER", "oidc") %}
-  {% do c1.environment.add_env("PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM", values.opencloud.oidc_role_mapper.role_claim) %}
+  {% do c1.environment.add_env("PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM", values.opencloud.additional_oidc_role_config.role_claim) %}
 
-  {% set role_mapper = {"oidc_role_mapper": {"role_mapping": values.opencloud.oidc_role_mapper.role_mapping}} %}
+  {% set role_mapper = {"oidc_role_mapper": {"role_mapping": values.opencloud.additional_oidc_role_config.role_mapping}} %}
   {% do proxy_config.x.update({"role_assignment": role_mapper}) %}
 {% endif %}
 
 {% if proxy_config.x %}
   {% set proxy_yaml = tpl.funcs.to_yaml(proxy_config.x) %}
   {% do c1.configs.add("opencloud_proxy", proxy_yaml, values.consts.opencloud_proxy_path) %}
-{% endif %}
-{% set csp_yaml = tpl.funcs.to_yaml({"directives": csp.x}) %}
-{% set csp_notes = "CSP Rules that are added on top of the OpenCloud Defaults:\n\n```yaml\n%s```"|format(csp_yaml) %}
-{% set body.x = "%s\n\n%s"|format(body.x, csp_notes) %}
 
-{% do c1.configs.add("csp", csp_yaml, values.consts.csp_config_path) %}
+  {% set proxy_notes = "Proxy Configuration:\n\n```yaml\n%s```"|format(proxy_yaml) %}
+  {% set body.x = "%s\n\n%s"|format(body.x, proxy_notes) %}
+{% endif %}
+
+{% if csp.x %}
+  {% set csp_yaml = tpl.funcs.to_yaml({"directives": csp.x}) %}
+  {% do c1.configs.add("csp", csp_yaml, values.consts.csp_config_path) %}
+
+  {% set csp_notes = "CSP Rules that are added on top of the OpenCloud Defaults:\n\n```yaml\n%s```"|format(csp_yaml) %}
+  {% set body.x = "%s\n\n%s"|format(body.x, csp_notes) %}
+{% endif %}
+
 {% do c1.environment.add_env("OC_ADD_RUN_SERVICES", extra_services.x | unique | list | join(",")) %}
 {% do c1.environment.add_env("IDM_ADMIN_PASSWORD", "admin") %}
 {% do c1.environment.add_user_envs(values.opencloud.additional_envs) %}
