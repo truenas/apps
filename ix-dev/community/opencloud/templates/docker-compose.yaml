@@ -165,14 +165,12 @@
 {% if proxy_routes.x %}
   {% do proxy_config.x.update({"additional_policies": [{"name": "default", "routes": proxy_routes.x}]}) %}
 {% endif %}
-{% if values.opencloud.enabled_role_assignment %}
-  {% do c1.environment.add_env("PROXY_ROLE_ASSIGNMENT_DRIVER", values.opencloud.role_assignment.driver) %}
-  {% if values.opencloud.role_assignment.driver == "oidc" %}
-    {% do c1.environment.add_env("PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM", values.opencloud.role_assignment.oidc_role_mapper.role_claim) %}
-    {% do proxy_config.x.update({
-      "role_assignment": {"oidc_role_mapper": {"role_mapping": values.opencloud.role_assignment.oidc_role_mapper.role_mapping}}
-    }) %}
-  {% endif %}
+{% if values.opencloud.oidc_role_mapper.role_mapping %}
+  {% do c1.environment.add_env("PROXY_ROLE_ASSIGNMENT_DRIVER", "oidc") %}
+  {% do c1.environment.add_env("PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM", values.opencloud.oidc_role_mapper.role_claim) %}
+
+  {% set role_mapper = {"oidc_role_mapper": {"role_mapping": values.opencloud.oidc_role_mapper.role_mapping}} %}
+  {% do proxy_config.x.update({"role_assignment": role_mapper}) %}
 {% endif %}
 
 {% if proxy_config.x %}
