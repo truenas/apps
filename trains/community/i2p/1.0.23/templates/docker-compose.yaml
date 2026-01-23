@@ -1,0 +1,25 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.i2p_container_name, "image") %}
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+
+{% do c1.healthcheck.set_custom_test("wget --quiet --spider http://$(hostname -i):%d/" | format(values.consts.router_console_port_number)) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.router_console_port, {"container_port": values.consts.router_console_port_number}) %}
+  {% do c1.add_port(values.network.http_proxy_port, {"container_port": values.consts.http_proxy_port_number}) %}
+  {% do c1.add_port(values.network.https_proxy_port, {"container_port": values.consts.https_proxy_port_number}) %}
+  {% for port in values.network.additional_ports %}
+    {% do c1.add_port(port) %}
+  {% endfor %}
+{% endif %}
+
+{% do c1.add_storage("/i2p/.i2p", values.storage.i2p_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.router_console_port, {"name": "Router Console"}) %}
+
+{{ tpl.render() | tojson }}

@@ -16,6 +16,30 @@ jobs:
   renovate:
     runs-on: ubuntu-latest
     steps:
+      # https://github.com/kou/arrow/blob/main/ci/scripts/util_free_space.sh
+      - name: Free Disk Space
+        shell: bash
+        run: |
+          items=(
+            /usr/local/lib/android        # ~15GB
+            /opt/hostedtoolcache/CodeQL   # ~5GB
+          )
+          echo "Before cleanup:"
+          df -h /
+          for item in "${items[@]}"; do
+            echo "Processing $item"
+            if [ ! -e "$item" ]; then
+              continue
+            fi
+
+            sudo rm -rf "$item" || :
+            echo "After cleanup of $item:"
+            df -h /
+          done
+
+          echo "After cleanup:"
+          df -h /
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -29,6 +53,9 @@ jobs:
           restore-keys: |
             renovate-
 
+      - name: Pre Pull Docker Image
+        run: |
+          docker pull ghcr.io/truenas/apps_validation:latest
       - name: Fix Cache Permissions
         run: |
           set -x
@@ -36,7 +63,7 @@ jobs:
           sudo chown -R 12021:0 $(dirname "$RENOVATE_CACHE_DIR")
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@v44.2.3
+        uses: renovatebot/github-action@v44.2.5
         env:
           RENOVATE_PR_HOURLY_LIMIT: 10
           LOG_LEVEL: debug
