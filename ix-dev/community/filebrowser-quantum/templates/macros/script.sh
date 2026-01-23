@@ -1,15 +1,20 @@
-{% macro script(values) -%}
+{% macro script(values, cfg=[]) -%}
 #!/bin/sh
-{%- set mappings = {
-  "%s/filebrowser.json"|format(values.consts.config_path): "%s/settings.json"|format(values.consts.config_path),
-  "%s/database.db"|format(values.consts.config_path): "%s/filebrowser.db"|format(values.consts.config_path),
-} %}
+{% set cfg_path = values.consts.config_file_path %}
 
-echo "Migrating FileBrowser configuration files..."
+if [ ! -f "{{ cfg_path }}" ]; then
+  echo "File [{{ cfg_path }}] does not exist."
+  touch "{{ cfg_path }}"
+fi
 
-{%- for src, dest in mappings.items() %}
-echo "Checking for file at [{{ src }}]..."
-[ -f {{ src }} ] && { echo "File found at [{{ src }}], renaming to {{ dest }}"; mv "{{ src }}" "{{ dest }}"; } || echo "File not found at [{{ src }}], no need to migrate."
+echo "Updating [{{ cfg_path }}] file..."
+{%- for c in cfg %}
+{%- for key, value in c.items() %}
+echo ''
+echo "Updating [{{ key }}] key..."
+yq -i '.{{ key }} = {{ value|tojson }}' "{{ cfg_path }}"
+echo "New value for [{{ key }}]: $(yq '.{{ key }}' "{{ cfg_path }}")"
 {%- endfor %}
-echo "Migration complete."
+{%- endfor %}
+
 {%- endmacro %}
