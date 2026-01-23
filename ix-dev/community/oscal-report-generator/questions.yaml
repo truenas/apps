@@ -1,0 +1,271 @@
+groups:
+  - name: "OSCAL Configuration"
+    description: "Configure OSCAL Report Generator settings"
+  - name: "User and Group Configuration"
+    description: "Configure user and group for the application"
+  - name: "Network Configuration"
+    description: "Configure network and port settings"
+  - name: "Storage Configuration"
+    description: "Configure storage for application data"
+  - name: "Resources Configuration"
+    description: "Configure resource limits and requests"
+  - name: "Advanced"
+    description: "Advanced configuration options"
+
+questions:
+  # ============================================================================
+  # OSCAL Configuration
+  # ============================================================================
+  - variable: oscal_config
+    label: ""
+    group: "OSCAL Configuration"
+    schema:
+      type: dict
+      attrs:
+        - variable: node_env
+          label: "Node Environment"
+          description: "Node.js environment mode"
+          schema:
+            type: string
+            default: "production"
+            enum:
+              - value: "production"
+                description: "Production mode (recommended)"
+              - value: "development"
+                description: "Development mode"
+        - variable: additional_envs
+          label: "Additional Environment Variables"
+          description: "Add custom environment variables"
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: "Environment Variable"
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: "Name"
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: "Value"
+                      schema:
+                        type: string
+                        required: true
+
+  # ============================================================================
+  # User and Group Configuration
+  # ============================================================================
+  - variable: run_as
+    label: ""
+    group: "User and Group Configuration"
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: "User ID"
+          description: "User ID to run the container as (0 = root, required for Node.js)"
+          schema:
+            type: int
+            default: 0
+            min: 0
+            max: 65535
+        - variable: group
+          label: "Group ID"
+          description: "Group ID to run the container as (0 = root)"
+          schema:
+            type: int
+            default: 0
+            min: 0
+            max: 65535
+
+  # ============================================================================
+  # Network Configuration
+  # ============================================================================
+  - variable: network
+    label: ""
+    group: "Network Configuration"
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: "Web Port"
+          description: "Port for the web interface"
+          schema:
+            type: dict
+            attrs:
+              - variable: port
+                label: "Port Number"
+                description: "Port to access the application (host port)"
+                schema:
+                  type: int
+                  default: 30200
+                  min: 9000
+                  max: 65535
+                  required: true
+
+  # ============================================================================
+  # Storage Configuration
+  # ============================================================================
+  - variable: storage
+    label: ""
+    group: "Storage Configuration"
+    schema:
+      type: dict
+      attrs:
+        - variable: config
+          label: "App Configuration Storage"
+          description: "Stores application configuration and data"
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: "Type"
+                description: "Storage type for configuration"
+                schema:
+                  type: string
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: "Host Path (Path that already exists on the system)"
+                    - value: "ix_volume"
+                      description: "TrueNAS Dataset (Automatically created dataset)"
+              - variable: ix_volume_config
+                label: "Dataset Configuration"
+                description: "Configuration for TrueNAS dataset"
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: "Enable ACL"
+                      description: "Enable ACL for the dataset"
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: "Dataset Name"
+                      description: "Name of the dataset"
+                      schema:
+                        type: string
+                        default: "config"
+                        required: true
+                    - variable: acl_entries
+                      label: "ACL Entries"
+                      description: "ACL entries for the dataset"
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs:
+                          - variable: entries
+                            label: "Entries"
+                            schema:
+                              type: list
+                              default: []
+                              items:
+                                - variable: entry
+                                  label: "Entry"
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: id_type
+                                        label: "ID Type"
+                                        schema:
+                                          type: string
+                                          default: "USER"
+                                          enum:
+                                            - value: "USER"
+                                              description: "User"
+                                            - value: "GROUP"
+                                              description: "Group"
+                                          required: true
+                                      - variable: id
+                                        label: "ID"
+                                        schema:
+                                          type: int
+                                          required: true
+                                      - variable: access
+                                        label: "Access"
+                                        schema:
+                                          type: string
+                                          default: "READ"
+                                          enum:
+                                            - value: "READ"
+                                              description: "Read"
+                                            - value: "MODIFY"
+                                              description: "Modify"
+                                            - value: "FULL_CONTROL"
+                                              description: "Full Control"
+                                          required: true
+              - variable: host_path_config
+                label: "Host Path Configuration"
+                description: "Configuration for host path"
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: "Enable ACL"
+                      description: "Enable ACL for the host path"
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: "ACL Configuration"
+                      description: "ACL configuration for the host path"
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                    - variable: path
+                      label: "Host Path"
+                      description: "Path on the host system"
+                      schema:
+                        type: hostpath
+                        required: true
+
+  # ============================================================================
+  # Resources Configuration
+  # ============================================================================
+  - variable: resources
+    label: ""
+    group: "Resources Configuration"
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: "Limits"
+          description: "Resource limits"
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: "CPUs"
+                description: "Maximum CPU cores (e.g., 2.0 = 2 cores)"
+                schema:
+                  type: float
+                  default: 2.0
+                  min: 0.1
+                  max: 16.0
+              - variable: memory
+                label: "Memory (MB)"
+                description: "Maximum memory in megabytes"
+                schema:
+                  type: int
+                  default: 2048
+                  min: 256
+                  max: 32768
+
+  # ============================================================================
+  # Advanced
+  # ============================================================================
+  - variable: enable_health_check
+    label: "Enable Health Check"
+    description: "Enable HTTP health check for the application"
+    group: "Advanced"
+    schema:
+      type: boolean
+      default: true
