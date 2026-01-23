@@ -32,6 +32,14 @@ SUPPORTED_REPOS = [
     "postgres",
     "postgis/postgis",
     "pgvector/pgvector",
+    "timescale/timescaledb",
+    "ghcr.io/immich-app/postgres",
+]
+SUPPORTED_UPGRADE_REPOS = [
+    "postgres",
+    "postgis/postgis",
+    "pgvector/pgvector",
+    # "timescale/timescaledb", // Currently NOT supported for upgrades
     "ghcr.io/immich-app/postgres",
 ]
 
@@ -52,18 +60,27 @@ def get_major_version(variant: str, tag: str):
             return x.split("-")[0]
 
     elif variant == "pgvector/pgvector":
-        # 0.8.1-pg17
-        regex = re.compile(r"^\d+\.\d+\.\d+\-pg\d+")
+        # 0.8.1-pg17-trixie
+        regex = re.compile(r"^\d+\.\d+\.\d+\-pg\d+(\-\w+)?")
 
         def oper(x):
-            return x.split("-")[1].lstrip("pg")
+            parts = x.split("-")
+            return parts[1].lstrip("pg")
 
     elif variant == "ghcr.io/immich-app/postgres":
-        # 15-vectorchord0.4.3-pgvectors0.2.0
-        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+(\-pgvectors?\d+\.\d+\.\d+)?")
+        # 15-vectorchord0.4.3
+        regex = re.compile(r"^\d+\-vectorchord\d+\.\d+\.\d+")
 
         def oper(x):
             return x.split("-")[0]
+
+    elif variant == "timescale/timescaledb":
+        # 2.24.0-pg18
+        regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
+
+        def oper(x):
+            parts = x.split("-")
+            return parts[1].lstrip("pg")
 
     if not regex.match(tag):
         raise RenderError(f"Could not determine major version from tag [{tag}] for variant [{variant}]")
@@ -81,6 +98,7 @@ class PostgresContainer:
         self._data_dir = None
         self._upgrade_name = f"{self._name}_upgrade"
         self._upgrade_container = None
+        self._data_dir = "/var/lib/postgresql"
 
         for key in ("user", "password", "database", "volume"):
             if key not in config:
@@ -103,23 +121,23 @@ class PostgresContainer:
         }
 
         c = self._render_instance.add_container(name, image)
-        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"]})
+        containers = [c]
+
+        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"], "port": port})
         c.set_shm_size_mb(256)
+        c.remove_devices()
+        c.set_grace_period(60)
 
         if opts:
             c.set_command(opts)
 
-        containers = [c]
+        target_major_version = self._get_target_version(image)
+        # This is the new format upstream Postgres uses/suggests.
+        # E.g., for Postgres 17, the data dir is /var/lib/postgresql/17/docker
+        common_variables.update({"PGDATA": f"{self._data_dir}/{target_major_version}/docker"})
 
-        # eg we don't want to handle upgrades of pg_vector or immich at the moment
         repo = self._get_repo(image)
-        if repo == "postgres":
-            self._data_dir = "/var/lib/postgresql"
-            target_major_version = self._get_target_version(image)
-            # This is the new format upstream Postgres uses/suggests.
-            # E.g., for Postgres 17, the data dir is /var/lib/postgresql/17/docker
-            common_variables.update({"PGDATA": f"{self._data_dir}/{target_major_version}/docker"})
-
+        if repo in SUPPORTED_UPGRADE_REPOS:
             upg = self._render_instance.add_container(self._upgrade_name, "postgres_upgrade_image")
 
             self._upgrade_container = upg
@@ -132,8 +150,6 @@ class PostgresContainer:
             upg.environment.add_env("TARGET_VERSION", target_major_version)
 
             c.depends.add_dependency(self._upgrade_name, "service_completed_successfully")
-        else:
-            self._data_dir = "/var/lib/postgresql/data"
 
         for container in containers:
             # TODO: We can now use 568:568 (or any user/group).
@@ -206,6 +222,7 @@ class PostgresContainer:
             "postgresql": f"postgresql://{creds}@{addr}/{db}?sslmode=disable",
             "postgresql_no_creds": f"postgresql://{addr}/{db}?sslmode=disable",
             "jdbc": f"jdbc:postgresql://{addr}/{db}",
+            "dotnet_pgsql": f"Host={addr};Database={db};Username={user};Password={password}",
             "host_port": addr,
         }
 

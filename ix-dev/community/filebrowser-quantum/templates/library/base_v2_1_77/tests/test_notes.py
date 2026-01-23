@@ -243,6 +243,7 @@ some other info.
     c1.set_pid_mode("host")
     c1.set_cgroup("host")
     c1.set_tty(True)
+    c1.set_grace_period(61)
     c1.remove_security_opt("no-new-privileges")
     c1.add_docker_socket()
     c1.add_tun_device()
@@ -271,6 +272,7 @@ some other info.
 - Container [test_container] is running with a TTY, Logs do not appear correctly in the UI due to an [upstream bug](https://github.com/docker/docker-py/issues/1394)
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
+- Container [test_container] has a grace period of [61] seconds. TrueNAS waits a maximum of 60 seconds for docker engine to stop during system reboot/shutdown. If the container needs the full configured grace period, manually stop it before reboot/shutdown to ensure the full wait time is honored.
 
 ## Deprecations
 
