@@ -1,8 +1,9 @@
 name: Check Deltabadger Updates
 
 on:
-  schedule:
-    - cron: '0 8 * * 1'  # Weekly on Monday at 8:00 UTC
+  # Disabled until app is in official TrueNAS catalog
+  # schedule:
+  #   - cron: '0 8 * * 1'  # Weekly on Monday at 8:00 UTC
   workflow_dispatch:  # Manual trigger
 
 permissions:
@@ -25,23 +26,27 @@ jobs:
           echo "version=${LATEST#v}" >> $GITHUB_OUTPUT
           echo "Latest upstream version: ${LATEST#v}"
 
-      - name: Get current catalog version
+      - name: Get current app_version from catalog
         id: current
         run: |
-          # Find the latest version folder
-          CURRENT=$(ls -v trains/community/deltabadger/ | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | tail -1)
-          echo "version=$CURRENT" >> $GITHUB_OUTPUT
-          echo "Current catalog version: $CURRENT"
+          # Find the latest version folder and get app_version from app.yaml
+          FOLDER=$(ls -v trains/community/deltabadger/ | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | tail -1)
+          APP_VERSION=$(grep '^app_version:' "trains/community/deltabadger/$FOLDER/app.yaml" | awk '{print $2}')
+          CATALOG_VERSION=$(grep '^version:' "trains/community/deltabadger/$FOLDER/app.yaml" | awk '{print $2}')
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+          echo "catalog_version=$CATALOG_VERSION" >> $GITHUB_OUTPUT
+          echo "folder=$FOLDER" >> $GITHUB_OUTPUT
+          echo "Current app_version: $APP_VERSION (catalog version: $CATALOG_VERSION)"
 
       - name: Compare versions
         id: compare
         run: |
-          if [ "${{ steps.upstream.outputs.version }}" != "${{ steps.current.outputs.version }}" ]; then
+          if [ "${{ steps.upstream.outputs.version }}" != "${{ steps.current.outputs.app_version }}" ]; then
             echo "needs_update=true" >> $GITHUB_OUTPUT
-            echo "🔄 Update needed: ${{ steps.current.outputs.version }} → ${{ steps.upstream.outputs.version }}"
+            echo "🔄 Update needed: ${{ steps.current.outputs.app_version }} → ${{ steps.upstream.outputs.version }}"
           else
             echo "needs_update=false" >> $GITHUB_OUTPUT
-            echo "✅ Already up to date: ${{ steps.current.outputs.version }}"
+            echo "✅ Already up to date: ${{ steps.current.outputs.app_version }}"
           fi
 
       - name: Create update issue
@@ -51,7 +56,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const upstream = '${{ steps.upstream.outputs.version }}';
-            const current = '${{ steps.current.outputs.version }}';
+            const currentAppVersion = '${{ steps.current.outputs.app_version }}';
+            const catalogVersion = '${{ steps.current.outputs.catalog_version }}';
+            const folder = '${{ steps.current.outputs.folder }}';
+            
+            // Parse catalog version and increment patch
+            const parts = catalogVersion.split('.');
+            const newCatalogVersion = `${parts[0]}.${parts[1]}.${parseInt(parts[2]) + 1}`;
             
             // Check if issue already exists
             const issues = await github.rest.issues.listForRepo({
@@ -66,20 +77,25 @@ jobs:
               return;
             }
             
-            // Create new issue
+            // Create new issue with correct TrueNAS update process
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `Update deltabadger to ${upstream}`,
               body: `A new version of deltabadger is available.\n\n` +
-                    `- **Current version**: ${current}\n` +
-                    `- **Latest version**: ${upstream}\n` +
-                    `- **Release**: https://github.com/deltabadger/deltabadger/releases/tag/v${upstream}\n\n` +
-                    `### Steps to update:\n` +
-                    `1. Create new folder \`trains/community/deltabadger/${upstream}/\`\n` +
-                    `2. Copy files from \`${current}/\` to \`${upstream}/\`\n` +
-                    `3. Update \`app.yaml\`: \`app_version\` and \`version\`\n` +
-                    `4. Update \`ix_values.yaml\`: image tag\n` +
-                    `5. Submit PR to truenas/apps`,
+                    `## Version Info\n` +
+                    `| Field | Current | New |\n` +
+                    `|-------|---------|-----|\n` +
+                    `| app_version | ${currentAppVersion} | ${upstream} |\n` +
+                    `| version (catalog) | ${catalogVersion} | ${newCatalogVersion} |\n\n` +
+                    `**Release notes**: https://github.com/deltabadger/deltabadger/releases/tag/v${upstream}\n\n` +
+                    `## Update Steps\n` +
+                    `1. Update \`app.yaml\`:\n` +
+                    `   - Set \`app_version: ${upstream}\`\n` +
+                    `   - Bump \`version: ${newCatalogVersion}\`\n` +
+                    `2. Update \`ix_values.yaml\`: Set image tag to \`${upstream}\`\n` +
+                    `3. Submit PR to truenas/apps from \`add-deltabadger\` branch\n\n` +
+                    `> **Note**: Do NOT rename the folder (\`${folder}/\`). Only bump catalog version for upstream updates.`,
               labels: ['deltabadger-update', 'enhancement']
             });
+
