@@ -810,7 +810,7 @@ class AppMetadataUpdater:
             elif uid == 568:
                 # Service runs as any non-root user (special case for 568)
                 context = {
-                    "description": f"Container [{service_name}] runs as any non-root user.",
+                    "description": f"Container [{service_name}] can run as any non-root user.",
                     "gid": 568,
                     "group_name": DockerCapabilityRegistry.gid_to_group_name(568),
                     "uid": 568,
