@@ -136,6 +136,141 @@ class DockerCapabilityRegistry:
         "lms": "Lyrion Media Server",
     }
 
+    _USER_MAPPINGS = {
+        4: "sync",
+        5: "games",
+        6: "man",
+        100: "_apt",
+        102: "systemd-network",
+        103: "systemd-resolve",
+        104: "messagebus",
+        105: "avahi",
+        106: "_rpc",
+        107: "statd",
+        108: "consul",
+        109: "nvpd",
+        110: "nslcd",
+        111: "sshd",
+        112: "systemd-coredump",
+        113: "Debian-snmp",
+        114: "ntp",
+        115: "Debian-exim",
+        116: "tftp",
+        117: "sssd",
+        118: "tcpdump",
+        120: "proftpd",
+        121: "ftp",
+        122: "nut",
+        123: "dnsmasq",
+        124: "ladvd",
+        125: "nova",
+        126: "haproxy",
+        127: "uuidd",
+        128: "ntpsec",
+        129: "tss",
+        130: "iperf3",
+        131: "_chrony",
+        999: "netdata",
+        65534: "nobody",
+    }
+
+    _GROUP_MAPPINGS = {
+        4: "adm",
+        5: "tty",
+        6: "disk",
+        12: "man",
+        14: "ftp",
+        15: "kmem",
+        20: "dialout",
+        21: "fax",
+        22: "voice",
+        24: "cdrom",
+        25: "floppy",
+        26: "tape",
+        27: "sudo",
+        29: "audio",
+        30: "dip",
+        37: "operator",
+        40: "src",
+        42: "shadow",
+        43: "utmp",
+        44: "video",
+        45: "sasl",
+        46: "plugdev",
+        50: "staff",
+        60: "games",
+        100: "users",
+        102: "systemd-journal",
+        103: "systemd-network",
+        104: "systemd-resolve",
+        105: "input",
+        106: "kvm",
+        107: "render",
+        108: "crontab",
+        109: "netdev",
+        110: "ssh",
+        111: "messagebus",
+        112: "avahi",
+        113: "consul",
+        114: "nvpd",
+        115: "nslcd",
+        116: "systemd-coredump",
+        117: "Debian-snmp",
+        118: "ssl-cert",
+        119: "ntp",
+        120: "Debian-exim",
+        121: "tftp",
+        122: "sssd",
+        123: "tcpdump",
+        124: "rdma",
+        126: "nut",
+        127: "ladvd",
+        128: "libvirt",
+        129: "nova",
+        130: "haproxy",
+        131: "uuidd",
+        132: "i2c",
+        133: "sgx",
+        134: "_ssh",
+        135: "ntpsec",
+        136: "tss",
+        137: "iperf3",
+        138: "_chrony",
+        544: "builtin_administrators",
+        545: "builtin_users",
+        546: "builtin_guests",
+        951: "truenas_readonly_administrators",
+        952: "truenas_sharing_administrators",
+        995: "incus-admin",
+        996: "incus",
+        997: "netdata",
+        999: "docker",
+        65534: "nogroup",
+    }
+
+    _COMMON_UID_GID_MAPPINGS = {
+        0: "root",
+        1: "daemon",
+        2: "bin",
+        3: "sys",
+        7: "lp",
+        8: "mail",
+        9: "news",
+        10: "uucp",
+        13: "proxy",
+        33: "www-data",
+        34: "backup",
+        38: "list",
+        39: "irc",
+        41: "gnats",
+        101: "systemd-timesync",
+        568: "apps",
+        666: "webdav",
+        950: "truenas_admin",
+        986: "libvirt-qemu",
+        998: "polkitd",
+    }
+
     @staticmethod
     def service_name_to_title(service_name: str) -> str:
         """Convert a service name to a human-readable title."""
@@ -145,6 +280,30 @@ class DockerCapabilityRegistry:
     def hash_service_name(service_name: str) -> str:
         """Hash a service name to a short, unique identifier."""
         return service_name.lower().replace("_", "").replace("-", "").replace(" ", "")
+
+    @classmethod
+    def uid_to_user_name(cls, uid: int) -> str:
+        """Convert a UID to a human-readable user name."""
+        if uid in cls._COMMON_UID_GID_MAPPINGS:
+            return f"Host user is [{cls._COMMON_UID_GID_MAPPINGS[uid]}]"
+        elif uid in cls._USER_MAPPINGS:
+            return f"Host user is [{cls._USER_MAPPINGS[uid]}]"
+        else:
+            # log warning
+            logger.warning(f"Unknown UID: {uid}")
+            return f"Host user is [unknown ({uid})]"
+
+    @classmethod
+    def gid_to_group_name(cls, gid: int) -> str:
+        """Convert a GID to a human-readable group name."""
+        if gid in cls._COMMON_UID_GID_MAPPINGS:
+            return f"Host group is [{cls._COMMON_UID_GID_MAPPINGS[gid]}]"
+        elif gid in cls._GROUP_MAPPINGS:
+            return f"Host group is [{cls._GROUP_MAPPINGS[gid]}]"
+        else:
+            # log warning
+            logger.warning(f"Unknown GID: {gid}")
+            return f"Host group is [unknown ({gid})]"
 
     @classmethod
     def create_capability_description(cls, capability_name: str, service_names: List[str], title: str) -> str:
@@ -644,27 +803,27 @@ class AppMetadataUpdater:
                 context = {
                     "description": f"Container [{service_name}] runs as root user.",
                     "gid": 0,
-                    "group_name": "root",
+                    "group_name": DockerCapabilityRegistry.gid_to_group_name(0),
                     "uid": 0,
-                    "user_name": "root",
+                    "user_name": DockerCapabilityRegistry.uid_to_user_name(0),
                 }
             elif uid == 568:
                 # Service runs as any non-root user (special case for 568)
                 context = {
                     "description": f"Container [{service_name}] runs as any non-root user.",
                     "gid": 568,
-                    "group_name": service_name,
+                    "group_name": DockerCapabilityRegistry.gid_to_group_name(568),
                     "uid": 568,
-                    "user_name": service_name,
+                    "user_name": DockerCapabilityRegistry.uid_to_user_name(568),
                 }
             else:
                 # Service runs as specific non-root user
                 context = {
                     "description": f"Container [{service_name}] runs as non-root user.",
                     "gid": uid,
-                    "group_name": service_name,
+                    "group_name": DockerCapabilityRegistry.gid_to_group_name(uid),
                     "uid": uid,
-                    "user_name": service_name,
+                    "user_name": DockerCapabilityRegistry.uid_to_user_name(uid),
                 }
 
             run_as_context.append(context)
