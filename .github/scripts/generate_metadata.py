@@ -1059,7 +1059,9 @@ class TrueNASAppCapabilityManager:
             # If test values have different non-root users, use the first one
             # (this shouldn't normally happen, but we handle it)
             else:
-                logger.warning(f"Service {service_name} has inconsistent user values: {user_values}, using {user_values[0]}")
+                logger.warning(
+                    f"Service {service_name} has inconsistent user values: {user_values}, using {user_values[0]}"
+                )
                 final_service_users[service_name] = user_values[0]
 
         # Get current app version
