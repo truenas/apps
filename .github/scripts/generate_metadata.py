@@ -21,7 +21,7 @@ import logging
 import argparse
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Set, Optional
+from typing import Any, Dict, List, Set, Optional, Tuple
 from dataclasses import dataclass
 
 
@@ -69,7 +69,7 @@ class AppAnalysisResult:
     capabilities: List[DockerCapability]
     service_names: List[str]
     app_version: str
-    service_users: Dict[str, int]  # Maps service name to uid
+    service_users: Dict[str, Tuple[int, int]]  # Maps service name to (uid, gid)
 
 
 @dataclass
@@ -612,9 +612,10 @@ class DockerComposeAnalyzer:
         return service_capabilities
 
     @staticmethod
-    def extract_user_by_service(compose_data: Dict) -> Dict[str, int]:
+    def extract_user_by_service(compose_data: Dict) -> Dict[str, Tuple[int, int]]:
         """Extract user directive grouped by service from compose data.
-        Returns a dict mapping service name to uid (defaults to 0 if not specified)."""
+        Returns a dict mapping service name to (uid, gid) tuple.
+        Expects format "uid:gid". Defaults to (0, 0) for root if not specified."""
         services = compose_data.get("services", {})
         if not services:
             raise ValueError("No services found in compose data")
@@ -634,32 +635,41 @@ class DockerComposeAnalyzer:
                 logger.debug(f"Skipping short-lived service: {service_name}")
                 continue
 
-            # Extract user directive, default to 0 (root) if not present
-            user_directive = service_config.get("user", "0")
+            # Extract user directive, default to "0:0" (root) if not present
+            user_directive = service_config.get("user", "0:0")
 
-            # Parse user directive (format can be "uid", "uid:gid", "username", etc.)
-            # We only care about the uid part
+            # Parse user directive (format must be "uid:gid")
             if isinstance(user_directive, str):
-                # Split by colon to get uid part
-                uid_part = user_directive.split(":")[0]
+                if ":" not in user_directive:
+                    raise ValueError(
+                        f"Service {service_name} has invalid user directive format: {user_directive}. "
+                        f"Expected format is 'uid:gid'"
+                    )
+
+                parts = user_directive.split(":")
+                if len(parts) != 2:
+                    raise ValueError(
+                        f"Service {service_name} has invalid user directive format: {user_directive}. "
+                        f"Expected format is 'uid:gid'"
+                    )
+
+                uid_part, gid_part = parts
                 try:
                     uid = int(uid_part)
+                    gid = int(gid_part)
                 except ValueError:
-                    # If it's a username string, we can't determine the uid, assume root
-                    logger.warning(
-                        f"Service {service_name} has non-numeric user directive: {user_directive}, assuming root"
+                    raise ValueError(
+                        f"Service {service_name} has non-numeric user directive: {user_directive}. "
+                        f"Both uid and gid must be numeric"
                     )
-                    uid = 0
-            elif isinstance(user_directive, int):
-                uid = user_directive
             else:
-                logger.warning(
-                    f"Service {service_name} has unexpected user directive type: {type(user_directive)}, assuming root"
+                raise ValueError(
+                    f"Service {service_name} has unexpected user directive type: {type(user_directive)}. "
+                    f"Expected string format 'uid:gid'"
                 )
-                uid = 0
 
-            service_users[service_name] = uid
-            logger.debug(f"Service {service_name} user: {uid}")
+            service_users[service_name] = (uid, gid)
+            logger.debug(f"Service {service_name} user: {uid}:{gid}")
 
         return service_users
 
@@ -793,38 +803,48 @@ class AppMetadataUpdater:
         self.version_manager = version_manager
 
     @staticmethod
-    def create_run_as_context(service_users: Dict[str, int]) -> List[Dict[str, Any]]:
+    def create_run_as_context(service_users: Dict[str, Tuple[int, int]]) -> List[Dict[str, Any]]:
         """Create run_as_context list based on service user values."""
         run_as_context = []
 
-        for service_name, uid in sorted(service_users.items()):
+        for service_name, (uid, gid) in sorted(service_users.items()):
+            # Determine user type
             if uid == 0:
-                # Service runs as root
-                context = {
-                    "description": f"Container [{service_name}] runs as root user.",
-                    "gid": 0,
-                    "group_name": DockerCapabilityRegistry.gid_to_group_name(0),
-                    "uid": 0,
-                    "user_name": DockerCapabilityRegistry.uid_to_user_name(0),
-                }
+                user_type = "root user"
             elif uid == 568:
-                # Service runs as any non-root user (special case for 568)
-                context = {
-                    "description": f"Container [{service_name}] runs as any non-root user.",
-                    "gid": 568,
-                    "group_name": DockerCapabilityRegistry.gid_to_group_name(568),
-                    "uid": 568,
-                    "user_name": DockerCapabilityRegistry.uid_to_user_name(568),
-                }
+                user_type = "any non-root user"
             else:
-                # Service runs as specific non-root user
-                context = {
-                    "description": f"Container [{service_name}] runs as non-root user.",
-                    "gid": uid,
-                    "group_name": DockerCapabilityRegistry.gid_to_group_name(uid),
-                    "uid": uid,
-                    "user_name": DockerCapabilityRegistry.uid_to_user_name(uid),
-                }
+                user_type = "non-root user"
+
+            # Determine group type
+            if gid == 0:
+                group_type = "root group"
+            elif gid == 568:
+                group_type = "any non-root group"
+            else:
+                group_type = "non-root group"
+
+            # Create description
+            if uid == 0 and gid == 0:
+                description = f"Container [{service_name}] runs as root user and group."
+            elif uid == 568 and gid == 568:
+                description = f"Container [{service_name}] can run as any non-root user and group."
+            elif uid != 0 and uid != 568 and gid != 0 and gid != 568:
+                description = f"Container [{service_name}] runs as non-root user and group."
+            elif uid == 568:
+                description = f"Container [{service_name}] can run as any non-root user and {group_type}."
+            elif gid == 568:
+                description = f"Container [{service_name}] runs as {user_type} and any non-root group."
+            else:
+                description = f"Container [{service_name}] runs as {user_type} and {group_type}."
+
+            context = {
+                "description": description,
+                "gid": gid,
+                "group_name": DockerCapabilityRegistry.gid_to_group_name(gid),
+                "uid": uid,
+                "user_name": DockerCapabilityRegistry.uid_to_user_name(uid),
+            }
 
             run_as_context.append(context)
 
@@ -835,7 +855,7 @@ class AppMetadataUpdater:
         app_manifest: AppManifest,
         capabilities: List[DockerCapability],
         current_app_version: str,
-        service_users: Dict[str, int],
+        service_users: Dict[str, Tuple[int, int]],
         should_bump_version: bool = True,
     ) -> None:
         """Update app.yaml with new capabilities, run_as_context, and version information."""
@@ -959,8 +979,8 @@ class TrueNASAppCapabilityManager:
         # Track capabilities across all test configurations
         capability_to_services: Dict[str, Set[str]] = {}
         all_service_names = set()
-        # Track user values: service_name -> list of uids from all test configs
-        service_user_values: Dict[str, List[int]] = {}
+        # Track user values: service_name -> list of (uid, gid) tuples from all test configs
+        service_user_values: Dict[str, List[Tuple[int, int]]] = {}
 
         for test_values_file in app_manifest.test_value_files:
             logger.debug(f"Processing {app_manifest.name} with {test_values_file}")
@@ -985,10 +1005,10 @@ class TrueNASAppCapabilityManager:
 
                 # Extract user directives by service
                 service_users = self.compose_analyzer.extract_user_by_service(compose_data)
-                for service_name, uid in service_users.items():
+                for service_name, (uid, gid) in service_users.items():
                     if service_name not in service_user_values:
                         service_user_values[service_name] = []
-                    service_user_values[service_name].append(uid)
+                    service_user_values[service_name].append((uid, gid))
 
             except Exception as e:
                 logger.error(f"Failed to process {app_manifest.name}/{test_values_file}: {e}")
@@ -1008,18 +1028,39 @@ class TrueNASAppCapabilityManager:
 
         # Determine final user for each service based on all test configurations
         final_service_users = {}
-        for service_name, uids in service_user_values.items():
-            # If at least one test value has user 0 (root), the service runs as root
-            if 0 in uids:
-                final_service_users[service_name] = 0
+        for service_name, user_values in service_user_values.items():
+            uids = [uid for uid, _ in user_values]
+            gids = [gid for _, gid in user_values]
+
+            # If at least one test value has user 0 (root) or group 0 (root), the service runs as root
+            if 0 in uids or 0 in gids:
+                # Prefer entry with both uid=0 and gid=0
+                root_entry = None
+                for uid, gid in user_values:
+                    if uid == 0 and gid == 0:
+                        root_entry = (uid, gid)
+                        break
+                # If no (0,0), find entry with uid=0
+                if root_entry is None:
+                    for uid, gid in user_values:
+                        if uid == 0:
+                            root_entry = (uid, gid)
+                            break
+                # If no uid=0, find entry with gid=0
+                if root_entry is None:
+                    for uid, gid in user_values:
+                        if gid == 0:
+                            root_entry = (uid, gid)
+                            break
+                final_service_users[service_name] = root_entry
             # If all test values have the same non-root user, use that
-            elif len(set(uids)) == 1:
-                final_service_users[service_name] = uids[0]
+            elif len(set(user_values)) == 1:
+                final_service_users[service_name] = user_values[0]
             # If test values have different non-root users, use the first one
             # (this shouldn't normally happen, but we handle it)
             else:
-                logger.warning(f"Service {service_name} has inconsistent user values: {uids}, using {uids[0]}")
-                final_service_users[service_name] = uids[0]
+                logger.warning(f"Service {service_name} has inconsistent user values: {user_values}, using {user_values[0]}")
+                final_service_users[service_name] = user_values[0]
 
         # Get current app version
         current_version = self.version_manager.get_current_app_version(app_manifest)
