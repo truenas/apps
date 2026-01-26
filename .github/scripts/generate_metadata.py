@@ -21,7 +21,7 @@ import logging
 import argparse
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Set, Optional
+from typing import Any, Dict, List, Set, Optional, Tuple
 from dataclasses import dataclass
 
 
@@ -69,6 +69,7 @@ class AppAnalysisResult:
     capabilities: List[DockerCapability]
     service_names: List[str]
     app_version: str
+    service_users: Dict[str, Tuple[int, int]]  # Maps service name to (uid, gid)
 
 
 @dataclass
@@ -135,6 +136,141 @@ class DockerCapabilityRegistry:
         "lms": "Lyrion Media Server",
     }
 
+    _USER_MAPPINGS = {
+        4: "sync",
+        5: "games",
+        6: "man",
+        100: "_apt",
+        102: "systemd-network",
+        103: "systemd-resolve",
+        104: "messagebus",
+        105: "avahi",
+        106: "_rpc",
+        107: "statd",
+        108: "consul",
+        109: "nvpd",
+        110: "nslcd",
+        111: "sshd",
+        112: "systemd-coredump",
+        113: "Debian-snmp",
+        114: "ntp",
+        115: "Debian-exim",
+        116: "tftp",
+        117: "sssd",
+        118: "tcpdump",
+        120: "proftpd",
+        121: "ftp",
+        122: "nut",
+        123: "dnsmasq",
+        124: "ladvd",
+        125: "nova",
+        126: "haproxy",
+        127: "uuidd",
+        128: "ntpsec",
+        129: "tss",
+        130: "iperf3",
+        131: "_chrony",
+        999: "netdata",
+        65534: "nobody",
+    }
+
+    _GROUP_MAPPINGS = {
+        4: "adm",
+        5: "tty",
+        6: "disk",
+        12: "man",
+        14: "ftp",
+        15: "kmem",
+        20: "dialout",
+        21: "fax",
+        22: "voice",
+        24: "cdrom",
+        25: "floppy",
+        26: "tape",
+        27: "sudo",
+        29: "audio",
+        30: "dip",
+        37: "operator",
+        40: "src",
+        42: "shadow",
+        43: "utmp",
+        44: "video",
+        45: "sasl",
+        46: "plugdev",
+        50: "staff",
+        60: "games",
+        100: "users",
+        102: "systemd-journal",
+        103: "systemd-network",
+        104: "systemd-resolve",
+        105: "input",
+        106: "kvm",
+        107: "render",
+        108: "crontab",
+        109: "netdev",
+        110: "ssh",
+        111: "messagebus",
+        112: "avahi",
+        113: "consul",
+        114: "nvpd",
+        115: "nslcd",
+        116: "systemd-coredump",
+        117: "Debian-snmp",
+        118: "ssl-cert",
+        119: "ntp",
+        120: "Debian-exim",
+        121: "tftp",
+        122: "sssd",
+        123: "tcpdump",
+        124: "rdma",
+        126: "nut",
+        127: "ladvd",
+        128: "libvirt",
+        129: "nova",
+        130: "haproxy",
+        131: "uuidd",
+        132: "i2c",
+        133: "sgx",
+        134: "_ssh",
+        135: "ntpsec",
+        136: "tss",
+        137: "iperf3",
+        138: "_chrony",
+        544: "builtin_administrators",
+        545: "builtin_users",
+        546: "builtin_guests",
+        951: "truenas_readonly_administrators",
+        952: "truenas_sharing_administrators",
+        995: "incus-admin",
+        996: "incus",
+        997: "netdata",
+        999: "docker",
+        65534: "nogroup",
+    }
+
+    _COMMON_UID_GID_MAPPINGS = {
+        0: "root",
+        1: "daemon",
+        2: "bin",
+        3: "sys",
+        7: "lp",
+        8: "mail",
+        9: "news",
+        10: "uucp",
+        13: "proxy",
+        33: "www-data",
+        34: "backup",
+        38: "list",
+        39: "irc",
+        41: "gnats",
+        101: "systemd-timesync",
+        568: "apps",
+        666: "webdav",
+        950: "truenas_admin",
+        986: "libvirt-qemu",
+        998: "polkitd",
+    }
+
     @staticmethod
     def service_name_to_title(service_name: str) -> str:
         """Convert a service name to a human-readable title."""
@@ -144,6 +280,30 @@ class DockerCapabilityRegistry:
     def hash_service_name(service_name: str) -> str:
         """Hash a service name to a short, unique identifier."""
         return service_name.lower().replace("_", "").replace("-", "").replace(" ", "")
+
+    @classmethod
+    def uid_to_user_name(cls, uid: int) -> str:
+        """Convert a UID to a human-readable user name."""
+        if uid in cls._COMMON_UID_GID_MAPPINGS:
+            return f"Host user is [{cls._COMMON_UID_GID_MAPPINGS[uid]}]"
+        elif uid in cls._USER_MAPPINGS:
+            return f"Host user is [{cls._USER_MAPPINGS[uid]}]"
+        else:
+            # log warning
+            logger.warning(f"Unknown UID: {uid}")
+            return f"Host user is [unknown ({uid})]"
+
+    @classmethod
+    def gid_to_group_name(cls, gid: int) -> str:
+        """Convert a GID to a human-readable group name."""
+        if gid in cls._COMMON_UID_GID_MAPPINGS:
+            return f"Host group is [{cls._COMMON_UID_GID_MAPPINGS[gid]}]"
+        elif gid in cls._GROUP_MAPPINGS:
+            return f"Host group is [{cls._GROUP_MAPPINGS[gid]}]"
+        else:
+            # log warning
+            logger.warning(f"Unknown GID: {gid}")
+            return f"Host group is [unknown ({gid})]"
 
     @classmethod
     def create_capability_description(cls, capability_name: str, service_names: List[str], title: str) -> str:
@@ -451,6 +611,68 @@ class DockerComposeAnalyzer:
 
         return service_capabilities
 
+    @staticmethod
+    def extract_user_by_service(compose_data: Dict) -> Dict[str, Tuple[int, int]]:
+        """Extract user directive grouped by service from compose data.
+        Returns a dict mapping service name to (uid, gid) tuple.
+        Expects format "uid:gid". Defaults to (0, 0) for root if not specified."""
+        services = compose_data.get("services", {})
+        if not services:
+            raise ValueError("No services found in compose data")
+
+        service_users = {}
+
+        for service_name, service_config in services.items():
+            restart_policy = service_config.get("restart", "")
+
+            # Skip services without restart policy
+            if not restart_policy:
+                logger.warning(f"No restart policy for service: {service_name}")
+                continue
+
+            # Skip short-lived services
+            if restart_policy.startswith("on-failure"):
+                logger.debug(f"Skipping short-lived service: {service_name}")
+                continue
+
+            # Extract user directive, default to "0:0" (root) if not present
+            user_directive = service_config.get("user", "0:0")
+
+            # Parse user directive (format must be "uid:gid")
+            if isinstance(user_directive, str):
+                if ":" not in user_directive:
+                    raise ValueError(
+                        f"Service {service_name} has invalid user directive format: {user_directive}. "
+                        f"Expected format is 'uid:gid'"
+                    )
+
+                parts = user_directive.split(":")
+                if len(parts) != 2:
+                    raise ValueError(
+                        f"Service {service_name} has invalid user directive format: {user_directive}. "
+                        f"Expected format is 'uid:gid'"
+                    )
+
+                uid_part, gid_part = parts
+                try:
+                    uid = int(uid_part)
+                    gid = int(gid_part)
+                except ValueError:
+                    raise ValueError(
+                        f"Service {service_name} has non-numeric user directive: {user_directive}. "
+                        f"Both uid and gid must be numeric"
+                    )
+            else:
+                raise ValueError(
+                    f"Service {service_name} has unexpected user directive type: {type(user_directive)}. "
+                    f"Expected string format 'uid:gid'"
+                )
+
+            service_users[service_name] = (uid, gid)
+            logger.debug(f"Service {service_name} user: {uid}:{gid}")
+
+        return service_users
+
 
 class AppQuestionsValidator:
     """Validates app questions configuration against actual services."""
@@ -580,14 +802,63 @@ class AppMetadataUpdater:
         self.file_cache = file_cache
         self.version_manager = version_manager
 
+    @staticmethod
+    def create_run_as_context(service_users: Dict[str, Tuple[int, int]]) -> List[Dict[str, Any]]:
+        """Create run_as_context list based on service user values."""
+        run_as_context = []
+
+        for service_name, (uid, gid) in sorted(service_users.items()):
+            # Determine user type
+            if uid == 0:
+                user_type = "root user"
+            elif uid == 568:
+                user_type = "any non-root user"
+            else:
+                user_type = "non-root user"
+
+            # Determine group type
+            if gid == 0:
+                group_type = "root group"
+            elif gid == 568:
+                group_type = "any non-root group"
+            else:
+                group_type = "non-root group"
+
+            # Create description
+            if uid == 0 and gid == 0:
+                description = f"Container [{service_name}] runs as root user and group."
+            elif uid == 568 and gid == 568:
+                description = f"Container [{service_name}] can run as any non-root user and group."
+            elif uid != 0 and uid != 568 and gid != 0 and gid != 568:
+                description = f"Container [{service_name}] runs as non-root user and group."
+            elif uid == 568:
+                description = f"Container [{service_name}] can run as any non-root user and {group_type}."
+            elif gid == 568:
+                description = f"Container [{service_name}] runs as {user_type} and any non-root group."
+            else:
+                description = f"Container [{service_name}] runs as {user_type} and {group_type}."
+
+            context = {
+                "description": description,
+                "gid": gid,
+                "group_name": DockerCapabilityRegistry.gid_to_group_name(gid),
+                "uid": uid,
+                "user_name": DockerCapabilityRegistry.uid_to_user_name(uid),
+            }
+
+            run_as_context.append(context)
+
+        return run_as_context
+
     def update_app_metadata(
         self,
         app_manifest: AppManifest,
         capabilities: List[DockerCapability],
         current_app_version: str,
+        service_users: Dict[str, Tuple[int, int]],
         should_bump_version: bool = True,
     ) -> None:
-        """Update app.yaml with new capabilities and version information."""
+        """Update app.yaml with new capabilities, run_as_context, and version information."""
         app_metadata_path = app_manifest.path / Config.APP_METADATA_FILE
         app_config = self.file_cache.read_yaml_file(app_metadata_path)
 
@@ -617,6 +888,14 @@ class AppMetadataUpdater:
         if old_capabilities_data != new_capabilities_data:
             needs_version_bump = True
         app_config["capabilities"] = new_capabilities_data
+
+        # Update run_as_context if changed
+        new_run_as_context = self.create_run_as_context(service_users)
+        old_run_as_context = app_config.get("run_as_context", [])
+
+        if old_run_as_context != new_run_as_context:
+            needs_version_bump = True
+        app_config["run_as_context"] = new_run_as_context
 
         new_maintainers = [{"email": "dev@truenas.com", "name": "truenas", "url": "https://www.truenas.com/"}]
         if app_config.get("maintainers", []) != new_maintainers:
@@ -688,7 +967,7 @@ class TrueNASAppCapabilityManager:
         """Analyze a single app across all its test configurations."""
         if not app_manifest.test_value_files:
             logger.warning(f"No test configurations for {app_manifest.name}")
-            return AppAnalysisResult([], [], "")
+            return AppAnalysisResult([], [], "", {})
 
         # Extract app title from app.yaml
         app_metadata_path = app_manifest.path / Config.APP_METADATA_FILE
@@ -700,6 +979,8 @@ class TrueNASAppCapabilityManager:
         # Track capabilities across all test configurations
         capability_to_services: Dict[str, Set[str]] = {}
         all_service_names = set()
+        # Track user values: service_name -> list of (uid, gid) tuples from all test configs
+        service_user_values: Dict[str, List[Tuple[int, int]]] = {}
 
         for test_values_file in app_manifest.test_value_files:
             logger.debug(f"Processing {app_manifest.name} with {test_values_file}")
@@ -722,6 +1003,13 @@ class TrueNASAppCapabilityManager:
                             capability_to_services[capability] = set()
                         capability_to_services[capability].add(service_name)
 
+                # Extract user directives by service
+                service_users = self.compose_analyzer.extract_user_by_service(compose_data)
+                for service_name, (uid, gid) in service_users.items():
+                    if service_name not in service_user_values:
+                        service_user_values[service_name] = []
+                    service_user_values[service_name].append((uid, gid))
+
             except Exception as e:
                 logger.error(f"Failed to process {app_manifest.name}/{test_values_file}: {e}")
                 raise
@@ -738,6 +1026,42 @@ class TrueNASAppCapabilityManager:
                 logger.error(f"Failed to create capability description: {e}")
                 continue
 
+        # Determine final user for each service based on all test configurations
+        final_service_users = {}
+        for service_name, user_values in service_user_values.items():
+            uids = [uid for uid, _ in user_values]
+            gids = [gid for _, gid in user_values]
+
+            # If at least one test value has user 0 (root) or group 0 (root), the service runs as root
+            if 0 in uids or 0 in gids:
+                # Prefer entry with both uid=0 and gid=0
+                root_entry = None
+                for uid, gid in user_values:
+                    if uid == 0 and gid == 0:
+                        root_entry = (uid, gid)
+                        break
+                # If no (0,0), find entry with uid=0
+                if root_entry is None:
+                    for uid, gid in user_values:
+                        if uid == 0:
+                            root_entry = (uid, gid)
+                            break
+                # If no uid=0, find entry with gid=0
+                if root_entry is None:
+                    for uid, gid in user_values:
+                        if gid == 0:
+                            root_entry = (uid, gid)
+                            break
+                final_service_users[service_name] = root_entry
+            # If all test values have the same non-root user, use that
+            elif len(set(user_values)) == 1:
+                final_service_users[service_name] = user_values[0]
+            # If test values have different non-root users, use the first one
+            # (this shouldn't normally happen, but we handle it)
+            else:
+                logger.warning(f"Service {service_name} has inconsistent user values: {user_values}, using {user_values[0]}")
+                final_service_users[service_name] = user_values[0]
+
         # Get current app version
         current_version = self.version_manager.get_current_app_version(app_manifest)
 
@@ -745,6 +1069,7 @@ class TrueNASAppCapabilityManager:
             capabilities=sorted(capabilities, key=lambda c: c.name),
             service_names=sorted(all_service_names),
             app_version=str(current_version),
+            service_users=final_service_users,
         )
 
     def update_single_app(self, app_manifest: AppManifest) -> None:
@@ -763,11 +1088,17 @@ class TrueNASAppCapabilityManager:
 
             # Update metadata
             self.metadata_updater.update_app_metadata(
-                app_manifest, analysis_result.capabilities, analysis_result.app_version, self.should_bump_versions
+                app_manifest,
+                analysis_result.capabilities,
+                analysis_result.app_version,
+                analysis_result.service_users,
+                self.should_bump_versions,
             )
 
             logger.info(
-                f"Successfully updated {app_manifest.name} with " f"{len(analysis_result.capabilities)} capabilities"
+                f"Successfully updated {app_manifest.name} with "
+                f"{len(analysis_result.capabilities)} capabilities and "
+                f"{len(analysis_result.service_users)} services"
             )
 
         except Exception as e:
