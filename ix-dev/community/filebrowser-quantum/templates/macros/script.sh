@@ -4,7 +4,12 @@
 
 if [ ! -f "{{ cfg_path }}" ]; then
   echo "File [{{ cfg_path }}] does not exist."
-  touch "{{ cfg_path }}"
+  touch "{{ cfg_path }}" || { echo "Failed to create [{{ cfg_path }}] file."; exit 1; }
+fi
+
+if [ ! -w "{{ cfg_path }}" ]; then
+  echo "File [{{ cfg_path }}] is not writable."
+  exit 1
 fi
 
 echo "Updating [{{ cfg_path }}] file..."
