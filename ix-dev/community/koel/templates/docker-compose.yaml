@@ -11,10 +11,11 @@
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.koel.postgres_image_selector, pg_config, perm_container) %}
 
-{% do c1.add_caps(["SETUID", "SETGID"]) %}
+{% do c1.add_caps(["SETUID", "SETGID", "FOWNER", "DAC_OVERRIDE", "CHOWN"]) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/sw.js"}) %}
 
+{% do c1.configs.add("init", values.consts.init_script, "/usr/local/bin/koel-init", "0777") %}
 {% do c1.environment.add_env("APP_KEY", values.koel.app_key) %}
 {% do c1.environment.add_env("DB_CONNECTION", "pgsql") %}
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
@@ -28,7 +29,6 @@
 
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% do c1.add_storage("/music", values.storage.music) %}
-{% do c1.configs.add("empty-env", "# Empty File", "/var/www/html/.env")%}
 {% do c1.add_storage("/var/www/html/storage/search-indexes", values.storage.search_index) %}
 {% do c1.add_storage("/var/www/html/public/img/storage", values.storage.image_storage) %}
 
