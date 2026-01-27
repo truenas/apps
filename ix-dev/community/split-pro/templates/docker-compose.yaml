@@ -17,17 +17,7 @@
   pg_config, perm_container
 ) %}
 
-
-{# Construct DATABASE_URL #}
-{% set db_url = "postgresql://%s:%s@%s:%d/%s"|format(
-  values.consts.db_user,
-  values.splitpro.db_password,
-  values.consts.postgres_container_name,
-  postgres.get_port(),
-  values.consts.db_name
-) %}
-
-{# Main Split-Pro container #}
+{# Main SplitPro container #}
 {% set c1 = tpl.add_container(values.consts.splitpro_container_name, "image") %}
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -37,7 +27,7 @@
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 
 {# Core Environment Variables #}
-{% do c1.environment.add_env("DATABASE_URL", db_url) %}
+{% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do c1.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
 {% do c1.environment.add_env("POSTGRES_PASSWORD", values.splitpro.db_password) %}
 {% do c1.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
@@ -47,6 +37,7 @@
 {% do c1.environment.add_env("NEXTAUTH_URL_INTERNAL", "http://%s:%d"|format(values.consts.splitpro_container_name, values.consts.internal_web_port)) %}
 {% do c1.environment.add_env("DEFAULT_HOMEPAGE", values.splitpro.default_homepage) %}
 {% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("HOSTNAME", "0.0.0.0") %}
 
 {# Optional Core Settings #}
 {% if values.splitpro.enable_sending_invites %}
