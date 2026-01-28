@@ -113,7 +113,7 @@ module.exports = {
     ),
     customVersioning(
       // 1.40.2.8395-c67dce28e
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>[a-z0-9-]+)$",
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>[0-9]{3,5}-[a-f0-9]{7,9})$",
       ["plexinc/pms-docker"]
     ),
     customVersioning(
