@@ -132,8 +132,8 @@ module.exports = {
       ["fireflyiii/core", "fireflyiii/data-importer"]
     ),
     customVersioning(
-      // 2.462.1-jdk17
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-jdk17$",
+      // 2.462.1-jdk21
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-jdk21$",
       ["jenkins/jenkins"]
     ),
     customVersioning(
