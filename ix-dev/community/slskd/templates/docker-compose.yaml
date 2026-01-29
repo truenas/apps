@@ -5,34 +5,25 @@
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 
-{# Environment variables #}
+{% do c1.environment.add_env("SLSKD_HTTP_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("SLSKD_SLSK_LISTEN_PORT", values.network.soulseek_port.port_number) %}
+{% do c1.environment.add_env("SLSKD_APP_DIR", values.consts.app_data_path) %}
 {% do c1.environment.add_env("SLSKD_SLSK_USERNAME", values.slskd.soulseek_username) %}
 {% do c1.environment.add_env("SLSKD_SLSK_PASSWORD", values.slskd.soulseek_password) %}
-{% if values.slskd.remote_configuration %}
-{% do c1.environment.add_env("SLSKD_REMOTE_CONFIGURATION", "true") %}
-{% endif %}
+{% do c1.environment.add_env("SLSKD_REMOTE_CONFIGURATION", values.slskd.remote_configuration) %}
 {% do c1.environment.add_user_envs(values.slskd.additional_envs) %}
 
-{# Ports #}
 {% do c1.add_port(values.network.web_port) %}
 {% do c1.add_port(values.network.soulseek_port) %}
 
-{# Storage #}
-{% do c1.add_storage("/app", values.storage.data) %}
+{% do c1.add_storage(values.consts.app_data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
-{% endfor %}
-
-{# Labels #}
-{% for label in values.labels %}
-  {% if values.consts.slskd_container_name in label.containers %}
-    {% do c1.add_label(label.key, label.value) %}
-  {% endif %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
