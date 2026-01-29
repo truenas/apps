@@ -6,7 +6,6 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 {% set tmpfs_config = {"type": "tmpfs", "tmpfs_config": {"size": 25, "uid": values.run_as.user, "gid": values.run_as.group}} %}
 
-{# RACKULA_API_PORT #}
 {% set containers = [c1, api] %}
 {% for c in containers %}
   {% do c.set_user(values.run_as.user, values.run_as.group) %}
@@ -48,8 +47,9 @@
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
-  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do api.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% for c in containers %}
+    {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endfor %}
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
