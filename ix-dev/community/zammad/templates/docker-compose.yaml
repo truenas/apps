@@ -42,8 +42,6 @@
 
 {% for name, c in containers.items() %}
   {# {% do c.set_user(values.run_as.user, values.run_as.group) %} #}
-  {% do c.healthcheck.use_built_in() %}
-
   {% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
   {% if name != "init" %}
     {% do c.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
@@ -86,13 +84,17 @@
 {% endfor %}
 
 {% do railsserver.set_command(["zammad-railsserver"]) %}
+{% do raissserver.healthcheck.set_test("curl", {"port": values.consts.rails_internal_port}) %}
 {% do scheduler.set_command(["zammad-scheduler"]) %}
+{% do scheduler.healthcheck.set_test("pgrep", {"process": "zammad-scheduler"}) %}
 {% do websocket.set_command(["zammad-websocket"]) %}
+{% do websocket.healthcheck.set_test("curl", {"port": values.consts.websocket_internal_port}) %}
 
 {% do init.set_command(["zammad-init"]) %}
 {% do init.setup_as_helper(disable_network=false) %}
 
 {% do nginx.set_command(["zammad-nginx"]) %}
+{% do nginx.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
 {% do nginx.depends.add_dependency(values.consts.rails_server_container_name, "service_healthy") %}
 {% do nginx.add_port(values.network.web_port) %}
 
