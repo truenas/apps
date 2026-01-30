@@ -1,20 +1,20 @@
 groups:
-  - name: Vaultwarden Configuration
-    description: Configure Vaultwarden
+  - name: Zammad Configuration
+    description: Configure Zammad
   - name: User and Group Configuration
-    description: Configure User and Group for Vaultwarden
+    description: Configure User and Group for Zammad
   - name: Network Configuration
-    description: Configure Network for Vaultwarden
+    description: Configure Network for Zammad
   - name: Storage Configuration
-    description: Configure Storage for Vaultwarden
+    description: Configure Storage for Zammad
   - name: Labels Configuration
-    description: Configure Labels for Vaultwarden
+    description: Configure Labels for Zammad
   - name: Resources Configuration
-    description: Configure Resources for Vaultwarden
+    description: Configure Resources for Zammad
 
 questions:
   - variable: TZ
-    group: Vaultwarden Configuration
+    group: Zammad Configuration
     label: Timezone
     schema:
       type: string
@@ -23,9 +23,9 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: vaultwarden
+  - variable: zammad
     label: ""
-    group: Vaultwarden Configuration
+    group: Zammad Configuration
     schema:
       type: dict
       attrs:
@@ -43,33 +43,47 @@ questions:
             default: postgres_18_image
             required: true
             enum:
-              - value: postgres_15_image
-                description: Postgres 15 (Deprecated)
-              - value: postgres_17_image
-                description: Postgres 17
               - value: postgres_18_image
                 description: Postgres 18
         - variable: db_password
           label: Database Password
-          description: The password for Vaultwarden.
+          description: The password for Zammad.
           schema:
             type: string
             default: ""
             required: true
             private: true
-        - variable: admin_token
-          label: Admin Token
-          description: Setting this, will enable the admin portal
+        - variable: elastic_password
+          label: Elastic Search Password
+          description: The password for Elastic Search.
           schema:
             type: string
             default: ""
+            required: true
             private: true
-        - variable: enable_websocket
-          label: Enable Websocket
-          description: Enable Websocket for Vaultwarden.
+        - variable: redis_password
+          label: Redis Password
+          description: The password for Redis.
           schema:
-            type: boolean
-            default: true
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: backup_time
+          label: Backup Time
+          description: The time to run the backup.
+          schema:
+            type: string
+            default: "03:00"
+            required: true
+        - variable: hold_days
+          label: Hold Days
+          description: The number of days to hold the backup.
+          schema:
+            type: int
+            default: 10
+            min: 1
+            required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -98,7 +112,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Vaultwarden files will be owned by.
+          description: The user id that Zammad files will be owned by.
           schema:
             type: int
             min: 568
@@ -106,7 +120,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Vaultwarden files will be owned by.
+          description: The group id that Zammad files will be owned by.
           schema:
             type: int
             min: 568
@@ -147,7 +161,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30032
+                  default: 30338
                   min: 1
                   max: 65535
                   required: true
@@ -169,7 +183,7 @@ questions:
         - variable: certificate_id
           label: Certificate ID
           description: |
-            The certificate to use for Vaultwarden </br>
+            The certificate to use for Zammad </br>
             Using the Rocket method for TLS setup is NOT recommended </br>
             Prefer a reverse proxy with a valid certificate
           schema:
@@ -180,7 +194,7 @@ questions:
         - variable: domain
           label: Domain
           description: |
-            The domain to use for Vaultwarden </br>
+            The domain to use for Zammad </br>
             Format is: https://sub.domain.tld:port
           schema:
             type: uri
@@ -193,8 +207,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Vaultwarden Data Storage
-          description: The path to store Vaultwarden Data.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -268,9 +281,83 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: es_data
+          label: Elastic Search Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "es_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: postgres_data
-          label: Vaultwarden Postgres Data Storage
-          description: The path to store Vaultwarden Postgres Data.
+          label: Postgres Data Storage
           schema:
             type: dict
             attrs:
@@ -547,10 +634,24 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: vaultwarden
-                            description: vaultwarden
+                          - value: elastic-search
+                            description: elastic-search
+                          - value: memcached
+                            description: memcached
+                          - value: redis
+                            description: redis
                           - value: postgres
                             description: postgres
+                          - value: nginx
+                            description: nginx
+                          - value: backup
+                            description: backup
+                          - value: railsserver
+                            description: railsserver
+                          - value: scheduler
+                            description: scheduler
+                          - value: websocket
+                            description: websocket
 
   - variable: resources
     label: ""
@@ -565,14 +666,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Vaultwarden.
+                description: CPUs limit for Zammad.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Vaultwarden.
+                description: Memory limit for Zammad.
                 schema:
                   type: int
                   default: 4096
