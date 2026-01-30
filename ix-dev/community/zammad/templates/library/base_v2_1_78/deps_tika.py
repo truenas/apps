@@ -11,17 +11,15 @@ except ImportError:
     from error import RenderError
 
 
-class MemcachedConfig(TypedDict):
+class TikaConfig(TypedDict):
     port: NotRequired[int]
-    memory_mb: NotRequired[int]
 
 
-SUPPORTED_REPOS = ["memcached"]
+SUPPORTED_REPOS = ["apache/tika"]
 
 
-class MemcachedContainer:
-
-    def __init__(self, render_instance: "Render", name: str, image: str, config: MemcachedConfig):
+class TikaContainer:
+    def __init__(self, render_instance: "Render", name: str, image: str, config: TikaConfig):
         self._render_instance = render_instance
         self._name = name
         self._config = config
@@ -35,12 +33,11 @@ class MemcachedContainer:
             group = run_as["group"] or group  # Avoids running as root
 
         c.set_user(user, group)
-        c.healthcheck.set_test("tcp", {"port": self.get_port()})
+        c.healthcheck.set_test("wget", {"port": self.get_port(), "path": "/tika", "spider": False})
         c.remove_devices()
         c.set_grace_period(60)
 
-        mem = self._config.get("memory_mb") or 256
-        c.set_command(["-p", str(self.get_port()), "-m", f"{mem}M"])
+        c.set_command(["--port", str(self.get_port())])
 
         self._get_repo(image)
 
@@ -64,4 +61,7 @@ class MemcachedContainer:
         return repo
 
     def get_port(self):
-        return self._config.get("port") or 11211
+        return self._config.get("port") or 9998
+
+    def get_url(self):
+        return f"http://{self._name}:{self.get_port()}"
