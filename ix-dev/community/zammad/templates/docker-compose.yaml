@@ -31,7 +31,6 @@
 {% set railsserver = tpl.add_container(values.consts.rails_server_container_name, "image") %}
 {% set scheduler = tpl.add_container(values.consts.scheduler_container_name, "image") %}
 {% set websocket = tpl.add_container(values.consts.websocket_container_name, "image") %}
-{% set backup = tpl.add_container(values.consts.backup_container_name, "image") %}
 
 {% set containers = {
   "init": init,
@@ -39,7 +38,6 @@
   "railsserver": railsserver,
   "scheduler": scheduler,
   "websocket": websocket,
-  "backup": backup,
 } %}
 
 {% for name, c in containers.items() %}
@@ -62,9 +60,6 @@
   {% do c.environment.add_env("POSTGRESQL_PORT", postgres.get_port()) %}
   {% do c.environment.add_env("POSTGRESQL_DB_CREATE", true) %}
   {% do c.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
-  {% do c.environment.add_env("BACKUP_DIR", values.consts.backup_dir_path) %}
-  {% do c.environment.add_env("BACKUP_TIME", values.zammad.backup_time) %}
-  {% do c.environment.add_env("HOLD_DAYS", values.zammad.hold_days) %}
 
   {% do c.environment.add_env("ELASTICSEARCH_ENABLED", true) %}
   {% do c.environment.add_env("ELASTICSEARCH_SCHEMA", "http") %}
@@ -83,19 +78,13 @@
 
   {% do c.environment.add_user_envs(values.zammad.additional_envs) %}
 
-  {% if name == "backup" %}
-    {% do c.add_storage(values.consts.backup_dir_path, values.storage.data) %}
-    {% do c.add_storage(values.consts.data_dir_path, dict(values.storage.data, **{"read_only": true})) %}
-  {% else %}
-    {% do c.add_storage(values.consts.data_dir_path, values.storage.data) %}
-  {% endif %}
+  {% do c.add_storage(values.consts.data_dir_path, values.storage.data) %}
 
   {% for store in values.storage.additional_storage %}
     {% do c.add_storage(store.mount_path, store) %}
   {% endfor %}
 {% endfor %}
 
-{% do backup.set_command(["zammad-backup"]) %}
 {% do railsserver.set_command(["zammad-railsserver"]) %}
 {% do scheduler.set_command(["zammad-scheduler"]) %}
 {% do websocket.set_command(["zammad-websocket"]) %}
