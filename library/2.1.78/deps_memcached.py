@@ -65,3 +65,6 @@ class MemcachedContainer:
 
     def get_port(self):
         return self._config.get("port") or 11211
+
+    def get_address(self):
+        return f"{self._name}:{self.get_port()}"

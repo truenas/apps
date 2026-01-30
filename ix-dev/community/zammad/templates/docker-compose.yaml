@@ -33,60 +33,82 @@
 {% set websocket = tpl.add_container(values.consts.websocket_container_name, "image") %}
 {% set backup = tpl.add_container(values.consts.backup_container_name, "image") %}
 
-{% set containers = [init, nginx, railsserver, scheduler, websocket, backup] %}
+{% set containers = {
+  "init": init,
+  "nginx": nginx,
+  "railsserver": railsserver,
+  "scheduler": scheduler,
+  "websocket": websocket,
+  "backup": backup,
+} %}
 
-{% for c in containers %}
+{% for name, c in containers.items() %}
   {# {% do c.set_user(values.run_as.user, values.run_as.group) %} #}
   {% do c.healthcheck.use_built_in() %}
+
   {% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-  {% do c.depends.add_dependency(values.consts.elastic_search_container_name, "service_healthy") %}
-  {% do c.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-  {% do c.depends.add_dependency(values.consts.memcached_container_name, "service_healthy") %}
+  {% if name != "init" %}
+    {% do c.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+    {% do c.depends.add_dependency(values.consts.elastic_search_container_name, "service_healthy") %}
+    {% do c.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+    {% do c.depends.add_dependency(values.consts.memcached_container_name, "service_healthy") %}
+  {% endif %}
+
+  {% do c.environment.add_env("MEMCACHE_SERVERS", memcached.get_address()) %}
+  {% do c.environment.add_env("POSTGRESQL_DB", values.consts.db_name) %}
+  {% do c.environment.add_env("POSTGRESQL_HOST", values.consts.postgres_container_name) %}
+  {% do c.environment.add_env("POSTGRESQL_USER", values.consts.db_user) %}
+  {% do c.environment.add_env("POSTGRESQL_PASS", values.zammad.db_password) %}
+  {% do c.environment.add_env("POSTGRESQL_PORT", postgres.get_port()) %}
+  {% do c.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
+  {% do c.environment.add_env("BACKUP_DIR", values.consts.backup_dir_path) %}
+  {% do c.environment.add_env("BACKUP_TIME", values.zammad.backup_time) %}
+  {% do c.environment.add_env("HOLD_DAYS", values.zammad.hold_days) %}
+
+  {% do c.environment.add_env("ELASTICSEARCH_ENABLED", true) %}
+  {% do c.environment.add_env("ELASTICSEARCH_HOST", values.consts.elastic_search_container_name) %}
+  {% do c.environment.add_env("ELASTICSEARCH_PORT", es.get_port()) %}
+  {% do c.environment.add_env("ELASTICSEARCH_USER", "elastic") %}
+  {% do c.environment.add_env("ELASTICSEARCH_PASS", values.zammad.elastic_password) %}
+
+  {% do c.environment.add_env("NGINX_PORT", values.network.web_port.port_number) %}
+
+  {% do c.environment.add_user_envs(values.zammad.additional_envs) %}
+
+  {% if name == "backup" %}
+    {% do c.add_storage(values.consts.backup_dir_path, values.storage.data) %}
+    {% do c.add_storage(values.consts.data_dir_path, dict(values.storage.data, **{"read_only": true})) %}
+  {% else %}
+    {% do c.add_storage(values.consts.data_dir_path, values.storage.data) %}
+  {% endif %}
+
+  {% for store in values.storage.additional_storage %}
+    {% do c.add_storage(store.mount_path, store) %}
+  {% endfor %}
 {% endfor %}
 
-{% do init.set_command(["zammad-init"]) %}
-
 {% do backup.set_command(["zammad-backup"]) %}
+{% do railsserver.set_command(["zammad-railsserver"]) %}
+{% do scheduler.set_command(["zammad-scheduler"]) %}
+{% do websocket.set_command(["zammad-websocket"]) %}
+
+{% do init.set_command(["zammad-init"]) %}
+{% do init.setup_as_helper() %}
 
 {% do nginx.set_command(["zammad-nginx"]) %}
 {% do nginx.depends.add_dependency(values.consts.railsserver_container_name, "service_healthy") %}
+{% do nginx.add_port(values.network.web_port) %}
 
-{% do railsserver.set_command(["zammad-railsserver"]) %}
-
-{% do scheduler.set_command(["zammad-scheduler"]) %}
-
-{% do websocket.set_command(["zammad-websocket"]) %}
-
-{#
-{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
-
-{% do c1.environment.add_env("ROCKET_PORT", values.network.web_port.port_number) %}
-{% do c1.environment.add_env("ENABLE_WEBSOCKET", values.zammad.enable_websocket) %}
-{% do c1.environment.add_env("ADMIN_TOKEN", values.zammad.admin_token) %}
-{% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
-
-{% if values.network.certificate_id %}
-  {% do c1.environment.add_env("ROCKET_TLS", '{certs="%s",key="%s"}'|format(values.consts.ssl_cert_path, values.consts.ssl_key_path)) %}
-  {% do c1.configs.add("private", values.ix_certificates[values.network.certificate_id].privatekey, values.consts.ssl_key_path) %}
-  {% do c1.configs.add("public", values.ix_certificates[values.network.certificate_id].certificate, values.consts.ssl_cert_path) %}
-{% endif %}
-
-{% do c1.environment.add_user_envs(values.zammad.additional_envs) %}
-
-{% do c1.add_storage("/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
 {% for store in values.storage.additional_storage %}
-  {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
-
-{% do c1.add_port(values.network.web_port) %} #}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% for c in containers %}
+  {% for c in containers.values() %}
     {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% endfor %}
 {% endif %}
