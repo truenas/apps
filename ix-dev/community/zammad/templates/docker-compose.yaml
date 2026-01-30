@@ -28,7 +28,7 @@
 {# Zammad Containers #}
 {% set init = tpl.add_container(values.consts.init_container_name, "image") %}
 {% set nginx = tpl.add_container(values.consts.nginx_container_name, "image") %}
-{% set railsserver = tpl.add_container(values.consts.railsserver_container_name, "image") %}
+{% set railsserver = tpl.add_container(values.consts.rails_server_container_name, "image") %}
 {% set scheduler = tpl.add_container(values.consts.scheduler_container_name, "image") %}
 {% set websocket = tpl.add_container(values.consts.websocket_container_name, "image") %}
 {% set backup = tpl.add_container(values.consts.backup_container_name, "image") %}
@@ -60,18 +60,26 @@
   {% do c.environment.add_env("POSTGRESQL_USER", values.consts.db_user) %}
   {% do c.environment.add_env("POSTGRESQL_PASS", values.zammad.db_password) %}
   {% do c.environment.add_env("POSTGRESQL_PORT", postgres.get_port()) %}
+  {% do c.environment.add_env("POSTGRESQL_DB_CREATE", true) %}
   {% do c.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
   {% do c.environment.add_env("BACKUP_DIR", values.consts.backup_dir_path) %}
   {% do c.environment.add_env("BACKUP_TIME", values.zammad.backup_time) %}
   {% do c.environment.add_env("HOLD_DAYS", values.zammad.hold_days) %}
 
   {% do c.environment.add_env("ELASTICSEARCH_ENABLED", true) %}
+  {% do c.environment.add_env("ELASTICSEARCH_SCHEMA", "http") %}
   {% do c.environment.add_env("ELASTICSEARCH_HOST", values.consts.elastic_search_container_name) %}
   {% do c.environment.add_env("ELASTICSEARCH_PORT", es.get_port()) %}
   {% do c.environment.add_env("ELASTICSEARCH_USER", "elastic") %}
   {% do c.environment.add_env("ELASTICSEARCH_PASS", values.zammad.elastic_password) %}
+  {% do c.environment.add_env("ELASTICSEARCH_NAMESPACE", values.consts.db_name) %}
 
   {% do c.environment.add_env("NGINX_PORT", values.network.web_port.port_number) %}
+  {% do c.environment.add_env("ZAMMAD_RAILS_PORT", values.consts.rails_internal_port) %}
+  {% do c.environment.add_env("ZAMMAD_RAILSSERVER_HOST", values.consts.rails_server_container_name) %}
+  {% do c.environment.add_env("ZAMMAD_RAILSSERVER_PORT", values.consts.rails_internal_port) %}
+  {% do c.environment.add_env("ZAMMAD_WEBSOCKET_HOST", values.consts.websocket_container_name) %}
+  {% do c.environment.add_env("ZAMMAD_WEBSOCKET_PORT", values.consts.websocket_internal_port) %}
 
   {% do c.environment.add_user_envs(values.zammad.additional_envs) %}
 
@@ -96,7 +104,7 @@
 {% do init.setup_as_helper() %}
 
 {% do nginx.set_command(["zammad-nginx"]) %}
-{% do nginx.depends.add_dependency(values.consts.railsserver_container_name, "service_healthy") %}
+{% do nginx.depends.add_dependency(values.consts.rails_server_container_name, "service_healthy") %}
 {% do nginx.add_port(values.network.web_port) %}
 
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
