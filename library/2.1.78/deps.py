@@ -7,6 +7,7 @@ try:
     from .deps_elastic import ElasticSearchContainer, ElasticConfig
     from .deps_mariadb import MariadbContainer, MariadbConfig
     from .deps_meilisearch import MeilisearchContainer, MeiliConfig
+    from .deps_memcached import MemcachedContainer, MemcachedConfig
     from .deps_mongodb import MongoDBContainer, MongoDBConfig
     from .deps_perms import PermsContainer
     from .deps_postgres import PostgresContainer, PostgresConfig
@@ -17,6 +18,7 @@ except ImportError:
     from deps_elastic import ElasticSearchContainer, ElasticConfig
     from deps_mariadb import MariadbContainer, MariadbConfig
     from deps_meilisearch import MeilisearchContainer, MeiliConfig
+    from deps_memcached import MemcachedContainer, MemcachedConfig
     from deps_mongodb import MongoDBContainer, MongoDBConfig
     from deps_perms import PermsContainer
     from deps_postgres import PostgresContainer, PostgresConfig
@@ -55,3 +57,6 @@ class Deps:
 
     def tika(self, name: str, image: str, config: TikaConfig):
         return TikaContainer(self._render_instance, name, image, config)
+
+    def memcached(self, name: str, image: str, config: MemcachedConfig):
+        return MemcachedContainer(self._render_instance, name, image, config)

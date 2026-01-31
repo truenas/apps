@@ -998,3 +998,61 @@ def test_add_tika_unsupported_repo(mock_values):
             "tika_image",
             {},
         )
+
+
+def test_add_memcached(mock_values):
+    mock_values["images"]["memcached_image"] = {"repository": "memcached", "tag": "1.6.40"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    render.deps.memcached(
+        "memcached_container",
+        "memcached_image",
+        {
+            "port": 10999,
+            "memory_mb": 512,
+        },
+    )
+    output = render.render()
+    assert "devices" not in output["services"]["memcached_container"]
+    assert "reservations" not in output["services"]["memcached_container"]["deploy"]["resources"]
+    assert output["services"]["memcached_container"]["stop_grace_period"] == "60s"
+    assert output["services"]["memcached_container"]["image"] == "memcached:1.6.40"
+    assert output["services"]["memcached_container"]["user"] == "568:568"
+    assert output["services"]["memcached_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["memcached_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert output["services"]["memcached_container"]["healthcheck"] == {
+        "test": [
+            "CMD",
+            "timeout",
+            "1",
+            "bash",
+            "-c",
+            "cat < /dev/null > /dev/tcp/127.0.0.1/10999",
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
+    }
+    assert output["services"]["memcached_container"]["environment"] == {
+        "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+    }
+    assert output["services"]["memcached_container"]["command"] == ["-p", "10999", "-m", "512M"]
+
+
+def test_add_memcached_unsupported_repo(mock_values):
+    mock_values["images"]["memcached_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        render.deps.memcached(
+            "memcached_container",
+            "memcached_image",
+            {},
+        )
