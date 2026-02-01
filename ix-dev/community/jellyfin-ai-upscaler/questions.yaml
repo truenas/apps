@@ -1,0 +1,160 @@
+groups:
+  - name: Jellyfin AI Upscaler Configuration
+    description: Configure AI upscaling settings
+  - name: Network Configuration
+    description: Configure network settings
+  - name: Storage Configuration
+    description: Configure storage for AI models
+  - name: GPU Configuration
+    description: Configure NVIDIA GPU passthrough for acceleration
+  - name: Resources Configuration
+    description: Configure CPU and memory limits
+
+questions:
+  # App Configuration
+  - variable: jellyfin_ai_upscaler
+    label: ""
+    group: Jellyfin AI Upscaler Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: use_gpu
+          label: Enable GPU Acceleration
+          description: Enable NVIDIA GPU acceleration for AI inference
+          schema:
+            type: boolean
+            default: true
+        - variable: max_concurrent
+          label: Max Concurrent Requests
+          description: Maximum number of parallel upscaling requests
+          schema:
+            type: int
+            default: 4
+            min: 1
+            max: 16
+        - variable: default_model
+          label: Default Model
+          description: Model to auto-load on startup (leave empty for none)
+          schema:
+            type: string
+            default: ""
+            enum:
+              - value: ""
+                description: None (load manually via Web UI)
+              - value: "fsrcnn-x2"
+                description: FSRCNN x2 (Fast)
+              - value: "fsrcnn-x3"
+                description: FSRCNN x3 (Fast)
+              - value: "realesrgan-x4"
+                description: Real-ESRGAN x4 (Best Quality)
+              - value: "realesrgan-x4-256"
+                description: Real-ESRGAN x4 256px (Low VRAM)
+
+  # Network Configuration
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: Web UI Port
+          description: Port for the web dashboard and REST API
+          schema:
+            type: int
+            default: 5000
+            min: 1024
+            max: 65535
+            required: true
+        - variable: host_network
+          label: Host Network
+          description: Use host network mode (recommended for local Jellyfin access)
+          schema:
+            type: boolean
+            default: false
+
+  # Storage Configuration
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: models
+          label: AI Models Storage
+          description: Storage for downloaded AI models (10GB+ recommended)
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  default: host_path
+                  enum:
+                    - value: host_path
+                      description: Host Path (recommended)
+                    - value: ix_volume
+                      description: iX Storage Volume
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: path
+                      label: Host Path
+                      description: Path on the host for model storage
+                      schema:
+                        type: hostpath
+                        required: true
+
+  # GPU Configuration
+  - variable: gpu
+    label: ""
+    group: GPU Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: nvidia_gpu
+          label: NVIDIA GPU
+          description: Allocate NVIDIA GPU for TensorRT acceleration
+          schema:
+            type: boolean
+            default: true
+        - variable: gpu_count
+          label: GPU Count
+          description: Number of GPUs to allocate
+          schema:
+            type: int
+            default: 1
+            min: 0
+            max: 8
+            show_if: [["nvidia_gpu", "=", true]]
+
+  # Resources Configuration
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: Maximum CPUs for the container
+                schema:
+                  type: int
+                  default: 4
+                  min: 1
+              - variable: memory
+                label: Memory (MB)
+                description: Maximum memory in megabytes
+                schema:
+                  type: int
+                  default: 8192
+                  min: 1024

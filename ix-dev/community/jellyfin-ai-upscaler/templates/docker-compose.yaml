@@ -1,0 +1,56 @@
+{# Jellyfin AI Upscaler Docker Compose Template #}
+{% from "macros/container.jinja" import container %}
+{% from "macros/network.jinja" import network %}
+{% from "macros/storage.jinja" import storage %}
+{% from "macros/gpu.jinja" import gpu %}
+
+services:
+  {{ values.consts.app_container_name }}:
+    image: {{ values.images.image.repository }}:{{ values.images.image.tag }}
+    container_name: {{ values.consts.app_container_name }}
+    restart: unless-stopped
+    {% if values.network.host_network %}
+    network_mode: host
+    {% else %}
+    ports:
+      - "{{ values.network.web_port }}:5000"
+    {% endif %}
+    environment:
+      - USE_GPU={{ "true" if values.jellyfin_ai_upscaler.use_gpu else "false" }}
+      - MAX_CONCURRENT_REQUESTS={{ values.jellyfin_ai_upscaler.max_concurrent }}
+      - DEFAULT_MODEL={{ values.jellyfin_ai_upscaler.default_model }}
+    volumes:
+      {% if values.storage.models.type == "host_path" %}
+      - {{ values.storage.models.host_path_config.path }}:/app/models
+      {% else %}
+      - models_volume:/app/models
+      {% endif %}
+    {% if values.gpu.nvidia_gpu and values.gpu.gpu_count > 0 %}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: {{ values.gpu.gpu_count }}
+              capabilities: [gpu]
+        limits:
+          cpus: "{{ values.resources.limits.cpus }}"
+          memory: "{{ values.resources.limits.memory }}M"
+    {% else %}
+    deploy:
+      resources:
+        limits:
+          cpus: "{{ values.resources.limits.cpus }}"
+          memory: "{{ values.resources.limits.memory }}M"
+    {% endif %}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+{% if values.storage.models.type != "host_path" %}
+volumes:
+  models_volume:
+{% endif %}
