@@ -14,7 +14,7 @@
 
 {# Elastic Search #}
 {% set es_config = {"password": values.zammad.elastic_password, "node_name": "zammad", "volume": values.storage.es_data} %}
-{% set es = tpl.deps.elasticsearch(values.consts.elastic_search_container_name, "elastic_search_image", es_config, perm_container) %}
+{# {% set es = tpl.deps.elasticsearch(values.consts.elastic_search_container_name, "elastic_search_image", es_config, perm_container) %} #}
 
 {# Redis #}
 {% set redis_config = {
@@ -86,9 +86,9 @@
 {% do railsserver.set_command(["zammad-railsserver"]) %}
 {% do railsserver.healthcheck.set_test("curl", {"port": values.consts.rails_internal_port}) %}
 {% do scheduler.set_command(["zammad-scheduler"]) %}
-{% do scheduler.healthcheck.set_test("pgrep", {"process": "zammad-scheduler"}) %}
+{% do scheduler.healthcheck.set_custom_test(["CMD", "timeout", "3", "bash", "-c" ,"grep -q 'background-worker.rb' /proc/1/cmdline"]) %}
 {% do websocket.set_command(["zammad-websocket"]) %}
-{% do websocket.healthcheck.set_test("curl", {"port": values.consts.websocket_internal_port}) %}
+{% do websocket.healthcheck.set_test("tcp", {"port": values.consts.websocket_internal_port}) %}
 
 {% do init.set_command(["zammad-init"]) %}
 {% do init.setup_as_helper(disable_network=false) %}
