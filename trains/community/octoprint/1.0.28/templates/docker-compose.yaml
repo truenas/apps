@@ -1,0 +1,28 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.octoprint_container_name, "image") %}
+
+{% do c1.add_caps(["SETGID","SETUID"]) %}
+
+{% do c1.environment.add_env("ENABLE_MJPG_STREAMER", values.octoprint.video_enable) %}
+{% if values.octoprint.video_enable %}
+  {% do c1.environment.add_env("CAMERA_DEV", values.octoprint.video_device) %}
+  {% do c1.environment.add_env("MJPG_STREAMER_INPUT", values.octoprint.mjpg_streamer_input) %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.octoprint.additional_envs) %}
+
+{% for device in values.octoprint.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_http_port}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_http_port, "path": "/robots.txt"}) %}
+
+{% do c1.add_storage("/octoprint", values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_http_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}

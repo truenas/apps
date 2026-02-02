@@ -6,7 +6,8 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do server.set_user(values.run_as.user, values.run_as.group) %}
-{% do server.healthcheck.set_test("wget", {"port": values.consts.internal_server_port, "path": "/favicon.ico"}) %}
+{# FIXME: https://github.com/TheNickOfTime/handbrake-web/issues/579 #}
+{% do server.healthcheck.disable() %}
 {% do server.remove_devices() %}
 
 {% do server.environment.add_env("NODE_ENV", "production") %}
@@ -15,12 +16,12 @@
 {% do server.add_port(values.network.web_port, {"container_port": values.consts.internal_server_port}) %}
 
 {% do worker.set_user(values.run_as.user, values.run_as.group) %}
-{% do worker.depends.add_dependency(values.consts.handbrake_server_container_name, "service_healthy") %}
+{# FIXME: https://github.com/TheNickOfTime/handbrake-web/issues/579 #}
+{% do worker.depends.add_dependency(values.consts.handbrake_server_container_name, "service_started") %}
 {% do worker.healthcheck.disable() %}
 
 {% do worker.environment.add_env("NODE_ENV", "production") %}
 {% do worker.environment.add_env("WORKER_ID", "worker") %}
-{% do worker.environment.add_env("DATA_PATH", values.consts.data_path) %}
 {% do worker.environment.add_env("SERVER_PORT", values.consts.internal_server_port) %}
 {% do worker.environment.add_env("SERVER_URL", values.consts.handbrake_server_container_name) %}
 {% do worker.environment.add_user_envs(values.handbrake.additional_envs) %}

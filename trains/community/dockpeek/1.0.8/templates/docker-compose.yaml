@@ -1,0 +1,24 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.dockpeek_container_name, "image") %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+{% do c1.add_docker_socket(read_only=False) %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("SECRET_KEY", values.dockpeek.secret_key) %}
+{% do c1.environment.add_env("DISABLE_AUTH", values.dockpeek.disable_auth) %}
+{% if not values.dockpeek.disable_auth %}
+  {% do c1.environment.add_env("USERNAME", values.dockpeek.username) %}
+  {% do c1.environment.add_env("PASSWORD", values.dockpeek.password) %}
+{% endif %}
+{% do c1.environment.add_env("DOCKER_HOST_1_URL", "unix:///var/run/docker.sock") %}
+{% do c1.environment.add_user_envs(values.dockpeek.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

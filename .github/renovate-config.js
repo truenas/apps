@@ -113,7 +113,7 @@ module.exports = {
     ),
     customVersioning(
       // 1.40.2.8395-c67dce28e
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>[a-z0-9-]+)$",
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>[0-9]{3,5}-[a-f0-9]{7,9})$",
       ["plexinc/pms-docker"]
     ),
     customVersioning(
@@ -124,7 +124,7 @@ module.exports = {
     customVersioning(
       // RELEASE.2024-08-26T15-33-07Z
       "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
-      ["minio/minio"]
+      ["minio/minio", "quay.io/minio/aistor/minio"]
     ),
     customVersioning(
       // version-6.0.0
@@ -132,8 +132,8 @@ module.exports = {
       ["fireflyiii/core", "fireflyiii/data-importer"]
     ),
     customVersioning(
-      // 2.462.1-jdk17
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-jdk17$",
+      // 2.462.1-jdk21
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-jdk21$",
       ["jenkins/jenkins"]
     ),
     customVersioning(
@@ -320,6 +320,11 @@ module.exports = {
       // 10.0.160-mongo8
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-mongo8$",
       ["ghcr.io/goofball222/unifi"]
+    ),
+    customVersioning(
+      // hardcover-v0.4.20.91
+      "^(?<compatibility>hardcover|softcover)-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$",
+      ["ghcr.io/pennydreadful/bookshelf"]
     ),
   ],
 };

@@ -1,15 +1,15 @@
 {
-    "1.0.57": {
+    "1.1.5": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/authentik/1.0.57",
-        "last_update": "2025-12-03 20:01:28",
+        "location": "/__w/apps/apps/trains/community/authentik/1.1.5",
+        "last_update": "2026-01-31 15:27:05",
         "required_features": [],
-        "human_version": "2025.10.2_1.0.57",
-        "version": "1.0.57",
+        "human_version": "2025.12.2_1.1.5",
+        "version": "1.1.5",
         "app_metadata": {
-            "app_version": "2025.10.2",
+            "app_version": "2025.12.2",
             "capabilities": [],
             "categories": [
                 "authentication"
@@ -29,8 +29,8 @@
                 "authentik",
                 "auth"
             ],
-            "lib_version": "2.1.65",
-            "lib_version_hash": "f92a9ee78c78fc77f86e7d8b545bd4c605c31c599e2c5da59f1615aa516cb8b5",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -41,18 +41,25 @@
             "name": "authentik",
             "run_as_context": [
                 {
-                    "description": "Authentik runs as any non-root user.",
+                    "description": "Container [authentik-server] can run as any non-root user and group.",
                     "gid": 568,
-                    "group_name": "authentik",
+                    "group_name": "Host group is [apps]",
                     "uid": 568,
-                    "user_name": "authentik"
+                    "user_name": "Host user is [apps]"
                 },
                 {
-                    "description": "Postgres runs as non-root user.",
+                    "description": "Container [authentik-worker] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [postgres] runs as non-root user and group.",
                     "gid": 999,
-                    "group_name": "postgres",
+                    "group_name": "Host group is [docker]",
                     "uid": 999,
-                    "user_name": "postgres"
+                    "user_name": "Host user is [netdata]"
                 }
             ],
             "screenshots": [
@@ -67,7 +74,7 @@
             ],
             "title": "Authentik",
             "train": "community",
-            "version": "1.0.57"
+            "version": "1.1.5"
         },
         "schema": {
             "groups": [
@@ -486,11 +493,26 @@
                         "type": "dict",
                         "attrs": [
                             {
+                                "variable": "uses_deprecated_media",
+                                "label": "Use Deprecated Media Storage",
+                                "description": "Cannot be used in new installs.</br>\nSee https://github.com/truenas/apps/pull/3928\n",
+                                "schema": {
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            },
+                            {
                                 "variable": "media",
-                                "label": "Authentik Media Storage",
-                                "description": "The path to store Authentik Media.",
+                                "label": "Media Storage (DEPRECATED)",
                                 "schema": {
                                     "type": "dict",
+                                    "show_if": [
+                                        [
+                                            "uses_deprecated_media",
+                                            "=",
+                                            true
+                                        ]
+                                    ],
                                     "attrs": [
                                         {
                                             "variable": "type",
@@ -630,9 +652,151 @@
                                 }
                             },
                             {
+                                "variable": "data",
+                                "label": "Data Storage",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "type",
+                                            "label": "Type",
+                                            "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "required": true,
+                                                "default": "ix_volume",
+                                                "enum": [
+                                                    {
+                                                        "value": "host_path",
+                                                        "description": "Host Path (Path that already exists on the system)"
+                                                    },
+                                                    {
+                                                        "value": "ix_volume",
+                                                        "description": "ixVolume (Dataset created automatically by the system)"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "ix_volume_config",
+                                            "label": "ixVolume Configuration",
+                                            "description": "The configuration for the ixVolume dataset.",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "ix_volume"
+                                                    ]
+                                                ],
+                                                "$ref": [
+                                                    "normalize/ix_volume"
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "dataset_name",
+                                                        "label": "Dataset Name",
+                                                        "description": "The name of the dataset to use for storage.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "hidden": true,
+                                                            "default": "data"
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl_entries",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": []
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_path_config",
+                                            "label": "Host Path Configuration",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "host_path"
+                                                    ]
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": [],
+                                                            "$ref": [
+                                                                "normalize/acl"
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "path",
+                                                        "label": "Host Path",
+                                                        "description": "The host path to use for storage.",
+                                                        "schema": {
+                                                            "type": "hostpath",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    false
+                                                                ]
+                                                            ],
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
                                 "variable": "templates",
-                                "label": "Authentik Templates Storage",
-                                "description": "The path to store Authentik Templates.",
+                                "label": "Templates Storage",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -775,8 +939,7 @@
                             },
                             {
                                 "variable": "certs",
-                                "label": "Authentik Certs Storage",
-                                "description": "The path to store Authentik Certs.",
+                                "label": "Certs Storage",
                                 "schema": {
                                     "type": "dict",
                                     "attrs": [
@@ -1470,7 +1633,7 @@
         "readme": "<h1>Authentik</h1> <p><a href=\"https://goauthentik.io/\">Authentik</a> is an open-source Identity Provider that emphasizes flexibility and versatility, with support for a wide set of protocols.</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "2025.10.2",
+            "app_version": "2025.12.2",
             "capabilities": [],
             "categories": [
                 "authentication"
@@ -1490,8 +1653,8 @@
                 "authentik",
                 "auth"
             ],
-            "lib_version": "2.1.65",
-            "lib_version_hash": "f92a9ee78c78fc77f86e7d8b545bd4c605c31c599e2c5da59f1615aa516cb8b5",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -1502,18 +1665,25 @@
             "name": "authentik",
             "run_as_context": [
                 {
-                    "description": "Authentik runs as any non-root user.",
+                    "description": "Container [authentik-server] can run as any non-root user and group.",
                     "gid": 568,
-                    "group_name": "authentik",
+                    "group_name": "Host group is [apps]",
                     "uid": 568,
-                    "user_name": "authentik"
+                    "user_name": "Host user is [apps]"
                 },
                 {
-                    "description": "Postgres runs as non-root user.",
+                    "description": "Container [authentik-worker] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [postgres] runs as non-root user and group.",
                     "gid": 999,
-                    "group_name": "postgres",
+                    "group_name": "Host group is [docker]",
                     "uid": 999,
-                    "user_name": "postgres"
+                    "user_name": "Host user is [netdata]"
                 }
             ],
             "screenshots": [
@@ -1528,7 +1698,7 @@
             ],
             "title": "Authentik",
             "train": "community",
-            "version": "1.0.57"
+            "version": "1.1.5"
         }
     }
 }

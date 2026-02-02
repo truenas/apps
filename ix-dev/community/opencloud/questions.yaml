@@ -49,22 +49,14 @@ questions:
           schema:
             type: boolean
             default: true
-        - variable: proof_disable
-          label: Proof Key Disable
-          description: Disable proof key validation for Collaboration.
-          schema:
-            type: boolean
-            default: true
         - variable: jwt_secret
           label: JWT Secret
-          description: |
-            The JWT secret for Collaboration.</br>
-            It must match the secret configured in the OnlyOffice server.
+          description: The secret to mint and validate JWT tokens.
           schema:
             type: string
-            show_if: [["enabled", "=", true], ["type", "=", "onlyoffice"]]
             default: ""
             private: true
+            required: true
         - variable: full_text_search
           label: Full Text Search
           schema:
@@ -75,6 +67,19 @@ questions:
                 schema:
                   type: boolean
                   default: true
+        - variable: radicale
+          label: Radicale (CalDAV, CardDAV)
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enable calendar and contacts
+                description: |
+                  ⚠️ Enabling Radicale will also override the file `proxy.yaml` in your Config Storage.</br>
+                  Your original file will remain untouched. But a file will be created on a upper (docker) layer overriding the original file.</br>
+                schema:
+                  type: boolean
+                  default: false
         - variable: collaboration
           label: Collaboration
           schema:
@@ -85,6 +90,13 @@ questions:
                 schema:
                   type: boolean
                   default: false
+              - variable: proof_disable
+                label: Proof Key Disable
+                description: Disable proof key validation for Collaboration.
+                schema:
+                  type: boolean
+                  show_if: [["enabled", "=", true]]
+                  default: true
               - variable: type
                 label: Type
                 schema:
@@ -267,18 +279,7 @@ questions:
             Example: `'unsafe-eval'`
           schema:
             type: list
-            default:
-              - directive: connect-src
-                items:
-                  - value: https://raw.githubusercontent.com/opencloud-eu/awesome-apps/
-                  - value: https://update.opencloud.eu/
-              - directive: frame-src
-                items:
-                  - value: https://embed.diagrams.net/
-              - directive: img-src
-                items:
-                  - value: https://raw.githubusercontent.com/opencloud-eu/awesome-apps/
-                  - value: https://tile.openstreetmap.org/
+            default: []
             items:
               - variable: csp_entry
                 label: Content Security Policy Entry
@@ -336,6 +337,46 @@ questions:
                                     type: string
                                     default: ""
                                     hidden: true
+        - variable: additional_oidc_role_config
+          label: Additional OIDC Role Configuration
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                schema:
+                  type: boolean
+                  default: false
+              - variable: role_claim
+                label: Role Claim
+                description: The OIDC claim used to create the users role assignment.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  default: "groups"
+              - variable: role_mapping
+                label: Role Mapping
+                schema:
+                  type: list
+                  show_if: [["enabled", "=", true]]
+                  default: []
+                  items:
+                    - variable: mapping_entry
+                      label: Mapping Entry
+                      schema:
+                        type: dict
+                        attrs:
+                          - variable: role_name
+                            label: Role Name
+                            schema:
+                              type: string
+                              required: true
+                          - variable: claim_value
+                            label: Claim Value
+                            schema:
+                              type: string
+                              required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -635,6 +676,81 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: radicale_data
+          label: Radicale Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "radicale_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: additional_storage
           label: Additional Storage
           schema:
@@ -791,6 +907,7 @@ questions:
                             schema:
                               type: string
                               required: true
+
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -829,6 +946,8 @@ questions:
                             description: opencloud
                           - value: tika
                             description: tika
+                          - value: radicale
+                            description: radicale
   - variable: resources
     label: ""
     group: Resources Configuration

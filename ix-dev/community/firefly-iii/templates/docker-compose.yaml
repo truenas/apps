@@ -41,7 +41,7 @@
 
 {% do c1.environment.add_env("DB_CONNECTION", "pgsql") %}
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
-{% do c1.environment.add_env("DB_PORT", 5432) %}
+{% do c1.environment.add_env("DB_PORT", postgres.get_port()) %}
 {% do c1.environment.add_env("DB_DATABASE", values.consts.db_name) %}
 {% do c1.environment.add_env("DB_USERNAME", values.consts.db_user) %}
 {% do c1.environment.add_env("DB_PASSWORD", values.firefly_iii.db_password) %}
@@ -68,15 +68,14 @@
 {% do cron.deploy.resources.set_profile("low") %}
 {% do cron.add_caps(["SETUID", "SETGID"]) %}
 {% do cron.depends.add_dependency(values.consts.firefly_iii_container_name, "service_healthy") %}
-{% do cron.healthcheck.set_custom_test("pidof busybox > /dev/null") %}
+{% do cron.healthcheck.set_test("pidof", {"process": "crond"}) %}
 {% do cron.environment.add_env("CRON_TOKEN", static_cron_token) %}
-{% do cron.set_entrypoint(["sh", "-c"]) %}
-{% set cmd = [
-  'echo "0 3 * * * wget -qO- http://%s:%d/api/v1/cron/$CRON_TOKEN" | crontab -'|format(values.consts.firefly_iii_container_name, values.consts.internal_web_port),
-  '[[ $? -eq 0 ]] || { echo "Failed to set cron job"; exit 1; }',
-  "crond -f -L /dev/stdout"
-]|join("\n") %}
-{% do cron.set_command([cmd]) %}
+{% do cron.build_image([
+  "RUN apk add --no-cache tzdata || { echo 'Failed to install tzdata'; exit 1; }",
+  "RUN (ln -s /usr/share/zoneinfo/%s /etc/localtime) || { echo 'Failed to set timezone'; exit 1; }"|format(values.TZ),
+  "RUN (echo '0 3 * * * wget -qO- http://%s:%d/api/v1/cron/$CRON_TOKEN' | crontab -) || { echo 'Failed to set cron job'; exit 1; }"|format(values.consts.firefly_iii_container_name, values.consts.internal_web_port),
+  'ENTRYPOINT ["crond", "-f", "-L", "/dev/stdout"]'
+])%}
 
 {% if values.firefly_iii.enable_importer %}
   {% set importer.x = tpl.add_container(values.consts.firefly_iii_importer_container_name, "importer_image") %}
@@ -92,6 +91,9 @@
   {% do importer.x.environment.add_user_envs(values.firefly_iii.additional_importer_envs) %}
 
   {% do importer.x.add_port(values.network.importer_port, {"container_port": values.consts.internal_web_port}) %}
+  {% for store in values.storage.additional_storage %}
+    {% do importer.x.add_storage(store.mount_path, store) %}
+  {% endfor %}
 {% endif %}
 
 {% if perm_container.has_actions() %}

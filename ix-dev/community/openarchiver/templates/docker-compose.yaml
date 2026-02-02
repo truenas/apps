@@ -15,8 +15,6 @@
 {% set redis_config = {"password": values.openarchiver.redis_password, "volume": tpl.funcs.temp_config("redis_data")} %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
-{# Tika #}
-{% set tika = tpl.deps.tika(values.consts.tika_container_name, "tika_image", {"port": values.consts.tika_port}) %}
 
 {# Meilisearch #}
 {% set meili_config = {"master_key": values.openarchiver.meilisearch_master_key, "volume": values.storage.meili_data} %}
@@ -28,8 +26,15 @@
 
 {% do openarchiver_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do openarchiver_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do openarchiver_container.depends.add_dependency(values.consts.tika_container_name, "service_healthy") %}
 {% do openarchiver_container.depends.add_dependency(values.consts.meilisearch_container_name, "service_healthy") %}
+
+{% if values.openarchiver.enable_tika %}
+  {% set tika = tpl.deps.tika(values.consts.tika_container_name, "tika_image", {"port": values.consts.tika_port}) %}
+  {% do openarchiver_container.depends.add_dependency(values.consts.tika_container_name, "service_healthy") %}
+  {% do openarchiver_container.environment.add_env("TIKA_URL", tika.get_url()) %}
+{% else %}
+  {% do openarchiver_container.environment.add_env("TIKA_URL", "") %}
+{% endif %}
 
 {% set app_url = values.openarchiver.app_url.rstrip("/") %}
 {% do openarchiver_container.environment.add_env("APP_URL", app_url) %}
@@ -51,7 +56,6 @@
 {% do openarchiver_container.environment.add_env("REDIS_HOST", values.consts.redis_container_name) %}
 {% do openarchiver_container.environment.add_env("REDIS_PORT", 6379) %}
 {% do openarchiver_container.environment.add_env("REDIS_PASSWORD", values.openarchiver.redis_password) %}
-{% do openarchiver_container.environment.add_env("TIKA_URL", tika.get_url()) %}
 {% do openarchiver_container.environment.add_user_envs(values.openarchiver.additional_envs) %}
 
 {% do openarchiver_container.add_port(values.network.web_port) %}

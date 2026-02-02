@@ -1,0 +1,54 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.kasm_container_name, "image") %}
+
+{% if values.ci %}
+  {% do c1.healthcheck.set_test("curl", {"port": values.consts.setup_internal_port, "scheme": "https"}) %}
+{% else %}
+  {% do c1.healthcheck.disable() %}
+{% endif %}
+
+{% do c1.set_privileged(true) %}
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.add_caps([
+  "CHOWN",
+  "DAC_OVERRIDE",
+  "FSETID",
+  "FOWNER",
+  "MKNOD",
+  "NET_RAW",
+  "SETGID",
+  "SETUID",
+  "SETFCAP",
+  "SETPCAP",
+  "NET_BIND_SERVICE",
+  "SYS_CHROOT",
+  "KILL",
+  "AUDIT_WRITE",
+]) %}
+
+{% if values.kasm.gamepad_support %}
+  {% do c1.add_storage("/run/udev/data", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/run/udev/data"}}) %}
+  {% do c1.add_storage("/dev/input", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/dev/input"}}) %}
+{% endif %}
+
+{% do c1.environment.add_env("KASM_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_user_envs(values.kasm.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.setup_port, {"container_port": values.consts.setup_internal_port}) %}
+  {% do c1.add_port(values.network.web_port) %}
+{%endif %}
+
+{% do c1.add_storage("/opt", values.storage.opt) %}
+{% do c1.add_storage("/profiles", values.storage.profiles) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
+{% do tpl.portals.add(values.network.setup_port, {"name": "Setup", "scheme": "https", "port": values.consts.setup_internal_port if values.network.host_network else None}) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
