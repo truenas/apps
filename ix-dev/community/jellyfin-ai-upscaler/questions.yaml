@@ -1,17 +1,28 @@
 groups:
   - name: Jellyfin AI Upscaler Configuration
     description: Configure AI upscaling settings
+  - name: User and Group Configuration
+    description: Configure User and Group for Jellyfin AI Upscaler
   - name: Network Configuration
     description: Configure network settings
   - name: Storage Configuration
     description: Configure storage for AI models
-  - name: GPU Configuration
-    description: Configure NVIDIA GPU passthrough for acceleration
   - name: Resources Configuration
-    description: Configure CPU and memory limits
+    description: Configure CPU, memory, and GPU resources
+  - name: Labels Configuration
+    description: Configure container labels
 
 questions:
-  # App Configuration
+  - variable: TZ
+    group: Jellyfin AI Upscaler Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
   - variable: jellyfin_ai_upscaler
     label: ""
     group: Jellyfin AI Upscaler Configuration
@@ -20,7 +31,7 @@ questions:
       attrs:
         - variable: use_gpu
           label: Enable GPU Acceleration
-          description: Enable NVIDIA GPU acceleration for AI inference
+          description: Enable GPU acceleration for AI inference
           schema:
             type: boolean
             default: true
@@ -49,8 +60,50 @@ questions:
                 description: Real-ESRGAN x4 (Best Quality)
               - value: "realesrgan-x4-256"
                 description: Real-ESRGAN x4 256px (Low VRAM)
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
 
-  # Network Configuration
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Jellyfin AI Upscaler files will be owned by.
+          schema:
+            type: int
+            min: 2
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Jellyfin AI Upscaler files will be owned by.
+          schema:
+            type: int
+            min: 2
+            default: 568
+            required: true
+
   - variable: network
     label: ""
     group: Network Configuration
@@ -58,22 +111,60 @@ questions:
       type: dict
       attrs:
         - variable: web_port
-          label: Web UI Port
-          description: Port for the web dashboard and REST API
+          label: WebUI Port
           schema:
-            type: int
-            default: 5000
-            min: 1024
-            max: 65535
-            required: true
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30050
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: host_network
           label: Host Network
-          description: Use host network mode (recommended for local Jellyfin access)
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
           schema:
             type: boolean
             default: false
 
-  # Storage Configuration
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -88,14 +179,32 @@ questions:
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ix_volume: Managed by TrueNAS SCALE</br>
+                  host_path: Use a path on the host for storage</br>
+                  cifs: Use a CIFS share for storage</br>
+                  nfs: Use an NFS share for storage
                 schema:
                   type: string
-                  default: host_path
+                  default: "ix_volume"
+                  required: true
                   enum:
-                    - value: host_path
-                      description: Host Path (recommended)
-                    - value: ix_volume
+                    - value: "ix_volume"
                       description: iX Storage Volume
+                    - value: "host_path"
+                      description: Host Path
+                    - value: "cifs"
+                      description: CIFS Share
+                    - value: "nfs"
+                      description: NFS Share
+              - variable: ix_volume_config
+                label: iX Volume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - definitions/ix_volume
+                  attrs: []
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
@@ -108,31 +217,63 @@ questions:
                       schema:
                         type: hostpath
                         required: true
-
-  # GPU Configuration
-  - variable: gpu
-    label: ""
-    group: GPU Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: nvidia_gpu
-          label: NVIDIA GPU
-          description: Allocate NVIDIA GPU for TensorRT acceleration
+              - variable: cifs_config
+                label: CIFS Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "cifs"]]
+                  $ref:
+                    - definitions/cifs_volume
+                  attrs: []
+              - variable: nfs_config
+                label: NFS Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "nfs"]]
+                  $ref:
+                    - definitions/nfs_volume
+                  attrs: []
+        - variable: additional_storage
+          label: Additional Storage
+          description: Additional storage volumes for the app
           schema:
-            type: boolean
-            default: true
-        - variable: gpu_count
-          label: GPU Count
-          description: Number of GPUs to allocate
-          schema:
-            type: int
-            default: 1
-            min: 0
-            max: 8
-            show_if: [["nvidia_gpu", "=", true]]
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      schema:
+                        type: string
+                        default: "host_path"
+                        required: true
+                        enum:
+                          - value: "host_path"
+                            description: Host Path
+                          - value: "ix_volume"
+                            description: iX Storage Volume
+                    - variable: mount_path
+                      label: Mount Path
+                      description: Path inside the container to mount the volume
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: path
+                            label: Host Path
+                            schema:
+                              type: hostpath
+                              required: true
 
-  # Resources Configuration
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -140,7 +281,7 @@ questions:
       type: dict
       attrs:
         - variable: limits
-          label: Limits
+          label: Resource Limits
           schema:
             type: dict
             attrs:
@@ -158,3 +299,44 @@ questions:
                   type: int
                   default: 8192
                   min: 1024
+        - variable: gpu_configuration
+          label: GPU Configuration
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enable GPU Passthrough
+                description: Enable GPU passthrough for AI acceleration
+                schema:
+                  type: boolean
+                  default: true
+              - variable: use_all_gpus
+                label: Use All Available GPUs
+                description: Pass all available GPUs to the container
+                schema:
+                  type: boolean
+                  default: true
+                  show_if: [["enabled", "=", true]]
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
