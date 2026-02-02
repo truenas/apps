@@ -8,13 +8,15 @@
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
 
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
-{% do c1.environment.add_env("DATA_DIR", values.consts.data_dir_path) %}
+{# Note that the DATA_DIR (container path) must be the SAME path as the host path #}
+{% set data_host_path = tpl.funcs.get_host_path(values.storage.data) %}
+{% do c1.environment.add_env("DATA_DIR", data_host_path) %}
 
 {% do c1.environment.add_user_envs(values.dockhand.additional_envs) %}
 {% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_docker_socket(read_only=False) %}
-{% do c1.add_storage(values.consts.data_dir_path, values.storage.data) %}
+{% do c1.add_storage(data_host_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
