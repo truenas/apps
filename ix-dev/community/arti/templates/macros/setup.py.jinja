@@ -12,14 +12,17 @@ os.chmod(config_file_path, 0o664)
 
 docker_host_ip = os.popen("getent hosts host.docker.internal").read().split()[0]
 arti_config = toml.load(config_file_path)
+arti_config['vanguards'] = {
+  'mode': '{{ values.arti.vanguards_mode }}'
+}
 arti_config['onion_services'] = {}
 
-{% for service in values.arti.hidden_services %}
+{% for service in values.arti.onion_services %}
 ip = '{{ service.ip }}' or docker_host_ip
 
 arti_config['onion_services']['{{ service.name }}'] = {}
 arti_config['onion_services']['{{ service.name }}']['proxy_ports'] = [
-  ['{{ service.hidden_service_port }}', f'{ip}:{{ service.port }}'],
+  ['{{ service.onion_service_port }}', f'{ip}:{{ service.port }}'],
   ['*', 'destroy']
 ]
 {% endfor %}
