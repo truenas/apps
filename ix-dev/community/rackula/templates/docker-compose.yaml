@@ -22,7 +22,7 @@
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do c1.environment.add_env("RACKULA_LISTEN_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("API_HOST", values.consts.api_container_name) %}
-{% do c1.environment.add_env("API_PORT", values.network.api_port.port_number) %}
+{% do c1.environment.add_env("API_PORT", values.consts.internal_api_port) %}
 {% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/tmp", tmpfs_config) %}
@@ -31,16 +31,14 @@
 {% do c1.add_storage("/etc/nginx/conf.d", tmpfs_config) %}
 
 {# API #}
-{% do api.healthcheck.set_test("wget", {"port": values.network.api_port.port_number, "path": "/health"}) %}
+{% do api.healthcheck.set_test("wget", {"port": values.consts.internal_api_port, "path": "/health"}) %}
 
 {% do api.environment.add_env("DATA_DIR", values.consts.api_data_dir) %}
-{% do api.environment.add_env("RACKULA_API_PORT", values.network.api_port.port_number) %}
+{% do api.environment.add_env("RACKULA_API_PORT", values.consts.internal_api_port) %}
 
 {% do api.add_storage("/tmp", tmpfs_config) %}
 {% do api.add_storage(values.consts.api_data_dir, values.storage.data) %}
 {% do perm_container.add_or_skip_action(values.consts.api_data_dir, values.storage.data, perms_config) %}
-
-{% do api.add_port(values.network.api_port) %}
 
 {% for store in values.storage.additional_storage %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
