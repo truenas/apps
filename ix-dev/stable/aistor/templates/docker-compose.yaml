@@ -6,7 +6,7 @@
 {% set proto = "https" if values.network.certificate_id else "http" %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_custom_test(["CMD", "mc", "ready", "--insecure", "--cluster-read", "health"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.api_port.port_number, "path": "/minio/health/live"}) %}
 {% do c1.set_command([
   "minio", "server", values.consts.data_path,
   "--address=:%d" | format(values.network.api_port.port_number),
@@ -17,7 +17,6 @@
 {% do c1.environment.add_env("MINIO_ROOT_USER", values.aistor.root_user) %}
 {% do c1.environment.add_env("MINIO_ROOT_PASSWORD", values.aistor.root_password) %}
 {% do c1.environment.add_env("MINIO_LICENSE", values.consts.license_path) %}
-{% do c1.environment.add_env("MC_HOST_health", "%s://localhost:%d" | format(proto, values.network.api_port.port_number)) %}
 
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
