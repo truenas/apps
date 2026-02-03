@@ -1,6 +1,8 @@
 groups:
   - name: Twingate Connector Configuration
     description: Configure Twingate Connector
+  - name: User and Group Configuration
+    description: Configure User and Group for Twingate Connector
   - name: Network Configuration
     description: Configure Network for Twingate Connector
   - name: Storage Configuration
@@ -36,11 +38,10 @@ questions:
             type: string
             default: "truenas-scale"
             valid_chars: "^[a-z0-9-]+$"
-            valid_chars_error: |
-              Only lowercase letters, numbers, and hyphens are allowed.
+            valid_chars_error: Only lowercase letters, numbers, and hyphens are allowed.
             required: true
-        - variable: twingate_network
-          label: Twingate Network Name
+        - variable: network_name
+          label: Tenant Name (Network)
           description: |
             The tenant name for Twingate Connector.</br>
             See https://www.twingate.com/docs/deploy-connector-with-docker-compose for more information.
@@ -48,8 +49,8 @@ questions:
             type: string
             default: ""
             required: true
-        - variable: twingate_access_token
-          label: Twingate Access Token
+        - variable: access_token
+          label: Access Token
           description: |
             The access token for Twingate Connector.</br>
             See https://www.twingate.com/docs/deploy-connector-with-docker-compose for more information.
@@ -58,8 +59,8 @@ questions:
             default: ""
             required: true
             private: true
-        - variable: twingate_refresh_token
-          label: Twingate Refresh Token
+        - variable: refresh_token
+          label: Refresh Token
           description: |
             The refresh token for Twingate Connector.</br>
             See https://www.twingate.com/docs/deploy-connector-with-docker-compose for more information.
@@ -68,17 +69,6 @@ questions:
             default: ""
             required: true
             private: true
-        - variable: additional_args
-          label: Additional Arguments
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: arg
-                label: Argument
-                schema:
-                  type: string
-                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -99,6 +89,29 @@ questions:
                       label: Value
                       schema:
                         type: string
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that TinyAuth files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that TinyAuth files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
@@ -219,6 +232,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
