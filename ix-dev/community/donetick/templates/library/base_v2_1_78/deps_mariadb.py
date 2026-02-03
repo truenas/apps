@@ -24,6 +24,9 @@ class MariadbConfig(TypedDict):
     volume: "IxStorage"
 
 
+SUPPORTED_REPOS = ["mariadb"]
+
+
 class MariadbContainer:
     def __init__(
         self, render_instance: "Render", name: str, image: str, config: MariadbConfig, perms_instance: PermsContainer
@@ -40,11 +43,12 @@ class MariadbContainer:
         root_password = config.get("root_password") or config["password"]
         auto_upgrade = config.get("auto_upgrade", True)
 
-        self._get_repo(image, ("mariadb"))
+        self._get_repo(image)
         c = self._render_instance.add_container(name, image)
         c.set_user(999, 999)
         c.healthcheck.set_test("mariadb", {"password": root_password})
         c.remove_devices()
+        c.set_grace_period(60)
 
         c.add_storage("/var/lib/mysql", config["volume"])
         perms_instance.add_or_skip_action(
@@ -62,15 +66,15 @@ class MariadbContainer:
         # For example: c.depends.add_dependency("other_container", "service_started")
         self._container = c
 
-    def _get_repo(self, image, supported_repos):
+    def _get_repo(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
-        if repo not in supported_repos:
-            raise RenderError(f"Unsupported repo [{repo}] for mariadb. Supported repos: {', '.join(supported_repos)}")
+        if repo not in SUPPORTED_REPOS:
+            raise RenderError(f"Unsupported repo [{repo}] for mariadb. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
     def get_url(self, variant: str):

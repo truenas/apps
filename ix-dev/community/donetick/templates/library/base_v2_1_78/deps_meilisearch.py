@@ -20,6 +20,9 @@ class MeiliConfig(TypedDict):
     volume: "IxStorage"
 
 
+SUPPORTED_REPOS = ["getmeili/meilisearch"]
+
+
 class MeilisearchContainer:
     def __init__(
         self, render_instance: "Render", name: str, image: str, config: MeiliConfig, perms_instance: PermsContainer
@@ -44,6 +47,7 @@ class MeilisearchContainer:
         c.set_user(user, group)
         c.healthcheck.set_test("curl", {"port": self.get_port(), "path": "/health"})
         c.remove_devices()
+        c.set_grace_period(60)
         c.add_storage(self._data_dir, config["volume"])
 
         c.environment.add_env("MEILI_HTTP_ADDR", f"0.0.0.0:{self.get_port()}")
@@ -55,7 +59,7 @@ class MeilisearchContainer:
             f"{self._name}_meili_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
         )
 
-        self._get_repo(image, ("getmeili/meilisearch",))
+        self._get_repo(image)
 
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
@@ -65,16 +69,16 @@ class MeilisearchContainer:
     def container(self):
         return self._container
 
-    def _get_repo(self, image, supported_repos):
+    def _get_repo(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
-        if repo not in supported_repos:
+        if repo not in SUPPORTED_REPOS:
             raise RenderError(
-                f"Unsupported repo [{repo}] for meilisearch. Supported repos: {', '.join(supported_repos)}"
+                f"Unsupported repo [{repo}] for meilisearch. Supported repos: {', '.join(SUPPORTED_REPOS)}"
             )
         return repo
 

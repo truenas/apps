@@ -113,7 +113,7 @@ class PermsContainer:
             raise RenderError("No actions added. Check if there are actions before activating")
 
         # Add the container and set it up
-        c = self._render_instance.add_container(self._name, "python_permissions_image")
+        c = self._render_instance.add_container(self._name, "container_utils_image")
         c.set_user(0, 0)
         c.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"])
         c.set_network_mode("none")
@@ -125,10 +125,7 @@ class PermsContainer:
         c.restart.set_policy("on-failure", maximum_retry_count=1)
         c.healthcheck.disable()
 
-        c.set_entrypoint(["python3", "/script/run.py"])
-        script = "#!/usr/bin/env python3\n"
-        script += get_script()
-        c.configs.add("permissions_run_script", script, "/script/run.py", "0700")
+        c.set_entrypoint(["python3", "/script/permissions.py"])
 
         actions_data: list[dict] = []
         for parsed in self.parsed_configs:
@@ -138,122 +135,3 @@ class PermsContainer:
 
         actions_data_json = json.dumps(actions_data)
         c.configs.add("permissions_actions_data", actions_data_json, "/script/actions.json", "0500")
-
-
-def get_script():
-    return """
-import os
-import json
-import time
-import shutil
-
-with open("/script/actions.json", "r") as f:
-    actions_data = json.load(f)
-
-if not actions_data:
-    # If this script is called, there should be actions data
-    raise ValueError("No actions data found")
-
-def fix_perms(path, chmod, recursive=False):
-    print(f"Changing permissions{' recursively ' if recursive else ' '}to {chmod} on: [{path}]")
-    os.chmod(path, int(chmod, 8))
-    if recursive:
-        for root, dirs, files in os.walk(path):
-            for f in files:
-                os.chmod(os.path.join(root, f), int(chmod, 8))
-    print("Permissions after changes:")
-    print_chmod_stat()
-
-def fix_owner(path, uid, gid, recursive=False):
-    print(f"Changing ownership{' recursively ' if recursive else ' '}to {uid}:{gid} on: [{path}]")
-    os.chown(path, uid, gid)
-    if recursive:
-        for root, dirs, files in os.walk(path):
-            for f in files:
-                os.chown(os.path.join(root, f), uid, gid)
-    print("Ownership after changes:")
-    print_chown_stat()
-
-def print_chown_stat():
-    curr_stat = os.stat(action["mount_path"])
-    print(f"Ownership: [{curr_stat.st_uid}:{curr_stat.st_gid}]")
-
-def print_chmod_stat():
-    curr_stat = os.stat(action["mount_path"])
-    print(f"Permissions: [{oct(curr_stat.st_mode)[3:]}]")
-
-def print_chown_diff(curr_stat, uid, gid):
-    print(f"Ownership: wanted [{uid}:{gid}], got [{curr_stat.st_uid}:{curr_stat.st_gid}].")
-
-def print_chmod_diff(curr_stat, mode):
-    print(f"Permissions: wanted [{mode}], got [{oct(curr_stat.st_mode)[3:]}].")
-
-def perform_action(action):
-    if action["read_only"]:
-        print(f"Path for action [{action['identifier']}] is read-only, skipping...")
-        return
-
-    start_time = time.time()
-    print(f"=== Applying configuration on volume with identifier [{action['identifier']}] ===")
-
-    if not os.path.isdir(action["mount_path"]):
-        print(f"Path [{action['mount_path']}] is not a directory, skipping...")
-        return
-
-    if action["is_temporary"]:
-        print(f"Path [{action['mount_path']}] is a temporary directory, ensuring it is empty...")
-        for item in os.listdir(action["mount_path"]):
-            item_path = os.path.join(action["mount_path"], item)
-
-            # Exclude the safe directory, where we can use to mount files temporarily
-            if os.path.basename(item_path) == "ix-safe":
-                continue
-            if os.path.isdir(item_path):
-                shutil.rmtree(item_path)
-            else:
-                os.remove(item_path)
-
-    if not action["is_temporary"] and os.listdir(action["mount_path"]):
-        print(f"Path [{action['mount_path']}] is not empty, skipping...")
-        return
-
-    print(f"Current Ownership and Permissions on [{action['mount_path']}]:")
-    curr_stat = os.stat(action["mount_path"])
-    print_chown_diff(curr_stat, action["uid"], action["gid"])
-    print_chmod_diff(curr_stat, action["chmod"])
-    print("---")
-
-    if action["mode"] == "always":
-        fix_owner(action["mount_path"], action["uid"], action["gid"], action["recursive"])
-        if not action["chmod"]:
-            print("Skipping permissions check, chmod is falsy")
-        else:
-            fix_perms(action["mount_path"], action["chmod"], action["recursive"])
-        return
-
-    elif action["mode"] == "check":
-        if curr_stat.st_uid != action["uid"] or curr_stat.st_gid != action["gid"]:
-            print("Ownership is incorrect. Fixing...")
-            fix_owner(action["mount_path"], action["uid"], action["gid"], action["recursive"])
-        else:
-            print("Ownership is correct. Skipping...")
-
-        if not action["chmod"]:
-            print("Skipping permissions check, chmod is falsy")
-        else:
-            if oct(curr_stat.st_mode)[3:] != action["chmod"]:
-                print("Permissions are incorrect. Fixing...")
-                fix_perms(action["mount_path"], action["chmod"], action["recursive"])
-            else:
-                print("Permissions are correct. Skipping...")
-
-    print(f"Time taken: {(time.time() - start_time) * 1000:.2f}ms")
-    print(f"=== Finished applying configuration on volume with identifier [{action['identifier']}] ==")
-    print()
-
-if __name__ == "__main__":
-    start_time = time.time()
-    for action in actions_data:
-        perform_action(action)
-    print(f"Total time taken: {(time.time() - start_time) * 1000:.2f}ms")
-"""

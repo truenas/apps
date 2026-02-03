@@ -22,6 +22,9 @@ class MongoDBConfig(TypedDict):
     volume: "IxStorage"
 
 
+SUPPORTED_REPOS = ["mongo"]
+
+
 class MongoDBContainer:
     def __init__(
         self, render_instance: "Render", name: str, image: str, config: MongoDBConfig, perms_instance: PermsContainer
@@ -46,6 +49,7 @@ class MongoDBContainer:
         c.set_user(user, group)
         c.healthcheck.set_test("mongodb", {"db": config["database"]})
         c.remove_devices()
+        c.set_grace_period(60)
         c.add_storage(self._data_dir, config["volume"])
 
         c.environment.add_env("MONGO_INITDB_ROOT_USERNAME", config["user"])
@@ -56,7 +60,7 @@ class MongoDBContainer:
             f"{self._name}_mongodb_data", config["volume"], {"uid": user, "gid": group, "mode": "check"}
         )
 
-        self._get_repo(image, ("mongodb"))
+        self._get_repo(image)
 
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
@@ -66,15 +70,15 @@ class MongoDBContainer:
     def container(self):
         return self._container
 
-    def _get_repo(self, image, supported_repos):
+    def _get_repo(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
-        if repo not in supported_repos:
-            raise RenderError(f"Unsupported repo [{repo}] for mongodb. Supported repos: {', '.join(supported_repos)}")
+        if repo not in SUPPORTED_REPOS:
+            raise RenderError(f"Unsupported repo [{repo}] for mongodb. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
     def get_port(self):

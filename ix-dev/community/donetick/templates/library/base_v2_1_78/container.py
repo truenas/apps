@@ -25,6 +25,7 @@ try:
         valid_cap_or_raise,
         valid_cgroup_or_raise,
         valid_ipc_mode_or_raise,
+        valid_mac_or_raise,
         valid_network_mode_or_raise,
         valid_pid_mode_or_raise,
         valid_port_bind_mode_or_raise,
@@ -55,6 +56,7 @@ except ImportError:
         valid_cap_or_raise,
         valid_cgroup_or_raise,
         valid_ipc_mode_or_raise,
+        valid_mac_or_raise,
         valid_network_mode_or_raise,
         valid_pid_mode_or_raise,
         valid_port_bind_mode_or_raise,
@@ -95,6 +97,7 @@ class Container:
         self._tmpfs: Tmpfs = Tmpfs(self._render_instance, self)
         self._ipc_mode: str | None = None
         self._pid_mode: str | None = None
+        self.mac_address: str | None = None
         self._cgroup: str | None = None
         self._device_cgroup_rules: DeviceCGroupRules = DeviceCGroupRules(self._render_instance)
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)
@@ -168,7 +171,7 @@ class Container:
                 )
             dockerfile += line + "\n"
 
-        self._build_image = dockerfile
+        self._build_image = escape_dollar(dockerfile)
         self._image = get_image_with_hashed_data(self._image, dockerfile)
 
     def set_pull_policy(self, pull_policy: str):
@@ -222,6 +225,10 @@ class Container:
 
     def set_cgroup(self, cgroup: str):
         self._cgroup = valid_cgroup_or_raise(cgroup)
+
+    def set_mac(self, mac_address: str):
+        valid_mac_or_raise(mac_address)
+        self.mac_address = mac_address
 
     def set_init(self, enabled: bool = False):
         self._init = enabled
@@ -376,6 +383,9 @@ class Container:
 
         if self._cgroup is not None:
             result["cgroup"] = self._cgroup
+
+        if self.mac_address is not None:
+            result["mac_address"] = self.mac_address
 
         if self._extra_hosts.has_hosts():
             result["extra_hosts"] = self._extra_hosts.render()

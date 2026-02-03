@@ -11,7 +11,15 @@ def mock_values():
             "test_image": {
                 "repository": "nginx",
                 "tag": "latest",
-            }
+            },
+            "container_utils_image": {
+                "repository": "ixsystems/container-utils",
+                "tag": "1.0.0",
+            },
+            "postgres_upgrade_image": {
+                "repository": "ixsystems/postgres-upgrade",
+                "tag": "1.0.0",
+            },
         },
     }
 
@@ -29,7 +37,7 @@ def test_add_postgres_missing_config(mock_values):
 
 
 def test_add_postgres_unsupported_repo(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "unsupported_repo", "tag": "16"}
+    mock_values["images"]["pg_image"] = {"repository": "unsupported_repo", "tag": "16.6-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -49,7 +57,7 @@ def test_add_postgres_unsupported_repo(mock_values):
 
 
 def test_add_postgres(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16"}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -62,6 +70,7 @@ def test_add_postgres(mock_values):
             "password": "test_@password",
             "database": "test_database",
             "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "port": 5000,
         },
         perms_container,
     )
@@ -70,11 +79,12 @@ def test_add_postgres(mock_values):
         p.container.depends.add_dependency("perms_container", "service_completed_successfully")
     output = render.render()
     assert (
-        p.get_url("postgres") == "postgres://test_user:test_%40password@pg_container:5432/test_database?sslmode=disable"
+        p.get_url("postgres") == "postgres://test_user:test_%40password@pg_container:5000/test_database?sslmode=disable"
     )
     assert "devices" not in output["services"]["pg_container"]
     assert "reservations" not in output["services"]["pg_container"]["deploy"]["resources"]
-    assert output["services"]["pg_container"]["image"] == "postgres:16"
+    assert output["services"]["pg_container"]["stop_grace_period"] == "60s"
+    assert output["services"]["pg_container"]["image"] == "postgres:16.6-bookworm"
     assert output["services"]["pg_container"]["user"] == "999:999"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
@@ -85,7 +95,7 @@ def test_add_postgres(mock_values):
             "-h",
             "127.0.0.1",
             "-p",
-            "5432",
+            "5000",
             "-U",
             "test_user",
             "-d",
@@ -101,7 +111,7 @@ def test_add_postgres(mock_values):
         {
             "type": "volume",
             "source": "test_volume",
-            "target": "/var/lib/postgresql/data",
+            "target": "/var/lib/postgresql",
             "read_only": False,
             "volume": {"nocopy": False},
         }
@@ -114,7 +124,8 @@ def test_add_postgres(mock_values):
         "POSTGRES_USER": "test_user",
         "POSTGRES_PASSWORD": "test_@password",
         "POSTGRES_DB": "test_database",
-        "PGPORT": "5432",
+        "PGPORT": "5000",
+        "PGDATA": "/var/lib/postgresql/16/docker",
     }
     assert output["services"]["pg_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"},
@@ -124,7 +135,7 @@ def test_add_postgres(mock_values):
 
 
 def test_add_postgres_options(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16"}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -221,6 +232,7 @@ def test_add_redis(mock_values):
         output["services"]["test_container"]["environment"]["REDIS_URL"]
         == "redis://default:test%26password%40@redis_container:6379"
     )
+    assert output["services"]["redis_container"]["stop_grace_period"] == "60s"
     assert output["services"]["redis_container"]["image"] == "valkey/valkey:latest"
     assert output["services"]["redis_container"]["user"] == "568:568"
     assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -319,6 +331,7 @@ def test_add_mariadb(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["mariadb_container"]
     assert "reservations" not in output["services"]["mariadb_container"]["deploy"]["resources"]
+    assert output["services"]["mariadb_container"]["stop_grace_period"] == "60s"
     assert output["services"]["mariadb_container"]["image"] == "mariadb:latest"
     assert output["services"]["mariadb_container"]["user"] == "999:999"
     assert output["services"]["mariadb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -370,7 +383,7 @@ def test_add_perms_container(mock_values):
         "test_dataset2": "/mnt/test/2",
         "test_dataset3": "/mnt/test/3",
     }
-    mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "17"}
+    mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "17.7-bookworm"}
     mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
     mock_values["images"]["mariadb_image"] = {"repository": "mariadb", "tag": "latest"}
     render = Render(mock_values)
@@ -455,7 +468,6 @@ def test_add_perms_container(mock_values):
     assert output["services"]["test_container"]["depends_on"] == {
         "test_perms_container": {"condition": "service_completed_successfully"}
     }
-    assert output["configs"]["permissions_run_script"]["content"] != ""
     # fmt: off
     content = [
         {"read_only": False, "mount_path": "/mnt/permission/data", "is_temporary": False, "identifier": "data", "recursive": False, "mode": "check", "uid": 1000, "gid": 1000, "chmod": None}, # noqa
@@ -470,6 +482,7 @@ def test_add_perms_container(mock_values):
     ]
     # fmt: on
     assert output["configs"]["permissions_actions_data"]["content"] == json.dumps(content)
+    assert output["services"]["test_perms_container"]["entrypoint"] == ["python3", "/script/permissions.py"]
 
 
 def test_add_duplicate_perms_action(mock_values):
@@ -527,35 +540,8 @@ def test_add_postgres_with_invalid_tag(mock_values):
         )
 
 
-def test_no_upgrade_container_with_non_postgres_image(mock_values):
-    mock_values["images"]["postgres_image"] = {"repository": "tensorchord/pgvecto-rs", "tag": "pg15-v0.2.0"}
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("test_perms_container")
-    pg = render.deps.postgres(
-        "postgres_container",
-        "postgres_image",
-        {
-            "user": "test_user",
-            "password": "test_password",
-            "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
-        },
-        perms_container,
-    )
-    if perms_container.has_actions():
-        perms_container.activate()
-        pg.add_dependency("test_perms_container", "service_completed_successfully")
-    output = render.render()
-    assert len(output["services"]) == 3  # c1, pg, perms
-    assert output["services"]["postgres_container"]["depends_on"] == {
-        "test_perms_container": {"condition": "service_completed_successfully"}
-    }
-
-
 def test_postgres_with_upgrade_container(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": 16.6}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -580,10 +566,9 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pg["volumes"] == pgup["volumes"]
     assert pg["user"] == pgup["user"]
     assert pgup["environment"]["TARGET_VERSION"] == "16"
-    assert pgup["environment"]["DATA_DIR"] == "/var/lib/postgresql/data"
+    assert pgup["environment"]["PGDATA"] == "/var/lib/postgresql/16/docker"
     pgup_env = pgup["environment"]
     pgup_env.pop("TARGET_VERSION")
-    pgup_env.pop("DATA_DIR")
     assert pg["environment"] == pgup_env
     assert pg["depends_on"] == {
         "test_perms_container": {"condition": "service_completed_successfully"},
@@ -592,12 +577,12 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pgup["depends_on"] == {"test_perms_container": {"condition": "service_completed_successfully"}}
     assert pgup["restart"] == "on-failure:1"
     assert pgup["healthcheck"] == {"disable": True}
-    assert pgup["image"] == "ixsystems/postgres-upgrade:1.0.1"
+    assert pgup["image"] == "ixsystems/postgres-upgrade:1.0.0"
     assert pgup["entrypoint"] == ["/bin/bash", "-c", "/upgrade.sh"]
 
 
 def test_add_mongodb(mock_values):
-    mock_values["images"]["mongodb_image"] = {"repository": "mongodb", "tag": "latest"}
+    mock_values["images"]["mongodb_image"] = {"repository": "mongo", "tag": "latest"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -619,7 +604,8 @@ def test_add_mongodb(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["mongodb_container"]
     assert "reservations" not in output["services"]["mongodb_container"]["deploy"]["resources"]
-    assert output["services"]["mongodb_container"]["image"] == "mongodb:latest"
+    assert output["services"]["mongodb_container"]["stop_grace_period"] == "60s"
+    assert output["services"]["mongodb_container"]["image"] == "mongo:latest"
     assert output["services"]["mongodb_container"]["user"] == "568:568"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
@@ -706,6 +692,7 @@ def test_add_meilisearch(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["meili_container"]
     assert "reservations" not in output["services"]["meili_container"]["deploy"]["resources"]
+    assert output["services"]["meili_container"]["stop_grace_period"] == "60s"
     assert output["services"]["meili_container"]["image"] == "getmeili/meilisearch:v1.17.0"
     assert output["services"]["meili_container"]["user"] == "568:568"
     assert output["services"]["meili_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -773,7 +760,7 @@ def test_add_meilisearch_unsupported_repo(mock_values):
 
 def test_add_elasticsearch(mock_values):
     mock_values["images"]["elastic_image"] = {
-        "repository": "docker.elastic.co/elasticsearch/elasticsearch",
+        "repository": "elasticsearch",
         "tag": "9.1.2",
     }
     render = Render(mock_values)
@@ -796,7 +783,8 @@ def test_add_elasticsearch(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["elastic_container"]
     assert "reservations" not in output["services"]["elastic_container"]["deploy"]["resources"]
-    assert output["services"]["elastic_container"]["image"] == "docker.elastic.co/elasticsearch/elasticsearch:9.1.2"
+    assert output["services"]["elastic_container"]["stop_grace_period"] == "60s"
+    assert output["services"]["elastic_container"]["image"] == "elasticsearch:9.1.2"
     assert output["services"]["elastic_container"]["user"] == "1000:1000"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
     assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
@@ -890,6 +878,7 @@ def test_add_solr(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["solr_container"]
     assert "reservations" not in output["services"]["solr_container"]["deploy"]["resources"]
+    assert output["services"]["solr_container"]["stop_grace_period"] == "60s"
     assert output["services"]["solr_container"]["image"] == "solr:9.9.0"
     assert output["services"]["solr_container"]["user"] == "568:568"
     assert output["services"]["solr_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -969,6 +958,7 @@ def test_add_tika(mock_values):
     output = render.render()
     assert "devices" not in output["services"]["tika_container"]
     assert "reservations" not in output["services"]["tika_container"]["deploy"]["resources"]
+    assert output["services"]["tika_container"]["stop_grace_period"] == "60s"
     assert output["services"]["tika_container"]["image"] == "apache/tika:3.2.3.0-full"
     assert output["services"]["tika_container"]["user"] == "568:568"
     assert output["services"]["tika_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
@@ -1006,5 +996,63 @@ def test_add_tika_unsupported_repo(mock_values):
         render.deps.tika(
             "tika_container",
             "tika_image",
+            {},
+        )
+
+
+def test_add_memcached(mock_values):
+    mock_values["images"]["memcached_image"] = {"repository": "memcached", "tag": "1.6.40"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    render.deps.memcached(
+        "memcached_container",
+        "memcached_image",
+        {
+            "port": 10999,
+            "memory_mb": 512,
+        },
+    )
+    output = render.render()
+    assert "devices" not in output["services"]["memcached_container"]
+    assert "reservations" not in output["services"]["memcached_container"]["deploy"]["resources"]
+    assert output["services"]["memcached_container"]["stop_grace_period"] == "60s"
+    assert output["services"]["memcached_container"]["image"] == "memcached:1.6.40"
+    assert output["services"]["memcached_container"]["user"] == "568:568"
+    assert output["services"]["memcached_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
+    assert output["services"]["memcached_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert output["services"]["memcached_container"]["healthcheck"] == {
+        "test": [
+            "CMD",
+            "timeout",
+            "1",
+            "bash",
+            "-c",
+            "cat < /dev/null > /dev/tcp/127.0.0.1/10999",
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 5,
+        "start_period": "15s",
+        "start_interval": "2s",
+    }
+    assert output["services"]["memcached_container"]["environment"] == {
+        "TZ": "Etc/UTC",
+        "UMASK": "002",
+        "UMASK_SET": "002",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+    }
+    assert output["services"]["memcached_container"]["command"] == ["-p", "10999", "-m", "512M"]
+
+
+def test_add_memcached_unsupported_repo(mock_values):
+    mock_values["images"]["memcached_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        render.deps.memcached(
+            "memcached_container",
+            "memcached_image",
             {},
         )

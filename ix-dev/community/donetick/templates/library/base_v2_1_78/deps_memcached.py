@@ -11,12 +11,17 @@ except ImportError:
     from error import RenderError
 
 
-class TikaConfig(TypedDict):
+class MemcachedConfig(TypedDict):
     port: NotRequired[int]
+    memory_mb: NotRequired[int]
 
 
-class TikaContainer:
-    def __init__(self, render_instance: "Render", name: str, image: str, config: TikaConfig):
+SUPPORTED_REPOS = ["memcached"]
+
+
+class MemcachedContainer:
+
+    def __init__(self, render_instance: "Render", name: str, image: str, config: MemcachedConfig):
         self._render_instance = render_instance
         self._name = name
         self._config = config
@@ -30,12 +35,14 @@ class TikaContainer:
             group = run_as["group"] or group  # Avoids running as root
 
         c.set_user(user, group)
-        c.healthcheck.set_test("wget", {"port": self.get_port(), "path": "/tika", "spider": False})
+        c.healthcheck.set_test("tcp", {"port": self.get_port()})
         c.remove_devices()
+        c.set_grace_period(60)
 
-        c.set_command(["--port", str(self.get_port())])
+        mem = self._config.get("memory_mb") or 256
+        c.set_command(["-p", str(self.get_port()), "-m", f"{mem}M"])
 
-        self._get_repo(image, ("apache/tika"))
+        self._get_repo(image)
 
         # Store container for further configuration
         # For example: c.depends.add_dependency("other_container", "service_started")
@@ -45,19 +52,19 @@ class TikaContainer:
     def container(self):
         return self._container
 
-    def _get_repo(self, image, supported_repos):
+    def _get_repo(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
-        if repo not in supported_repos:
-            raise RenderError(f"Unsupported repo [{repo}] for tika. Supported repos: {', '.join(supported_repos)}")
+        if repo not in SUPPORTED_REPOS:
+            raise RenderError(f"Unsupported repo [{repo}] for tika. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
     def get_port(self):
-        return self._config.get("port") or 9998
+        return self._config.get("port") or 11211
 
-    def get_url(self):
-        return f"http://{self._name}:{self.get_port()}"
+    def get_address(self):
+        return f"{self._name}:{self.get_port()}"

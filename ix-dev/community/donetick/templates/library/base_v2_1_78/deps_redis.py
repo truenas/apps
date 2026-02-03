@@ -21,6 +21,9 @@ class RedisConfig(TypedDict):
     volume: "IxStorage"
 
 
+SUPPORTED_REPOS = ["redis", "valkey/valkey"]
+
+
 class RedisContainer:
     def __init__(
         self, render_instance: "Render", name: str, image: str, config: RedisConfig, perms_instance: PermsContainer
@@ -36,7 +39,7 @@ class RedisContainer:
         valid_redis_password_or_raise(config["password"])
 
         port = valid_port_or_raise(self.get_port())
-        self._get_repo(image, ("redis", "valkey/valkey"))
+        self._get_repo(image)
 
         user, group = 568, 568
         run_as = self._render_instance.values.get("run_as")
@@ -46,6 +49,7 @@ class RedisContainer:
         c = self._render_instance.add_container(name, image)
         c.set_user(user, group)
         c.remove_devices()
+        c.set_grace_period(60)
         c.healthcheck.set_test("redis", {"password": config["password"]})
 
         cmd = []
@@ -63,15 +67,15 @@ class RedisContainer:
         # For example: c.depends.add_dependency("other_container", "service_started")
         self._container = c
 
-    def _get_repo(self, image, supported_repos):
+    def _get_repo(self, image):
         images = self._render_instance.values["images"]
         if image not in images:
             raise RenderError(f"Image [{image}] not found in values. Available images: [{', '.join(images.keys())}]")
         repo = images[image].get("repository")
         if not repo:
             raise RenderError("Could not determine repo")
-        if repo not in supported_repos:
-            raise RenderError(f"Unsupported repo [{repo}] for redis. Supported repos: {', '.join(supported_repos)}")
+        if repo not in SUPPORTED_REPOS:
+            raise RenderError(f"Unsupported repo [{repo}] for redis. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
     def get_port(self):
