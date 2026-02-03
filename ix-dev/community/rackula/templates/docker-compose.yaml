@@ -1,30 +1,56 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.rackula_container_name, "image") %}
+{% set api = tpl.add_container(values.consts.api_container_name, "api_image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+{% set tmpfs_config = {"type": "tmpfs", "tmpfs_config": {"size": 25, "uid": values.run_as.user, "gid": values.run_as.group}} %}
 
-{% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/health"}) %}
-{% do c1.environment.add_user_envs(values.rackula.additional_envs) %}
+{% set containers = [c1, api] %}
+{% for c in containers %}
+  {% do c.set_user(values.run_as.user, values.run_as.group) %}
+  {% do c.set_read_only(true) %}
+  {% do c.environment.add_user_envs(values.rackula.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+  {% for store in values.storage.additional_storage %}
+    {% do c.add_storage(store.mount_path, store) %}
+  {% endfor %}
+{% endfor %}
 
-{% set nginx_cache_config = {"type": "temporary", "volume_config": {"volume_name": "nginx-cache"}} %}
-{% do c1.add_storage("/run", nginx_cache_config) %}
-{% do c1.add_storage("/var/cache/nginx", nginx_cache_config) %}
-{% do perm_container.add_or_skip_action("nginx-cache", nginx_cache_config, perms_config) %}
+{# Frontend #}
+{% do c1.depends.add_dependency(values.consts.api_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+{% do c1.environment.add_env("RACKULA_LISTEN_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("API_HOST", values.consts.api_container_name) %}
+{% do c1.environment.add_env("API_PORT", values.consts.internal_api_port) %}
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/tmp", tmpfs_config) %}
+{% do c1.add_storage("/var/run", tmpfs_config) %}
+{% do c1.add_storage("/var/cache/nginx", tmpfs_config) %}
+{% do c1.add_storage("/etc/nginx/conf.d", tmpfs_config) %}
+
+{# API #}
+{% do api.healthcheck.set_test("wget", {"port": values.consts.internal_api_port, "path": "/health"}) %}
+
+{% do api.environment.add_env("DATA_DIR", values.consts.api_data_dir) %}
+{% do api.environment.add_env("RACKULA_API_PORT", values.consts.internal_api_port) %}
+
+{% do api.add_storage("/tmp", tmpfs_config) %}
+{% do api.add_storage(values.consts.api_data_dir, values.storage.data) %}
+{% do perm_container.add_or_skip_action(values.consts.api_data_dir, values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
-  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% for c in containers %}
+    {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endfor %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
