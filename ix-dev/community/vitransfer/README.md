@@ -1,3 +1,3 @@
 # ViTransfer
 
-[ViTransfer](https://github.com/MansiVisuals/ViTransfer) is a modern selfhosted video feedback and sharing solution.
+[ViTransfer](https://www.vitransfer.com) is a professional video review and approval platform for filmmakers.

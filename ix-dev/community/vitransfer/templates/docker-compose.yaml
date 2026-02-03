@@ -15,7 +15,7 @@
 
 {% set redis_config = {
   "password": values.vitransfer.redis_password,
-  "volume": tpl.funcs.temp_config("redis_data"),
+  "volume": values.storage.redis_data,
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 
@@ -33,6 +33,7 @@
   {% do c.environment.add_env("JWT_SECRET", values.vitransfer.jwt_secret) %}
   {% do c.environment.add_env("JWT_REFRESH_SECRET", values.vitransfer.jwt_refresh_secret) %}
   {% do c.environment.add_env("ENCRYPTION_KEY", values.vitransfer.encryption_key) %}
+  {% do c.environment.add_env("HTTPS_ENABLED", values.vitransfer.https_enabled) %}
   {% do c.environment.add_user_envs(values.vitransfer.additional_envs) %}
 
   {% do c.add_storage(values.consts.storage_path, values.storage.uploads) %}
@@ -53,10 +54,12 @@
 {% do worker.environment.add_env("APP_PORT", values.network.web_port.port_number) %}
 {% do worker.environment.add_env("APP_HOST", values.consts.vitransfer_container_name) %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/settings/public"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
 {% do c1.environment.add_env("NEXT_PUBLIC_APP_URL", values.vitransfer.app_url) %}
+{% do c1.environment.add_env("ADMIN_NAME", values.vitransfer.admin_name) %}
 {% do c1.environment.add_env("ADMIN_EMAIL", values.vitransfer.admin_email) %}
 {% do c1.environment.add_env("ADMIN_PASSWORD", values.vitransfer.admin_password) %}
+{% do c1.environment.add_env("SHARE_TOKEN_SECRET", values.vitransfer.share_token_secret) %}
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.add_port(values.network.web_port) %}
 

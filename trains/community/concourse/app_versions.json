@@ -1,21 +1,21 @@
 {
-    "1.0.28": {
+    "1.0.43": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/concourse/1.0.28",
-        "last_update": "2025-11-17 11:10:53",
+        "location": "/__w/apps/apps/trains/community/concourse/1.0.43",
+        "last_update": "2026-01-30 12:36:01",
         "required_features": [],
-        "human_version": "7.14.3_1.0.28",
-        "version": "1.0.28",
+        "human_version": "8.0.1_1.0.43",
+        "version": "1.0.43",
         "app_metadata": {
-            "app_version": "7.14.3",
+            "app_version": "8.0.1",
             "capabilities": [],
             "categories": [
                 "productivity"
             ],
             "changelog_url": "https://github.com/concourse/concourse/releases",
-            "date_added": "2025-04-30",
+            "date_added": "2025-05-02",
             "description": "Concourse is a container-based automation system written in Go.",
             "home": "https://concourse-ci.org",
             "host_mounts": [
@@ -29,8 +29,8 @@
                 "automation",
                 "ci"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -41,18 +41,25 @@
             "name": "concourse",
             "run_as_context": [
                 {
-                    "description": "Concourse runs as root user.",
-                    "gid": 0,
-                    "group_name": "root",
-                    "uid": 0,
-                    "user_name": "root"
+                    "description": "Container [postgres] runs as non-root user and group.",
+                    "gid": 999,
+                    "group_name": "Host group is [docker]",
+                    "uid": 999,
+                    "user_name": "Host user is [netdata]"
                 },
                 {
-                    "description": "Postgres runs as non-root user.",
-                    "gid": 999,
-                    "group_name": "postgres",
-                    "uid": 999,
-                    "user_name": "postgres"
+                    "description": "Container [web] runs as root user and group.",
+                    "gid": 0,
+                    "group_name": "Host group is [root]",
+                    "uid": 0,
+                    "user_name": "Host user is [root]"
+                },
+                {
+                    "description": "Container [worker] runs as root user and group.",
+                    "gid": 0,
+                    "group_name": "Host group is [root]",
+                    "uid": 0,
+                    "user_name": "Host user is [root]"
                 }
             ],
             "screenshots": [],
@@ -63,7 +70,7 @@
             ],
             "title": "Concourse",
             "train": "community",
-            "version": "1.0.28"
+            "version": "1.0.43"
         },
         "schema": {
             "groups": [
@@ -115,12 +122,16 @@
                                 "description": "If you are changing this after the postgres directory has been initialized,</br>\nSTOP! and make sure you have a backup of your data.</br>\nChanging this will trigger an one way database upgrade.</br>\nYou can only select newer versions of postgres.</br>\nSelecting an older version will refuse to start.</br>\nIf something goes wrong, you will have to restore from backup.\n",
                                 "schema": {
                                     "type": "string",
-                                    "default": "postgres_17_image",
+                                    "default": "postgres_18_image",
                                     "required": true,
                                     "enum": [
                                         {
                                             "value": "postgres_17_image",
                                             "description": "Postgres 17"
+                                        },
+                                        {
+                                            "value": "postgres_18_image",
+                                            "description": "Postgres 18"
                                         }
                                     ]
                                 }
@@ -382,6 +393,78 @@
                                             "schema": {
                                                 "type": "int",
                                                 "default": 30153,
+                                                "min": 1,
+                                                "max": 65535,
+                                                "required": true
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "tsa_port",
+                                "label": "TSA Port",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 30319,
                                                 "min": 1,
                                                 "max": 65535,
                                                 "required": true
@@ -1280,13 +1363,13 @@
         "readme": "<h1>Concourse</h1> <p><a href=\"https://concourse-ci.org\">Concourse</a> is a container-based automation system written in Go.</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "7.14.3",
+            "app_version": "8.0.1",
             "capabilities": [],
             "categories": [
                 "productivity"
             ],
             "changelog_url": "https://github.com/concourse/concourse/releases",
-            "date_added": "2025-04-30",
+            "date_added": "2025-05-02",
             "description": "Concourse is a container-based automation system written in Go.",
             "home": "https://concourse-ci.org",
             "host_mounts": [
@@ -1300,8 +1383,8 @@
                 "automation",
                 "ci"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -1312,18 +1395,25 @@
             "name": "concourse",
             "run_as_context": [
                 {
-                    "description": "Concourse runs as root user.",
-                    "gid": 0,
-                    "group_name": "root",
-                    "uid": 0,
-                    "user_name": "root"
+                    "description": "Container [postgres] runs as non-root user and group.",
+                    "gid": 999,
+                    "group_name": "Host group is [docker]",
+                    "uid": 999,
+                    "user_name": "Host user is [netdata]"
                 },
                 {
-                    "description": "Postgres runs as non-root user.",
-                    "gid": 999,
-                    "group_name": "postgres",
-                    "uid": 999,
-                    "user_name": "postgres"
+                    "description": "Container [web] runs as root user and group.",
+                    "gid": 0,
+                    "group_name": "Host group is [root]",
+                    "uid": 0,
+                    "user_name": "Host user is [root]"
+                },
+                {
+                    "description": "Container [worker] runs as root user and group.",
+                    "gid": 0,
+                    "group_name": "Host group is [root]",
+                    "uid": 0,
+                    "user_name": "Host user is [root]"
                 }
             ],
             "screenshots": [],
@@ -1334,7 +1424,7 @@
             ],
             "title": "Concourse",
             "train": "community",
-            "version": "1.0.28"
+            "version": "1.0.43"
         }
     }
 }

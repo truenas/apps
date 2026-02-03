@@ -1,0 +1,442 @@
+groups:
+  - name: MinIO Configuration
+    description: Configure MinIO
+  - name: User and Group Configuration
+    description: Configure User and Group for MinIO
+  - name: Network Configuration
+    description: Configure Network for MinIO
+  - name: Storage Configuration
+    description: Configure Storage for MinIO
+  - name: Labels Configuration
+    description: Configure Labels for MinIO
+  - name: Resources Configuration
+    description: Configure Resources for MinIO
+
+questions:
+  - variable: minio
+    label: ""
+    group: MinIO Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: credentials
+          label: Credentials
+          description: The credentials for the root user.
+          schema:
+            type: dict
+            attrs:
+              - variable: access_key
+                label: MinIO Root User
+                description: |
+                  Root user with access to all actions and resources on the deployment. </br>
+                  It doubles as the "access key" for the MinIO deployment.
+                schema:
+                  type: string
+                  min_length: 5
+                  required: true
+                  private: true
+              - variable: secret_key
+                label: MinIO Root Password
+                description: |
+                  Root password for the MinIO root user.</br>
+                  It doubles as the "secret key" for the MinIO deployment.
+                schema:
+                  type: string
+                  min_length: 8
+                  required: true
+                  private: true
+        - variable: multi_mode
+          label: Multi Mode (SNMD or MNMD) Configuration
+          description: |
+            For Single Node Multi Drive (SNMD), the entry will look like this:</br>
+            Example Entry - /data{1...4}</br></br>
+            For Multi Node Multi Drive (MNMD), the entry will look like this:</br>
+            Example Entry - https://minio{1...3}.example.com:30000/data{1...4}</br></br>
+            Note that each host must use the same port number and the same number of storage items.</br>
+            In both cases /data{1...4} is the directories to be used for MinIO.
+            You have to add additional storage for each data entry.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable Multi Mode
+                schema:
+                  type: boolean
+                  default: false
+              - variable: entries
+                label: Multi Mode (SNMD or MNMD) Entries
+                schema:
+                  type: list
+                  show_if: [["enabled", "=", true]]
+                  default: []
+                  items:
+                    - variable: item
+                      label: ""
+                      schema:
+                        type: string
+                        required: true
+        - variable: logging
+          label: ""
+          description: Logging configuration
+          schema:
+            type: dict
+            attrs:
+              - variable: quiet
+                label: Quiet
+                description: Disables startup information.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: anonymous
+                label: Anonymous
+                description: Hides sensitive information from logging.
+                schema:
+                  type: boolean
+                  default: false
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that MinIO will run as.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that MinIO will run as.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: api_port
+          label: API Port
+          description: The port for the MinIO API.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30000
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        - variable: console_port
+          label: Console Port (Web UI)
+          description: The port for the MinIO Web UI.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30001
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        - variable: server_url
+          label: Server URL
+          description: |
+            The URL that console will use to reach API</br>
+            Usually the port is needed, unless you have a reverse proxy in front of MinIO.</br>
+            For example: </br>
+            - https://minio1.example.com</br>
+            - https://minio1.example.com:30000
+          schema:
+            type: uri
+            required: true
+        - variable: console_url
+          label: Console URL
+          description: |
+            The URL that console will provide as a redirect URL</br>
+            Usually the port is needed, unless you have a reverse proxy in front of MinIO.</br>
+            For example: </br>
+            - https://console.example.com.</br>
+            - https://minio1.example.com:30001
+          schema:
+            type: uri
+            required: true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
+        - variable: certificate_id
+          label: Certificate
+          description: The certificate to use for MinIO
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - "definitions/certificate"
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data_dirs
+          label: Data Directories
+          schema:
+            type: list
+            default:
+              - type: ix_volume
+                mount_path: /data1
+                ix_volume_config:
+                  dataset_name: data1
+            items:
+              - variable: item
+                label: ""
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.
+                      schema:
+                        type: string
+                        required: true
+                        default: host_path
+                        enum:
+                          - value: host_path
+                            description: Host Path (Path that already exists on the system)
+                          - value: ix_volume
+                            description: ixVolume (Dataset created automatically by the system)
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                        default: /data1
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "data1"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: minio
+                            description: minio
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for MinIO.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for MinIO.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true

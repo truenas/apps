@@ -1,10 +1,17 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set server = tpl.add_container(values.consts.rust_desk_container_name, "image") %}
-{% set relay = tpl.add_container(values.consts.rust_desk_relay_container_name, "image") %}
+{% set server = tpl.add_container(values.consts.rust_desk_container_name, values.rust_desk.image_selector) %}
+{% set relay = tpl.add_container(values.consts.rust_desk_relay_container_name, values.rust_desk.image_selector) %}
+
+{% set is_pro = values.rust_desk.image_selector == "pro_image" %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% if is_pro %}
+  {% do server.set_mac(values.rust_desk.mac_address) %}
+  {% do relay.set_mac(values.rust_desk.mac_address) %}
+{% endif %}
 
 {% do server.set_user(values.run_as.user, values.run_as.group) %}
 {% do relay.set_user(values.run_as.user, values.run_as.group) %}
@@ -29,6 +36,7 @@
 {% do relay.environment.add_user_envs(values.rust_desk.additional_envs) %}
 
 {% if not values.network.host_network %}
+  {% if is_pro %}{% do server.add_port(values.network.webui_port, {"container_port": 21114}) %}{% endif %}
   {% do server.add_port(values.network.nat_type_test_port, {"container_port": 21115}) %}
   {% do server.add_port(values.network.id_reg_hole_punch_port, {"container_port": 21116}) %}
   {% do server.add_port(values.network.id_reg_hole_punch_port, {"container_port": 21116, "protocol": "udp"}) %}
@@ -58,5 +66,7 @@
   {% do server.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do relay.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
+
+{% if is_pro %}{% do tpl.portals.add(values.network.web_port) %}{% endif %}
 
 {{ tpl.render() | tojson }}

@@ -39,11 +39,13 @@ questions:
             If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: postgres_17_image
+            default: postgres_18_image
             required: true
             enum:
               - value: postgres_17_image
                 description: Postgres 17
+              - value: postgres_18_image
+                description: Postgres 18
         - variable: db_password
           label: Database Password
           description: The password for Authelia.
@@ -269,11 +271,19 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: uses_deprecated_media
+          label: Use Deprecated Media Storage
+          description: |
+            Cannot be used in new installs.</br>
+            See https://github.com/truenas/apps/pull/3928
+          schema:
+            type: boolean
+            default: false
         - variable: media
-          label: Authentik Media Storage
-          description: The path to store Authentik Media.
+          label: Media Storage (DEPRECATED)
           schema:
             type: dict
+            show_if: [["uses_deprecated_media", "=", true]]
             attrs:
               - variable: type
                 label: Type
@@ -345,9 +355,83 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: data
+          label: Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: templates
-          label: Authentik Templates Storage
-          description: The path to store Authentik Templates.
+          label: Templates Storage
           schema:
             type: dict
             attrs:
@@ -422,8 +506,7 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: certs
-          label: Authentik Certs Storage
-          description: The path to store Authentik Certs.
+          label: Certs Storage
           schema:
             type: dict
             attrs:

@@ -1,4 +1,9 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
+
+{% if values.penpot.postgres_image_selector == "postgres_15_image" %}
+  {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
+{% endif %}
+
 {% set frontend = tpl.add_container(values.consts.penpot_frontend_container_name, "image") %}
 {% set backend = tpl.add_container(values.consts.penpot_backend_container_name, "backend_image") %}
 {% set exporter = tpl.add_container(values.consts.penpot_exporter_container_name, "exporter_image") %}
@@ -65,6 +70,7 @@
 {% do exporter.environment.add_env("PENPOT_REDIS_URI", redis_uri) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_PORT", values.consts.exporter_port) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_HOST", "0.0.0.0") %}
+{% do exporter.environment.add_env("PENPOT_SECRET_KEY", values.penpot.secret_key) %}
 
 {% do frontend.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
 {% do frontend.environment.add_env("PENPOT_BACKEND_URI", "http://%s:%d"|format(values.consts.penpot_backend_container_name, values.consts.backend_port)) %}

@@ -37,11 +37,13 @@ questions:
             If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: postgres_17_image
+            default: postgres_18_image
             required: true
             enum:
               - value: postgres_17_image
                 description: Postgres 17
+              - value: postgres_18_image
+                description: Postgres 18
         - variable: db_password
           label: Database Password
           description: The password for Concourse Database.
@@ -213,6 +215,53 @@ questions:
                 schema:
                   type: int
                   default: 30153
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: tsa_port
+          label: TSA Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30319
                   min: 1
                   max: 65535
                   required: true

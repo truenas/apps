@@ -1,5 +1,9 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% if values.n8n.postgres_image_selector == "postgres_15_image" %}
+  {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
+{% endif %}
+
 {% if values.n8n.web_host.startswith("https://") or values.n8n.web_host.startswith("http://") %}
   {% do tpl.funcs.fail("Expected [n8n.web_host] to not start with [http(s)://]") %}
 {% endif %}
@@ -18,11 +22,7 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.n8n.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.n8n.postgres_image_selector, pg_config, perm_container) %}
 
 {% set redis_config = {
   "password": values.n8n.redis_password,
@@ -59,7 +59,36 @@
 {% do c1.environment.add_env("QUEUE_BULL_REDIS_PORT", 6379) %}
 {% do c1.environment.add_env("QUEUE_BULL_REDIS_HOST", values.consts.redis_container_name) %}
 {% do c1.environment.add_env("QUEUE_BULL_REDIS_PASSWORD", values.n8n.redis_password) %}
+
+{% set enabled_runners = values.n8n.runners_mode != "" %}
+{% do c1.environment.add_env("N8N_RUNNERS_ENABLED", enabled_runners) %}
+{% do c1.environment.add_env("N8N_RUNNERS_MODE", values.n8n.runners_mode or "internal") %}
+
+{# Whether to setup external runners #}
+{% if enabled_runners and values.n8n.runners_mode == "external" %}
+  {% do c1.add_port(values.network.broker_port) %}
+  {% do c1.environment.add_env("N8N_RUNNERS_BROKER_LISTEN_ADDRESS", "0.0.0.0") %}
+  {% do c1.environment.add_env("N8N_RUNNERS_BROKER_PORT", values.network.broker_port.port_number) %}
+  {% do c1.environment.add_env("N8N_RUNNERS_AUTH_TOKEN", values.n8n.runners_auth_token) %}
+
+  {# Whether to setup an extra container for the external runner #}
+  {% if values.n8n.enable_bundled_external_runner %}
+    {% set runner = tpl.add_container(values.consts.task_runner_container_name, "task_runner_image") %}
+    {% do runner.set_user(values.run_as.user, values.run_as.group) %}
+    {% do runner.healthcheck.set_test("wget", {"port": values.consts.runners_health_check_port, "path": "/healthz"}) %}
+    {% do runner.environment.add_env("GENERIC_TIMEZONE", values.TZ) %}
+    {% do runner.environment.add_env("N8N_RUNNERS_AUTH_TOKEN", values.n8n.runners_auth_token) %}
+    {% do runner.environment.add_env("N8N_RUNNERS_TASK_BROKER_URI", "%s://%s:%d"|format(proto, values.consts.n8n_container_name, values.network.broker_port.port_number)) %}
+    {% do runner.environment.add_env("N8N_RUNNERS_LAUNCHER_HEALTH_CHECK_PORT", values.consts.runners_health_check_port) %}
+    {% do runner.environment.add_user_envs(values.n8n.additional_runner_envs) %}
+    {% do runner.depends.add_dependency(values.consts.n8n_container_name, "service_healthy") %}
+  {% endif %}
+{% endif %}
+
 {% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
   {% do c1.environment.add_env("N8N_SSL_KEY", values.consts.ssl_key_path) %}
   {% do c1.environment.add_env("N8N_SSL_CERT", values.consts.ssl_cert_path) %}
 {% endif %}
@@ -82,12 +111,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
-
-{% if values.network.certificate_id %}
-  {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
-  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
-{% endif %}
 
 {% do c1.add_port(values.network.web_port) %}
 

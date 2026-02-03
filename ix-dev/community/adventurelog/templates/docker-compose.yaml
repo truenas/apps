@@ -5,9 +5,12 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
+{% set frontend_url = values.adventurelog.frontend_url.rstrip("/") %}
+{% set backend_url = values.adventurelog.backend_url.rstrip("/") %}
+
 {# Postgis #}
 {% set pg_config = {"user": values.consts.db_user, "password": values.adventurelog.db_password, "database": values.consts.db_name, "volume": values.storage.postgres_data} %}
-{% set postgis = tpl.deps.postgres(values.consts.postgis_container_name, "postgis_image", pg_config, perm_container) %}
+{% set postgis = tpl.deps.postgres(values.consts.postgis_container_name, values.adventurelog.postgres_image_selector, pg_config, perm_container) %}
 
 {# Frontend #}
 {% do frontend.set_user(1000, 1000) %}
@@ -16,7 +19,7 @@
 
 {# Must always point to internal backend server #}
 {% do frontend.environment.add_env("PUBLIC_SERVER_URL", "http://%s:8000"|format(values.consts.backend_container_name)) %}
-{% do frontend.environment.add_env("ORIGIN", values.adventurelog.frontend_url) %}
+{% do frontend.environment.add_env("ORIGIN", frontend_url) %}
 {% do frontend.environment.add_user_envs(values.adventurelog.additional_envs) %}
 
 {% do frontend.add_port(values.network.frontend_port, {"container_port": values.consts.frontend_port}) %}
@@ -26,9 +29,9 @@
 {% do backend.depends.add_dependency(values.consts.postgis_container_name, "service_healthy") %}
 {% do backend.healthcheck.set_test("http", {"port": values.consts.backend_port, "path": "/auth/is-registration-disabled/?format=json"}) %}
 
-{% do backend.environment.add_env("FRONTEND_URL", values.adventurelog.frontend_url) %}
-{% do backend.environment.add_env("PUBLIC_URL", values.adventurelog.backend_url) %}
-{% do backend.environment.add_env("CSRF_TRUSTED_ORIGINS", [values.adventurelog.frontend_url, values.adventurelog.backend_url]|join(",")) %}
+{% do backend.environment.add_env("FRONTEND_URL", frontend_url) %}
+{% do backend.environment.add_env("PUBLIC_URL", backend_url) %}
+{% do backend.environment.add_env("CSRF_TRUSTED_ORIGINS", [frontend_url, backend_url]|join(",")) %}
 
 {% do backend.environment.add_env("SECRET_KEY", values.adventurelog.secret_key) %}
 {% do backend.environment.add_env("DJANGO_ADMIN_USERNAME", values.adventurelog.admin_username) %}

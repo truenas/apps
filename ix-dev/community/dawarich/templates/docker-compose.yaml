@@ -12,7 +12,7 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgis = tpl.deps.postgres(values.consts.postgis_container_name, "postgis_image", pg_config, perm_container) %}
+{% set postgis = tpl.deps.postgres(values.consts.postgis_container_name, values.dawarich.postgres_image_selector, pg_config, perm_container) %}
 
 {# Redis #}
 {% set redis_config = {
@@ -29,7 +29,7 @@
 {% do sidekiq.set_entrypoint(["sidekiq-entrypoint.sh"]) %}
 {% do sidekiq.set_command(["sidekiq"]) %}
 
-{% do sidekiq.healthcheck.set_custom_test("pgrep -f sidekiq") %}
+{% do sidekiq.healthcheck.set_test("pgrep", {"process": "sidekiq"}) %}
 
 {% do sidekiq.depends.add_dependency(values.consts.postgis_container_name, "service_healthy") %}
 {% do sidekiq.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}

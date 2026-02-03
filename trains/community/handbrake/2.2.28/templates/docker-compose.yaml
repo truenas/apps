@@ -1,0 +1,32 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.handbrake_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID", "NET_BIND_SERVICE", "KILL"]) %}
+{% do c1.healthcheck.set_test("netcat", {"port": values.network.vnc_port.port_number}) %}
+
+{% do c1.environment.add_env("HANDBRAKE_GUI", 1) %}
+{% do c1.environment.add_env("DARK_MODE", 1 if values.handbrake.dark_mode else 0) %}
+{% do c1.environment.add_env("SECURE_CONNECTION", 1 if values.handbrake.secure_connection else 0) %}
+{% do c1.environment.add_env("WEB_LISTENING_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("VNC_LISTENING_PORT", values.network.vnc_port.port_number) %}
+{% do c1.environment.add_env("VNC_PASSWORD", values.handbrake.vnc_password) %}
+{% do c1.environment.add_env("AUTOMATED_CONVERSION_OUTPUT_DIR", values.consts.output_path) %}
+
+{% do c1.environment.add_user_envs(values.handbrake.additional_envs) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage("/storage", values.storage.storage) %}
+{% do c1.add_storage("/watch", values.storage.watch) %}
+{% do c1.add_storage(values.consts.output_path, values.storage.output) %}
+{% do c1.add_storage("/tmp", {"type": "anonymous"})%}
+{% do c1.add_storage("/var/run", {"type": "anonymous"})%}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

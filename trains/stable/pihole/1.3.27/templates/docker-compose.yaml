@@ -1,0 +1,62 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.pihole_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps([
+  "CHOWN",
+  "DAC_OVERRIDE",
+  "FOWNER",
+  "KILL",
+  "NET_ADMIN",
+  "NET_BIND_SERVICE",
+  "NET_RAW",
+  "SETFCAP",
+  "SETGID",
+  "SETPCAP",
+  "SETUID",
+  "SYS_NICE",
+  "SYS_TIME",
+]) %}
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
+{% do c1.set_shm_size_mb(values.pihole.shm_size_mb) %}
+
+{% set web_ports = namespace(x=[values.network.web_port.port_number]) %}
+{% if values.network.https_port.bind_mode %}
+  {% do web_ports.x.append("%ds"|format(values.network.https_port.port_number)) %}
+{% endif %}
+
+{% do c1.environment.add_env("FTLCONF_webserver_port", web_ports.x|join(",")) %}
+{% do c1.environment.add_env("FTLCONF_webserver_api_password", values.pihole.web_password) %}
+{% if values.network.get('dhcp_config', {}).get('dhcp_enabled', false) %}
+  {% do c1.environment.add_env("FTLCONF_dhcp_active", "true") %}
+  {% do c1.environment.add_env("FTLCONF_dhcp_start", values.network.dhcp_config.start) %}
+  {% do c1.environment.add_env("FTLCONF_dhcp_end", values.network.dhcp_config.end) %}
+  {% do c1.environment.add_env("FTLCONF_dhcp_router", values.network.dhcp_config.gateway) %}
+{% endif %}
+{% if values.network.host_network and values.network.interface_name %}
+  {% do c1.environment.add_env("FTLCONF_dns_interface", values.network.interface_name) %}
+  {% do c1.environment.add_env("FTLCONF_dns_listeningMode", values.network.dns_listening_mode) %}
+{% else %}
+  {% do c1.environment.add_env("FTLCONF_dns_listeningMode", "all") %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.pihole.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.https_port) %}
+  {% do c1.add_port(values.network.web_port) %}
+  {% do c1.add_port(values.network.dns_port, {"container_port": 53}) %}
+  {% do c1.add_port(values.network.dns_port, {"container_port": 53, "protocol": "udp"}) %}
+{% endif %}
+
+{% do c1.add_storage("/etc/pihole", values.storage.config) %}
+{% do c1.add_storage("/etc/dnsmasq.d", values.storage.dnsmasq) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"path": "/admin/"}) %}
+
+{{ tpl.render() | tojson }}

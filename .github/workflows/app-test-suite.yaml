@@ -12,6 +12,8 @@ jobs:
       change-count-1: ${{ steps.changed-apps.outputs.change-count-1 }}
       changed-apps-2: ${{ steps.changed-apps.outputs.changed-apps-2 }}
       change-count-2: ${{ steps.changed-apps.outputs.change-count-2 }}
+      changed-apps-3: ${{ steps.changed-apps.outputs.changed-apps-3 }}
+      change-count-3: ${{ steps.changed-apps.outputs.change-count-3 }}
     steps:
       - name: Check Docker socket ownership
         run: |
@@ -29,7 +31,7 @@ jobs:
           exit 1
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get changed files
         id: changed-files-json
@@ -49,9 +51,11 @@ jobs:
           out=$(python3 .github/scripts/changed_apps.py)
           echo "changed-apps-1=$(echo "${out}" | jq -cr '.matrix1')" >> $GITHUB_OUTPUT
           echo "changed-apps-2=$(echo "${out}" | jq -cr '.matrix2')" >> $GITHUB_OUTPUT
+          echo "changed-apps-3=$(echo "${out}" | jq -cr '.matrix3')" >> $GITHUB_OUTPUT
 
           echo "change-count-1=$(echo "${out}" | jq -cr '.matrix1.include | length')" >> $GITHUB_OUTPUT
           echo "change-count-2=$(echo "${out}" | jq -cr '.matrix2.include | length')" >> $GITHUB_OUTPUT
+          echo "change-count-3=$(echo "${out}" | jq -cr '.matrix3.include | length')" >> $GITHUB_OUTPUT
 
       - name: Message Generation
         id: message
@@ -87,7 +91,7 @@ jobs:
           echo "========================="
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test
         shell: bash
@@ -126,7 +130,32 @@ jobs:
           echo "========================="
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
+
+      - name: Test
+        shell: bash
+        run: |
+          echo "Testing [${{matrix.train}}/${{matrix.app}}/templates/test_values/${{matrix.test_file}}]"
+          python3 ./.github/scripts/ci.py --train ${{matrix.train}} --app ${{matrix.app}} --test-file ${{matrix.test_file}}
+
+  run-apps-matrix-3:
+    name: Run Docker Compose Render/Install (Matrix 3)
+    needs: changed-files
+    runs-on: ubuntu-latest
+    if: needs.changed-files.outputs.change-count-3 > 0
+    strategy:
+      matrix: ${{ fromJson(needs.changed-files.outputs.changed-apps-3) }}
+      fail-fast: false
+      max-parallel: 20
+    steps:
+      - name: Environment Information
+        run: |
+          echo "====== Docker Info ======"
+          docker info
+          echo "========================="
+
+      - name: Checkout
+        uses: actions/checkout@v6
 
       - name: Test
         shell: bash

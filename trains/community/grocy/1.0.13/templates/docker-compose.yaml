@@ -1,0 +1,20 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.grocy_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "SETGID", "SETUID", "DAC_OVERRIDE", "FOWNER"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/login"}) %}
+
+{% do c1.environment.add_user_envs(values.grocy.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

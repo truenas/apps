@@ -1,11 +1,7 @@
 # walk over ix-dev
 import os
 import yaml
-
-
-def ensure_maintainer(data: dict):
-    data["maintainers"][0]["email"] = "dev@truenas.com"
-    return data
+import subprocess
 
 
 def bump_version(data: dict):
@@ -23,6 +19,17 @@ def get_yaml_data(file: str):
         return data
 
 
+def set_added_date(data: dict, app_yaml: str):
+    res = subprocess.run(f'git log --diff-filter=A --format="%as" -- {app_yaml}', shell=True, capture_output=True)
+    if res.returncode != 0:
+        raise Exception(f"failed to get git log for {app_yaml}")
+    git_log = res.stdout.decode("utf-8").strip()
+    if data["date_added"] == git_log:
+        return data, False
+    data["date_added"] = git_log
+    return data, True
+
+
 for train in os.listdir("ix-dev"):
     # if its not dir skip
     if not os.path.isdir(os.path.join("ix-dev", train)):
@@ -37,11 +44,12 @@ for train in os.listdir("ix-dev"):
         if not data:
             print("no app.yaml", train, app)
             continue
-        if not data["lib_version"] == "2.1.57":
-            print("wrong lib_version", train, app, data["lib_version"])
-            continue
+        # if not data["lib_version"] == "2.1.65":
+        #     print("wrong lib_version", train, app, data["lib_version"])
+        #     continue
 
-        data = ensure_maintainer(data)
-        data = bump_version(data)
+        data, changed = set_added_date(data, file)
+        if changed:
+            data = bump_version(data)
         with open(file, "w") as f:
             yaml.safe_dump(data, f)

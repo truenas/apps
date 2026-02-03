@@ -44,6 +44,7 @@
 {% do c1.environment.add_env("RAG_PORT", values.consts.rag_port_number) %}
 {% do c1.environment.add_env("RAG_API_URL", "http://%s:%d"|format(values.consts.rag_container_name, values.consts.rag_port_number)) %}
 {% do c1.environment.add_env("ALLOW_REGISTRATION", values.librechat.allow_registration) %}
+{% do c1.environment.add_env("OPENAI_API_KEY", values.librechat.openai_api_key) %}
 {% do c1.environment.add_user_envs(values.librechat.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
@@ -59,6 +60,12 @@
 {% do c1.add_storage("/app/logs", values.storage.logs) %}
 {% do perm_container.add_or_skip_action("logs", values.storage.logs, perms_config) %}
 
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do rag.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
 {% do rag.set_user(values.run_as.user, values.run_as.group) %}
 {% do rag.healthcheck.set_test("http", {"port": values.consts.rag_port_number, "path": "/health"}) %}
 {% do rag.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -71,7 +78,7 @@
 {% do rag.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
 {% do rag.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
 {% do rag.environment.add_env("POSTGRES_PASSWORD", values.librechat.pg_db_password) %}
-{% do rag.environment.add_env("OPENAI_API_KEY", "test") %}
+{% do rag.environment.add_env("OPENAI_API_KEY", values.librechat.openai_api_key) %}
 {% do rag.environment.add_user_envs(values.librechat.additional_envs) %}
 
 {% if perm_container.has_actions() %}

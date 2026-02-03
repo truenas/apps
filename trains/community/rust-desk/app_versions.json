@@ -1,18 +1,18 @@
 {
-    "1.2.11": {
+    "1.3.9": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/rust-desk/1.2.11",
-        "last_update": "2025-11-17 11:10:53",
+        "location": "/__w/apps/apps/trains/community/rust-desk/1.3.9",
+        "last_update": "2026-01-27 13:13:23",
         "required_features": [],
-        "human_version": "1.1.14_1.2.11",
-        "version": "1.2.11",
+        "human_version": "1.1.15_1.3.9",
+        "version": "1.3.9",
         "app_metadata": {
             "annotations": {
                 "min_scale_version": "24.10.2.2"
             },
-            "app_version": "1.1.14",
+            "app_version": "1.1.15",
             "capabilities": [],
             "categories": [
                 "productivity"
@@ -27,8 +27,8 @@
                 "remote",
                 "desktop"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -39,11 +39,18 @@
             "name": "rust-desk",
             "run_as_context": [
                 {
-                    "description": "Rust Desk runs as any non-root user.",
+                    "description": "Container [rust-desk] can run as any non-root user and group.",
                     "gid": 568,
-                    "group_name": "rust-desk",
+                    "group_name": "Host group is [apps]",
                     "uid": 568,
-                    "user_name": "rust-desk"
+                    "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [rust-desk-relay] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
                 }
             ],
             "screenshots": [],
@@ -53,7 +60,7 @@
             ],
             "title": "Rust Desk",
             "train": "community",
-            "version": "1.2.11"
+            "version": "1.3.9"
         },
         "schema": {
             "groups": [
@@ -90,6 +97,44 @@
                     "schema": {
                         "type": "dict",
                         "attrs": [
+                            {
+                                "variable": "image_selector",
+                                "label": "Image Selector",
+                                "description": "The image selector to use for Scrypted.",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "image",
+                                    "enum": [
+                                        {
+                                            "value": "image",
+                                            "description": "OSS Image"
+                                        },
+                                        {
+                                            "value": "pro_image",
+                                            "description": "Pro Image - Requires a paid license"
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "mac_address",
+                                "label": "MAC Address",
+                                "description": "For licensing purposes, Rust Desk needs the MAC Address to tie the license to your server.</br>\nFormat: XX:XX:XX:XX:XX:XX\n",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "",
+                                    "min_length": 17,
+                                    "max_length": 17,
+                                    "show_if": [
+                                        [
+                                            "image_selector",
+                                            "=",
+                                            "pro_image"
+                                        ]
+                                    ],
+                                    "required": true
+                                }
+                            },
                             {
                                 "variable": "allow_only_encrypted_connections",
                                 "label": "Allow Only Encrypted Connections",
@@ -202,6 +247,93 @@
                                 "schema": {
                                     "type": "boolean",
                                     "default": false
+                                }
+                            },
+                            {
+                                "variable": "webui_port",
+                                "label": "Port for the webui",
+                                "description": "This port will be used to connect to the webui.</br>\nThe internal port will always be 21114.</br>\nThis is only available in the PRO version.\n",
+                                "schema": {
+                                    "type": "dict",
+                                    "show_if": [
+                                        [
+                                            "host_network",
+                                            "=",
+                                            false
+                                        ]
+                                    ],
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": 21114,
+                                                "min": 1,
+                                                "max": 65535,
+                                                "required": true
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
                                 }
                             },
                             {
@@ -1185,7 +1317,7 @@
             "annotations": {
                 "min_scale_version": "24.10.2.2"
             },
-            "app_version": "1.1.14",
+            "app_version": "1.1.15",
             "capabilities": [],
             "categories": [
                 "productivity"
@@ -1200,8 +1332,8 @@
                 "remote",
                 "desktop"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.1.77",
+            "lib_version_hash": "1837f8e69ae1adc313330c3b1c2615e9b4d03c5459d657a5898bae78090f8195",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -1212,11 +1344,18 @@
             "name": "rust-desk",
             "run_as_context": [
                 {
-                    "description": "Rust Desk runs as any non-root user.",
+                    "description": "Container [rust-desk] can run as any non-root user and group.",
                     "gid": 568,
-                    "group_name": "rust-desk",
+                    "group_name": "Host group is [apps]",
                     "uid": 568,
-                    "user_name": "rust-desk"
+                    "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [rust-desk-relay] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
                 }
             ],
             "screenshots": [],
@@ -1226,7 +1365,7 @@
             ],
             "title": "Rust Desk",
             "train": "community",
-            "version": "1.2.11"
+            "version": "1.3.9"
         }
     }
 }
