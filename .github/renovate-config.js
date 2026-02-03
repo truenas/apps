@@ -328,7 +328,7 @@ module.exports = {
     ),
     customVersioning(
       // component-1.2.3
-      `^(?<compatibility>backend|frontend|fc-worker-api|fc-worker-celery)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$`,
+      "^(?<compatibility>backend|frontend|fc-worker-api|fc-worker-celery)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["amrit3701/lens"],
     ),
   ],
