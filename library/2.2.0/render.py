@@ -45,6 +45,16 @@ class Render(object):
         self.networks: Networks = Networks(render_instance=self)
         self.volumes = Volumes(render_instance=self)
 
+        self._auto_add_networks()
+
+    def _auto_add_networks(self):
+        networks = self.values.get("network", {}).get("networks", [])
+        if not networks:
+            return
+
+        for network in networks:
+            self.networks.register(network["name"])
+
     def container_names(self):
         return list(self._containers.keys())
 
