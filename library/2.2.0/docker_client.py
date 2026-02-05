@@ -4,6 +4,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from render import Render
 
+try:
+    from .error import RenderError
+    from .validations import is_truenas_system
+except ImportError:
+    from error import RenderError
+    from validations import is_truenas_system
+
 
 class DockerClient:
     def __init__(self, render_instance: "Render"):
@@ -13,6 +20,8 @@ class DockerClient:
         try:
             self.client = docker.from_env()
         except Exception:
+            if is_truenas_system():
+                raise RenderError("Docker client could not be initialized.")
             self.client = None
 
         self._auto_fetch_networks()
@@ -23,6 +32,8 @@ class DockerClient:
         try:
             networks = self.client.networks.list()
         except Exception:
+            if is_truenas_system():
+                raise RenderError("Could not fetch networks from Docker client.")
             pass
 
         for network in networks:

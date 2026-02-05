@@ -1,4 +1,3 @@
-import os
 import re
 import ipaddress
 from pathlib import Path
@@ -25,19 +24,6 @@ RESTRICTED: tuple[Path, ...] = (
     Path("/boot"),
     Path("/var/log"),
 )
-
-
-def is_truenas_system():
-    """Check if we're running on a TrueNAS system"""
-    return "truenas" in os.uname().release
-
-
-def valid_label_key_or_raise(key: str):
-    if not key:
-        raise RenderError("Label key cannot be empty")
-    if key.startswith("com.docker.compose"):
-        raise RenderError(f"Label [{key}] cannot start with [com.docker.compose] as it is reserved")
-    return key
 
 
 def valid_mac_or_raise(mac: str):

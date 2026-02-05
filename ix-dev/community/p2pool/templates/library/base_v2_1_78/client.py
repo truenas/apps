@@ -1,3 +1,4 @@
+import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -5,10 +6,13 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
-    from .validations import is_truenas_system
 except ImportError:
     from error import RenderError
-    from validations import is_truenas_system
+
+
+def is_truenas_system():
+    """Check if we're running on a TrueNAS system"""
+    return "truenas" in os.uname().release
 
 
 # Import based on system detection
@@ -32,7 +36,7 @@ else:
             self.errors = errors
 
 
-class TNClient:
+class Client:
     def __init__(self, render_instance: "Render"):
         self.client = TrueNASClient()
         self._render_instance = render_instance
