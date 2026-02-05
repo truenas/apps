@@ -18,6 +18,7 @@ try:
     from .formatter import escape_dollar, get_image_with_hashed_data
     from .healthcheck import Healthcheck
     from .labels import Labels
+    from .networks import ContainerNetworks
     from .ports import Ports
     from .restart import RestartPolicy
     from .tmpfs import Tmpfs
@@ -49,6 +50,7 @@ except ImportError:
     from formatter import escape_dollar, get_image_with_hashed_data
     from healthcheck import Healthcheck
     from labels import Labels
+    from networks import ContainerNetworks
     from ports import Ports
     from restart import RestartPolicy
     from tmpfs import Tmpfs
@@ -103,7 +105,7 @@ class Container:
         self.sysctls: Sysctls = Sysctls(self._render_instance, self)
         self.configs: ContainerConfigs = ContainerConfigs(self._render_instance, self._render_instance.configs)
         self.deploy: Deploy = Deploy(self._render_instance)
-        self.networks: set[str] = set()
+        self.networks: ContainerNetworks = ContainerNetworks(self._render_instance)
         self.devices: Devices = Devices(self._render_instance)
         self.environment: Environment = Environment(self._render_instance, self.deploy.resources)
         self.dns: Dns = Dns(self._render_instance)
@@ -299,6 +301,9 @@ class Container:
     def set_command(self, command: list[str]):
         self._command = [escape_dollar(str(e)) for e in command]
 
+    def add_network(self, network: str, config: dict = {}):
+        self.networks.add(network, config)
+
     def add_storage(self, mount_path: str, config: "IxStorage"):
         if config.get("type", "") == "tmpfs":
             self._tmpfs.add(mount_path, config)
@@ -346,7 +351,7 @@ class Container:
         return self._storage
 
     def render(self) -> dict[str, Any]:
-        if self._network_mode and self.networks:
+        if self._network_mode and self.networks.has_items():
             raise RenderError("Cannot set both [network_mode] and [networks]")
 
         result = {
@@ -435,6 +440,9 @@ class Container:
 
             if self.expose.has_ports():
                 result["expose"] = self.expose.render()
+
+            if self.networks.has_items():
+                result["networks"] = self.networks.render()
 
         if self._entrypoint:
             result["entrypoint"] = self._entrypoint
