@@ -1,0 +1,95 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.hyos_container_name, "image") %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+
+{% do c1.set_tty(true) %}
+{% do c1.set_stdin(true) %}
+
+{% do c1.healthcheck.set_custom_test(["CMD", "/opt/scripts/healthcheck.sh"]) %}
+{% do c1.healthcheck.set_start_period(180) %}
+
+{# Server Configuration #}
+{% do c1.environment.add_env("SERVER_NAME", values.hyos.server_name) %}
+{% if values.hyos.server_motd %}
+  {% do c1.environment.add_env("SERVER_MOTD", values.hyos.server_motd) %}
+{% endif %}
+{% if values.hyos.server_password %}
+  {% do c1.environment.add_env("SERVER_PASSWORD", values.hyos.server_password) %}
+{% endif %}
+{% do c1.environment.add_env("MAX_PLAYERS", values.hyos.max_players) %}
+{% do c1.environment.add_env("DEFAULT_GAMEMODE", values.hyos.default_gamemode) %}
+{% do c1.environment.add_env("PATCHLINE", values.hyos.patchline) %}
+{% do c1.environment.add_env("MAX_VIEW_RADIUS", values.hyos.max_view_radius) %}
+{% do c1.environment.add_env("HYTALE_AUTH_MODE", values.hyos.hytale_auth_mode) %}
+{% do c1.environment.add_env("WHITELIST_ENABLED", values.hyos.whitelist_enabled | string | upper) %}
+
+{# JVM Configuration #}
+{% do c1.environment.add_env("JAVA_XMS", values.hyos.java_xms) %}
+{% do c1.environment.add_env("JAVA_XMX", values.hyos.java_xmx) %}
+{% do c1.environment.add_env("ENABLE_AOT", values.hyos.enable_aot | string | upper) %}
+{% do c1.environment.add_env("USE_ZGC", values.hyos.use_zgc | string | upper) %}
+
+{# Auto Update #}
+{% do c1.environment.add_env("AUTO_UPDATE", values.hyos.auto_update | string | upper) %}
+{% if values.hyos.auto_update %}
+  {% do c1.environment.add_env("AUTO_UPDATE_INTERVAL", values.hyos.auto_update_interval) %}
+{% endif %}
+
+{# REST API #}
+{% do c1.environment.add_env("API_ENABLED", values.hyos.api_enabled | string | upper) %}
+{% if values.hyos.api_enabled %}
+  {% do c1.environment.add_env("API_PORT", values.network.api_port.port_number) %}
+  {% if values.hyos.api_client_secret %}
+    {% do c1.environment.add_env("API_CLIENT_SECRET", values.hyos.api_client_secret) %}
+  {% endif %}
+{% endif %}
+
+{# Backups #}
+{% do c1.environment.add_env("HYTALE_BACKUP", values.hyos.hytale_backup | string | upper) %}
+{% if values.hyos.hytale_backup %}
+  {% do c1.environment.add_env("HYTALE_BACKUP_FREQUENCY", values.hyos.hytale_backup_frequency) %}
+  {% do c1.environment.add_env("HYTALE_BACKUP_MAX_COUNT", values.hyos.hytale_backup_max_count) %}
+{% endif %}
+
+{# Misc #}
+{% do c1.environment.add_env("SKIP_BROKEN_MODS", values.hyos.skip_broken_mods | string | upper) %}
+{% do c1.environment.add_env("SERVER_PORT", values.network.server_port.port_number) %}
+{% do c1.environment.add_env("DEBUG", values.hyos.debug | string | upper) %}
+
+{% do c1.environment.add_user_envs(values.hyos.additional_envs) %}
+
+{# Ports #}
+{% do c1.add_port(values.network.server_port, {"protocol": "udp"}) %}
+{% if values.hyos.api_enabled %}
+  {% do c1.add_port(values.network.api_port) %}
+{% endif %}
+{% for port in values.network.additional_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{# Storage #}
+{% do c1.add_storage("/data", values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{# Permissions Container #}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+{% do perms.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{# Portal (API endpoint) #}
+{% if values.hyos.api_enabled %}
+  {% do tpl.portals.add(values.network.api_port, {"scheme": "http", "path": "/health"}) %}
+{% endif %}
+
+{# Notes #}
+{% do tpl.notes.set_body(values.consts.notes) %}
+
+{{ tpl.render() | tojson }}

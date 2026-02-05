@@ -1,0 +1,739 @@
+groups:
+  - name: hyOS Configuration
+    description: Configure hyOS
+  - name: User and Group Configuration
+    description: Configure User and Group for hyOS
+  - name: Network Configuration
+    description: Configure Network for hyOS
+  - name: Storage Configuration
+    description: Configure Storage for hyOS
+  - name: Labels Configuration
+    description: Configure Labels for hyOS
+  - name: Resources Configuration
+    description: Configure Resources for hyOS
+
+questions:
+  - variable: TZ
+    group: hyOS Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: hyos
+    label: ""
+    group: hyOS Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: server_name
+          label: Server Name
+          description: The display name of the server.
+          schema:
+            type: string
+            default: "Hytale Server"
+            required: true
+        - variable: server_motd
+          label: Message of the Day
+          description: The message displayed to players when they join.
+          schema:
+            type: string
+            default: ""
+        - variable: server_password
+          label: Server Password
+          description: |
+            Password required to join the server.</br>
+            Leave empty for a public server.
+          schema:
+            type: string
+            private: true
+            default: ""
+        - variable: max_players
+          label: Maximum Players
+          description: The maximum number of players allowed on the server.
+          schema:
+            type: int
+            default: 100
+            min: 1
+            max: 1000
+            required: true
+        - variable: default_gamemode
+          label: Default Game Mode
+          description: The default game mode for new players.
+          schema:
+            type: string
+            default: "Adventure"
+            required: true
+            enum:
+              - value: "Adventure"
+                description: Adventure
+              - value: "Creative"
+                description: Creative
+              - value: "Survival"
+                description: Survival
+        - variable: patchline
+          label: Patchline
+          description: The server patchline (release channel) to use.
+          schema:
+            type: string
+            default: "release"
+            required: true
+            enum:
+              - value: "release"
+                description: Release (Stable)
+              - value: "staging"
+                description: Staging
+              - value: "nightly"
+                description: Nightly
+        - variable: java_xms
+          label: JVM Minimum Heap Size
+          description: |
+            Minimum memory allocation for the JVM.</br>
+            Examples: 4G, 8G, 16G
+          schema:
+            type: string
+            default: "4G"
+            required: true
+        - variable: java_xmx
+          label: JVM Maximum Heap Size
+          description: |
+            Maximum memory allocation for the JVM.</br>
+            Examples: 8G, 16G, 32G
+          schema:
+            type: string
+            default: "8G"
+            required: true
+        - variable: max_view_radius
+          label: Maximum View Radius
+          description: The maximum view radius in chunks.
+          schema:
+            type: int
+            default: 32
+            min: 1
+            max: 64
+            required: true
+        - variable: hytale_auth_mode
+          label: Authentication Mode
+          description: |
+            Server authentication mode.</br>
+            Authenticated mode requires valid Hytale accounts.</br>
+            Offline mode allows any client to connect.
+          schema:
+            type: string
+            default: "authenticated"
+            required: true
+            enum:
+              - value: "authenticated"
+                description: Authenticated (Requires Hytale account)
+              - value: "offline"
+                description: Offline (No authentication)
+        - variable: whitelist_enabled
+          label: Enable Whitelist
+          description: Enable the player whitelist.
+          schema:
+            type: boolean
+            default: false
+        - variable: auto_update
+          label: Enable Auto Update
+          description: Automatically check for and apply server updates on startup.
+          schema:
+            type: boolean
+            default: false
+        - variable: auto_update_interval
+          label: Auto Update Check Interval (seconds)
+          description: How often to check for updates in seconds.
+          schema:
+            type: int
+            default: 3600
+            min: 60
+            required: true
+            show_if: [["auto_update", "=", true]]
+        - variable: api_enabled
+          label: Enable REST API
+          description: Enable the built-in REST API for server management.
+          schema:
+            type: boolean
+            default: true
+        - variable: api_client_secret
+          label: API Client Secret
+          description: |
+            Secret key for API authentication.</br>
+            Required when REST API is enabled.
+          schema:
+            type: string
+            private: true
+            default: ""
+            show_if: [["api_enabled", "=", true]]
+        - variable: hytale_backup
+          label: Enable Backups
+          description: Enable in-game world backups.
+          schema:
+            type: boolean
+            default: true
+        - variable: hytale_backup_frequency
+          label: Backup Frequency (minutes)
+          description: How often to create backups in minutes.
+          schema:
+            type: int
+            default: 30
+            min: 1
+            required: true
+            show_if: [["hytale_backup", "=", true]]
+        - variable: hytale_backup_max_count
+          label: Maximum Backup Count
+          description: Maximum number of backups to keep before rotating.
+          schema:
+            type: int
+            default: 10
+            min: 1
+            required: true
+            show_if: [["hytale_backup", "=", true]]
+        - variable: enable_aot
+          label: Enable AOT Compilation
+          description: Enable Ahead-of-Time compilation cache for faster startup.
+          schema:
+            type: boolean
+            default: true
+        - variable: use_zgc
+          label: Use ZGC Garbage Collector
+          description: |
+            Use ZGC instead of G1GC.</br>
+            ZGC is recommended for large heap sizes (16G+).
+          schema:
+            type: boolean
+            default: false
+        - variable: skip_broken_mods
+          label: Skip Broken Mods
+          description: Automatically quarantine mods that fail to load instead of crashing.
+          schema:
+            type: boolean
+            default: false
+        - variable: debug
+          label: Debug Logging
+          description: Enable verbose debug logging.
+          schema:
+            type: boolean
+            default: false
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that hyOS files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that hyOS files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: server_port
+          label: Game Server Port (UDP)
+          description: The Hytale game server port. Uses QUIC (UDP) protocol.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30520
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: api_port
+          label: REST API Port (TCP)
+          description: The REST API port for server management.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30339
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
+        - variable: additional_ports
+          label: Additional Ports
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            items:
+              - variable: port
+                label: Port
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: bind_mode
+                      label: Port Bind Mode
+                      description: |
+                        The port bind mode.</br>
+                        - Publish: The port will be published on the host for external access.</br>
+                        - Expose: The port will be exposed for inter-container communication.</br>
+                      schema:
+                        type: string
+                        default: "published"
+                        enum:
+                          - value: "published"
+                            description: Publish port on the host for external access
+                          - value: "exposed"
+                            description: Expose port for inter-container communication
+                    - variable: port_number
+                      label: Port Number
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: container_port
+                      label: Container Port
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: protocol
+                      label: Protocol
+                      schema:
+                        type: string
+                        required: true
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
+                    - variable: host_ips
+                      label: Host IPs
+                      description: IPs on the host to bind this port
+                      schema:
+                        type: list
+                        show_if: [["bind_mode", "=", "published"]]
+                        default: []
+                        items:
+                          - variable: host_ip
+                            label: Host IP
+                            schema:
+                              type: string
+                              required: true
+                              $ref:
+                                - definitions/node_bind_ip
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: hyOS Data Storage
+          description: The path to store hyOS server data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: hyos
+                            description: hyos
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for hyOS.
+                schema:
+                  type: int
+                  default: 4
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for hyOS.
+                schema:
+                  type: int
+                  default: 12288
+                  required: true
