@@ -7,8 +7,6 @@ groups:
       ⚠️ You MUST configure at least ONE authentication method:</br>
       - Email/SMTP (recommended for simple setup), OR</br>
       - One OAuth provider (Google, Authentik, Keycloak, or OIDC)
-  - name: Optional Features
-    description: Configure Optional Features (S3 Storage, Push Notifications, etc.)
   - name: Network Configuration
     description: Configure Network for SplitPro
   - name: Storage Configuration
@@ -36,8 +34,14 @@ questions:
       type: dict
       attrs:
         - variable: postgres_image_selector
-          label: Postgres Image
-          description: Select the PostgreSQL version to use.
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
           schema:
             type: string
             default: postgres_18_image
@@ -308,129 +312,6 @@ questions:
                   type: boolean
                   default: false
 
-  - variable: optional_features
-    label: ""
-    group: Optional Features
-    schema:
-      type: dict
-      attrs:
-        - variable: storage_enabled
-          label: Enable S3/R2 Storage
-          description: Enable S3-compatible storage for file uploads.
-          schema:
-            type: boolean
-            default: false
-        - variable: storage
-          label: S3/R2 Storage Configuration
-          schema:
-            type: dict
-            show_if: [["storage_enabled", "=", true]]
-            attrs:
-              - variable: access_key
-                label: Access Key
-                schema:
-                  type: string
-                  required: true
-              - variable: secret_key
-                label: Secret Key
-                schema:
-                  type: string
-                  required: true
-                  private: true
-              - variable: bucket
-                label: Bucket Name
-                schema:
-                  type: string
-                  required: true
-              - variable: url
-                label: S3 URL
-                description: S3 endpoint URL (e.g., http://minio:9000).
-                schema:
-                  type: string
-                  required: true
-              - variable: public_url
-                label: Public URL
-                description: Public URL for accessing stored files.
-                schema:
-                  type: string
-                  required: true
-        - variable: push_notifications_enabled
-          label: Enable Push Notifications
-          description: Enable web push notifications.
-          schema:
-            type: boolean
-            default: false
-        - variable: push_notifications
-          label: Push Notifications Configuration
-          schema:
-            type: dict
-            show_if: [["push_notifications_enabled", "=", true]]
-            attrs:
-              - variable: private_key
-                label: VAPID Private Key
-                description: Generate with 'npx web-push generate-vapid-keys --json'.
-                schema:
-                  type: string
-                  required: true
-                  private: true
-              - variable: public_key
-                label: VAPID Public Key
-                schema:
-                  type: string
-                  required: true
-              - variable: email
-                label: Contact Email
-                description: Contact email for push notification service.
-                schema:
-                  type: string
-                  required: true
-        - variable: currency_provider
-          label: Currency Rate Provider
-          description: Provider for currency exchange rates.
-          schema:
-            type: string
-            default: frankfurter
-            enum:
-              - value: frankfurter
-                description: Frankfurter (Free, limited currencies)
-              - value: openexchangerates
-                description: Open Exchange Rates (Requires API key)
-              - value: nbp
-                description: NBP (Polish National Bank)
-        - variable: openexchangerates_app_id
-          label: Open Exchange Rates App ID
-          description: Required if using Open Exchange Rates provider.
-          schema:
-            type: string
-            show_if: [["currency_provider", "=", "openexchangerates"]]
-            default: ""
-        - variable: cleanup_cron_rule
-          label: Cleanup Cron Schedule
-          description: |
-            Cron schedule for cleanup job (UTC timezone).</br>
-            Examples: Daily 2am: "0 2 * * *", Weekly: "0 2 * * 0"
-          schema:
-            type: string
-            default: "0 2 * * 0"
-        - variable: cache_retention_interval
-          label: Cache Retention Interval
-          description: How long to keep cached data (e.g., "2 days", "1 week").
-          schema:
-            type: string
-            default: "2 days"
-        - variable: feedback_email
-          label: Feedback Email
-          description: Email address for user feedback.
-          schema:
-            type: string
-            default: ""
-        - variable: discord_webhook_url
-          label: Discord Webhook URL
-          description: Discord webhook for error notifications.
-          schema:
-            type: string
-            default: ""
-
   - variable: network
     label: ""
     group: Network Configuration
@@ -570,8 +451,10 @@ questions:
                       label: Automatic Permissions
                       description: |
                         Automatically set permissions for the host path.</br>
-                        Enabling this will check the directory permissions.</br>
-                        If incorrect, it will chown the path to the postgres user.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
                       schema:
                         type: boolean
                         default: false
