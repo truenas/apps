@@ -1,24 +1,28 @@
 import copy
 
 try:
-    from .client import Client
     from .configs import Configs
     from .container import Container
     from .deps import Deps
+    from .docker_client import DockerClient
     from .error import RenderError
     from .functions import Functions
+    from .networks import Networks
     from .notes import Notes
     from .portals import Portals
+    from .truenas_client import TNClient
     from .volumes import Volumes
 except ImportError:
-    from client import Client
     from configs import Configs
     from container import Container
     from deps import Deps
+    from docker_client import DockerClient
     from error import RenderError
     from functions import Functions
+    from networks import Networks
     from notes import Notes
     from portals import Portals
+    from truenas_client import TNClient
     from volumes import Volumes
 
 
@@ -31,12 +35,14 @@ class Render(object):
 
         self.deps: Deps = Deps(self)
 
-        self.client: Client = Client(render_instance=self)
+        self.client: TNClient = TNClient(render_instance=self)
+        self.docker: DockerClient = DockerClient(render_instance=self)
 
         self.configs = Configs(render_instance=self)
         self.funcs = Functions(render_instance=self).func_map()
         self.portals: Portals = Portals(render_instance=self)
         self.notes: Notes = Notes(render_instance=self)
+        self.networks: Networks = Networks(render_instance=self)
         self.volumes = Volumes(render_instance=self)
 
     def container_names(self):
@@ -79,7 +85,7 @@ class Render(object):
         if self.configs.has_configs():
             result["configs"] = self.configs.render()
 
-        # if self.networks:
-        #     result["networks"] = {...}
+        if self.networks.has_items():
+            result["networks"] = self.networks.render()
 
         return result

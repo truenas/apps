@@ -36,7 +36,7 @@ else:
             self.errors = errors
 
 
-class Client:
+class TNClient:
     def __init__(self, render_instance: "Render"):
         self.client = TrueNASClient()
         self._render_instance = render_instance
