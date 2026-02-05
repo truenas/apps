@@ -1,8 +1,4 @@
-{% from "macros/entrypoint.sh" import entrypoint %}
 {% set tpl = ix_lib.base.render.Render(values) %}
-
-{% do tpl.funcs.require_unique(values.p2pool.additional_flags, "Additional Flags") %}
-{% do tpl.funcs.require_no_reserved(values.p2pool.additional_flags, "Additional Flags", values.consts.reserved_flags, starts_with=true) %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
@@ -17,13 +13,39 @@
   {% do p2pool.healthcheck.set_test("tcp", {"port": values.network.stratum_port.port_number}) %}
 {% endif %}
 
-{% do p2pool.configs.add("entrypoint.sh", entrypoint(values), "/entrypoint.sh", "0755") %}
-{% do p2pool.set_entrypoint(["/entrypoint.sh"]) %}
+{% set command = namespace(x=[
+  "--host %s"|format(values.p2pool.remote_node_host if values.p2pool.use_remote_node else "host.docker.internal"),
+  "--rpc-port %d"|format(values.p2pool.monerod_rpc_port),
+  "--zmq-port %d"|format(values.p2pool.monerod_zmq_pub_port),
+  "--wallet %s"|format(values.p2pool.wallet_address),
+]) %}
 
-# Flags are written to params.conf in entrypoint.sh instead. The program does not accept
-# --flag=value syntax though the command line, which might give users a hard time when setting
-# additional flags.
-{% do p2pool.set_command([]) %}
+{% if values.p2pool.peers %}
+  {% set peers = namespace(x=[]) %}
+  {% for peer in values.p2pool.peers %}
+    {% do peers.x.append("%s:%s"|format(peer.host, peer.port)) %}
+  {% endfor %}
+  {% do command.x.append("--addpeers %s"|format(peers.x | join(','))) %}
+{% endif %}
+
+{% if values.network.stratum_port.bind_mode %}
+  {% do command.x.append("--stratum 0.0.0.0:%d"|format(values.network.stratum_port.port_number)) %}
+{% endif %}
+
+{% if values.network.p2p_port.bind_mode %}
+  {% do command.x.append("--p2p 0.0.0.0:%d"|format(values.network.p2p_port.port_number)) %}
+{% endif %}
+
+{% for item in values.p2pool.additional_args %}
+  {% set flag = "--%s"|format(item.flag.lstrip("-")) %}
+  {% set value = " %s"|format(item.value) if item.value else "" %}
+  {% if flag in values.consts.reserved_args %}
+    {% do tpl.funcs.fail("Flag [%s] is reserved and cannot be set in [Additional Args]."|format(flag)) %}
+  {% endif %}
+  {% do command.x.append(flag + value) %}
+{% endfor %}
+
+{% do p2pool.set_command(command.x) %}
 
 {% do p2pool.add_port(values.network.stratum_port) %}
 {% do p2pool.add_port(values.network.p2p_port) %}
