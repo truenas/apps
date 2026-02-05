@@ -15,9 +15,9 @@ class DockerClient:
         except Exception:
             self.client = None
 
-        self._auto_add_networks()
+        self._auto_fetch_networks()
 
-    def _auto_add_networks(self):
+    def _auto_fetch_networks(self):
         if self.client is None:
             return
         try:

@@ -6,8 +6,10 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
+    from .labels import Labels
 except ImportError:
     from error import RenderError
+    from labels import Labels
 
 
 class Networks:
@@ -21,14 +23,18 @@ class Networks:
 
         if self.exists(name):
             raise RenderError(f"Network [{name}] already exists.")
-        self._networks[name] = Network(
-            name,
-            {
-                "internal": False,
-                "attachable": False,
-                "external": False,
-            },
-        )
+
+        net_config = {
+            "external": False,
+            "enable_ipv4": True,
+            # We disable IPv6 for internal networks, because there is an upstream bug,
+            # which any ipv6 network takes priority over ipv4 networks even with gw_priority set.
+            # https://github.com/moby/moby/issues/51999
+            "enable_ipv6": False,
+            "labels": {"ix.internal": "true"},
+        }
+
+        self._networks[name] = Network(name, net_config)
         return name
 
     def register(self, name: str):
@@ -41,25 +47,22 @@ class Networks:
 
         if self.exists(name):
             raise RenderError(f"Network [{name}] already exists.")
-        self._networks[name] = Network(
-            name,
-            {
-                "internal": False,
-                "attachable": False,
-                "external": True,
-            },
-        )
+
+        # We only need to define the network as external,
+        # the lifecycle of the network is managed outside of the renderer,
+        # via the Docker CLI or other tools.
+        self._networks[name] = Network(name, {"external": True})
 
     def has_items(self):
-        return len(self._networks) > 0
+        return bool(self._networks)
 
     def exists(self, name: str):
         return name in self._networks
 
     def render(self):
         result: dict = {}
-        for name, network in sorted([(n._name, n) for n in self._networks.values()]):
-            result[name] = network.render()
+        for name in sorted(self._networks.keys()):
+            result[name] = self._networks[name].render()
         return result
 
 
@@ -67,36 +70,63 @@ class Networks:
 class NetworkConfig:
     name: str | None = None
     """If set, this name will be used instead of the generated name."""
-    internal: bool = False
-    """If true, this network will be internal and not have access to external networks, including the 'internet'."""
-    external: bool = False
+    external: bool | None = None
     """If true, this network is managed externally."""
-    attachable: bool = False
-    """If true, standalone containers can join the network."""
+    enable_ipv6: bool | None = None
+    """If true, this network will have IPv6 enabled."""
+    enable_ipv4: bool | None = None
+    """If true, this network will have IPv4 enabled."""
+    labels: Labels | None = None
+    """If set, this will be added as labels to the network."""
+
+    def __post_init__(self):
+        if isinstance(self.labels, dict):
+            labels_dict = self.labels
+            self.labels = Labels()
+            for key, value in labels_dict.items():
+                self.labels.add_label(key, value)
+
+        if self.enable_ipv4 is not None and self.enable_ipv6 is not None:
+            # If both explicitly set to false, we should error out
+            if not self.enable_ipv4 and not self.enable_ipv6:
+                raise RenderError(f"Network [{self.name}] cannot have both IPv4 and IPv6 disabled")
 
 
 class Network:
-    def __init__(self, name: str, config: dict):
+    def __init__(self, name: str, config: dict = {}):
         self._name = name
         self._config = NetworkConfig(**config)
 
     def render(self):
-        result: dict = {
-            "external": self._config.external,
-            "internal": self._config.internal,
-            "attachable": self._config.attachable,
-        }
-
+        result: dict = {}
         if self._config.name is not None:
             result["name"] = self._config.name
+        if self._config.external is not None:
+            result["external"] = self._config.external
+        if self._config.enable_ipv4 is not None:
+            result["enable_ipv4"] = self._config.enable_ipv4
+        if self._config.enable_ipv6 is not None:
+            result["enable_ipv6"] = self._config.enable_ipv6
+        if self._config.labels and self._config.labels.has_labels():
+            result["labels"] = self._config.labels.render()
 
         return result
 
 
 @dataclass
 class ContainerNetworkConfig:
-    # Nothing yet
-    pass
+    interface_name: str | None = None
+    """If set, this will be the name of the network interface inside the container."""
+    mac_address: str | None = None
+    """If set, this will be the MAC address of the network interface inside the container."""
+    ipv4_address: str | None = None
+    """If set, this will be the IPv4 address of the network interface inside the container."""
+    ipv6_address: str | None = None
+    """If set, this will be the IPv6 address of the network interface inside the container."""
+    gw_priority: int | None = None
+    """The network with the highest gw_priority is selected as the default gateway for the service container."""
+    priority: int | None = None
+    """Indicates in which order Compose connects the service’s containers to its networks."""
 
 
 class ContainerNetworks:
@@ -113,18 +143,45 @@ class ContainerNetworks:
         if self.exists(name):
             raise RenderError(f"Network [{name}] already added to the container.")
 
-        self._networks[name] = ContainerNetwork(name, config)
+        net = ContainerNetwork(name, config)
+        for existing_net in self._networks.values():
+            if net._config.interface_name and existing_net._config.interface_name:
+                if net._config.interface_name == existing_net._config.interface_name:
+                    raise RenderError(
+                        f"Network [{name}] cannot have the same interface name "
+                        f"[{net._config.interface_name}] as network [{existing_net._name}]"
+                    )
+            if net._config.mac_address and existing_net._config.mac_address:
+                if net._config.mac_address == existing_net._config.mac_address:
+                    raise RenderError(
+                        f"Network [{name}] cannot have the same MAC address "
+                        f"[{net._config.mac_address}] as network [{existing_net._name}]"
+                    )
+            if net._config.ipv4_address and existing_net._config.ipv4_address:
+                if net._config.ipv4_address == existing_net._config.ipv4_address:
+                    raise RenderError(
+                        f"Network [{name}] cannot have the same IPv4 address "
+                        f"[{net._config.ipv4_address}] as network [{existing_net._name}]"
+                    )
+            if net._config.ipv6_address and existing_net._config.ipv6_address:
+                if net._config.ipv6_address == existing_net._config.ipv6_address:
+                    raise RenderError(
+                        f"Network [{name}] cannot have the same IPv6 address "
+                        f"[{net._config.ipv6_address}] as network [{existing_net._name}]"
+                    )
+
+        self._networks[name] = net
 
     def has_items(self):
-        return len(self._networks) > 0
+        return bool(self._networks)
 
     def exists(self, name: str):
         return name in self._networks
 
     def render(self):
         result: dict = {}
-        for name, network in sorted([(n._name, n) for n in self._networks.values()]):
-            result[name] = network.render()
+        for name in sorted(self._networks.keys()):
+            result[name] = self._networks[name].render()
         return result
 
 
@@ -134,4 +191,17 @@ class ContainerNetwork:
         self._config = ContainerNetworkConfig(**config)
 
     def render(self):
-        return {}
+        result: dict = {}
+        if self._config.interface_name is not None:
+            result["interface_name"] = self._config.interface_name
+        if self._config.ipv4_address is not None:
+            result["ipv4_address"] = self._config.ipv4_address
+        if self._config.ipv6_address is not None:
+            result["ipv6_address"] = self._config.ipv6_address
+        if self._config.mac_address is not None:
+            result["mac_address"] = self._config.mac_address
+        if self._config.gw_priority is not None:
+            result["gw_priority"] = self._config.gw_priority
+        if self._config.priority is not None:
+            result["priority"] = self._config.priority
+        return result

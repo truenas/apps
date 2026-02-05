@@ -111,7 +111,7 @@ class Container:
         self.dns: Dns = Dns(self._render_instance)
         self.depends: Depends = Depends(self._render_instance)
         self.healthcheck: Healthcheck = Healthcheck(self._render_instance)
-        self.labels: Labels = Labels(self._render_instance)
+        self.labels: Labels = Labels()
         self.restart: RestartPolicy = RestartPolicy(self._render_instance)
         self.ports: Ports = Ports(self._render_instance)
         self.expose: Expose = Expose(self._render_instance)
@@ -139,6 +139,19 @@ class Container:
 
             if self._name in containers:
                 self.labels.add_label(label["key"], label["value"])
+
+    def _auto_add_networks(self):
+        networks = self._render_instance.values.get("network", {}).get("networks", [])
+        if not networks:
+            return
+
+        for network in networks:
+            containers = network.get("containers", [])
+            if not containers:
+                raise RenderError(f'Network [{network.get("name", "")}] must have at least one container')
+
+            if self._name in containers:
+                self.add_network(network["name"], network)
 
     def _resolve_image(self, image: str):
         images = self._render_instance.values["images"]
