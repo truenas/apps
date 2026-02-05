@@ -1,3 +1,4 @@
+import os
 import re
 import ipaddress
 from pathlib import Path
@@ -24,6 +25,11 @@ RESTRICTED: tuple[Path, ...] = (
     Path("/boot"),
     Path("/var/log"),
 )
+
+
+def is_truenas_system():
+    """Check if we're running on a TrueNAS system"""
+    return "truenas" in os.uname().release
 
 
 def valid_label_key_or_raise(key: str):
