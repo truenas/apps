@@ -169,6 +169,18 @@ class ContainerNetworks:
                         f"Network [{name}] cannot have the same IPv6 address "
                         f"[{net._config.ipv6_address}] as network [{existing_net._name}]"
                     )
+            if isinstance(net._config.gw_priority, int) and isinstance(existing_net._config.gw_priority, int):
+                if net._config.gw_priority == existing_net._config.gw_priority:
+                    raise RenderError(
+                        f"Network [{name}] cannot have the same gateway priority "
+                        f"[{net._config.gw_priority}] as network [{existing_net._name}]"
+                    )
+            if isinstance(net._config.priority, int) and isinstance(existing_net._config.priority, int):
+                if net._config.priority == existing_net._config.priority:
+                    raise RenderError(
+                        f"Network [{name}] cannot have the same priority "
+                        f"[{net._config.priority}] as network [{existing_net._name}]"
+                    )
 
         self._networks[name] = net
 
@@ -192,16 +204,16 @@ class ContainerNetwork:
 
     def render(self):
         result: dict = {}
-        if self._config.interface_name is not None:
+        if self._config.interface_name:
             result["interface_name"] = self._config.interface_name
-        if self._config.ipv4_address is not None:
+        if self._config.ipv4_address:
             result["ipv4_address"] = self._config.ipv4_address
-        if self._config.ipv6_address is not None:
+        if self._config.ipv6_address:
             result["ipv6_address"] = self._config.ipv6_address
-        if self._config.mac_address is not None:
+        if self._config.mac_address:
             result["mac_address"] = self._config.mac_address
-        if self._config.gw_priority is not None:
+        if isinstance(self._config.gw_priority, int):
             result["gw_priority"] = self._config.gw_priority
-        if self._config.priority is not None:
+        if isinstance(self._config.priority, int):
             result["priority"] = self._config.priority
         return result

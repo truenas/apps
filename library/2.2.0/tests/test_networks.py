@@ -200,6 +200,26 @@ def test_add_network_with_duplicate_ipv6_address(mock_values):
         c1.add_network(net, {"ipv6_address": "2001:db8:85a3:8d3:1319:8a2e:370:7348"})
 
 
+def test_add_network_with_duplicate_gateway_priority(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    net = render.networks.create_internal("test_network1")
+    c1.add_network(net, {"gw_priority": 1})
+    with pytest.raises(Exception):
+        c1.add_network(net, {"gw_priority": 1})
+
+
+def test_add_network_with_duplicate_priority(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    net = render.networks.create_internal("test_network1")
+    c1.add_network(net, {"priority": 1})
+    with pytest.raises(Exception):
+        c1.add_network(net, {"priority": 1})
+
+
 def test_add_duplicate_internal_network(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
