@@ -10,8 +10,12 @@ echo "--zmq-port {{ values.p2pool.monerod_zmq_pub_port }}" >> params.conf
 echo "--wallet {{ values.p2pool.wallet_address }}" >> params.conf
 
 # check if the peers array is not empty
-{% if values.p2pool.peers | length > 0 %}
-  echo "--addpeers {% for peer in values.p2pool.peers %}{{ peer.host }}:{{ peer.port }}{% if not loop.last %},{% endif %}{% endfor %}" >> params.conf
+{% set peers = namespace(x=[]) %}
+{% for peer in values.p2pool.peers %}
+  {% do peers.x.append("%s:%s"|format(peer.host, peer.port)) %}
+{% endfor %}
+{% if peers.x %}
+  echo "--addpeers {{ peers.x | join(',') }}" >> params.conf
 {% endif %}
 
 {% if values.network.stratum_port.bind_mode %}
