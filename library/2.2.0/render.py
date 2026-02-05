@@ -86,7 +86,6 @@ class Render(object):
             result["configs"] = self.configs.render()
 
         if self.networks.has_items():
-            print("Rendering networks")
             result["networks"] = self.networks.render()
 
         return result
