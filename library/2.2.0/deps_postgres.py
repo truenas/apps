@@ -188,6 +188,7 @@ class PostgresContainer:
             raise RenderError(f"Unsupported repo [{repo}] for postgres. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
+    # FIXME: Handle digest pin
     def _get_target_version(self, image):
         repo = self._get_repo(image)
         images = self._render_instance.values["images"]
