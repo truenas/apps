@@ -735,25 +735,42 @@ class AppQuestionsValidator:
         if not isinstance(questions_config, dict):
             raise ValueError(f"Invalid questions config in {questions_path}")
 
-        # Find the labels question and validate containers enum
-        for question in questions_config.get("questions", []):
-            if question.get("variable") != "labels":
-                continue
+        new_enum = [{"value": name, "description": name} for name in service_names]
 
+        def check_containers_enum(question, section_name):
             for item in question["schema"]["items"][0]["schema"]["attrs"]:
                 if item.get("variable") != "containers":
                     continue
 
                 old_enum = item["schema"]["items"][0]["schema"]["enum"]
-                new_enum = [{"value": name, "description": name} for name in service_names]
 
                 old_values = {item["value"] for item in old_enum}
                 new_values = {item["value"] for item in new_enum}
 
                 if old_values != new_values:
                     raise ValueError(
-                        f"Container labels section should have {sorted(new_values)} " f"but has {sorted(old_values)}"
+                        f"Container {section_name} section should have {sorted(new_values)} "
+                        f"but has {sorted(old_values)}"
                     )
+
+        # Find the labels question and validate containers enum
+        for question in questions_config.get("questions", []):
+            if question.get("variable") != "labels":
+                continue
+
+            check_containers_enum(question, "labels")
+            break
+
+        for question in questions_config.get("questions", []):
+            if question.get("variable") != "network":
+                continue
+
+            for item in question["schema"]["attrs"]:
+                if item.get("variable") != "networks":
+                    continue
+
+                check_containers_enum(item, "network.networks")
+                break
             break
 
 

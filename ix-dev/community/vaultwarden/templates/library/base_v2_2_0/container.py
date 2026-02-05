@@ -119,6 +119,7 @@ class Container:
         self._auto_set_network_mode()
         self._auto_add_labels()
         self._auto_add_groups()
+        self._auto_add_networks()
 
     def _auto_add_groups(self):
         self.add_group(568)
@@ -151,7 +152,7 @@ class Container:
                 raise RenderError(f'Network [{network.get("name", "")}] must have at least one container')
 
             if self._name in containers:
-                self.add_network(network["name"], network)
+                self.add_network(network["name"], network.get("config", {}))
 
     def _resolve_image(self, image: str):
         images = self._render_instance.values["images"]
