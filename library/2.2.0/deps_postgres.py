@@ -45,6 +45,8 @@ SUPPORTED_UPGRADE_REPOS = [
 
 
 def get_major_version(variant: str, tag: str):
+    # Handle digest pins by taking only the tag part before the @
+    tag = tag.split("@")[0]
     if variant == "postgres":
         # 17.7-bookworm
         regex = re.compile(r"^\d+\.\d+-\w+")
@@ -188,7 +190,6 @@ class PostgresContainer:
             raise RenderError(f"Unsupported repo [{repo}] for postgres. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
-    # FIXME: Handle digest pin
     def _get_target_version(self, image):
         repo = self._get_repo(image)
         images = self._render_instance.values["images"]
