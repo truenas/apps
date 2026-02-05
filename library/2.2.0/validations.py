@@ -26,6 +26,14 @@ RESTRICTED: tuple[Path, ...] = (
 )
 
 
+def valid_label_key_or_raise(key: str):
+    if not key:
+        raise RenderError("Label key cannot be empty")
+    if key.startswith("com.docker.compose"):
+        raise RenderError(f"Label [{key}] cannot start with [com.docker.compose] as it is reserved")
+    return key
+
+
 def valid_mac_or_raise(mac: str):
     if MAC_ADDR_REGEX.match(mac):
         return mac
