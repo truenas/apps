@@ -141,6 +141,8 @@ class Container:
             if self._name in containers:
                 self.labels.add_label(label["key"], label["value"])
 
+    # TODO: Test me
+    # Each container will have the network config, not the network itself
     def _auto_add_networks(self):
         networks = self._render_instance.values.get("network", {}).get("networks", [])
         if not networks:
