@@ -1,20 +1,30 @@
 groups:
-  - name: hyOS Configuration
-    description: Configure hyOS
+  - name: Hytale Server Configuration
+    description: Configure the Hytale game server
+  - name: JVM & Memory Configuration
+    description: Configure Java Virtual Machine settings
+  - name: Auto-Update Configuration
+    description: Configure automatic server updates
+  - name: API Configuration
+    description: Configure the REST API for server management
+  - name: Manager Configuration
+    description: Configure the HyOS Manager web UI
+  - name: Advanced Configuration
+    description: Advanced Hytale server options
   - name: User and Group Configuration
-    description: Configure User and Group for hyOS
+    description: Configure User and Group for Hytale
   - name: Network Configuration
-    description: Configure Network for hyOS
+    description: Configure Network for Hytale
   - name: Storage Configuration
-    description: Configure Storage for hyOS
+    description: Configure Storage for Hytale
   - name: Labels Configuration
-    description: Configure Labels for hyOS
+    description: Configure Labels for Hytale
   - name: Resources Configuration
-    description: Configure Resources for hyOS
+    description: Configure Resources for Hytale
 
 questions:
   - variable: TZ
-    group: hyOS Configuration
+    group: Hytale Server Configuration
     label: Timezone
     schema:
       type: string
@@ -23,204 +33,323 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: hyos
+  # ============================================================================
+  # Group 1: Hytale Server Configuration
+  # ============================================================================
+  - variable: hytale
     label: ""
-    group: hyOS Configuration
+    group: Hytale Server Configuration
     schema:
       type: dict
       attrs:
         - variable: server_name
           label: Server Name
-          description: The display name of the server.
+          description: The display name for your Hytale server
           schema:
             type: string
-            default: "Hytale Server"
             required: true
+            default: "TrueNAS Hytale Server"
         - variable: server_motd
-          label: Message of the Day
-          description: The message displayed to players when they join.
+          label: Server MOTD
+          description: Message of the day shown to players
           schema:
             type: string
             default: ""
         - variable: server_password
           label: Server Password
-          description: |
-            Password required to join the server.</br>
-            Leave empty for a public server.
+          description: Password to join the server (leave blank for no password)
           schema:
             type: string
             private: true
             default: ""
         - variable: max_players
-          label: Maximum Players
-          description: The maximum number of players allowed on the server.
+          label: Max Players
+          description: Maximum number of players allowed on the server
           schema:
             type: int
+            required: true
             default: 100
             min: 1
             max: 1000
-            required: true
         - variable: default_gamemode
-          label: Default Game Mode
-          description: The default game mode for new players.
+          label: Default Gamemode
+          description: The default gamemode for new players
           schema:
             type: string
-            default: "Adventure"
             required: true
+            default: "Adventure"
             enum:
               - value: "Adventure"
-                description: Adventure
+                description: Adventure mode
               - value: "Creative"
-                description: Creative
+                description: Creative mode
               - value: "Survival"
-                description: Survival
+                description: Survival mode
         - variable: patchline
           label: Patchline
-          description: The server patchline (release channel) to use.
+          description: The release channel for server updates
           schema:
             type: string
-            default: "release"
             required: true
+            default: "release"
             enum:
               - value: "release"
-                description: Release (Stable)
+                description: Stable release channel
               - value: "staging"
-                description: Staging
+                description: Staging/beta channel
               - value: "nightly"
-                description: Nightly
-        - variable: java_xms
-          label: JVM Minimum Heap Size
-          description: |
-            Minimum memory allocation for the JVM.</br>
-            Examples: 4G, 8G, 16G
+                description: Nightly development builds
+
+  # ============================================================================
+  # Group 2: JVM & Memory Configuration
+  # ============================================================================
+  - variable: jvm
+    label: ""
+    group: JVM & Memory Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: xms
+          label: Initial Heap Size (XMS)
+          description: Initial Java heap size (e.g., 4G, 2048M)
           schema:
             type: string
+            required: true
             default: "4G"
-            required: true
-        - variable: java_xmx
-          label: JVM Maximum Heap Size
-          description: |
-            Maximum memory allocation for the JVM.</br>
-            Examples: 8G, 16G, 32G
+        - variable: xmx
+          label: Maximum Heap Size (XMX)
+          description: Maximum Java heap size (e.g., 8G, 4096M)
           schema:
             type: string
+            required: true
             default: "8G"
-            required: true
-        - variable: max_view_radius
-          label: Maximum View Radius
-          description: The maximum view radius in chunks.
+        - variable: use_zgc
+          label: Use ZGC Garbage Collector
+          description: Enable ZGC instead of G1GC (recommended for large heaps)
+          schema:
+            type: boolean
+            default: false
+        - variable: g1_max_pause
+          label: G1GC Max Pause (ms)
+          description: Maximum pause time target for G1GC
           schema:
             type: int
-            default: 32
-            min: 1
-            max: 64
-            required: true
-        - variable: hytale_auth_mode
-          label: Authentication Mode
-          description: |
-            Server authentication mode.</br>
-            Authenticated mode requires valid Hytale accounts.</br>
-            Offline mode allows any client to connect.
+            show_if: [["use_zgc", "=", false]]
+            default: 200
+            min: 50
+            max: 1000
+
+  # ============================================================================
+  # Group 3: Auto-Update Configuration
+  # ============================================================================
+  - variable: auto_update
+    label: ""
+    group: Auto-Update Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enabled
+          label: Enable Auto-Update
+          description: Automatically check and apply server updates
+          schema:
+            type: boolean
+            default: false
+        - variable: interval
+          label: Check Interval (seconds)
+          description: How often to check for updates
+          schema:
+            type: int
+            show_if: [["enabled", "=", true]]
+            default: 3600
+            min: 300
+        - variable: time
+          label: Scheduled Update Time
+          description: Specific time to apply updates (HH:MM format, leave blank for immediate)
           schema:
             type: string
-            default: "authenticated"
-            required: true
-            enum:
-              - value: "authenticated"
-                description: Authenticated (Requires Hytale account)
-              - value: "offline"
-                description: Offline (No authentication)
-        - variable: whitelist_enabled
-          label: Enable Whitelist
-          description: Enable the player whitelist.
+            show_if: [["enabled", "=", true]]
+            default: ""
+        - variable: restart
+          label: Auto-Restart After Update
+          description: Automatically restart the server after a successful update
           schema:
             type: boolean
-            default: false
-        - variable: auto_update
-          label: Enable Auto Update
-          description: Automatically check for and apply server updates on startup.
+            show_if: [["enabled", "=", true]]
+            default: true
+        - variable: backup
+          label: Backup Before Update
+          description: Create a backup before applying updates
           schema:
             type: boolean
-            default: false
-        - variable: auto_update_interval
-          label: Auto Update Check Interval (seconds)
-          description: How often to check for updates in seconds.
-          schema:
-            type: int
-            default: 3600
-            min: 60
-            required: true
-            show_if: [["auto_update", "=", true]]
-        - variable: api_enabled
+            show_if: [["enabled", "=", true]]
+            default: true
+
+  # ============================================================================
+  # Group 4: API Configuration
+  # ============================================================================
+  - variable: api
+    label: ""
+    group: API Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enabled
           label: Enable REST API
-          description: Enable the built-in REST API for server management.
+          description: Enable the REST API for server management
           schema:
             type: boolean
             default: true
-        - variable: api_client_secret
+        - variable: client_secret
           label: API Client Secret
-          description: |
-            Secret key for API authentication.</br>
-            Required when REST API is enabled.
+          description: Password for API authentication (required if API is enabled)
           schema:
             type: string
             private: true
+            show_if: [["enabled", "=", true]]
+            required: true
             default: ""
-            show_if: [["api_enabled", "=", true]]
-        - variable: hytale_backup
-          label: Enable Backups
-          description: Enable in-game world backups.
+        - variable: client_id
+          label: API Client ID
+          description: Client identifier for API authentication
+          schema:
+            type: string
+            show_if: [["enabled", "=", true]]
+            default: "hyos-manager"
+        - variable: websocket_enabled
+          label: Enable WebSocket
+          description: Enable WebSocket connections for real-time updates
           schema:
             type: boolean
+            show_if: [["enabled", "=", true]]
             default: true
-        - variable: hytale_backup_frequency
-          label: Backup Frequency (minutes)
-          description: How often to create backups in minutes.
-          schema:
-            type: int
-            default: 30
-            min: 1
-            required: true
-            show_if: [["hytale_backup", "=", true]]
-        - variable: hytale_backup_max_count
-          label: Maximum Backup Count
-          description: Maximum number of backups to keep before rotating.
-          schema:
-            type: int
-            default: 10
-            min: 1
-            required: true
-            show_if: [["hytale_backup", "=", true]]
-        - variable: enable_aot
-          label: Enable AOT Compilation
-          description: Enable Ahead-of-Time compilation cache for faster startup.
-          schema:
-            type: boolean
-            default: true
-        - variable: use_zgc
-          label: Use ZGC Garbage Collector
+
+  # ============================================================================
+  # Group 5: Manager Configuration
+  # ============================================================================
+  - variable: manager
+    label: ""
+    group: Manager Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enabled
+          label: Enable HyOS Manager
           description: |
-            Use ZGC instead of G1GC.</br>
-            ZGC is recommended for large heap sizes (16G+).
+            Enable the HyOS Manager web UI for server management.
+            Requires Docker socket access for container control.
+          schema:
+            type: boolean
+            default: true
+
+  # ============================================================================
+  # Group 6: Advanced Configuration
+  # ============================================================================
+  - variable: advanced
+    label: ""
+    group: Advanced Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: show_advanced
+          label: Show Advanced Options
+          description: Display advanced server configuration options
           schema:
             type: boolean
             default: false
-        - variable: skip_broken_mods
-          label: Skip Broken Mods
-          description: Automatically quarantine mods that fail to load instead of crashing.
+        - variable: auth_mode
+          label: Authentication Mode
+          description: Server authentication mode
+          schema:
+            type: string
+            show_if: [["show_advanced", "=", true]]
+            default: ""
+            enum:
+              - value: ""
+                description: Default (use cached tokens)
+              - value: "authenticated"
+                description: Require authentication
+              - value: "offline"
+                description: Offline mode (no authentication)
+        - variable: enable_aot
+          label: Enable AOT Cache
+          description: Enable Ahead-of-Time compilation cache for faster startup
           schema:
             type: boolean
+            show_if: [["show_advanced", "=", true]]
+            default: true
+        - variable: disable_sentry
+          label: Disable Sentry
+          description: Disable Sentry error reporting
+          schema:
+            type: boolean
+            show_if: [["show_advanced", "=", true]]
             default: false
         - variable: debug
-          label: Debug Logging
-          description: Enable verbose debug logging.
+          label: Enable Debug Logging
+          description: Enable verbose debug logging
           schema:
             type: boolean
+            show_if: [["show_advanced", "=", true]]
             default: false
+        - variable: enable_backup
+          label: Enable Server Backups
+          description: Enable periodic world backups
+          schema:
+            type: boolean
+            show_if: [["show_advanced", "=", true]]
+            default: false
+        - variable: backup_frequency
+          label: Backup Frequency (minutes)
+          description: How often to create backups
+          schema:
+            type: int
+            show_if: [["enable_backup", "=", true]]
+            default: 60
+            min: 5
+        - variable: backup_max_count
+          label: Max Backup Count
+          description: Maximum number of backups to keep
+          schema:
+            type: int
+            show_if: [["enable_backup", "=", true]]
+            default: 10
+            min: 1
+        - variable: whitelist_enabled
+          label: Enable Whitelist
+          description: Only allow whitelisted players to join
+          schema:
+            type: boolean
+            show_if: [["show_advanced", "=", true]]
+            default: false
+        - variable: whitelist_list
+          label: Whitelist Players
+          description: Comma-separated list of player UUIDs or names
+          schema:
+            type: string
+            show_if: [["whitelist_enabled", "=", true]]
+            default: ""
+        - variable: skip_broken_mods
+          label: Skip Broken Mods
+          description: Auto-quarantine mods that fail to load
+          schema:
+            type: boolean
+            show_if: [["show_advanced", "=", true]]
+            default: false
+        - variable: max_view_radius
+          label: Max View Radius
+          description: Maximum view radius in chunks
+          schema:
+            type: int
+            show_if: [["show_advanced", "=", true]]
+            default: 32
+            min: 8
+            max: 64
         - variable: additional_envs
           label: Additional Environment Variables
+          description: Extra environment variables to pass to the server
           schema:
             type: list
+            show_if: [["show_advanced", "=", true]]
             default: []
             items:
               - variable: env
@@ -238,6 +367,9 @@ questions:
                       schema:
                         type: string
 
+  # ============================================================================
+  # Group 7: User and Group Configuration
+  # ============================================================================
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -246,7 +378,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that hyOS files will be owned by.
+          description: The user id that Hytale files will be owned by
           schema:
             type: int
             min: 568
@@ -254,34 +386,34 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that hyOS files will be owned by.
+          description: The group id that Hytale files will be owned by
           schema:
             type: int
             min: 568
             default: 568
             required: true
 
+  # ============================================================================
+  # Group 8: Network Configuration
+  # ============================================================================
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: server_port
-          label: Game Server Port (UDP)
-          description: The Hytale game server port. Uses QUIC (UDP) protocol.
+        - variable: game_port
+          label: Game Port (UDP)
+          description: The UDP port for game connections
           schema:
             type: dict
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
                 description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
+                  Publish: The port will be published on the host for external access.
+                  Expose: The port will be exposed for inter-container communication.
+                  None: The port will not be exposed or published.
                 schema:
                   type: string
                   default: "published"
@@ -296,7 +428,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30520
+                  default: 5520
                   min: 1
                   max: 65535
                   required: true
@@ -316,20 +448,13 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: api_port
-          label: REST API Port (TCP)
-          description: The REST API port for server management.
+          label: API Port (TCP)
+          description: The TCP port for REST API access
           schema:
             type: dict
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: "published"
@@ -344,7 +469,48 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30339
+                  default: 8080
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: manager_port
+          label: Manager Port (TCP)
+          description: The TCP port for the HyOS Manager web UI
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 3000
                   min: 1
                   max: 65535
                   required: true
@@ -365,77 +531,14 @@ questions:
                           - definitions/node_bind_ip
         - variable: host_network
           label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
+          description: Bind to the host network (not recommended)
           schema:
             type: boolean
             default: false
-        - variable: additional_ports
-          label: Additional Ports
-          schema:
-            type: list
-            show_if: [["host_network", "=", false]]
-            items:
-              - variable: port
-                label: Port
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: bind_mode
-                      label: Port Bind Mode
-                      description: |
-                        The port bind mode.</br>
-                        - Publish: The port will be published on the host for external access.</br>
-                        - Expose: The port will be exposed for inter-container communication.</br>
-                      schema:
-                        type: string
-                        default: "published"
-                        enum:
-                          - value: "published"
-                            description: Publish port on the host for external access
-                          - value: "exposed"
-                            description: Expose port for inter-container communication
-                    - variable: port_number
-                      label: Port Number
-                      schema:
-                        type: int
-                        min: 1
-                        max: 65535
-                        required: true
-                    - variable: container_port
-                      label: Container Port
-                      schema:
-                        type: int
-                        min: 1
-                        max: 65535
-                        required: true
-                    - variable: protocol
-                      label: Protocol
-                      schema:
-                        type: string
-                        required: true
-                        default: "tcp"
-                        enum:
-                          - value: "tcp"
-                            description: TCP
-                          - value: "udp"
-                            description: UDP
-                    - variable: host_ips
-                      label: Host IPs
-                      description: IPs on the host to bind this port
-                      schema:
-                        type: list
-                        show_if: [["bind_mode", "=", "published"]]
-                        default: []
-                        items:
-                          - variable: host_ip
-                            label: Host IP
-                            schema:
-                              type: string
-                              required: true
-                              $ref:
-                                - definitions/node_bind_ip
 
+  # ============================================================================
+  # Group 9: Storage Configuration
+  # ============================================================================
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -443,16 +546,18 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: hyOS Data Storage
-          description: The path to store hyOS server data.
+          label: Hytale Data Storage
+          description: |
+            The path to store all Hytale server data including worlds,
+            mods, backups, and configuration files.
           schema:
             type: dict
             attrs:
               - variable: type
                 label: Type
                 description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
+                  ixVolume: Dataset created automatically by the system.
+                  Host Path: Path that already exists on the system.
                 schema:
                   type: string
                   required: true
@@ -520,6 +625,7 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
+          description: Additional storage mounts for the server
           schema:
             type: list
             default: []
@@ -532,10 +638,10 @@ questions:
                     - variable: type
                       label: Type
                       description: |
-                        ixVolume: Is dataset created automatically by the system.</br>
-                        Host Path: Is a path that already exists on the system.</br>
-                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
-                        NFS Share: Is a NFS share that is mounted to as a volume.
+                        ixVolume: Dataset created automatically by the system.
+                        Host Path: Path that already exists on the system.
+                        SMB Share: SMB share mounted as a volume.
+                        NFS Share: NFS share mounted as a volume.
                       schema:
                         type: string
                         required: true
@@ -616,11 +722,9 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
-                              $ref:
-                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
-                      description: The configuration for the SMB dataset.
+                      description: The configuration for the SMB share.
                       schema:
                         type: dict
                         show_if: [["type", "=", "cifs"]]
@@ -657,7 +761,7 @@ questions:
                               type: string
                     - variable: nfs_config
                       label: NFS Configuration
-                      description: The configuration for the NFS dataset.
+                      description: The configuration for the NFS share.
                       schema:
                         type: dict
                         show_if: [["type", "=", "nfs"]]
@@ -675,6 +779,9 @@ questions:
                               type: string
                               required: true
 
+  # ============================================================================
+  # Group 10: Labels Configuration
+  # ============================================================================
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -709,9 +816,14 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: hyos
-                            description: hyos
+                          - value: hytale-server
+                            description: hytale-server
+                          - value: hytale-manager
+                            description: hytale-manager
 
+  # ============================================================================
+  # Group 11: Resources Configuration
+  # ============================================================================
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -725,14 +837,18 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for hyOS.
+                description: |
+                  CPUs limit for the Hytale server.
+                  Recommended: 4+ cores for smooth gameplay.
                 schema:
                   type: int
                   default: 4
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for hyOS.
+                description: |
+                  Memory limit for the Hytale server.
+                  Should be at least 2GB more than JVM XMX setting.
                 schema:
                   type: int
                   default: 12288
