@@ -49,7 +49,6 @@ class Render(object):
 
     def _auto_add_networks(self):
         networks = self.values.get("network", {}).get("networks", [])
-        print(f"Auto adding networks: {networks}")
         if not networks:
             return
 
