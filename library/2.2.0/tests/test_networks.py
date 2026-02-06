@@ -160,6 +160,72 @@ def test_add_network_with_config(mock_values):
     }
 
 
+def test_auto_add_networks(mock_values):
+    render = Render(mock_values)
+
+    render.docker._network_names = set(["test_network1", "test_network2"])
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+
+    net = render.networks.create_internal("test_network1")
+    c1.add_network(net)
+    c2.add_network(net)
+
+    # Hack around the fact that docker client is not available in tests
+    new_net = render.values.get("network", {})
+    new_net["networks"] = [
+        {
+            "name": "test_network1",
+            "containers": [
+                {"name": "test_container", "config": {"interface_name": "eth0"}},
+                {"name": "test_container2", "config": {"interface_name": "eth0"}},
+            ],
+        },
+        {
+            "name": "test_network2",
+            "containers": [
+                {"name": "test_container", "config": {"interface_name": "eth1"}},
+            ],
+        },
+    ]
+    render.values["network"] = new_net
+    render._original_values["network"] = new_net
+
+    render._auto_add_networks()
+    for container in render._containers.values():
+        container._auto_add_networks()
+    # End hack
+
+    output = render.render()
+    assert output["networks"] == {
+        "ix-internal-test_network1": {
+            "external": False,
+            "enable_ipv4": True,
+            "enable_ipv6": False,
+            "labels": {"ix.internal": "true"},
+        },
+        "test_network2": {"external": True},
+        "test_network1": {"external": True},
+    }
+    assert output["services"]["test_container"]["networks"] == {
+        "ix-internal-test_network1": {},
+        "test_network2": {
+            "interface_name": "eth1",
+        },
+        "test_network1": {
+            "interface_name": "eth0",
+        },
+    }
+    assert output["services"]["test_container2"]["networks"] == {
+        "ix-internal-test_network1": {},
+        "test_network1": {
+            "interface_name": "eth0",
+        },
+    }
+
+
 def test_add_network_with_duplicate_interface_name(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

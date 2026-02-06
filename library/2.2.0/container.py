@@ -141,8 +141,6 @@ class Container:
             if self._name in containers:
                 self.labels.add_label(label["key"], label["value"])
 
-    # TODO: Test me
-    # Each container will have the network config, not the network itself
     def _auto_add_networks(self):
         networks = self._render_instance.values.get("network", {}).get("networks", [])
         if not networks:
@@ -152,9 +150,10 @@ class Container:
             containers = network.get("containers", [])
             if not containers:
                 raise RenderError(f'Network [{network.get("name", "")}] must have at least one container')
-
-            if self._name in containers:
-                self.add_network(network["name"], network.get("config", {}))
+            for container in containers:
+                if self._name != container["name"]:
+                    continue
+                self.add_network(network["name"], container.get("config", {}))
 
     def _resolve_image(self, image: str):
         images = self._render_instance.values["images"]
@@ -318,7 +317,7 @@ class Container:
         self._command = [escape_dollar(str(e)) for e in command]
 
     def add_network(self, network: str, config: dict = {}):
-        self.networks.add(network, config)
+        self.networks.add(self._name, network, config)
 
     def add_storage(self, mount_path: str, config: "IxStorage"):
         if config.get("type", "") == "tmpfs":

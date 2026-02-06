@@ -134,55 +134,62 @@ class ContainerNetworks:
         self._render_instance = render_instance
         self._networks: dict[str, ContainerNetwork] = {}
 
-    def add(self, name: str, config: dict = {}):
-        if not self._render_instance.networks.exists(name):
+    def add(self, container_name: str, net_name: str, config: dict = {}):
+        if not self._render_instance.networks.exists(net_name):
             raise RenderError(
-                f"Network [{name}] must be first registered. This is probably a bug in the renderer, please report it."
+                f"Network [{net_name}] must be first registered. "
+                "This is probably a bug in the renderer, please report it."
             )
 
-        if self.exists(name):
-            raise RenderError(f"Network [{name}] already added to the container.")
+        if self.exists(net_name):
+            raise RenderError(f"Network [{net_name}] already added to the container [{container_name}].")
 
-        net = ContainerNetwork(name, config)
+        net = ContainerNetwork(net_name, config)
         for existing_net in self._networks.values():
             if net._config.interface_name and existing_net._config.interface_name:
                 if net._config.interface_name == existing_net._config.interface_name:
                     raise RenderError(
-                        f"Network [{name}] cannot have the same interface name "
+                        f"Network [{net_name}] cannot have the same interface name "
                         f"[{net._config.interface_name}] as network [{existing_net._name}]"
+                        f" in container [{container_name}]"
                     )
             if net._config.mac_address and existing_net._config.mac_address:
                 if net._config.mac_address == existing_net._config.mac_address:
                     raise RenderError(
-                        f"Network [{name}] cannot have the same MAC address "
+                        f"Network [{net_name}] cannot have the same MAC address "
                         f"[{net._config.mac_address}] as network [{existing_net._name}]"
+                        f" in container [{container_name}]"
                     )
             if net._config.ipv4_address and existing_net._config.ipv4_address:
                 if net._config.ipv4_address == existing_net._config.ipv4_address:
                     raise RenderError(
-                        f"Network [{name}] cannot have the same IPv4 address "
+                        f"Network [{net_name}] cannot have the same IPv4 address "
                         f"[{net._config.ipv4_address}] as network [{existing_net._name}]"
+                        f" in container [{container_name}]"
                     )
             if net._config.ipv6_address and existing_net._config.ipv6_address:
                 if net._config.ipv6_address == existing_net._config.ipv6_address:
                     raise RenderError(
-                        f"Network [{name}] cannot have the same IPv6 address "
+                        f"Network [{net_name}] cannot have the same IPv6 address "
                         f"[{net._config.ipv6_address}] as network [{existing_net._name}]"
+                        f" in container [{container_name}]"
                     )
             if isinstance(net._config.gw_priority, int) and isinstance(existing_net._config.gw_priority, int):
                 if net._config.gw_priority == existing_net._config.gw_priority:
                     raise RenderError(
-                        f"Network [{name}] cannot have the same gateway priority "
+                        f"Network [{net_name}] cannot have the same gateway priority "
                         f"[{net._config.gw_priority}] as network [{existing_net._name}]"
+                        f" in container [{container_name}]"
                     )
             if isinstance(net._config.priority, int) and isinstance(existing_net._config.priority, int):
                 if net._config.priority == existing_net._config.priority:
                     raise RenderError(
-                        f"Network [{name}] cannot have the same priority "
+                        f"Network [{net_name}] cannot have the same priority "
                         f"[{net._config.priority}] as network [{existing_net._name}]"
+                        f" in container [{container_name}]"
                     )
 
-        self._networks[name] = net
+        self._networks[net_name] = net
 
     def has_items(self):
         return bool(self._networks)
