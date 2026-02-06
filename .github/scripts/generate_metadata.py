@@ -735,26 +735,65 @@ class AppQuestionsValidator:
         if not isinstance(questions_config, dict):
             raise ValueError(f"Invalid questions config in {questions_path}")
 
-        # Find the labels question and validate containers enum
-        for question in questions_config.get("questions", []):
-            if question.get("variable") != "labels":
-                continue
+        new_enum = [{"value": name, "description": name} for name in service_names]
 
-            for item in question["schema"]["items"][0]["schema"]["attrs"]:
-                if item.get("variable") != "containers":
+        def check_containers_enum(enum_item, section_name):
+            old_enum = enum_item["schema"]["enum"]
+
+            old_values = {item["value"] for item in old_enum}
+            new_values = {item["value"] for item in new_enum}
+
+            if old_values != new_values:
+                raise ValueError(
+                    f"Container {section_name} section should have {sorted(new_values)} "
+                    f"but has {sorted(old_values)}"
+                )
+
+        def check_labels():
+            # Find the labels question and validate containers enum
+            for question in questions_config.get("questions", []):
+                # Find the questions{}.labels[{}] question
+                if question.get("variable") != "labels":
                     continue
 
-                old_enum = item["schema"]["items"][0]["schema"]["enum"]
-                new_enum = [{"value": name, "description": name} for name in service_names]
+                # questions.labels
+                for attr in question["schema"]["items"][0]["schema"]["attrs"]:
+                    # Find the questions{}.labels[{}].containers[str] question
+                    if attr.get("variable") != "containers":
+                        continue
 
-                old_values = {item["value"] for item in old_enum}
-                new_values = {item["value"] for item in new_enum}
+                    # questions.labels.containers
+                    enum_item = attr["schema"]["items"][0]
+                    check_containers_enum(enum_item, "labels")
+                    return
 
-                if old_values != new_values:
-                    raise ValueError(
-                        f"Container labels section should have {sorted(new_values)} " f"but has {sorted(old_values)}"
-                    )
-            break
+        def check_network():
+            # Find the network question and validate containers enum
+            for question in questions_config.get("questions", []):
+                # Find the questions{}.network{} question
+                if question.get("variable") != "network":
+                    continue
+
+                for item in question["schema"]["attrs"]:
+                    # Find the questions{}.network{}.networks[{}] question
+                    if item.get("variable") != "networks":
+                        continue
+
+                    for attr in item["schema"]["items"][0]["schema"]["attrs"]:
+                        # Find the questions{}.network{}.networks[{}].containers[{}] question
+                        if attr.get("variable") != "containers":
+                            continue
+
+                        for attr_item in attr["schema"]["items"][0]["schema"]["attrs"]:
+                            # Find the questions{}.network{}.networks[{}].containers[{}].name question
+                            if attr_item.get("variable") != "name":
+                                continue
+
+                            check_containers_enum(attr_item, "network.networks.containers.name")
+                            return
+
+        check_labels()
+        check_network()
 
 
 class AppVersionManager:
