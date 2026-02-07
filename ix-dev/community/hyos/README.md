@@ -1,8 +1,3 @@
-# hyOS - Hytale Server
+# HyOS - Hytale Server
 
-[hyOS](https://hub.docker.com/r/riceheadv8/hyos) is a feature-rich Hytale dedicated server wrapper with automatic updates, mod support, and health monitoring.
-
-**First Run:** Check container logs for the OAuth authentication URL. Visit the URL and enter the displayed code to authorize your server. Tokens are cached for subsequent restarts.
-
-
-# Details on running
+[HyOS](https://github.com/editmysave/hyos) is a Hytale dedicated game server with web management UI, OAuth authentication, auto-updates, mod support, and REST API.
