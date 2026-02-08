@@ -1,0 +1,681 @@
+groups:
+  - name: SplitPro Configuration
+    description: Configure SplitPro Core Settings
+  - name: Authentication Configuration
+    description: |
+      Configure Authentication (REQUIRED)</br>
+      ⚠️ You MUST configure at least ONE authentication method:</br>
+      - Email/SMTP (recommended for simple setup), OR</br>
+      - One OAuth provider (Google, Authentik, Keycloak, or OIDC)
+  - name: Network Configuration
+    description: Configure Network for SplitPro
+  - name: Storage Configuration
+    description: Configure Storage for SplitPro
+  - name: Labels Configuration
+    description: Configure Labels for SplitPro    
+  - name: Resources Configuration
+    description: Configure Resources for SplitPro
+
+questions:
+  - variable: TZ
+    group: SplitPro Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: splitpro
+    label: ""
+    group: SplitPro Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
+          schema:
+            type: string
+            default: postgres_18_image
+            required: true
+            enum:
+              - value: postgres_17_image
+                description: Postgres 17
+              - value: postgres_18_image
+                description: Postgres 18
+        - variable: db_password
+          label: Database Password
+          description: The password for the PostgreSQL database.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: nextauth_secret
+          label: NextAuth Secret
+          description: |
+            Secret key for NextAuth.js authentication.</br>
+            Must be exactly 32 characters long.</br>
+            Generate with: openssl rand -base64 32
+          schema:
+            type: string
+            min_length: 32
+            max_length: 32
+            default: ""
+            required: true
+            private: true
+        - variable: nextauth_url
+          label: NextAuth URL
+          description: |
+            The base URL for SplitPro.</br>
+            Examples:</br>
+            https://splitpro.example.com</br>
+            http://192.168.1.100:30335
+          schema:
+            type: uri
+            default: ""
+            required: true
+        - variable: default_homepage
+          label: Default Homepage
+          description: |
+            The default homepage path users see after login.</br>
+            Note: Creates a permanent redirect.
+          schema:
+            type: string
+            default: /home
+            required: true
+        - variable: enable_sending_invites
+          label: Enable Sending Invites
+          description: Allow users to send email invites to join groups.
+          schema:
+            type: boolean
+            default: false
+        - variable: disable_email_signup
+          label: Disable Email Signup
+          description: Prevent new users from signing up via email (magic link/OTP).
+          schema:
+            type: boolean
+            default: false
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: Additional environment variables for advanced configuration.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: auth
+    label: ""
+    group: Authentication Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: smtp_enabled
+          label: Enable Email/SMTP Authentication
+          description: Enable email-based authentication (magic link/OTP login).
+          schema:
+            type: boolean
+            default: false
+        - variable: smtp
+          label: SMTP Configuration
+          description: Configure SMTP settings for email authentication.
+          schema:
+            type: dict
+            show_if: [["smtp_enabled", "=", true]]
+            attrs:
+              - variable: from_email
+                label: From Email
+                description: The email address to send emails from.
+                schema:
+                  type: string
+                  required: true
+              - variable: server_host
+                label: SMTP Server Host
+                description: SMTP server hostname (e.g., smtp.gmail.com).
+                schema:
+                  type: string
+                  required: true
+              - variable: server_port
+                label: SMTP Server Port
+                description: SMTP server port (e.g., 465 for SSL, 587 for TLS).
+                schema:
+                  type: int
+                  default: 587
+                  required: true
+              - variable: server_user
+                label: SMTP Username
+                description: Username for SMTP authentication.
+                schema:
+                  type: string
+                  required: true
+              - variable: server_password
+                label: SMTP Password
+                description: Password for SMTP authentication.
+                schema:
+                  type: string
+                  required: true
+                  private: true
+        - variable: google_enabled
+          label: Enable Google OAuth
+          description: Enable Google OAuth authentication.
+          schema:
+            type: boolean
+            default: false
+        - variable: google
+          label: Google OAuth Configuration
+          description: Configure Google OAuth settings.
+          schema:
+            type: dict
+            show_if: [["google_enabled", "=", true]]
+            attrs:
+              - variable: client_id
+                label: Google Client ID
+                schema:
+                  type: string
+                  required: true
+              - variable: client_secret
+                label: Google Client Secret
+                schema:
+                  type: string
+                  required: true
+                  private: true
+        - variable: authentik_enabled
+          label: Enable Authentik OAuth
+          description: Enable Authentik OAuth authentication.
+          schema:
+            type: boolean
+            default: false
+        - variable: authentik
+          label: Authentik Configuration
+          description: Configure Authentik OAuth settings.
+          schema:
+            type: dict
+            show_if: [["authentik_enabled", "=", true]]
+            attrs:
+              - variable: client_id
+                label: Authentik Client ID
+                schema:
+                  type: string
+                  required: true
+              - variable: client_secret
+                label: Authentik Client Secret
+                schema:
+                  type: string
+                  required: true
+                  private: true
+              - variable: issuer
+                label: Authentik Issuer URL
+                description: |
+                  Should include the slug without trailing slash.</br>
+                  Example: https://my-authentik-domain.com/application/o/splitpro
+                schema:
+                  type: uri
+                  required: true
+        - variable: keycloak_enabled
+          label: Enable Keycloak OAuth
+          description: Enable Keycloak OAuth authentication.
+          schema:
+            type: boolean
+            default: false
+        - variable: keycloak
+          label: Keycloak Configuration
+          description: Configure Keycloak OAuth settings.
+          schema:
+            type: dict
+            show_if: [["keycloak_enabled", "=", true]]
+            attrs:
+              - variable: client_id
+                label: Keycloak Client ID
+                schema:
+                  type: string
+                  required: true
+              - variable: client_secret
+                label: Keycloak Client Secret
+                schema:
+                  type: string
+                  required: true
+                  private: true
+              - variable: issuer
+                label: Keycloak Issuer URL
+                description: |
+                  Should include the realm.</br>
+                  Example: https://my-keycloak-domain.com/realms/My_Realm
+                schema:
+                  type: uri
+                  required: true
+        - variable: oidc_enabled
+          label: Enable Generic OIDC
+          description: Enable generic OIDC provider authentication.
+          schema:
+            type: boolean
+            default: false
+        - variable: oidc
+          label: OIDC Configuration
+          description: Configure generic OIDC provider settings.
+          schema:
+            type: dict
+            show_if: [["oidc_enabled", "=", true]]
+            attrs:
+              - variable: name
+                label: OIDC Provider Name
+                description: Lowercase name for the provider (used for display).
+                schema:
+                  type: string
+                  required: true
+              - variable: client_id
+                label: OIDC Client ID
+                schema:
+                  type: string
+                  required: true
+              - variable: client_secret
+                label: OIDC Client Secret
+                schema:
+                  type: string
+                  required: true
+                  private: true
+              - variable: well_known_url
+                label: OIDC Well-Known URL
+                description: |
+                  OIDC Well-Known discovery URL.</br>
+                  Example: https://example.com/.well-known/openid-configuration
+                schema:
+                  type: uri
+                  required: true
+              - variable: allow_dangerous_email_linking
+                label: Allow Dangerous Email Linking
+                description: |
+                  Allow linking accounts by email (CAUTION).</br>
+                  Only enable if you trust your provider to verify emails.
+                schema:
+                  type: boolean
+                  default: false
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30335
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: postgres_data
+          label: PostgreSQL Data Storage
+          description: The path to store PostgreSQL database.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "postgres_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.</br>
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
+        - variable: additional_storage
+          label: Additional Storage
+          description: Additional storage volumes for SplitPro.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: split-pro
+                            description: split-pro
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for SplitPro.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for SplitPro.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
