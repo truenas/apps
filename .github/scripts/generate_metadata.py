@@ -132,6 +132,7 @@ class DockerCapabilityRegistry:
     _RENAME_MAPPINGS = {
         "dssystem": "DS System",
         "npm": "Nginx Proxy Manager",
+        "npmplus": "Nginx Proxy Manager Plus",
         "omada": "Omada Controller",
         "lms": "Lyrion Media Server",
     }
