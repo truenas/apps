@@ -1290,7 +1290,7 @@ When you create a new pull request, GitHub will automatically populate it with o
 - **Special Notes**: Any important setup or usage information
 - **Checklist**: Final verification before submission
 
-The template is located at [`.github/PULL_REQUEST_TEMPLATE/new-app.md`](.github/PULL_REQUEST_TEMPLATE/new-app.md)
+The template is located at [`.github/PULL_REQUEST_TEMPLATE/app_addition.md`](.github/PULL_REQUEST_TEMPLATE/app_addition.md)
 and will be automatically loaded when you create a PR.
 Simply fill in the placeholders with your app's specific information.
 
