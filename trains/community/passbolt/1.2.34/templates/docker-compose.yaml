@@ -13,7 +13,7 @@
 } %}
 {% set mariadb_container = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", mariadb_config, perm_container) %}
 {% set perms_config = {"uid": values.consts.passbolt_run_user, "gid": values.consts.passbolt_run_group, "mode": "check"} %}
-{% set c1 = tpl.add_container(values.consts.passbolt_container_name, "image") %}
+{% set c1 = tpl.add_container(values.consts.passbolt_container_name, values.passbolt.image_selector) %}
 {% do c1.set_user(values.consts.passbolt_run_user, values.consts.passbolt_run_group) %}
 {% do c1.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
 {% do c1.healthcheck.set_test("curl", {"port": internal_port, "scheme": proto, "path": "/healthcheck/status"}) %}
@@ -33,6 +33,10 @@
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do c1.configs.add("private", cert.privatekey, "/etc/passbolt/certs/certificate.key") %}
   {% do c1.configs.add("public", cert.certificate, "/etc/passbolt/certs/certificate.crt") %}
+{% endif %}
+
+{% if values.passbolt.image_selector == "pro_image" %}
+  {% do c1.configs.add("subscription_key", values.passbolt.subscription_key, "/etc/passbolt/subscription_key.txt", "0440") %}
 {% endif %}
 
 {% do c1.add_port(values.network.web_port, {"container_port": internal_port}) %}
