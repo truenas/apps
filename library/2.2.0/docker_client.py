@@ -34,7 +34,7 @@ class DockerClient:
         except Exception:
             if is_truenas_system():
                 raise RenderError("Could not fetch networks from Docker client.")
-            pass
+            return
 
         for network in networks:
             if network.name is None:
