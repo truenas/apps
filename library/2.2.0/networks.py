@@ -31,7 +31,7 @@ class Networks:
             # which any ipv6 network takes priority over ipv4 networks even with gw_priority set.
             # https://github.com/moby/moby/issues/51999
             "enable_ipv6": False,
-            "labels": {"ix.internal": "true"},
+            "labels": {"tn.internal": "true"},
         }
 
         self._networks[name] = Network(name, net_config)

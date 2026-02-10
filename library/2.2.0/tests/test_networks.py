@@ -32,13 +32,13 @@ def test_add_internal_network(mock_values):
             "external": False,
             "enable_ipv4": True,
             "enable_ipv6": False,
-            "labels": {"ix.internal": "true"},
+            "labels": {"tn.internal": "true"},
         },
         "ix-internal-test_network2": {
             "external": False,
             "enable_ipv4": True,
             "enable_ipv6": False,
-            "labels": {"ix.internal": "true"},
+            "labels": {"tn.internal": "true"},
         },
     }
     assert output["services"]["test_container"]["networks"] == {
@@ -98,7 +98,7 @@ def test_add_both_internal_and_external_network(mock_values):
             "external": False,
             "enable_ipv4": True,
             "enable_ipv6": False,
-            "labels": {"ix.internal": "true"},
+            "labels": {"tn.internal": "true"},
         },
         "test_network2": {"external": True},
     }
@@ -204,7 +204,7 @@ def test_auto_add_networks(mock_values):
             "external": False,
             "enable_ipv4": True,
             "enable_ipv6": False,
-            "labels": {"ix.internal": "true"},
+            "labels": {"tn.internal": "true"},
         },
         "test_network2": {"external": True},
         "test_network1": {"external": True},
