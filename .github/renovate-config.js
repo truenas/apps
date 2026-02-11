@@ -92,6 +92,11 @@ module.exports = {
       ],
     ),
     customVersioning(
+      // YYYY-MM-DD-rN 
+      "^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})-(?<build>r\\d+)$",
+      ["ghcr.io/zoeyvid/npmplus"],
+    ),
+    customVersioning(
       // 1.16.1 - There are some tags like 1.120.20221218 that are not semver and are too old
       "^(?<major>\\d{1})\\.(?<minor>\\d{2})\\.(?<patch>\\d+)$",
       ["ghcr.io/linuxserver/kasm"],
