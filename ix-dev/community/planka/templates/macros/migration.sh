@@ -1,4 +1,5 @@
 {%- macro migration() %}
+/bin/sh
 {# /app/data is expected to be mounted #}
 set -e
 
