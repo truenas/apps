@@ -1,7 +1,12 @@
-{%- macro migration() %}
+{%- macro migration(values) %}
 {# /app/data is expected to be mounted #}
 /bin/sh
 set -e
+
+{% set is_install = values.get("ix_context", {}).get("is_install", False) %}
+{% if is_install %}
+echo "DO NOT REMOVE THIS FILE, until migration handling is removed from the TrueNAS app and you have upgraded to a newer version of the TrueNAS app." > /app/data/.migration_completed
+{% endif %}
 
 if [ -f /app/data/.migration_completed ]; then
   echo "Migration already completed, skipping."
