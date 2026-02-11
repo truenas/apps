@@ -1,4 +1,4 @@
-{% macro entrypoint(values) -%} 
+{% macro entrypoint(values) -%}
 #!/bin/sh
 
 set -e
