@@ -1,6 +1,6 @@
 {%- macro migration() %}
-/bin/sh
 {# /app/data is expected to be mounted #}
+/bin/sh
 set -e
 
 if [ -f /app/data/.migration_completed ]; then
@@ -10,15 +10,12 @@ fi
 
 mkdir /app/data/protected /app/data/private || { echo "Failed to create data directories"; exit 1; }
 
-# Private
 echo "Copying attachments"
 cp -av /app/private/attachments /app/data/private || { echo "Failed to copy attachments"; exit 1; }
 
-# Protected
-echo "Copying public assets"
-cp -av /app/public/favicons /app/data/protected || { echo "Failed to copy favicons"; exit 1; }
 echo "Copying user avatars"
 cp -av /app/public/user-avatars /app/data/protected || { echo "Failed to copy user avatars"; exit 1; }
+
 echo "Copying project background images"
 cp -av /app/public/project-background-images /app/data/protected || { echo "Failed to copy project background images"; exit 1; }
 # Rename to match new paths
