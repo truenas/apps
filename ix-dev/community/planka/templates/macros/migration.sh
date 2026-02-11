@@ -4,6 +4,7 @@
 set -e
 
 function mark_completed() {
+  echo "Marking migration as completed by creating /app/data/.migration_completed"
   echo "DO NOT REMOVE THIS FILE\n" > /app/data/.migration_completed
   echo "Keep this file to prevent the migration from running again.\n" >> /app/data/.migration_completed
   echo "It is only safe to remove this file once migration handling code is removed" >> /app/data/.migration_completed
@@ -11,7 +12,7 @@ function mark_completed() {
 }
 
 function echo() {
-  echo "[migration.sh] $@"
+  /bin/echo "[migration.sh] $@"
 }
 
 {% set is_install = values.get("ix_context", {}).get("is_install", true) %}
