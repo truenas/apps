@@ -13,6 +13,11 @@ mkdir /app/data/protected /app/data/private || { echo "Failed to create data dir
 echo "Copying attachments"
 cp -av /app/private/attachments /app/data/private || { echo "Failed to copy attachments"; exit 1; }
 
+if [ -d /app/public/favicons ]; then
+  echo "Copying favicons"
+  cp -av /app/public/favicons /app/data/protected || { echo "Failed to copy favicons"; exit 1; }
+fi
+
 echo "Copying user avatars"
 cp -av /app/public/user-avatars /app/data/protected || { echo "Failed to copy user avatars"; exit 1; }
 
