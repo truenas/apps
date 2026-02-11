@@ -44,20 +44,8 @@
   {% endfor %}
 {% endfor %}
 
-{# MIGRATION CONTAINER #}
-{# POSTGRES MUST RUN #}
-{#
-docker compose run --rm planka sh -c '
-  mkdir -p /app/data/protected /app/data/private
-  for folder in favicons user-avatars background-images; do
-    cp -av /app/public/$folder /app/data/protected;
-  done
-  cp -av /app/private/attachments /app/data/private'
-#}
-{# docker compose run --rm planka npm run db:upgrade (is this idempotent?) #}
-
 {% do mig.setup_as_helper(disable_network=false) %}
-{% do mig.configs.add("migration.sh", migration(), "/migration.sh", "0755") %}
+{% do mig.configs.add("migration.sh", migration(values), "/migration.sh", "0755") %}
 {% do mig.set_entrypoint(["/bin/sh", "/migration.sh"]) %}
 {% do mig.add_storage("/app/public/user-avatars", values.storage.avatars) %}
 {% do mig.add_storage("/app/public/project-background-images", values.storage.background_images) %}

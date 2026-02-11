@@ -33,6 +33,8 @@ mv /app/data/protected/project-background-images /app/data/protected/background-
 
 echo "Running db:upgrade"
 npm run db:upgrade || { echo "db:upgrade failed"; exit 1; }
+# Error: Nothing to upgrade
+# console.error() ^ (Is it stderr?)
 
 echo "DO NOT REMOVE THIS FILE, until migration handling is removed from the TrueNAS app and you have upgraded to a newer version of the TrueNAS app." > /app/data/.migration_completed
 
