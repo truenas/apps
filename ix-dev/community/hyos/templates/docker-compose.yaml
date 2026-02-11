@@ -87,9 +87,9 @@
 {% endif %}
 
 {# ── Ports ── #}
-{% do server.add_port(values.network.game_port, {"protocol": "udp"}) %}
+{% do server.add_port(values.network.game_port, {"protocol": "udp", "container_port": values.consts.internal_game_port}) %}
 {% if values.api.enabled %}
-{% do server.add_port(values.network.api_port) %}
+{% do server.add_port(values.network.api_port, {"container_port": values.consts.internal_api_port}) %}
 {% endif %}
 
 {# ── Storage ── #}
@@ -114,19 +114,18 @@
 {% do mgr.environment.add_env("HYTALE_CONTAINER_NAME", values.consts.server_container_name) %}
 {% do mgr.environment.add_env("HYTALE_STATE_DIR", "/data/.state") %}
 {% do mgr.environment.add_env("HYTALE_SERVER_HOST", values.consts.server_container_name) %}
-{% do mgr.environment.add_env("HYTALE_SERVER_PORT", values.network.api_port.port_number) %}
+{% do mgr.environment.add_env("HYTALE_SERVER_PORT", values.consts.internal_api_port) %}
 {% do mgr.environment.add_env("API_CLIENT_SECRET", values.api.client_secret) %}
 {% do mgr.environment.add_env("API_CLIENT_ID", values.api.client_id) %}
 
 {# Manager port #}
-{% do mgr.add_port(values.network.manager_port) %}
+{% do mgr.add_port(values.network.manager_port, {"container_port": values.consts.internal_manager_port}) %}
 
 {# Shared data storage for state file access #}
 {% do mgr.add_storage(values.consts.data_path, values.storage.data) %}
 
 {# Docker socket for container control #}
-{% set docker_socket = {"type": "host_path", "host_path_config": {"path": "/var/run/docker.sock"}} %}
-{% do mgr.add_storage("/var/run/docker.sock", docker_socket) %}
+{% do mgr.add_docker_socket(read_only=False) %}
 
 {# Health check for manager #}
 {% do mgr.healthcheck.set_test("wget", {"port": 3000, "path": "/api/server/status"}) %}
