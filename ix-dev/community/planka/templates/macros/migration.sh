@@ -41,6 +41,7 @@ cp -av /app/public/user-avatars /app/data/protected || { echo "Failed to copy us
 echo "Copying project background images"
 cp -av /app/public/project-background-images /app/data/protected || { echo "Failed to copy project background images"; exit 1; }
 # Rename to match new paths
+echo "Renaming project-background-images to background-images"
 mv /app/data/protected/project-background-images /app/data/protected/background-images || { echo "Failed to rename project background images"; exit 1; }
 
 echo "Running db:upgrade"
