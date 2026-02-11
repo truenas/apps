@@ -3,9 +3,20 @@
 /bin/sh
 set -e
 
-{% set is_install = values.get("ix_context", {}).get("is_install", False) %}
+function mark_completed() {
+  echo "DO NOT REMOVE THIS FILE\n" > /app/data/.migration_completed
+  echo "Keep this file to prevent the migration from running again.\n" >> /app/data/.migration_completed
+  echo "It is only safe to remove this file once migration handling code is removed" >> /app/data/.migration_completed
+  echo "from the TrueNAS app and you have upgraded to a newer version of the TrueNAS app." >> /app/data/.migration_completed
+}
+
+function echo() {
+  echo "[migration.sh] $@"
+}
+
+{% set is_install = values.get("ix_context", {}).get("is_install", true) %}
 {% if is_install %}
-echo "DO NOT REMOVE THIS FILE, until migration handling is removed from the TrueNAS app and you have upgraded to a newer version of the TrueNAS app." > /app/data/.migration_completed
+mark_completed
 {% endif %}
 
 if [ -f /app/data/.migration_completed ]; then
@@ -36,7 +47,7 @@ npm run db:upgrade || { echo "db:upgrade failed"; exit 1; }
 # Error: Nothing to upgrade
 # console.error() ^ (Is it stderr?)
 
-echo "DO NOT REMOVE THIS FILE, until migration handling is removed from the TrueNAS app and you have upgraded to a newer version of the TrueNAS app." > /app/data/.migration_completed
+mark_completed
 
 echo "Migration completed successfully"
 {%- endmacro %}
