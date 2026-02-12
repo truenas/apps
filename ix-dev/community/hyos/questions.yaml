@@ -1,16 +1,6 @@
 groups:
   - name: Hytale Server Configuration
     description: Configure the Hytale game server
-  - name: JVM & Memory Configuration
-    description: Configure Java Virtual Machine settings
-  - name: Auto-Update Configuration
-    description: Configure automatic server updates
-  - name: API Configuration
-    description: Configure the REST API for server management
-  - name: Manager Configuration
-    description: Configure the HyOS Manager web UI
-  - name: Advanced Configuration
-    description: Advanced Hytale server options
   - name: User and Group Configuration
     description: Configure User and Group for Hytale
   - name: Network Configuration
@@ -33,9 +23,6 @@ questions:
       $ref:
         - definitions/timezone
 
-  # ============================================================================
-  # Group 1: Hytale Server Configuration
-  # ============================================================================
   - variable: hytale
     label: ""
     group: Hytale Server Configuration
@@ -120,255 +107,218 @@ questions:
                       label: Value
                       schema:
                         type: string
+        - variable: jvm
+          label: JVM & Memory Configuration
+          description: Configure Java Virtual Machine settings
+          schema:
+            type: dict
+            attrs:
+              - variable: xms
+                label: Initial Heap Size (XMS)
+                description: Initial Java heap size (e.g., 4G, 2048M)
+                schema:
+                  type: string
+                  required: true
+                  default: "4G"
+              - variable: xmx
+                label: Maximum Heap Size (XMX)
+                description: Maximum Java heap size (e.g., 8G, 4096M)
+                schema:
+                  type: string
+                  required: true
+                  default: "8G"
+              - variable: use_zgc
+                label: Use ZGC Garbage Collector
+                description: Enable ZGC instead of G1GC (recommended for large heaps)
+                schema:
+                  type: boolean
+                  default: false
+              - variable: g1_max_pause
+                label: G1GC Max Pause (ms)
+                description: Maximum pause time target for G1GC
+                schema:
+                  type: int
+                  show_if: [["use_zgc", "=", false]]
+                  default: 200
+                  min: 50
+                  max: 1000
+        - variable: auto_update
+          label: Auto-Update Configuration
+          description: Configure automatic server updates
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enable Auto-Update
+                description: Automatically check and apply server updates
+                schema:
+                  type: boolean
+                  default: false
+              - variable: interval
+                label: Check Interval (seconds)
+                description: How often to check for updates
+                schema:
+                  type: int
+                  show_if: [["enabled", "=", true]]
+                  default: 3600
+                  min: 300
+              - variable: time
+                label: Scheduled Update Time
+                description: Specific time to apply updates (HH:MM format, leave blank for immediate)
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  default: ""
+              - variable: restart
+                label: Auto-Restart After Update
+                description: Automatically restart the server after a successful update
+                schema:
+                  type: boolean
+                  show_if: [["enabled", "=", true]]
+                  default: true
+              - variable: backup
+                label: Backup Before Update
+                description: Create a backup before applying updates
+                schema:
+                  type: boolean
+                  show_if: [["enabled", "=", true]]
+                  default: true
+        - variable: api
+          label: API Configuration
+          description: Configure the REST API for server management
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enable REST API
+                description: Enable the REST API for server management
+                schema:
+                  type: boolean
+                  default: true
+              - variable: client_secret
+                label: API Client Secret
+                description: Password for API authentication (required if API is enabled)
+                schema:
+                  type: string
+                  private: true
+                  show_if: [["enabled", "=", true]]
+                  required: true
+                  default: ""
+              - variable: client_id
+                label: API Client ID
+                description: Client identifier for API authentication
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  default: "hyos-manager"
+              - variable: websocket_enabled
+                label: Enable WebSocket
+                description: Enable WebSocket connections for real-time updates
+                schema:
+                  type: boolean
+                  show_if: [["enabled", "=", true]]
+                  default: true
+        - variable: advanced
+          label: Advanced Configuration
+          description: Advanced Hytale server options
+          schema:
+            type: dict
+            attrs:
+              - variable: show_advanced
+                label: Show Advanced Options
+                description: Display advanced server configuration options
+                schema:
+                  type: boolean
+                  default: false
+              - variable: auth_mode
+                label: Authentication Mode
+                description: Server authentication mode
+                schema:
+                  type: string
+                  show_if: [["show_advanced", "=", true]]
+                  default: ""
+                  enum:
+                    - value: ""
+                      description: Default (use cached tokens)
+                    - value: "authenticated"
+                      description: Require authentication
+                    - value: "offline"
+                      description: Offline mode (no authentication)
+              - variable: enable_aot
+                label: Enable AOT Cache
+                description: Enable Ahead-of-Time compilation cache for faster startup
+                schema:
+                  type: boolean
+                  show_if: [["show_advanced", "=", true]]
+                  default: true
+              - variable: disable_sentry
+                label: Disable Sentry
+                description: Disable Sentry error reporting
+                schema:
+                  type: boolean
+                  show_if: [["show_advanced", "=", true]]
+                  default: false
+              - variable: debug
+                label: Enable Debug Logging
+                description: Enable verbose debug logging
+                schema:
+                  type: boolean
+                  show_if: [["show_advanced", "=", true]]
+                  default: false
+              - variable: enable_backup
+                label: Enable Server Backups
+                description: Enable periodic world backups
+                schema:
+                  type: boolean
+                  show_if: [["show_advanced", "=", true]]
+                  default: false
+              - variable: backup_frequency
+                label: Backup Frequency (minutes)
+                description: How often to create backups
+                schema:
+                  type: int
+                  show_if: [["enable_backup", "=", true]]
+                  default: 60
+                  min: 5
+              - variable: backup_max_count
+                label: Max Backup Count
+                description: Maximum number of backups to keep
+                schema:
+                  type: int
+                  show_if: [["enable_backup", "=", true]]
+                  default: 10
+                  min: 1
+              - variable: whitelist_enabled
+                label: Enable Whitelist
+                description: Only allow whitelisted players to join
+                schema:
+                  type: boolean
+                  show_if: [["show_advanced", "=", true]]
+                  default: false
+              - variable: whitelist_list
+                label: Whitelist Players
+                description: Comma-separated list of player UUIDs or names
+                schema:
+                  type: string
+                  show_if: [["whitelist_enabled", "=", true]]
+                  default: ""
+              - variable: skip_broken_mods
+                label: Skip Broken Mods
+                description: Auto-quarantine mods that fail to load
+                schema:
+                  type: boolean
+                  show_if: [["show_advanced", "=", true]]
+                  default: false
+              - variable: max_view_radius
+                label: Max View Radius
+                description: Maximum view radius in chunks
+                schema:
+                  type: int
+                  show_if: [["show_advanced", "=", true]]
+                  default: 32
+                  min: 8
+                  max: 64
 
-  # ============================================================================
-  # Group 2: JVM & Memory Configuration
-  # ============================================================================
-  - variable: jvm
-    label: ""
-    group: JVM & Memory Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: xms
-          label: Initial Heap Size (XMS)
-          description: Initial Java heap size (e.g., 4G, 2048M)
-          schema:
-            type: string
-            required: true
-            default: "4G"
-        - variable: xmx
-          label: Maximum Heap Size (XMX)
-          description: Maximum Java heap size (e.g., 8G, 4096M)
-          schema:
-            type: string
-            required: true
-            default: "8G"
-        - variable: use_zgc
-          label: Use ZGC Garbage Collector
-          description: Enable ZGC instead of G1GC (recommended for large heaps)
-          schema:
-            type: boolean
-            default: false
-        - variable: g1_max_pause
-          label: G1GC Max Pause (ms)
-          description: Maximum pause time target for G1GC
-          schema:
-            type: int
-            show_if: [["use_zgc", "=", false]]
-            default: 200
-            min: 50
-            max: 1000
-
-  # ============================================================================
-  # Group 3: Auto-Update Configuration
-  # ============================================================================
-  - variable: auto_update
-    label: ""
-    group: Auto-Update Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: enabled
-          label: Enable Auto-Update
-          description: Automatically check and apply server updates
-          schema:
-            type: boolean
-            default: false
-        - variable: interval
-          label: Check Interval (seconds)
-          description: How often to check for updates
-          schema:
-            type: int
-            show_if: [["enabled", "=", true]]
-            default: 3600
-            min: 300
-        - variable: time
-          label: Scheduled Update Time
-          description: Specific time to apply updates (HH:MM format, leave blank for immediate)
-          schema:
-            type: string
-            show_if: [["enabled", "=", true]]
-            default: ""
-        - variable: restart
-          label: Auto-Restart After Update
-          description: Automatically restart the server after a successful update
-          schema:
-            type: boolean
-            show_if: [["enabled", "=", true]]
-            default: true
-        - variable: backup
-          label: Backup Before Update
-          description: Create a backup before applying updates
-          schema:
-            type: boolean
-            show_if: [["enabled", "=", true]]
-            default: true
-
-  # ============================================================================
-  # Group 4: API Configuration
-  # ============================================================================
-  - variable: api
-    label: ""
-    group: API Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: enabled
-          label: Enable REST API
-          description: Enable the REST API for server management
-          schema:
-            type: boolean
-            default: true
-        - variable: client_secret
-          label: API Client Secret
-          description: Password for API authentication (required if API is enabled)
-          schema:
-            type: string
-            private: true
-            show_if: [["enabled", "=", true]]
-            required: true
-            default: ""
-        - variable: client_id
-          label: API Client ID
-          description: Client identifier for API authentication
-          schema:
-            type: string
-            show_if: [["enabled", "=", true]]
-            default: "hyos-manager"
-        - variable: websocket_enabled
-          label: Enable WebSocket
-          description: Enable WebSocket connections for real-time updates
-          schema:
-            type: boolean
-            show_if: [["enabled", "=", true]]
-            default: true
-
-  # ============================================================================
-  # Group 5: Manager Configuration
-  # ============================================================================
-  - variable: manager
-    label: ""
-    group: Manager Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: enabled
-          label: Enable HyOS Manager
-          description: |
-            Enable the HyOS Manager web UI for server management.
-            Requires Docker socket access for container control.
-          schema:
-            type: boolean
-            default: true
-
-  # ============================================================================
-  # Group 6: Advanced Configuration
-  # ============================================================================
-  - variable: advanced
-    label: ""
-    group: Advanced Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: show_advanced
-          label: Show Advanced Options
-          description: Display advanced server configuration options
-          schema:
-            type: boolean
-            default: false
-        - variable: auth_mode
-          label: Authentication Mode
-          description: Server authentication mode
-          schema:
-            type: string
-            show_if: [["show_advanced", "=", true]]
-            default: ""
-            enum:
-              - value: ""
-                description: Default (use cached tokens)
-              - value: "authenticated"
-                description: Require authentication
-              - value: "offline"
-                description: Offline mode (no authentication)
-        - variable: enable_aot
-          label: Enable AOT Cache
-          description: Enable Ahead-of-Time compilation cache for faster startup
-          schema:
-            type: boolean
-            show_if: [["show_advanced", "=", true]]
-            default: true
-        - variable: disable_sentry
-          label: Disable Sentry
-          description: Disable Sentry error reporting
-          schema:
-            type: boolean
-            show_if: [["show_advanced", "=", true]]
-            default: false
-        - variable: debug
-          label: Enable Debug Logging
-          description: Enable verbose debug logging
-          schema:
-            type: boolean
-            show_if: [["show_advanced", "=", true]]
-            default: false
-        - variable: enable_backup
-          label: Enable Server Backups
-          description: Enable periodic world backups
-          schema:
-            type: boolean
-            show_if: [["show_advanced", "=", true]]
-            default: false
-        - variable: backup_frequency
-          label: Backup Frequency (minutes)
-          description: How often to create backups
-          schema:
-            type: int
-            show_if: [["enable_backup", "=", true]]
-            default: 60
-            min: 5
-        - variable: backup_max_count
-          label: Max Backup Count
-          description: Maximum number of backups to keep
-          schema:
-            type: int
-            show_if: [["enable_backup", "=", true]]
-            default: 10
-            min: 1
-        - variable: whitelist_enabled
-          label: Enable Whitelist
-          description: Only allow whitelisted players to join
-          schema:
-            type: boolean
-            show_if: [["show_advanced", "=", true]]
-            default: false
-        - variable: whitelist_list
-          label: Whitelist Players
-          description: Comma-separated list of player UUIDs or names
-          schema:
-            type: string
-            show_if: [["whitelist_enabled", "=", true]]
-            default: ""
-        - variable: skip_broken_mods
-          label: Skip Broken Mods
-          description: Auto-quarantine mods that fail to load
-          schema:
-            type: boolean
-            show_if: [["show_advanced", "=", true]]
-            default: false
-        - variable: max_view_radius
-          label: Max View Radius
-          description: Maximum view radius in chunks
-          schema:
-            type: int
-            show_if: [["show_advanced", "=", true]]
-            default: 32
-            min: 8
-            max: 64
-
-  # ============================================================================
-  # Group 7: User and Group Configuration
-  # ============================================================================
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -392,9 +342,6 @@ questions:
             default: 568
             required: true
 
-  # ============================================================================
-  # Group 8: Network Configuration
-  # ============================================================================
   - variable: network
     label: ""
     group: Network Configuration
@@ -555,9 +502,6 @@ questions:
             type: boolean
             default: false
 
-  # ============================================================================
-  # Group 9: Storage Configuration
-  # ============================================================================
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -798,9 +742,6 @@ questions:
                               type: string
                               required: true
 
-  # ============================================================================
-  # Group 10: Labels Configuration
-  # ============================================================================
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -840,9 +781,6 @@ questions:
                           - value: hytale-manager
                             description: HyOS Manager Web UI
 
-  # ============================================================================
-  # Group 11: Resources Configuration
-  # ============================================================================
   - variable: resources
     label: ""
     group: Resources Configuration
