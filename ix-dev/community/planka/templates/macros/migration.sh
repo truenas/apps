@@ -25,13 +25,13 @@ if [ -f /app/data/.migration_completed ]; then
   exit 0
 fi
 
-mkdir /app/data/protected /app/data/private || { echo "Failed to create data directories"; exit 1; }
-
 echo "Copying project-background-images to background-images"
 cp -av /app/public/project-background-images/. /app/public/background-images
 
 echo "Running db:upgrade"
 npm run db:upgrade || { echo "db:upgrade failed"; exit 1; }
+
+mkdir /app/data/protected /app/data/private || { echo "Failed to create data directories"; exit 1; }
 
 echo "Copying user avatars"
 cp -av /app/public/user-avatars /app/data/protected || { echo "Failed to copy user avatars"; exit 1; }
