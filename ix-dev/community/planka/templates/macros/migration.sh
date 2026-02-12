@@ -27,27 +27,24 @@ fi
 
 mkdir /app/data/protected /app/data/private || { echo "Failed to create data directories"; exit 1; }
 
-echo "Copying attachments"
-cp -av /app/private/attachments /app/data/private || { echo "Failed to copy attachments"; exit 1; }
+echo "Copying project-background-images to background-images"
+cp -av /app/public/project-background-images/. /app/public/background-images
 
-if [ -d /app/public/favicons ]; then
-  echo "Copying favicons"
-  cp -av /app/public/favicons /app/data/protected || { echo "Failed to copy favicons"; exit 1; }
-fi
+echo "Running db:upgrade"
+npm run db:upgrade || { echo "db:upgrade failed"; exit 1; }
 
 echo "Copying user avatars"
 cp -av /app/public/user-avatars /app/data/protected || { echo "Failed to copy user avatars"; exit 1; }
 
-echo "Copying project background images"
-cp -av /app/public/project-background-images /app/data/protected || { echo "Failed to copy project background images"; exit 1; }
-# Rename to match new paths
-echo "Renaming project-background-images to background-images"
-mv /app/data/protected/project-background-images /app/data/protected/background-images || { echo "Failed to rename project background images"; exit 1; }
+for folder in user-avatars background-images;
+  do cp -av /app/public/$folder /app/data/protected;
+  done && cp -av /app/private/attachments /app/data/private
 
-echo "Running db:upgrade"
-npm run db:upgrade || { echo "db:upgrade failed"; exit 1; }
-# Error: Nothing to upgrade
-# console.error() ^ (Is it stderr?)
+echo "Copying attachments"
+cp -av /app/private/attachments /app/data/private || { echo "Failed to copy attachments"; exit 1; }
+
+echo "Copying project background images"
+cp -av /app/public/background-images /app/data/protected || { echo "Failed to copy project background images"; exit 1; }
 
 mark_completed
 
