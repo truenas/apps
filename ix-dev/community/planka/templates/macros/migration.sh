@@ -36,15 +36,11 @@ mkdir /app/data/protected /app/data/private || { echo "Failed to create data dir
 echo "Copying user avatars"
 cp -av /app/public/user-avatars /app/data/protected || { echo "Failed to copy user avatars"; exit 1; }
 
-for folder in user-avatars background-images;
-  do cp -av /app/public/$folder /app/data/protected;
-  done && cp -av /app/private/attachments /app/data/private
+echo "Copying background images"
+cp -av /app/public/background-images /app/data/protected || { echo "Failed to copy background images"; exit 1; }
 
 echo "Copying attachments"
 cp -av /app/private/attachments /app/data/private || { echo "Failed to copy attachments"; exit 1; }
-
-echo "Copying project background images"
-cp -av /app/public/background-images /app/data/protected || { echo "Failed to copy project background images"; exit 1; }
 
 mark_completed
 
