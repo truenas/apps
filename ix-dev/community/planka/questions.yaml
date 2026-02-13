@@ -124,6 +124,29 @@ questions:
                       schema:
                         type: string
 
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Planka files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Planka files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
   - variable: network
     label: ""
     group: Network Configuration
@@ -183,9 +206,176 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: data
+          label: Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: logs
+          label: Logs Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "logs"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+
+        - variable: remove_deprecated_storage
+          label: Remove Deprecated Storage
+          description: |
+            By clicking this button, the deprecated (and unused) storages will be removed (once the deprecation period is over).
+            All data previously in the deprecated storage should be ALREADY copied to the new Data storage,
+            by the automatic migration process. Keep the deprecated storages as is, until the deprecation period is over.
+            This checkbox is just an "acknowledgement" that you are aware of the deprecation and that you want to remove the deprecated storages once the deprecation period is over.
+            Note that by default the Data Storage points to an iX Volume,
+            if you want to use a Host Path, you need to stop the application, move the data from the iX Volume
+            to the Host Path and then edit the application to point to the Host Path.
+          schema:
+            type: boolean
+            default: false
         - variable: avatars
-          label: Planka Avatars Storage
-          description: The path to store Planka Avatars.
+          label: Avatars Storage (Deprecated)
+          description: |
+            This storage is no longer used. It is kept only for the migration process.
+            All data previously here are COPIED to the new Data storage.
+            Will be removed in the future.
           schema:
             type: dict
             attrs:
@@ -260,8 +450,11 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: background_images
-          label: Planka Background Images Storage
-          description: The path to store Planka Background Images.
+          label: Background Images Storage (Deprecated)
+          description: |
+            This storage is no longer used. It is kept only for the migration process.
+            All data previously here are COPIED to the new Data storage.
+            Will be removed in the future.
           schema:
             type: dict
             attrs:
@@ -336,8 +529,11 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: attachments
-          label: Planka Attachments Storage
-          description: The path to store Planka Attachments.
+          label: Attachments Storage (Deprecated)
+          description: |
+            This storage is no longer used. It is kept only for the migration process.
+            All data previously here are COPIED to the new Data storage.
+            Will be removed in the future.
           schema:
             type: dict
             attrs:
