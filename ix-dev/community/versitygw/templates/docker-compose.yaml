@@ -16,6 +16,7 @@
   "--health", "/healthz",
   "--access", values.versity.root_user_access_key,
   "--secret", values.versity.root_user_secret_access_key,
+  "--webui", ":%d" | format(values.network.webui_port.port_number) if values.network.webui_port.bind_mode else "",
 ]) %}
 
 {% if values.network.certificate_id %}
@@ -25,6 +26,8 @@
 
   {% do cmd.x.extend(["--cert", values.consts.ssl_cert_path]) %}
   {% do cmd.x.extend(["--key", values.consts.ssl_key_path]) %}
+  {% do cmd.x.extend(["--webui-cert", values.consts.ssl_cert_path]) %}
+  {% do cmd.x.extend(["--webui-key", values.consts.ssl_key_path]) %}
 {% endif %}
 
 {% if values.network.admin_port.bind_mode %}
@@ -57,10 +60,9 @@
 
 {% do c1.set_command(cmd.x) %}
 
-{% if not values.network.host_network %}
-  {% do c1.add_port(values.network.api_port) %}
-  {% do c1.add_port(values.network.admin_port) %}
-{% endif %}
+{% do c1.add_port(values.network.webui_port) %}
+{% do c1.add_port(values.network.api_port) %}
+{% do c1.add_port(values.network.admin_port) %}
 
 {% do c1.add_storage(values.consts.buckets_path, values.storage.buckets) %}
 {% do perm_container.add_or_skip_action("buckets", values.storage.buckets, perms_config) %}
