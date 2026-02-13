@@ -1,6 +1,4 @@
 {%- macro migration(values) %}
-{# /app/data is expected to be mounted #}
-/bin/sh
 set -e
 
 function mark_completed() {
