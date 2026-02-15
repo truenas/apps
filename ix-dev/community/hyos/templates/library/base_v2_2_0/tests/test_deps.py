@@ -581,6 +581,31 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pgup["entrypoint"] == ["/bin/bash", "-c", "/upgrade.sh"]
 
 
+def test_postgres_version_with_digest_pin(mock_values):
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "17.7-bookworm@sha256:1234567890"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("test_perms_container")
+    pg = render.deps.postgres(
+        "postgres_container",
+        "pg_image",
+        {
+            "user": "test_user",
+            "password": "test_password",
+            "database": "test_database",
+            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        pg.add_dependency("test_perms_container", "service_completed_successfully")
+    output = render.render()
+    pgup = output["services"]["postgres_container_upgrade"]
+    assert pgup["environment"]["TARGET_VERSION"] == "17"
+
+
 def test_add_mongodb(mock_values):
     mock_values["images"]["mongodb_image"] = {"repository": "mongo", "tag": "latest"}
     render = Render(mock_values)
