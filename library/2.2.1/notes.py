@@ -73,10 +73,12 @@ class Notes:
     def get_pretty_host_mount(self, hm: str) -> tuple[str, bool]:
         hm = hm.rstrip("/")
         mapping = {
+            "/dev": "Device Directory",
             "/dev/bus/usb": "USB Devices",
             "/dev/net/tun": "TUN Device",
             "/dev/snd": "Sound Device",
             "/dev/fuse": "Fuse Device",
+            "/dev/hugepages": "Huge Pages",
             "/dev/uinput": "UInput Device",
             "/dev/dvb": "DVB Devices",
             "/dev/dri": "DRI Device",
@@ -85,6 +87,9 @@ class Notes:
             "/etc/group": "Group File",
             "/etc/passwd": "Password File",
             "/etc/hostname": "Hostname File",
+            "/lib/modules": "Kernel Modules",
+            "/proc": "Process Information",
+            "/sys": "System Information",
             "/var/run/docker.sock": "Docker Socket",
             "/var/run/utmp": "UTMP",
             "/var/run/dbus": "DBus Socket",
@@ -139,6 +144,12 @@ class Notes:
                         ],
                     )
                 )
+
+            networks = []
+            for net in c.networks._networks.values():
+                networks.append(net._name)
+            if networks:
+                self._security[name].append(Security(header="Joined networks", items=networks))
 
             run_as_sec_items = []
             user, group = c._user.split(":") if c._user else [-1, -1]
