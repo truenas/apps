@@ -45,6 +45,8 @@ SUPPORTED_UPGRADE_REPOS = [
 
 
 def get_major_version(variant: str, tag: str):
+    # Handle digest pins by taking only the tag part before the @
+    tag = tag.split("@")[0]
     if variant == "postgres":
         # 17.7-bookworm
         regex = re.compile(r"^\d+\.\d+-\w+")
