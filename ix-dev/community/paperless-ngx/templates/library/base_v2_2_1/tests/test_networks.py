@@ -186,7 +186,7 @@ def test_auto_add_networks(mock_values):
         {
             "name": "test_network2",
             "containers": [
-                {"name": "test_container", "config": {"interface_name": "eth1"}},
+                {"name": "test_container", "config": {"interface_name": "eth1", "aliases": ["alias1"]}},
             ],
         },
     ]
@@ -213,6 +213,7 @@ def test_auto_add_networks(mock_values):
         "ix-internal-test_network1": {},
         "test_network2": {
             "interface_name": "eth1",
+            "aliases": ["alias1"],
         },
         "test_network1": {
             "interface_name": "eth0",
@@ -313,3 +314,16 @@ def test_add_duplicate_internal_external_network(mock_values):
     render.networks.create_internal("test_network1")
     with pytest.raises(Exception):
         render.networks.register("ix-internal-test_network1")
+
+
+def test_add_network_with_duplicate_aliases(mock_values):
+    render = Render(mock_values)
+    # Mock the network names (No Docker client in tests)
+    render.docker._network_names = set(["test_network1", "test_network2"])
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    render.networks.register("test_network1")
+    render.networks.register("test_network2")
+    c1.add_network("test_network1", {"aliases": ["alias1", "alias2"]})
+    with pytest.raises(Exception):
+        c1.add_network("test_network2", {"aliases": ["alias2", "alias3"]})
