@@ -1,0 +1,86 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.terraria_container_name, values.terraria.image_selector) %}
+{% do c1.set_user(0, 0) %}
+{% do c1.set_tty(true) %}
+{% do c1.set_stdin(true) %}
+
+{% if values.ci %}
+  {% do c1.healthcheck.set_test("tcp", {"port": values.network.server_port.port_number}) %}
+{% else %}
+  {% do c1.healthcheck.disable() %}
+{% endif %}
+
+{#
+  'worldevil', 'dificulty' and 'autocreate' flags are only used
+  when a world is generated. According to docs server will
+  ignore them if a world exists, so we can safely pass
+  them all the time and let application handle it.
+  Also 'autocreate' must come before other flags.
+#}
+
+{% set cmd = namespace(x=[
+  "-autocreate", values.consts.sizes_map[values.terraria.world_size],
+  "-worldevil", values.terraria.world_evil,
+  "-difficulty", values.consts.difficulty_map[values.terraria.world_difficulty],
+]) %}
+
+{% if values.terraria.world_seed %}
+  {% do cmd.x.extend(["-seed", values.terraria.world_seed]) %}
+{% endif %}
+
+{% do cmd.x.extend([
+  "-port", values.network.server_port.port_number,
+  "-world", "%s/%s.wld" | format(values.consts.world_path, values.terraria.world_name),
+  "-additionalplugins", values.consts.plugins_path,
+  "-maxplayers", values.terraria.max_players,
+]) %}
+
+{% if values.network.tshock_api_port.bind_mode %}
+  {% do cmd.x.extend([
+    "-rest-port", values.network.tshock_api_port.port_number,
+    "-rest-enabled", true,
+  ]) %}
+{% endif %}
+
+{% if values.terraria.password %}
+  {% do cmd.x.extend(["-password", values.terraria.password]) %}
+{% endif %}
+
+{% if values.terraria.secure %}
+  {% do cmd.x.append("-secure") %}
+{% endif %}
+
+{% if values.terraria.force_update %}
+  {% do cmd.x.append("-forceupdate") %}
+{% endif %}
+
+{% for item in values.terraria.additional_args %}
+  {% if item.key in values.consts.reserved_args %}
+    {% do tpl.funcs.fail("Argument [%s] is automatically handled by the app, please use the corresponding field." | format(item.key)) %}
+  {% endif %}
+
+  {% do cmd.x.append(item.key) %}
+
+  {% if item.value %}
+    {% do cmd.x.append(item.value) %}
+  {% endif %}
+{% endfor %}
+
+{% do c1.set_command(cmd.x) %}
+
+{% do c1.environment.add_env("CONFIGPATH", values.consts.config_path) %}
+{% do c1.environment.add_env("WORLDPATH", values.consts.world_path) %}
+{% do c1.environment.add_user_envs(values.terraria.additional_envs) %}
+{% do c1.add_port(values.network.server_port) %}
+{% do c1.add_port(values.network.tshock_api_port) %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% do c1.add_storage(values.consts.world_path, values.storage.world) %}
+{% do c1.add_storage(values.consts.plugins_path, values.storage.plugins) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
