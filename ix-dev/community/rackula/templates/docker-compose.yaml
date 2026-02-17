@@ -35,6 +35,17 @@
 
 {% do api.environment.add_env("DATA_DIR", values.consts.api_data_dir) %}
 {% do api.environment.add_env("RACKULA_API_PORT", values.consts.internal_api_port) %}
+{% do api.environment.add_env("CORS_ORIGIN", values.rackula.cors_origins|unique|list|join(",")) %}
+
+{# Only for migration purposes #}
+{% if values.rackula.cors_origins == ["*"] %}
+  {% do api.environment.add_env("ALLOW_INSECURE_CORS", true) %}
+  {% do tpl.notes.add_warning("CORS Origin is set to wildcard (*). This is insecure and should not be used in production.") %}
+{% else %}
+  {% if "*" in values.rackula.cors_origins %}
+    {% do tpl.funcs.fail("CORS Origin cannot be set to wildcard (*)") %}
+  {% endif %}
+{% endif %}
 
 {% do api.add_storage("/tmp", tmpfs_config) %}
 {% do api.add_storage(values.consts.api_data_dir, values.storage.data) %}

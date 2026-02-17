@@ -4,10 +4,20 @@ import yaml
 import subprocess
 
 
-def bump_version(data: dict):
+def bump_version(data: dict, kind: str = "patch"):
     version = data["version"]
     parts = version.split(".")
-    parts[2] = str(int(parts[2]) + 1)
+    if kind == "patch":
+        parts[2] = str(int(parts[2]) + 1)
+    elif kind == "minor":
+        parts[1] = str(int(parts[1]) + 1)
+        parts[2] = "0"
+    elif kind == "major":
+        parts[0] = str(int(parts[0]) + 1)
+        parts[1] = "0"
+        parts[2] = "0"
+    else:
+        raise Exception(f"invalid kind {kind}")
     data["version"] = ".".join(parts)
     data["maintainers"][0]["email"] = "dev@truenas.com"
     return data
@@ -49,7 +59,7 @@ for train in os.listdir("ix-dev"):
         #     continue
 
         data, changed = set_added_date(data, file)
-        if changed:
-            data = bump_version(data)
+        if changed or data["lib_version"] == "2.2.0":
+            data = bump_version(data, "minor")
         with open(file, "w") as f:
             yaml.safe_dump(data, f)
