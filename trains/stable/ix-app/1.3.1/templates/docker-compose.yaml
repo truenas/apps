@@ -1,0 +1,98 @@
+{# Adjust values to library will pick some things automatically #}
+{% do values.update({
+  "skip_generic_variables": true,
+  "images": {
+    "image": {
+      "repository": values.image.repository,
+      "tag": values.image.tag or "latest",
+    }
+  },
+  "network": {
+    "dns_opts": values.dns_config.get("options", []),
+    "dns_searches": values.dns_config.get("searches", []),
+    "dns_nameservers": values.dns_config.get("nameservers", []),
+  }
+}) %}
+
+{% for label in values.labels %}
+  {% do label.update({"containers": [values.ix_context.app_name]}) %}
+{% endfor %}
+
+{# Any manipulation to values should be done before this point #}
+
+{# Template starts here #}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{# Image Configuration #}
+{% set c1 = tpl.add_container(values.ix_context.app_name, "image") %}
+{% do c1.set_pull_policy(values.image.pull_policy) %}
+
+{# Container Configuration #}
+{% if values.restart_policy == "on-failure" %}
+  {% do c1.restart.set_policy(values.restart_policy, values.max_retry_count) %}
+{% else %}
+  {% do c1.restart.set_policy(values.restart_policy) %}
+{% endif %}
+
+{% do c1.set_tty(values.tty) %}
+{% do c1.set_stdin(values.stdin) %}
+
+{% if values.hostname %}
+  {% do c1.set_hostname(values.hostname) %}
+{% endif %}
+
+{% if values.entrypoint %}
+  {% do c1.set_entrypoint(values.entrypoint) %}
+{% endif %}
+
+{% if values.command %}
+  {% do c1.set_command(values.command) %}
+{% endif %}
+
+{% for device in values.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+
+{% if values.disable_builtin_healthcheck %}
+  {% do c1.healthcheck.disable() %}
+{% else %}
+  {% do c1.healthcheck.use_built_in() %}
+{% endif %}
+
+{% do c1.environment.add_env("TZ", values.TZ) %}
+{% do c1.environment.add_user_envs(values.envs) %}
+
+{# Network Configuration #}
+{% if values.host_network %}
+  {% do c1.set_network_mode("host") %}
+{% else %}
+  {% for port in values.ports %}
+    {% do c1.add_port(port) %}
+  {% endfor %}
+{% endif %}
+
+{# Security Context Configuration #}
+{% do c1.set_privileged(values.privileged) %}
+{% do c1.clear_caps() %}
+{% do c1.remove_security_opt("no-new-privileges") %}
+
+{% do c1.add_caps(values.capabilities.add) %}
+{% if values.run_as_custom_user %}
+  {% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% endif %}
+
+{% for store in values.storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if not values.resources.enable_resource_limits %}
+  {% do c1.deploy.resources.remove_cpus_and_memory() %}
+{% endif %}
+
+{% for portal in values.portals %}
+  {% do tpl.portals.add({"bind_mode": "published"}, portal) %}
+{% endfor %}
+
+{% do tpl.notes.set_body(values.notes) %}
+
+{{ tpl.render() | tojson }}

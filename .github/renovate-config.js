@@ -92,7 +92,7 @@ module.exports = {
       ],
     ),
     customVersioning(
-      // YYYY-MM-DD-rN 
+      // YYYY-MM-DD-rN
       "^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})-(?<build>r\\d+)$",
       ["ghcr.io/zoeyvid/npmplus"],
     ),
@@ -142,8 +142,8 @@ module.exports = {
       ["jenkins/jenkins"],
     ),
     customVersioning(
-      // 1.2.3.4, but not 1.2.0.4 (3rd digit 0 equals beta)
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>[1-9]\\d*)\\.(?<build>\\d+)$",
+      // 1.2.3.0, but not 1.2.3.4 (4th digit != 0 equals beta)
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.0$",
       ["emby/embyserver"],
     ),
     customVersioning(

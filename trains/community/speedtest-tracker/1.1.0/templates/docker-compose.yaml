@@ -1,0 +1,31 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.speedtest_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": 80, "path": "/api/healthcheck"}) %}
+{% do c1.environment.add_env("APP_KEY", values.speedtest.app_key) %}
+{% do c1.environment.add_env("APP_TIMEZONE", values.TZ) %}
+{% do c1.environment.add_env("DISPLAY_TIMEZONE", values.TZ) %}
+{% do c1.environment.add_env("DB_CONNECTION", "sqlite") %}
+{% do c1.environment.add_user_envs(values.speedtest.additional_envs) %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{% do c1.add_port(values.network.http_port, {"container_port": 80}) %}
+{% do c1.add_port(values.network.https_port, {"container_port": 443}) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.http_port, {"name": "HTTP"}) %}
+{% do tpl.portals.add(values.network.https_port, {"name": "HTTPS"}) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
