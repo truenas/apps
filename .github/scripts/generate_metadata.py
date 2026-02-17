@@ -487,6 +487,7 @@ class DockerComposeRenderer:
             "--quiet",
             "--rm",
             f"-v={workspace_path}:/workspace",
+            "-v=/var/run/docker.sock:/var/run/docker.sock:ro",
             self.container_image,
             "apps_render_app",
             "render",
