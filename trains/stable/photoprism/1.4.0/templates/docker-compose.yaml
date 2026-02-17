@@ -1,0 +1,77 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set proto = "https" if values.network.certificate_id else "http" %}
+{% set url_path = namespace(x="/") %}
+
+{% set c1 = tpl.add_container(values.consts.photoprism_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "KILL"]) %}
+
+{% do c1.environment.add_env("PHOTOPRISM_HTTP_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("PHOTOPRISM_ADMIN_PASSWORD", values.photoprism.admin_password) %}
+{% do c1.environment.add_env("PHOTOPRISM_PUBLIC", values.photoprism.public) %}
+{% do c1.environment.add_env("PHOTOPRISM_UID", values.run_as.user) %}
+{% do c1.environment.add_env("PHOTOPRISM_GID", values.run_as.group) %}
+{% do c1.environment.add_env("PHOTOPRISM_STORAGE_PATH", values.consts.storage_path) %}
+{% do c1.environment.add_env("PHOTOPRISM_IMPORT_PATH", values.consts.import_path) %}
+{% do c1.environment.add_env("PHOTOPRISM_ORIGINALS_PATH", values.consts.originals_path) %}
+
+{% if values.photoprism.site_url %}
+  {% if "http://" not in values.photoprism.site_url and "https://" not in values.photoprism.site_url %}
+    {% do tpl.funcs.fail("Site URL must include a scheme (http:// or https://)") %}
+  {% endif %}
+
+  {% do c1.environment.add_env("PHOTOPRISM_SITE_URL", values.photoprism.site_url) %}
+  {% set no_scheme = values.photoprism.site_url.split("://")[1] %}
+  {% set path = no_scheme.split("/")[1:] %}
+  {% if path %}
+    {% set url_path.x = "/" + path[0] %}
+  {% endif %}
+{% endif %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, "%s/%s"|format(values.consts.ssl_base_path, values.consts.ssl_key_name)) %}
+  {% do c1.configs.add("public", cert.certificate, "%s/%s"|format(values.consts.ssl_base_path, values.consts.ssl_cert_name)) %}
+
+  {% if not values.photoprism.site_url %}
+    {% do tpl.funcs.fail("Expected [photoprism.site_url] to be set when [network.certificate_id] is be set") %}
+  {% else %}
+    {% do c1.environment.add_env("PHOTOPRISM_DISABLE_TLS", false) %}
+    {% do c1.environment.add_env("PHOTOPRISM_TLS_CERT", values.consts.ssl_cert_name) %}
+    {% do c1.environment.add_env("PHOTOPRISM_TLS_KEY", values.consts.ssl_key_name) %}
+  {% endif %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.photoprism.additional_envs) %}
+
+{% do c1.healthcheck.set_test("curl", {
+  "port": values.network.web_port.port_number, "path": "%s/health"|format(url_path.x)|replace("//", "/"), "scheme": proto,
+}) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage(values.consts.import_path, values.storage.import) %}
+{% do perm_container.add_or_skip_action("import", values.storage.import, perms_config) %}
+
+{% do c1.add_storage(values.consts.storage_path, values.storage.storage) %}
+{% do perm_container.add_or_skip_action("storage", values.storage.storage, perms_config) %}
+
+{% do c1.add_storage(values.consts.originals_path, values.storage.originals) %}
+{% do perm_container.add_or_skip_action("originals", values.storage.originals, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"path": url_path.x, "scheme": proto}) %}
+
+{{ tpl.render() | tojson }}
