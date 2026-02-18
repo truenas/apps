@@ -1,6 +1,8 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
+{% set authelia_net = tpl.networks.create_internal("authelia-net") %}
 
 {% set c1 = tpl.add_container(values.consts.authelia_container_name, "image") %}
+{% do c1.add_network(authelia_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
@@ -10,17 +12,15 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.authelia.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.authelia.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(authelia_net) %}
 
 {% set redis_config = {
   "password": values.authelia.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis_container = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis_container.container.add_network(authelia_net) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_custom_test(["CMD", "/app/healthcheck.sh"]) %}
