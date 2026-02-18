@@ -1,18 +1,20 @@
 groups:
-  - name: FlareSolverr Configuration
-    description: Configure FlareSolverr
+  - name: Prowlarr Configuration
+    description: Configure Prowlarr
+  - name: User and Group Configuration
+    description: Configure User and Group for Prowlarr
   - name: Network Configuration
-    description: Configure Network for FlareSolverr
+    description: Configure Network for Prowlarr
   - name: Storage Configuration
-    description: Configure Storage for FlareSolverr
+    description: Configure Storage for Prowlarr
   - name: Labels Configuration
-    description: Configure Labels for FlareSolverr
+    description: Configure Labels for Prowlarr
   - name: Resources Configuration
-    description: Configure Resources for FlareSolverr
+    description: Configure Resources for Prowlarr
 
 questions:
   - variable: TZ
-    group: FlareSolverr Configuration
+    group: Prowlarr Configuration
     label: Timezone
     schema:
       type: string
@@ -20,35 +22,19 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: flaresolverr
+  - variable: prowlarr
     label: ""
-    group: FlareSolverr Configuration
+    group: Prowlarr Configuration
     schema:
       type: dict
       attrs:
-        - variable: captcha_solver
-          label: Captcha Solver
-          description: The captcha solver to use for FlareSolverr.
+        - variable: instance_name
+          label: Instance Name
+          description: The name of the Prowlarr instance.
           schema:
             type: string
-            default: ""
-        - variable: log_html
-          label: Log HTML
-          description: Log HTML for FlareSolverr.
-          schema:
-            type: boolean
-            default: false
-        - variable: log_level
-          label: Log Level
-          description: The log level to use for FlareSolverr.
-          schema:
-            type: string
-            default: "info"
-            enum:
-              - value: info
-                description: Info
-              - value: debug
-                description: Debug
+            default: "Prowlarr"
+            required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -69,6 +55,28 @@ questions:
                       label: Value
                       schema:
                         type: string
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Prowlarr files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Prowlarr files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
@@ -104,7 +112,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30098
+                  default: 30050
                   min: 1
                   max: 65535
                   required: true
@@ -123,16 +131,111 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: prowlarr
+                                        description: prowlarr
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: data
-          label: FlareSolverr Data Storage
-          description: The path to store FlareSolverr Data.
+        - variable: config
+          label: Prowlarr Config Storage
+          description: The path to store Prowlarr Config.
           schema:
             type: dict
             attrs:
@@ -172,7 +275,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "data"
+                        default: "config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -396,9 +499,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: flaresolverr
-                            description: flaresolverr
-
+                          - value: prowlarr
+                            description: prowlarr
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -412,14 +514,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for FlareSolverr.
+                description: CPUs limit for Prowlarr.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for FlareSolverr.
+                description: Memory limit for Prowlarr.
                 schema:
                   type: int
                   default: 4096

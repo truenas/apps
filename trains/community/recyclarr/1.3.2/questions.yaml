@@ -1,39 +1,50 @@
 groups:
-  - name: Prowlarr Configuration
-    description: Configure Prowlarr
+  - name: Recyclarr Configuration
+    description: Configure Recyclarr
   - name: User and Group Configuration
-    description: Configure User and Group for Prowlarr
+    description: Configure User and Group for Recyclarr
   - name: Network Configuration
-    description: Configure Network for Prowlarr
+    description: Configure Network for Recyclarr
   - name: Storage Configuration
-    description: Configure Storage for Prowlarr
+    description: Configure Storage for Recyclarr
   - name: Labels Configuration
-    description: Configure Labels for Prowlarr
+    description: Configure Labels for Recyclarr
   - name: Resources Configuration
-    description: Configure Resources for Prowlarr
+    description: Configure Resources for Recyclarr
 
 questions:
   - variable: TZ
-    group: Prowlarr Configuration
+    group: Recyclarr Configuration
     label: Timezone
     schema:
       type: string
-      default: Etc/UTC
+      default: "Etc/UTC"
       required: true
       $ref:
         - definitions/timezone
-  - variable: prowlarr
+
+  - variable: recyclarr
     label: ""
-    group: Prowlarr Configuration
+    group: Recyclarr Configuration
     schema:
       type: dict
       attrs:
-        - variable: instance_name
-          label: Instance Name
-          description: The name of the Prowlarr instance.
+        - variable: create_config
+          label: Create Default Config
+          description: |
+            Enable this if you want /config/recyclarr.yml to be created for
+            you automatically when the container starts. </br>
+            If the file already exists, it will not create the file again.
+          schema:
+            type: boolean
+            default: false
+        - variable: cron_schedule
+          label: Cron Schedule
+          description: |
+            The cron schedule to use for Recyclarr.
           schema:
             type: string
-            default: "Prowlarr"
+            default: "@daily"
             required: true
         - variable: additional_envs
           label: Additional Environment Variables
@@ -63,7 +74,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Prowlarr files will be owned by.
+          description: The user id that Recyclarr files will be owned by.
           schema:
             type: int
             min: 568
@@ -71,7 +82,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Prowlarr files will be owned by.
+          description: The group id that Recyclarr files will be owned by.
           schema:
             type: int
             min: 568
@@ -84,53 +95,95 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
           schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
                 schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 30050
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
                       schema:
                         type: string
+                        default: ""
                         required: true
-                        $ref:
-                          - definitions/node_bind_ip
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: recyclarr
+                                        description: recyclarr
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
         - variable: host_network
           label: Host Network
           description: |
@@ -138,6 +191,7 @@ questions:
           schema:
             type: boolean
             default: false
+
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -145,8 +199,8 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: Prowlarr Config Storage
-          description: The path to store Prowlarr Config.
+          label: Recyclarr Config Storage
+          description: The path to store Recyclarr Config.
           schema:
             type: dict
             attrs:
@@ -410,8 +464,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: prowlarr
-                            description: prowlarr
+                          - value: recyclarr
+                            description: recyclarr
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -425,14 +479,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Prowlarr.
+                description: CPUs limit for Recyclarr.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Prowlarr.
+                description: Memory limit for Recyclarr.
                 schema:
                   type: int
                   default: 4096
