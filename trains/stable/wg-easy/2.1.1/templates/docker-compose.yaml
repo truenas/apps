@@ -1,0 +1,31 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.wg_easy_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["NET_ADMIN", "SYS_MODULE", "NET_RAW"]) %}
+{% do c1.healthcheck.set_custom_test("/usr/bin/wg show | /bin/grep -q interface") %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("INSECURE", values.wg_easy.insecure) %}
+{% do c1.environment.add_user_envs(values.wg_easy.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.sysctls.add("net.ipv4.ip_forward", 1) %}
+  {% do c1.sysctls.add("net.ipv4.conf.all.src_valid_mark", 1) %}
+  {% do c1.sysctls.add("net.ipv6.conf.all.disable_ipv6", 0) %}
+  {% do c1.sysctls.add("net.ipv6.conf.all.forwarding", 1) %}
+  {% do c1.sysctls.add("net.ipv6.conf.default.forwarding", 1) %}
+
+  {% do c1.add_port(values.network.web_port) %}
+  {% do c1.add_port(values.network.udp_port, {"protocol": "udp"}) %}
+{% endif %}
+
+{% do c1.add_storage("/lib/modules", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/lib/modules"}}) %}
+{% do c1.add_storage("/etc/wireguard", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
