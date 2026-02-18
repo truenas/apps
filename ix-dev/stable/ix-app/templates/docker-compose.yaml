@@ -1,4 +1,9 @@
 {# Adjust values to library will pick some things automatically #}
+{% for network in values.networks %}
+  {% do network.update({"containers": [{"name": values.ix_context.app_name, "config": network.get("config", {})}]}) %}
+  {% do network.pop("config", {}) %}
+{% endfor %}
+
 {% do values.update({
   "skip_generic_variables": true,
   "images": {
@@ -11,6 +16,7 @@
     "dns_opts": values.dns_config.get("options", []),
     "dns_searches": values.dns_config.get("searches", []),
     "dns_nameservers": values.dns_config.get("nameservers", []),
+    "networks": values.networks,
   }
 }) %}
 
@@ -22,7 +28,6 @@
 
 {# Template starts here #}
 {% set tpl = ix_lib.base.render.Render(values) %}
-
 {# Image Configuration #}
 {% set c1 = tpl.add_container(values.ix_context.app_name, "image") %}
 {% do c1.set_pull_policy(values.image.pull_policy) %}
