@@ -5,63 +5,12 @@
 {% do xmrig.add_extra_host("host.docker.internal", "host-gateway") %}
 {% do xmrig.healthcheck.disable() %}
 
+{% if values.xmrig.use_msr_mod %}
+  {% do xmrig.set_privileged(true) %}
+{% endif %}
+
 {% do xmrig.configs.add("entrypoint.sh", entrypoint(values), "/entrypoint.sh", "0755") %}
 {% do xmrig.set_entrypoint(["/entrypoint.sh"]) %}
-
-{% set cpu_priority_map = {
-  "idle": 0,
-  "low": 1,
-  "normal": 2,
-  "high": 3,
-  "higher": 4,
-  "critical": 5,
-} %}
-
-{% if not values.xmrig.use_config_file %}
-  {% set command = namespace(x=[
-    "--url=%s" | format(values.xmrig.remote_pool_address if values.xmrig.use_remote_pool else "host.docker.internal:%d" | format(values.xmrig.local_xmrig_port)),
-    "--threads=%d" | format(values.xmrig.cpu_threads),
-    "--cpu-priority=%d" | format(cpu_priority_map[values.xmrig.cpu_priority]),
-    "--donate-level=%d" | format(values.xmrig.donate_percentage)
-  ]) %}
-
-  {% if values.xmrig.pool_username %}
-    {% do command.x.append("--user=%s" | format(values.xmrig.pool_username)) %}
-  {% endif %}
-
-  {% if values.xmrig.pool_password %}
-    {% do command.x.append("--pass=%s" | format(values.xmrig.pool_password)) %}
-  {% endif %}
-
-  {% if values.xmrig.use_1gb_huge_pages %}
-    {% do command.x.append("--randomx-1gb-pages") %}
-  {% endif %}
-
-  {% if values.xmrig.use_msr_mod %}
-    {% do xmrig.set_privileged(true) %}
-  {% else %}
-    {% do command.x.append("--randomx-wrmsr=-1") %}
-  {% endif %}
-
-  {% if values.xmrig.use_proxy %}
-    {% if values.xmrig.use_arti_app_proxy %}
-      {% do command.x.append("--proxy=host.docker.internal:%d" | format(values.xmrig.arti_app_proxy_port)) %}
-    {% else %}
-      {% do command.x.append("--proxy=%s:%d" | format(values.xmrig.proxy_host, values.xmrig.proxy_port)) %}
-    {% endif %}
-  {% endif %}
-
-  {% for item in values.xmrig.additional_args %}
-    {% set flag = "--%s"|format(item.flag.lstrip("-")) %}
-    {% if flag in values.consts.reserved_args %}
-      {% do tpl.funcs.fail("Flag [%s] is reserved and cannot be set in [Additional Args]."|format(flag)) %}
-    {% endif %}
-    {% do command.x.append(flag) %}
-    {% if item.value %}{% do command.x.append(item.value) %}{% endif %}
-  {% endfor %}
-
-  {% do xmrig.set_command(command.x) %}
-{% endif %}
 
 {% do xmrig.add_storage("/dev/hugepages", {"type": "host_path", "host_path_config": {"path": "/dev/hugepages"}}) %}
 {% do xmrig.add_storage("/dev/cpu", {"type": "host_path", "host_path_config": {"path": "/dev/cpu"}}) %}
