@@ -105,8 +105,10 @@ class Network:
             result["name"] = self._config.name
         if self._config.external is not None:
             result["external"] = self._config.external
-        if self._config.enable_ipv4 is not None:
-            result["enable_ipv4"] = self._config.enable_ipv4
+        # FIXME: Re-enable after few months. this flag is added on compose v2.33.1
+        # TrueNAS 25.04 still uses docker-compose v2.32.3
+        # if self._config.enable_ipv4 is not None:
+        #     result["enable_ipv4"] = self._config.enable_ipv4
         if self._config.enable_ipv6 is not None:
             result["enable_ipv6"] = self._config.enable_ipv6
         if self._config.labels and self._config.labels.has_labels():
