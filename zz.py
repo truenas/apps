@@ -59,7 +59,7 @@ for train in os.listdir("ix-dev"):
         #     continue
 
         data, changed = set_added_date(data, file)
-        if changed or data["lib_version"] == "2.2.0":
-            data = bump_version(data, "minor")
+        if changed or data["lib_version"] == "2.2.2":
+            data = bump_version(data, "patch")
         with open(file, "w") as f:
             yaml.safe_dump(data, f)
