@@ -79,6 +79,7 @@ class Notes:
             "/dev/snd": "Sound Device",
             "/dev/fuse": "Fuse Device",
             "/dev/hugepages": "Huge Pages",
+            "/dev/cpu": "CPU Device",
             "/dev/uinput": "UInput Device",
             "/dev/dvb": "DVB Devices",
             "/dev/dri": "DRI Device",
