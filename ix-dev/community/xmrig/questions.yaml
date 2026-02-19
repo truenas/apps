@@ -35,7 +35,6 @@ questions:
           schema:
             type: boolean
             default: false
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: remote_pool_address
           label: Pool Address
           description: |
@@ -43,8 +42,7 @@ questions:
           schema:
             type: uri
             required: true
-            show_if:
-              [["use_remote_pool", "=", true], ["use_custom_config_file", "=", false]]
+            show_if: [["use_remote_pool", "=", true]]
         - variable: local_xmrig_port
           label: XMRig Port
           description: The port your XMRig app is listening on.
@@ -54,21 +52,18 @@ questions:
             max: 65535
             default: 3333
             required: true
-            show_if:
-              [["use_remote_pool", "=", false], ["use_custom_config_file", "=", false]]
+            show_if: [["use_remote_pool", "=", false]]
         - variable: pool_username
           label: Pool Username
           schema:
             type: string
             required: false
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: pool_password
           label: Pool Password
           schema:
             type: string
             required: false
             private: true
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: autodetect_algorithm
           label: Autodetect Algorithm
           description: |
@@ -78,7 +73,6 @@ questions:
           schema:
             type: boolean
             default: true
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: algorithm
           label: Algorithm
           description: |
@@ -86,7 +80,7 @@ questions:
           schema:
             type: string
             required: true
-            show_if: [["use_custom_config_file", "=", false], ["autodetect_algorithm", "=", false]]
+            show_if: [["autodetect_algorithm", "=", false]]
         - variable: autodetect_coin
           label: Autodetect Coin
           description: |
@@ -96,7 +90,6 @@ questions:
           schema:
             type: boolean
             default: true
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: coin
           label: Coin
           description: |
@@ -104,7 +97,7 @@ questions:
           schema:
             type: string
             required: true
-            show_if: [["use_custom_config_file", "=", false], ["autodetect_coin", "=", false]]
+            show_if: [["autodetect_coin", "=", false]]
         - variable: cpu_threads
           label: CPU Threads
           description: |
@@ -116,7 +109,6 @@ questions:
             max: 100
             default: 1
             required: true
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: cpu_priority
           label: CPU Priority
           description: The priority of the XMRig process.
@@ -137,7 +129,6 @@ questions:
                 description: Higher
               - value: 5
                 description: Critical
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: use_1gb_huge_pages
           label: Use 1GB Huge Pages
           description: |
@@ -147,7 +138,6 @@ questions:
           schema:
             type: boolean
             default: false
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: use_msr_mod
           label: Use MSR Mod
           description: |
@@ -157,21 +147,18 @@ questions:
           schema:
             type: boolean
             default: false
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: use_proxy
           label: Use SOCKS5 Proxy
           schema:
             type: boolean
             default: false
-            show_if: [["use_custom_config_file", "=", false]]
         - variable: use_arti_app_proxy
           label: Use Arti App Proxy
-          description: |
-            If you have the Arti app installed, enable this to use it as a proxy.
+          description: If you have the Arti app installed, enable this to use it as a proxy.
           schema:
             type: boolean
             default: false
-            show_if: [["use_proxy", "=", true], ["use_custom_config_file", "=", false]]
+            show_if: [["use_proxy", "=", true]]
         - variable: arti_app_proxy_port
           label: Arti App Proxy Port
           schema:
@@ -181,22 +168,14 @@ questions:
             default: 9150
             required: true
             show_if:
-              [
-                ["use_proxy", "=", true],
-                ["use_arti_app_proxy", "=", true],
-                ["use_custom_config_file", "=", false],
-              ]
+              [["use_proxy", "=", true], ["use_arti_app_proxy", "=", true]]
         - variable: proxy_host
           label: Proxy Host
           schema:
             type: string
             required: true
             show_if:
-              [
-                ["use_proxy", "=", true],
-                ["use_arti_app_proxy", "=", false],
-                ["use_custom_config_file", "=", false],
-              ]
+              [["use_proxy", "=", true], ["use_arti_app_proxy", "=", false]]
         - variable: proxy_port
           label: Proxy Port
           schema:
@@ -205,11 +184,7 @@ questions:
             max: 65535
             required: true
             show_if:
-              [
-                ["use_proxy", "=", true],
-                ["use_arti_app_proxy", "=", false],
-                ["use_custom_config_file", "=", false],
-              ]
+              [["use_proxy", "=", true], ["use_arti_app_proxy", "=", false]]
         - variable: donate_percentage
           label: Donate Percentage
           description: The percentage of your hashrate to donate to the XMRig developers.
@@ -219,13 +194,106 @@ questions:
             max: 100
             default: 1
             required: true
-        - variable: use_custom_config_file
-          label: Use Config File
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: sonarr
+                                        description: sonarr
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
+        - variable: host_network
+          label: Host Network
           description: |
-            Enabling this will use the `xmrig.json` config file which you can edit directly, and will ignore any options set here.</br>
-            Use this if you wish to have a more advanced configuration.</br>
-            You can find the config file in the config storage.</br>
-            Reference: https://xmrig.com/docs/miner/config
+            Bind to the host network. It's recommended to keep this disabled.
           schema:
             type: boolean
             default: false
@@ -235,9 +303,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: xmrig_config
+        - variable: config
           label: Config Storage
-          description: The "Use Config File" option must be enabled for the config file to be used.
+          description: You can edit the xmrig.json config file directly, any options set above will always be applied, on startup.
           schema:
             type: dict
             attrs:
