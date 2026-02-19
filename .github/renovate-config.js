@@ -108,8 +108,9 @@ module.exports = {
       ["ghcr.io/linuxserver/diskover", "ghcr.io/linuxserver/calibre-web"],
     ),
     customVersioning(
+      // abc123-ls241
       "^(?<build>[a-z0-9]+)-ls(?<major>\\d{1})(?<minor>\\d{1})(?<patch>\\d{1})$",
-      ["ghcr.io/linuxserver/tvheadend"],
+      ["ghcr.io/linuxserver/tvheadend", "ghcr.io/linuxserver/lazylibrarian"],
     ),
     customVersioning(
       // v0.8.1-omnibus
