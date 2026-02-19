@@ -1,5 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set n8n_net = tpl.networks.create_internal("n8n-net") %}
+
 {% if values.n8n.postgres_image_selector == "postgres_15_image" %}
   {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %}
@@ -23,16 +25,19 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.n8n.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(n8n_net) %}
 
 {% set redis_config = {
   "password": values.n8n.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(n8n_net) %}
 
 {% set proto = "https" if values.network.certificate_id else "http" %}
 
 {% set c1 = tpl.add_container(values.consts.n8n_container_name, "image") %}
+{% do c1.add_network(n8n_net) %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/healthz", "scheme": proto}) %}
 
@@ -74,6 +79,7 @@
   {# Whether to setup an extra container for the external runner #}
   {% if values.n8n.enable_bundled_external_runner %}
     {% set runner = tpl.add_container(values.consts.task_runner_container_name, "task_runner_image") %}
+    {% do runner.add_network(n8n_net) %}
     {% do runner.set_user(values.run_as.user, values.run_as.group) %}
     {% do runner.healthcheck.set_test("wget", {"port": values.consts.runners_health_check_port, "path": "/healthz"}) %}
     {% do runner.environment.add_env("GENERIC_TIMEZONE", values.TZ) %}
