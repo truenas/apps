@@ -234,7 +234,12 @@ Some info
 some other info.
 """
     )
+    net1 = render.networks.create_internal("test_network1")
+    net2 = render.networks.create_internal("test_network2")
+
     c1 = render.add_container("test_container", "test_image")
+    c1.add_network(net1)
+    c1.add_network(net2)
     c1.healthcheck.disable()
     c1.set_privileged(True)
     c1.set_user(0, 0)
@@ -308,6 +313,11 @@ some other info.
 
 - Has the same level of control as a system administrator
 - Can access and modify any part of your TrueNAS system
+
+#### Joined networks
+
+- ix-internal-test_network1
+- ix-internal-test_network2
 
 #### Running user/group(s)
 

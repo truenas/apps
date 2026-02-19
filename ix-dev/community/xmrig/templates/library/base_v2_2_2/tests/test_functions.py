@@ -167,7 +167,6 @@ def test_funcs(mock_values):
     ]
 
     for test in tests:
-        print(test["func"], test)
         func = render.funcs[test["func"]]
         if test.get("expect_raise", False):
             with pytest.raises(Exception):
