@@ -1,5 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set openarchiver_net = tpl.networks.create_internal("openarchiver-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {# Postgres #}
@@ -10,18 +12,22 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.openarchiver.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(openarchiver_net) %}
 
 {# Redis #}
 {% set redis_config = {"password": values.openarchiver.redis_password, "volume": tpl.funcs.temp_config("redis_data")} %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
-
+{% do redis.container.add_network(openarchiver_net) %}
 
 {# Meilisearch #}
 {% set meili_config = {"master_key": values.openarchiver.meilisearch_master_key, "volume": values.storage.meili_data} %}
 {% set meilisearch = tpl.deps.meilisearch(values.consts.meilisearch_container_name, "meilisearch_image", meili_config, perm_container) %}
+{% do meilisearch.container.add_network(openarchiver_net) %}
 
 {# OpenArchiver #}
 {% set openarchiver_container = tpl.add_container(values.consts.openarchiver_container_name, "image") %}
+{% do openarchiver_container.add_network(openarchiver_net) %}
+
 {% do openarchiver_container.healthcheck.set_test("wget", {"port": values.consts.backend_port, "path": "/v1/auth/status"}) %}
 
 {% do openarchiver_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
@@ -30,6 +36,7 @@
 
 {% if values.openarchiver.enable_tika %}
   {% set tika = tpl.deps.tika(values.consts.tika_container_name, "tika_image", {"port": values.consts.tika_port}) %}
+  {% do tika.container.add_network(openarchiver_net) %}
   {% do openarchiver_container.depends.add_dependency(values.consts.tika_container_name, "service_healthy") %}
   {% do openarchiver_container.environment.add_env("TIKA_URL", tika.get_url()) %}
 {% else %}
