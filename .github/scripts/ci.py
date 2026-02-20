@@ -457,7 +457,7 @@ def check_app_dir_exists():
 def copy_lib():
     cmd = " ".join(
         [
-            f"docker run --platform {PLATFORM} --quiet --rm"
+            f"docker run --platform {PLATFORM} --quiet --rm",
             f"-e FAKE_ENV=1 -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
             f"apps_catalog_hash_generate --path /workspace --train {args['train']} --app {args['app']}",
         ]
