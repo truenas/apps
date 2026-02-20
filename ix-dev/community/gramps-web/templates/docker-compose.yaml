@@ -1,5 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set gramps_net = tpl.networks.create_internal("gramps-net") %}
+
 {% set web = tpl.add_container(values.consts.web_container_name, "image") %}
 {% set celery = tpl.add_container(values.consts.celery_container_name, "image") %}
 {% set containers = [web, celery] %}
@@ -13,6 +15,7 @@
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(gramps_net) %}
 
 {% do web.healthcheck.set_test("tcp", {"port": values.consts.internal_web_port}) %}
 {% do celery.depends.add_dependency(values.consts.web_container_name, "service_healthy") %}
@@ -24,6 +27,7 @@
 
 {% for c in containers %}
   {% do c.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+  {% do c.add_network(gramps_net) %}
 
   # https://www.grampsweb.org/install_setup/configuration/#configuration-file-vs-environment-variables
   # Prefix all options with GRAMPSWEB_

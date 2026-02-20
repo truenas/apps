@@ -2,7 +2,6 @@
 
 {% set c1 = tpl.add_container(values.consts.mail_archiver_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -23,18 +22,15 @@
 
 {% do c1.environment.add_user_envs(values.mail_archiver.additional_envs) %}
 {% do c1.add_storage("/app/DataProtection-Keys", values.storage.data) %}
-{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
-  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% do c1.add_port(values.network.web_port) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
-  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 

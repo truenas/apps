@@ -1,5 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set gaseous_net = tpl.networks.create_internal("gaseous-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set mariadb_config = {
   "user": values.consts.db_user,
@@ -9,8 +11,10 @@
   "volume": values.storage.mariadb_data,
 } %}
 {% set mariadb_container = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", mariadb_config, perm_container) %}
+{% do mariadb_container.container.add_network(gaseous_net) %}
 
 {% set c1 = tpl.add_container(values.consts.gaseous_container_name, "image") %}
+{% do c1.add_network(gaseous_net) %}
 {% do c1.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
 {% do c1.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
 
