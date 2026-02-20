@@ -2,6 +2,8 @@
 
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set windmill_net = tpl.networks.create_internal("windmill-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
@@ -11,14 +13,12 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.windmill.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.windmill.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(windmill_net) %}
 
 {# Windmill Server Container #}
 {% set server = tpl.add_container(values.consts.server_container_name, "image") %}
+{% do server.add_network(windmill_net) %}
 {% do server.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do server.healthcheck.set_test("wget", {"port": values.consts.server_internal_port, "path": "/api/version"}) %}
 
@@ -32,6 +32,7 @@
 
 {# Windmill Worker Container #}
 {% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
+{% do worker.add_network(windmill_net) %}
 {% do worker.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do worker.healthcheck.set_test("wget" , {"port": values.consts.worker_internal_port, "path": "/api/version"}) %}
 
@@ -53,6 +54,7 @@
 
 {# Windmill Worker Native Container #}
 {% set worker_native = tpl.add_container(values.consts.worker_native_container_name, "image") %}
+{% do worker_native.add_network(windmill_net) %}
 {% do worker_native.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do worker_native.healthcheck.set_test("wget" , {"port": values.consts.worker_native_internal_port, "path": "/api/version"}) %}
 
@@ -71,6 +73,7 @@
 {# Windmill Worker Reports Container #}
 {% if values.windmill.enable_report_workers %}
   {% set worker_reports = tpl.add_container(values.consts.worker_reports_container_name, "image") %}
+  {% do worker_reports.add_network(windmill_net) %}
   {% do worker_reports.set_user(0, 0) %}
   {% do worker_reports.add_caps(["SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER", "CHOWN"]) %}
   {% do worker_reports.healthcheck.set_test("wget" , {"port": values.consts.worker_reports_internal_port, "path": "/api/version"}) %}
@@ -94,6 +97,7 @@
 
 {# LSP Container #}
 {% set lsp = tpl.add_container(values.consts.lsp_container_name, "lsp_image") %}
+{% do lsp.add_network(windmill_net) %}
 {% do lsp.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do lsp.healthcheck.set_test("wget", {"port": values.consts.lsp_internal_port, "path": "/health", "spider": false}) %}
 
@@ -104,6 +108,7 @@
 
 {# Caddy Container #}
 {% set caddy = tpl.add_container(values.consts.caddy_container_name, "caddy_image") %}
+{% do caddy.add_network(windmill_net) %}
 {% do caddy.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do caddy.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do caddy.add_caps(["NET_BIND_SERVICE"]) %}
