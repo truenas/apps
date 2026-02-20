@@ -1,7 +1,11 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set dawarich_net = tpl.networks.create_internal("dawarich-net") %}
+
 {% set app = tpl.add_container(values.consts.app_container_name, "image") %}
+{% do app.add_network(dawarich_net) %}
 {% set sidekiq = tpl.add_container(values.consts.sidekiq_container_name, "image") %}
+{% do sidekiq.add_network(dawarich_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
@@ -13,6 +17,7 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set postgis = tpl.deps.postgres(values.consts.postgis_container_name, values.dawarich.postgres_image_selector, pg_config, perm_container) %}
+{% do postgis.container.add_network(dawarich_net) %}
 
 {# Redis #}
 {% set redis_config = {
@@ -20,6 +25,7 @@
   "volume": tpl.funcs.temp_config("redis_data"),
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(dawarich_net) %}
 
 {% set application_hosts = (["127.0.0.1"] + values.dawarich.application_hosts)|unique|list %}
 
