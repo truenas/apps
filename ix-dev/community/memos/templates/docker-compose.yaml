@@ -1,6 +1,9 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set memos_net = tpl.networks.create_internal("memos-net") %}
+
 {% set c1 = tpl.add_container(values.consts.memos_container_name, "image") %}
+{% do c1.add_network(memos_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
@@ -10,8 +13,8 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.memos.postgres_image_selector, pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.memos.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(memos_net) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}

@@ -1,12 +1,16 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set karakeep_net = tpl.networks.create_internal("karakeep-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_user, "gid": values.consts.run_group, "mode": "check"} %}
 
 {% set meili_config = {"master_key": values.karakeep.meilisearch_master_key, "volume": values.storage.meili_data} %}
 {% set meilisearch = tpl.deps.meilisearch(values.consts.meilisearch_container_name, "meilisearch_image", meili_config, perm_container) %}
+{% do meilisearch.container.add_network(karakeep_net) %}
 
 {% set chrome = tpl.add_container(values.consts.chrome_container_name, "chrome_image") %}
+{% do chrome.add_network(karakeep_net) %}
 {% do chrome.healthcheck.set_test("netcat", {"port": values.consts.chrome_port}) %}
 {% do chrome.set_user(values.consts.run_user, values.consts.run_group) %}
 {% set tmp_config = {"type": "temporary", "volume_config": {"volume_name": "chrome-cache"}} %}
@@ -23,6 +27,7 @@
 ]) %}
 
 {% set c1 = tpl.add_container(values.consts.karakeep_container_name, "image") %}
+{% do c1.add_network(karakeep_net) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER"]) %}
 {% do c1.depends.add_dependency(values.consts.meilisearch_container_name, "service_healthy") %}

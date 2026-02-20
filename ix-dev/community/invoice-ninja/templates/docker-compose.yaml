@@ -1,8 +1,13 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set invoice_ninja_net = tpl.networks.create_internal("invoice-ninja-net") %}
+
 {% set c1 = tpl.add_container(values.consts.invoice_ninja_container_name, "image") %}
+{% do c1.add_network(invoice_ninja_net) %}
 {% set worker = tpl.add_container(values.consts.invoice_ninja_worker_container_name, "image") %}
+{% do worker.add_network(invoice_ninja_net) %}
 {% set scheduler = tpl.add_container(values.consts.invoice_ninja_scheduler_container_name, "image") %}
+{% do scheduler.add_network(invoice_ninja_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": 999, "gid": 999, "mode": "check"} %}
 {% set app_url = values.invoice_ninja.app_url.rstrip("/") %}
@@ -14,16 +19,15 @@
   "database": values.consts.db_name,
   "volume": values.storage.mariadb_data,
 } %}
-{% set mariadb = tpl.deps.mariadb(
-  values.consts.mariadb_container_name, "mariadb_image",
-  mariadb_config, perm_container,
-) %}
+{% set mariadb = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", mariadb_config, perm_container) %}
+{% do mariadb.container.add_network(invoice_ninja_net) %}
 
 {% set redis_config = {
   "password": values.invoice_ninja.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(invoice_ninja_net) %}
 
 {% set containers = [c1, worker, scheduler] %}
 {% for c in containers %}
