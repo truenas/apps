@@ -1,6 +1,9 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set recipes_net = tpl.networks.create_internal("recipes-net") %}
+
 {% set c1 = tpl.add_container(values.consts.recipes_container_name, "image") %}
+{% do c1.add_network(recipes_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set pg_config = {
@@ -10,6 +13,7 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.recipes.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(recipes_net) %}
 
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/openapi"}) %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
