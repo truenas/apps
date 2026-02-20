@@ -4,6 +4,8 @@
   {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %}
 
+{% set firefly_net = tpl.networks.create_internal("firefly-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
@@ -13,24 +15,25 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.firefly_iii.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.firefly_iii.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(firefly_net) %}
 
 {% set redis_config = {
   "password": values.firefly_iii.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(firefly_net) %}
 
 {% set app_url = values.firefly_iii.app_url.rstrip("/") %}
 {% set static_cron_token = tpl.funcs.secure_string(32) %}
 
 {% set c1 = tpl.add_container(values.consts.firefly_iii_container_name, "image") %}
+{% do c1.add_network(firefly_net) %}
 {% set cron = tpl.add_container(values.consts.firefly_iii_cron_container_name, "alpine_image") %}
+{% do cron.add_network(firefly_net) %}
 {% set importer = namespace(x=None) %}
+
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -79,6 +82,7 @@
 
 {% if values.firefly_iii.enable_importer %}
   {% set importer.x = tpl.add_container(values.consts.firefly_iii_importer_container_name, "importer_image") %}
+  {% do importer.x.add_network(firefly_net) %}
 
   {% do importer.x.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
   {% do importer.x.add_caps(["CHOWN", "FOWNER", "SETUID", "SETGID"]) %}

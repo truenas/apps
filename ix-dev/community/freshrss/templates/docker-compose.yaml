@@ -4,6 +4,8 @@
   {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %}
 
+{% set freshrss_net = tpl.networks.create_internal("freshrss-net") %}
+
 {#
   Script that consumes those values does not properly escape them.
   https://github.com/FreshRSS/FreshRSS/blob/26bb2aa975de30fbc9d7146128533637ac0fb26a/Docker/entrypoint.sh#L52C1-L83C3
@@ -14,6 +16,7 @@
 {% do tpl.funcs.disallow_chars(values.fresh_rss.db_password, disallowed_chars, "Database Password") %}
 
 {% set c1 = tpl.add_container(values.consts.fresh_rss_container_name, "image") %}
+{% do c1.add_network(freshrss_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set pg_config = {
@@ -22,11 +25,8 @@
   "database": values.fresh_rss.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.fresh_rss.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.fresh_rss.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(freshrss_net) %}
 
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
