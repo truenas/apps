@@ -1,5 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set zammad_net = tpl.networks.create_internal("zammad-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
@@ -11,10 +13,12 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.zammad.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(zammad_net) %}
 
 {# Elastic Search #}
 {% set es_config = {"password": values.zammad.elastic_password, "node_name": "zammad", "volume": values.storage.es_data} %}
 {% set es = tpl.deps.elasticsearch(values.consts.elastic_search_container_name, "elastic_search_image", es_config, perm_container) %}
+{% do es.container.add_network(zammad_net) %}
 
 {# Redis #}
 {% set redis_config = {
@@ -22,8 +26,12 @@
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(zammad_net) %}
+
 {# Memcached #}
 {% set memcached = tpl.deps.memcached(values.consts.memcached_container_name, "memcached_image", {"memory_mb": 256}) %}
+{% do memcached.container.add_network(zammad_net) %}
+
 
 {# Zammad Containers #}
 {% set init = tpl.add_container(values.consts.init_container_name, "image") %}
@@ -41,6 +49,7 @@
 } %}
 
 {% for name, c in containers.items() %}
+  {% do c.add_network(zammad_net) %}
   {% do c.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
   {% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
   {% if name != "init" %}

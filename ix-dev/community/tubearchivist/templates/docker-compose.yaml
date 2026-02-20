@@ -4,14 +4,19 @@
   {% do tpl.funcs.fail("You need at to set at least 1 App URL") %}
 {% endif %}
 
+{% set tube_net = tpl.networks.create_internal("tubearchivist-net") %}
+
 {% set c1 = tpl.add_container(values.consts.tubearchivist_container_name, "image") %}
+{% do c1.add_network(tube_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set es_config = {"password": values.tube.elastic_password, "node_name": "tubearchivist", "volume": values.storage.es_data} %}
 {% set es = tpl.deps.elasticsearch(values.consts.elastic_search_container_name, "elastic_search_image", es_config, perm_container) %}
+{% do es.container.add_network(tube_net) %}
 
 {% set redis_config = {"password": values.tube.redis_password, "volume": tpl.funcs.temp_config("redis_data")} %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(tube_net) %}
 
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER"]) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "host": "localhost", "path": "/api/health"}) %}

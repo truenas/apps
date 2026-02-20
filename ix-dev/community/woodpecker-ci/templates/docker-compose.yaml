@@ -1,8 +1,12 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set woodpecker_net = tpl.networks.create_internal("woodpecker-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set server = tpl.add_container(values.consts.server_container_name, "image") %}
+{% do server.add_network(woodpecker_net) %}
 {% set agent = tpl.add_container(values.consts.agent_container_name, "agent_image") %}
+{% do agent.add_network(woodpecker_net) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
@@ -11,11 +15,9 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.woodpecker.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.woodpecker.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(woodpecker_net) %}
+
 
 {# Agent #}
 {% set agent_labels = namespace(x=[]) %}
