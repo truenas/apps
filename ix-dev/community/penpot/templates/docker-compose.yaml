@@ -4,9 +4,14 @@
   {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %}
 
+{% set penpot_net = tpl.networks.create_internal("penpot-net") %}
+
 {% set frontend = tpl.add_container(values.consts.penpot_frontend_container_name, "image") %}
+{% do frontend.add_network(penpot_net) %}
 {% set backend = tpl.add_container(values.consts.penpot_backend_container_name, "backend_image") %}
+{% do backend.add_network(penpot_net) %}
 {% set exporter = tpl.add_container(values.consts.penpot_exporter_container_name, "exporter_image") %}
+{% do exporter.add_network(penpot_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set pg_config = {
@@ -15,17 +20,15 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.penpot.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.penpot.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(penpot_net) %}
 
 {% set redis_config = {
   "password": values.penpot.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(penpot_net) %}
 
 {% do backend.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do backend.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}

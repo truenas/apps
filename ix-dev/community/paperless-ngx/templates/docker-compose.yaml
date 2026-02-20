@@ -4,7 +4,10 @@
   {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %}
 
+{% set paperless_net = tpl.networks.create_internal("paperless-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -12,20 +15,18 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.paperless.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.paperless.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(paperless_net) %}
 
 {% set redis_config = {
   "password": values.paperless.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(paperless_net) %}
 
-{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 {% set paperless_container = tpl.add_container(values.consts.paperless_container_name, "image") %}
+{% do paperless_container.add_network(paperless_net) %}
 {% do paperless_container.set_user(0, 0) %}
 {% do paperless_container.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
 {% do paperless_container.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
@@ -86,8 +87,10 @@
 
 {% if values.paperless.enable_tika_gotenberg %}
   {% set tika_container = tpl.deps.tika(values.consts.tika_container_name, "tika_image", {"port": values.consts.tika_port}) %}
+  {% do tika_container.container.add_network(paperless_net) %}
 
   {% set gotenberg_container = tpl.add_container(values.consts.gotenberg_container_name, "gotenberg_image") %}
+  {% do gotenberg_container.add_network(paperless_net) %}
   {% do gotenberg_container.set_user(values.consts.gotenberg_run_user, values.consts.gotenberg_run_user) %}
   {% do gotenberg_container.environment.add_env("API_PORT", values.consts.gotenberg_port) %}
   {% do gotenberg_container.environment.add_env("CHROMIUM_DISABLE_JAVASCRIPT", values.paperless.gotenberg_chromium_disable_javascript|string|lower) %}

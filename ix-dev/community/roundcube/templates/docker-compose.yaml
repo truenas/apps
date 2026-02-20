@@ -4,7 +4,10 @@
   {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %}
 
+{% set roundcube_net = tpl.networks.create_internal("roundcube-net") %}
+
 {% set c1 = tpl.add_container(values.consts.roundcube_container_name, "image") %}
+{% do c1.add_network(roundcube_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set pg_config = {
@@ -13,11 +16,8 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.roundcube.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.roundcube.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(roundcube_net) %}
 
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}

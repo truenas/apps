@@ -3,6 +3,8 @@
 {% set proto = "https" if values.network.certificate_id else "http" %}
 {% set internal_port = values.consts.internal_https_port if values.network.certificate_id else values.consts.internal_http_port %}
 
+{% set passbolt_net = tpl.networks.create_internal("passbolt-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set mariadb_config = {
   "user": values.consts.db_user,
@@ -12,8 +14,11 @@
   "volume": values.storage.mariadb_data,
 } %}
 {% set mariadb_container = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", mariadb_config, perm_container) %}
+{% do mariadb_container.container.add_network(passbolt_net) %}
+
 {% set perms_config = {"uid": values.consts.passbolt_run_user, "gid": values.consts.passbolt_run_group, "mode": "check"} %}
 {% set c1 = tpl.add_container(values.consts.passbolt_container_name, values.passbolt.image_selector) %}
+{% do c1.add_network(passbolt_net) %}
 {% do c1.set_user(values.consts.passbolt_run_user, values.consts.passbolt_run_group) %}
 {% do c1.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
 {% do c1.healthcheck.set_test("curl", {"port": internal_port, "scheme": proto, "path": "/healthcheck/status"}) %}
