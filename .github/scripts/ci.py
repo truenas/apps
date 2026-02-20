@@ -133,7 +133,7 @@ def fix_permissions(file_path):
     print_stderr("Fixing permissions")
     cmd = " ".join(
         [
-            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace",
+            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace -e FAKE_ENV=1",
             f"--entrypoint /bin/bash {CONTAINER_IMAGE} -c 'chmod 777 /workspace/{file_path}'",
         ]
     )
@@ -152,6 +152,7 @@ def render_compose():
     cmd = " ".join(
         [
             f"docker run --platform {PLATFORM} --quiet --rm",
+            "-e FAKE_ENV=1",
             f"-v {os.getcwd()}:/workspace",
             "-v /var/run/docker.sock:/var/run/docker.sock:ro",
             CONTAINER_IMAGE,
@@ -456,7 +457,8 @@ def check_app_dir_exists():
 def copy_lib():
     cmd = " ".join(
         [
-            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
+            f"docker run --platform {PLATFORM} --quiet --rm"
+            f"-e FAKE_ENV=1 -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
             f"apps_catalog_hash_generate --path /workspace --train {args['train']} --app {args['app']}",
         ]
     )
