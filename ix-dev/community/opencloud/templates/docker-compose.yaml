@@ -2,7 +2,10 @@
 {% from "macros/radicale_config.ini" import radicale_config %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set opencloud_net = tpl.networks.create_internal("opencloud-net") %}
+
 {% set c1 = tpl.add_container(values.consts.opencloud_container_name, "image") %}
+{% do c1.add_network(opencloud_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
@@ -56,6 +59,7 @@
 {# TIKA #}
 {% if values.opencloud.full_text_search.enabled %}
   {% set tika = tpl.deps.tika(values.consts.tika_container_name, "tika_image", {"port": values.consts.tika_port}) %}
+  {% do tika.container.add_network(opencloud_net) %}
   {% do c1.depends.add_dependency(values.consts.tika_container_name, "service_healthy") %}
   {% do c1.environment.add_env("FRONTEND_FULL_TEXT_SEARCH_ENABLED", true) %}
   {% do c1.environment.add_env("SEARCH_EXTRACTOR_TYPE", "tika") %}
@@ -65,6 +69,7 @@
 {# Radicale (CalDAV/CardDAV) #}
 {% if values.opencloud.radicale.enabled %}
   {% set radicale = tpl.add_container(values.consts.radicale_container_name, "radicale_image") %}
+  {% do radicale.add_network(opencloud_net) %}
   {% do radicale.healthcheck.set_test("wget", {"port": values.consts.radicale_port}) %}
   {% do c1.depends.add_dependency(values.consts.radicale_container_name, "service_healthy") %}
 
