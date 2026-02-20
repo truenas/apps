@@ -1,18 +1,18 @@
 groups:
-  - name: Mail Archiver Configuration
-    description: Configure Mail Archiver
+  - name: Firefly III Configuration
+    description: Configure Firefly III
   - name: Network Configuration
-    description: Configure Network for Mail Archiver
+    description: Configure Network for Firefly III
   - name: Storage Configuration
-    description: Configure Storage for Mail Archiver
+    description: Configure Storage for Firefly III
   - name: Labels Configuration
-    description: Configure Labels for Mail Archiver
+    description: Configure Labels for Firefly III
   - name: Resources Configuration
-    description: Configure Resources for Mail Archiver
+    description: Configure Resources for Firefly III
 
 questions:
   - variable: TZ
-    group: Mail Archiver Configuration
+    group: Firefly III Configuration
     label: Timezone
     schema:
       type: string
@@ -21,9 +21,9 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: mail_archiver
+  - variable: firefly_iii
     label: ""
-    group: Mail Archiver Configuration
+    group: Firefly III Configuration
     schema:
       type: dict
       attrs:
@@ -41,33 +41,81 @@ questions:
             default: postgres_18_image
             required: true
             enum:
+              - value: postgres_15_image
+                description: Postgres 15 (Deprecated)
+              - value: postgres_17_image
+                description: Postgres 17
               - value: postgres_18_image
                 description: Postgres 18
         - variable: db_password
           label: Database Password
-          description: The password for Mail Archiver.
+          description: The password for Firefly III.
           schema:
             type: string
             default: ""
             required: true
             private: true
-        - variable: admin_username
-          label: Initial Admin Username
-          schema:
-            type: string
-            default: ""
-            required: true
-        - variable: admin_password
-          label: Initial Admin Password
+        - variable: redis_password
+          label: Redis Password
+          description: The password for Firefly III.
           schema:
             type: string
             default: ""
             required: true
             private: true
+        - variable: app_key
+          label: App Key
+          description: |
+            The app key for Firefly III.</br>
+            Must be exactly 32 characters long.</br>
+          schema:
+            type: string
+            min_length: 32
+            max_length: 32
+            default: ""
+            required: true
+            private: true
+        - variable: app_url
+          label: App URL
+          description: |
+            The base URL for Firefly III.</br>
+            Examples:</br>
+            https://firefly.example.com </br>
+            http://192.168.1.100:30064
+          schema:
+            type: uri
+            default: ""
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
             type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+        - variable: enable_importer
+          label: Enable Importer
+          description: Enable the importer for Firefly III
+          schema:
+            type: boolean
+            default: false
+        - variable: additional_importer_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            show_if: [["enable_importer", "=", true]]
             default: []
             items:
               - variable: env
@@ -119,7 +167,8 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30315
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30105
                   min: 1
                   max: 65535
                   required: true
@@ -138,6 +187,151 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
+        - variable: importer_port
+          label: Importer Port
+          description: The port for Firefly III Importer
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30028
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: firefly-iii
+                                        description: firefly-iii
+                                      - value: importer
+                                        description: importer
+                                      - value: cron
+                                        description: cron
+                                      - value: redis
+                                        description: redis
+                                      - value: postgres
+                                        description: postgres
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
 
   - variable: storage
     label: ""
@@ -145,8 +339,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: data
-          label: Data Storage
+        - variable: uploads
+          label: Firefly III Uploads Storage
+          description: The path to store Firefly III Uploads.
           schema:
             type: dict
             attrs:
@@ -186,7 +381,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "data"
+                        default: "uploads"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -221,7 +416,8 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: postgres_data
-          label: Postgres Data Storage
+          label: Firefly III Postgres Data Storage
+          description: The path to store Firefly III Postgres Data.
           schema:
             type: dict
             attrs:
@@ -463,7 +659,6 @@ questions:
                             schema:
                               type: string
                               required: true
-
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -498,8 +693,14 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: mail-archiver
-                            description: mail-archiver
+                          - value: firefly-iii
+                            description: firefly-iii
+                          - value: importer
+                            description: importer
+                          - value: cron
+                            description: cron
+                          - value: redis
+                            description: redis
                           - value: postgres
                             description: postgres
 
@@ -516,14 +717,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Mail Archiver.
+                description: CPUs limit for Firefly III.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Mail Archiver.
+                description: Memory limit for Firefly III.
                 schema:
                   type: int
                   default: 4096

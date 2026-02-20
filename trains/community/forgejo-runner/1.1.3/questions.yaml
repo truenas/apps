@@ -1,18 +1,20 @@
 groups:
-  - name: Mail Archiver Configuration
-    description: Configure Mail Archiver
+  - name: Forgejo Runner Configuration
+    description: Configure Forgejo Runner
+  - name: User and Group Configuration
+    description: Configure User and Group for Forgejo Runner
   - name: Network Configuration
-    description: Configure Network for Mail Archiver
+    description: Configure Network for Forgejo Runner
   - name: Storage Configuration
-    description: Configure Storage for Mail Archiver
+    description: Configure Storage for Forgejo Runner
   - name: Labels Configuration
-    description: Configure Labels for Mail Archiver
+    description: Configure Labels for Forgejo Runner
   - name: Resources Configuration
-    description: Configure Resources for Mail Archiver
+    description: Configure Resources for Forgejo Runner
 
 questions:
   - variable: TZ
-    group: Mail Archiver Configuration
+    group: Forgejo Runner Configuration
     label: Timezone
     schema:
       type: string
@@ -20,50 +22,46 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-
-  - variable: mail_archiver
+  - variable: forgejo_runner
     label: ""
-    group: Mail Archiver Configuration
+    group: Forgejo Runner Configuration
     schema:
       type: dict
       attrs:
-        - variable: postgres_image_selector
-          label: Postgres Image (CAUTION)
-          description: |
-            If you are changing this after the postgres directory has been initialized,</br>
-            STOP! and make sure you have a backup of your data.</br>
-            Changing this will trigger an one way database upgrade.</br>
-            You can only select newer versions of postgres.</br>
-            Selecting an older version will refuse to start.</br>
-            If something goes wrong, you will have to restore from backup.
+        - variable: instance_url
+          label: Instance URL
+          description: The URL of the Forgejo instance to use.
           schema:
             type: string
-            default: postgres_18_image
+            default: ""
             required: true
-            enum:
-              - value: postgres_18_image
-                description: Postgres 18
-        - variable: db_password
-          label: Database Password
-          description: The password for Mail Archiver.
+        - variable: runner_name
+          label: Runner Name
+          description: The name of the runner to use.
+          schema:
+            type: string
+            default: ""
+            required: true
+        - variable: runner_registration_token
+          label: Runner Registration Token
+          description: The registration token for the runner.
           schema:
             type: string
             default: ""
             required: true
             private: true
-        - variable: admin_username
-          label: Initial Admin Username
+        - variable: runner_labels
+          label: Runner Labels
+          description: The labels for the runner. (https://forgejo.org/docs/latest/admin/actions/#choosing-labels)
           schema:
-            type: string
-            default: ""
-            required: true
-        - variable: admin_password
-          label: Initial Admin Password
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
+            type: list
+            default: []
+            items:
+              - variable: label
+                label: Label
+                schema:
+                  type: string
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -84,61 +82,197 @@ questions:
                       label: Value
                       schema:
                         type: string
-
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Forgejo Runner files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Forgejo Runner files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
           schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
                 schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: forgejo-runner
+                                        description: forgejo-runner
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            show_if: [["dhcp_enabled", "=", false]]
+            default: false
+
+        - variable: additional_ports
+          label: Additional Ports
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            items:
+              - variable: port
+                label: Port
                 schema:
-                  type: int
-                  default: 30315
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
+                  type: dict
+                  attrs:
+                    - variable: bind_mode
+                      label: Port Bind Mode
+                      description: |
+                        The port bind mode.</br>
+                        - Publish: The port will be published on the host for external access.</br>
+                        - Expose: The port will be exposed for inter-container communication.</br>
+                      schema:
+                        type: string
+                        default: "published"
+                        enum:
+                          - value: "published"
+                            description: Publish port on the host for external access
+                          - value: "exposed"
+                            description: Expose port for inter-container communication
+                    - variable: port_number
+                      label: Port Number
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: container_port
+                      label: Container Port
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: protocol
+                      label: Protocol
                       schema:
                         type: string
                         required: true
-                        $ref:
-                          - definitions/node_bind_ip
-
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
+                    - variable: host_ips
+                      label: Host IPs
+                      description: IPs on the host to bind this port
+                      schema:
+                        type: list
+                        show_if: [["bind_mode", "=", "published"]]
+                        default: []
+                        items:
+                          - variable: host_ip
+                            label: Host IP
+                            schema:
+                              type: string
+                              required: true
+                              $ref:
+                                - definitions/node_bind_ip
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -146,7 +280,8 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Data Storage
+          label: Forgejo Runner Data Storage
+          description: The path to store Forgejo Runner Data.
           schema:
             type: dict
             attrs:
@@ -220,93 +355,6 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: postgres_data
-          label: Postgres Data Storage
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "postgres_data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this, will check the top level directory,</br>
-                        If it finds incorrect permissions, it will `chown` the
-                        host path to the user and group required for the
-                        postgres container.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
           schema:
@@ -463,7 +511,6 @@ questions:
                             schema:
                               type: string
                               required: true
-
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -498,10 +545,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: mail-archiver
-                            description: mail-archiver
-                          - value: postgres
-                            description: postgres
+                          - value: forgejo-runner
+                            description: forgejo-runner
 
   - variable: resources
     label: ""
@@ -516,14 +561,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Mail Archiver.
+                description: CPUs limit for Forgejo Runner.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Mail Archiver.
+                description: Memory limit for Forgejo Runner.
                 schema:
                   type: int
                   default: 4096
