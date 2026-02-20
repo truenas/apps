@@ -4,8 +4,12 @@
   {% do tpl.notes.add_deprecation("Postgres 15 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %}
 
+{% set vikunja_net = tpl.networks.create_internal("vikunja-net") %}
+
 {% set c1 = tpl.add_container(values.consts.vikunja_container_name, "image") %}
+{% do c1.add_network(vikunja_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -13,17 +17,15 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.vikunja.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.vikunja.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(vikunja_net) %}
 
 {% set redis_config = {
   "password": values.vikunja.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(vikunja_net) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -50,7 +52,6 @@
 {% do c1.environment.add_user_envs(values.vikunja.additional_envs) %}
 {% do c1.add_port(values.network.web_port) %}
 
-{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 {% for store in values.storage.additional_storage %}
