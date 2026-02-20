@@ -16,8 +16,12 @@
   ) %}
 {% endif %}
 
+{% set planka_net = tpl.networks.create_internal("planka-net") %}
+
 {% set c1 = tpl.add_container(values.consts.planka_container_name, "image") %}
+{% do c1.add_network(planka_net) %}
 {% set mig = tpl.add_container(values.consts.migration_container_name, "image") %}
+{% do mig.add_network(planka_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
@@ -28,6 +32,7 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.planka.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(planka_net) %}
 
 {% for c in [c1, mig] %}
   {% do c.set_user(values.run_as.user, values.run_as.group) %}
