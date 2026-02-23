@@ -1,0 +1,54 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set app = tpl.add_container(values.consts.app_container_name, "image") %}
+{% do app.set_user(values.run_as.user, values.run_as.group) %}
+{% do app.healthcheck.set_test("curl", {"port": 8080, "path": "/"}) %}
+
+{# Network #}
+{% if values.network.host_network %}
+  {% do app.set_network_mode("host") %}
+{% endif %}
+
+{# Port #}
+{% do app.add_port(values.network.web_port) %}
+
+{# Environment variables #}
+{% for env in values.glance.additional_envs %}
+  {% do app.environment.add_env(env.name, env.value) %}
+{% endfor %}
+
+{# Labels #}
+{% for label in values.labels %}
+  {% do app.labels.add_label(label.key, label.value) %}
+{% endfor %}
+
+{# Storage #}
+{% do app.add_storage("/app/config", values.storage.config) %}
+{% do app.add_storage("/app/assets", values.storage.assets) %}
+{% for store in values.storage.additional_storage %}
+  {% do app.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{# Docker socket (optional, for Docker containers widget) #}
+{% if values.glance.enable_docker_socket %}
+  {% do app.add_storage("/var/run/docker.sock", {"type": "host_path", "host_path_config": {"path": "/var/run/docker.sock", "acl_enable": false}, "read_only": true}) %}
+{% endif %}
+
+{# Permissions container #}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+{% do perms.add_or_skip_action("config", values.storage.config, perms_config) %}
+{% do perms.add_or_skip_action("assets", values.storage.assets, perms_config) %}
+{% for store in values.storage.additional_storage %}
+  {% do perms.add_or_skip_action("additional_storage_" ~ loop.index0, store, perms_config) %}
+{% endfor %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{# Portal #}
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
