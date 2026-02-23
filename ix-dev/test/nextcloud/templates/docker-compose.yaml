@@ -4,6 +4,8 @@
 {% from "macros/builder.jinja" import builder %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set nc_net = tpl.networks.create_internal("nextcloud-net") %}
+
 {% set nc_custom_image = namespace(x=[]) %}
 {% do builder(values.nextcloud.build, nc_custom_image) %}
 
@@ -17,11 +19,8 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.nextcloud.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.nextcloud.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(nc_net) %}
 
 {# -- Redis -- #}
 {% do tpl.funcs.disallow_chars(values.nextcloud.redis_password, ["&", "@", "#", "%"], "redis_password") %}
@@ -30,9 +29,11 @@
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(nc_net) %}
 
 {# -- Nextcloud -- #}
 {% set nc_container = tpl.add_container(values.consts.nextcloud_container_name, "image") %}
+{% do nc_container.add_network(nc_net) %}
 {% if nc_custom_image.x %}
   {% do nc_container.build_image(nc_custom_image.x) %}
 {% endif %}
@@ -158,6 +159,7 @@
 
 {# -- Nginx -- #}
 {% set nginx_container = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
+{% do nginx_container.add_network(nc_net) %}
 {% do nginx_container.set_user(values.run_as.user, values.run_as.group) %}
 {% do nginx_container.healthcheck.set_test("curl", {
   "port": values.network.web_port.port_number, "path": "/status.php",
@@ -177,6 +179,7 @@
 
 {# -- Cron -- #}
 {% set cron_container = tpl.add_container(values.consts.cron_container_name, "image") %}
+{% do cron_container.add_network(nc_net) %}
 {% do cron_container.set_user(values.run_as.user, values.run_as.group) %}
 {% do cron_container.healthcheck.disable() %}
 {% do cron_container.set_entrypoint(["/cron.sh"]) %}
@@ -192,6 +195,7 @@
 {% do nc_container.environment.add_env("IX_IMAGINARY", values.nextcloud.previews.enabled and values.nextcloud.previews.imaginary.enabled) %}
 {% if values.nextcloud.previews.enabled and values.nextcloud.previews.imaginary.enabled %}
   {% set imaginary_container = tpl.add_container(values.consts.imaginary_container_name, "imaginary_image") %}
+  {% do imaginary_container.add_network(nc_net) %}
   {% do imaginary_container.set_user(values.run_as.user, values.run_as.group) %}
   {% do imaginary_container.healthcheck.set_test("wget", {"port": values.consts.internal_imaginary_port, "path": "/health"}) %}
   {% do imaginary_container.set_entrypoint([
@@ -209,6 +213,7 @@
 {% do nc_container.environment.add_env("IX_NOTIFY_PUSH", values.nextcloud.notify_push.enabled) %}
 {% if values.nextcloud.notify_push.enabled %}
   {% set notify_push_container = tpl.add_container(values.consts.notify_push_container_name, "notify_push_image") %}
+  {% do notify_push_container.add_network(nc_net) %}
   {% do notify_push_container.set_user(values.run_as.user, values.run_as.group) %}
   {% do notify_push_container.healthcheck.set_test("curl", {
     "port": values.consts.internal_notify_push_port, "path": "/push/test/cookie",
