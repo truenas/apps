@@ -1,0 +1,23 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    if values["cloudflared"].get("mode") == "proxy-dns":
+        raise Exception("proxy-dns mode is no longer supported, please switch to tunnel mode")
+    values["cloudflared"].pop("mode", None)
+    values["cloudflared"].pop("tunnel_dns_upstream", None)
+    values["network"].pop("tunnel_dns_port", None)
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
