@@ -94,7 +94,7 @@
 {% do filer.add_port(values.network.filer_port) %}
 
 {# Filer Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/filer.go#L81 #}
-{% do filer.set_entrypoint([
+{% set filer_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "filer",
   "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
   "-ip=%s"|format(values.consts.filer_container_name),
@@ -102,6 +102,13 @@
   "-port=%d"|format(values.network.filer_port.port_number),
   "-defaultStoreDir=%s"|format(values.consts.data_path),
 ]) %}
+
+{% if values.network.filer_metrics_port.bind_mode %}
+  {% do filer_entrypoint.x.append("-metricsPort=%d"|format(values.network.filer_metrics_port.port_number)) %}
+  {% do filer.add_port(values.network.filer_metrics_port) %}
+{% endif %}
+
+{% do filer.set_entrypoint(filer_entrypoint.x) %}
 {% do filer.add_storage(values.consts.data_path, values.storage.filer_data) %}
 {% do perm_container.add_or_skip_action("filer-data", values.storage.filer_data, perms_config) %}
 
