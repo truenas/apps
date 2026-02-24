@@ -13,25 +13,10 @@
 {% do c1.environment.add_env("NO_AUTOUPDATE", true) %}
 {% do c1.environment.add_user_envs(values.cloudflared.additional_envs) %}
 
-{% set cmd = namespace(x=[]) %}
-
-{% if values.cloudflared.mode == "tunnel" %}
-  {% do cmd.x.extend(["tunnel", "run"]) %}
-  {% do c1.environment.add_env("TUNNEL_TOKEN", values.cloudflared.tunnel_token) %}
-
-{% elif values.cloudflared.mode == "proxy-dns" %}
-
-  {% do cmd.x.append("proxy-dns") %}
-  {% do cmd.x.extend(["--address", "0.0.0.0"]) %}
-  {% do cmd.x.extend(["--port", values.network.tunnel_dns_port.port_number]) %}
-  {% for upstream in values.cloudflared.tunnel_dns_upstream %}
-    {% do cmd.x.extend(["--upstream", upstream]) %}
-  {% endfor %}
-
-  {% do c1.add_port(values.network.tunnel_dns_port) %}
-{% endif %}
-
+{% set cmd = namespace(x=["tunnel", "run"]) %}
+{% do c1.environment.add_env("TUNNEL_TOKEN", values.cloudflared.tunnel_token) %}
 {% do cmd.x.extend(values.cloudflared.additional_args) %}
+
 {% do c1.set_command(cmd.x if not values.ci else ["tunnel", "--hello-world"]) %}
 
 {% for store in values.storage.additional_storage %}
