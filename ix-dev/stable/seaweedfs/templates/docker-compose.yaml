@@ -64,6 +64,7 @@
 {% do volume.healthcheck.set_test("wget", {"port": values.network.volume_port.port_number, "path": "/healthz"}) %}
 {% do volume.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
 {% do volume.add_port(values.network.volume_port) %}
+{% do volume.add_port(values.network.volume_metrics_port) %}
 
 {# Volume Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/volume.go#L75 #}
 {% set volume_entrypoint = namespace(x=[
@@ -80,7 +81,6 @@
 
 {% if values.network.volume_metrics_port.bind_mode %}
   {% do volume_entrypoint.x.append("-metricsPort=%d"|format(values.network.volume_metrics_port.port_number)) %}
-  {% do volume.add_port(values.network.volume_metrics_port) %}
 {% endif %}
 
 {% do volume.set_entrypoint(volume_entrypoint.x) %}
@@ -92,6 +92,7 @@
 {% do filer.depends.add_dependency(values.consts.master_container_name, "service_healthy") %}
 {% do filer.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
 {% do filer.add_port(values.network.filer_port) %}
+{% do filer.add_port(values.network.filer_metrics_port) %}
 
 {# Filer Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/filer.go#L81 #}
 {% set filer_entrypoint = namespace(x=[
@@ -105,7 +106,6 @@
 
 {% if values.network.filer_metrics_port.bind_mode %}
   {% do filer_entrypoint.x.append("-metricsPort=%d"|format(values.network.filer_metrics_port.port_number)) %}
-  {% do filer.add_port(values.network.filer_metrics_port) %}
 {% endif %}
 
 {% do filer.set_entrypoint(filer_entrypoint.x) %}
@@ -119,6 +119,7 @@
 {% do s3.depends.add_dependency(values.consts.volume_container_name, "service_healthy") %}
 {% do s3.depends.add_dependency(values.consts.filer_container_name, "service_healthy") %}
 {% do s3.add_port(values.network.s3_port) %}
+{% do s3.add_port(values.network.s3_metrics_port) %}
 
 {# S3 Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/s3.go#L62 #}
 {% set s3_entrypoint = namespace(x=[
@@ -127,6 +128,11 @@
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.s3_port.port_number),
 ]) %}
+
+{% if values.network.s3_metrics_port.bind_mode %}
+  {% do s3_entrypoint.x.append("-metricsPort=%d"|format(values.network.s3_metrics_port.port_number)) %}
+{% endif %}
+
 {% if values.network.s3_port.certificate_id %}
   {% set cert = values.ix_certificates[values.network.s3_port.certificate_id] %}
   {% do s3.configs.add("private", cert.privatekey, values.consts.s3_ssl_key_path) %}
@@ -134,11 +140,13 @@
   {% do s3_entrypoint.x.extend(["-key.file=%s"|format(values.consts.s3_ssl_key_path)]) %}
   {% do s3_entrypoint.x.extend(["-cert.file=%s"|format(values.consts.s3_ssl_cert_path)]) %}
 {% endif %}
+
 {% do s3.set_entrypoint(s3_entrypoint.x) %}
 
 {# Master #}
 {% do master.healthcheck.set_test("wget", {"port": values.network.master_port.port_number, "path": "/cluster/healthz"}) %}
 {% do master.add_port(values.network.master_port) %}
+{% do master.add_port(values.network.master_metrics_port) %}
 
 {# Master Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/master.go#L74 #}
 {% set master_entrypoint = namespace(x=[
@@ -149,6 +157,10 @@
   "-mdir=%s"|format(values.consts.data_path),
   "-volumeSizeLimitMB=%d"|format(values.seaweedfs.volume_size_limit_mb),
 ]) %}
+
+{% if values.network.master_metrics_port.bind_mode %}
+  {% do master_entrypoint.x.append("-metricsPort=%d"|format(values.network.master_metrics_port.port_number)) %}
+{% endif %}
 
 {% if values.seaweedfs.master_peers %}
   {% set peers = namespace(x=[]) %}
