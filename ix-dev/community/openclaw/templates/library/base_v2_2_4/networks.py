@@ -7,9 +7,11 @@ if TYPE_CHECKING:
 try:
     from .error import RenderError
     from .labels import Labels
+    from .validations import valid_mac_or_raise, valid_ip_or_raise
 except ImportError:
     from error import RenderError
     from labels import Labels
+    from validations import valid_mac_or_raise, valid_ip_or_raise
 
 
 class Networks:
@@ -103,8 +105,10 @@ class Network:
             result["name"] = self._config.name
         if self._config.external is not None:
             result["external"] = self._config.external
-        if self._config.enable_ipv4 is not None:
-            result["enable_ipv4"] = self._config.enable_ipv4
+        # FIXME: Re-enable after few months. this flag is added on compose v2.33.1
+        # TrueNAS 25.04 still uses docker-compose v2.32.3
+        # if self._config.enable_ipv4 is not None:
+        #     result["enable_ipv4"] = self._config.enable_ipv4
         if self._config.enable_ipv6 is not None:
             result["enable_ipv6"] = self._config.enable_ipv6
         if self._config.labels and self._config.labels.has_labels():
@@ -127,6 +131,8 @@ class ContainerNetworkConfig:
     """The network with the highest gw_priority is selected as the default gateway for the service container."""
     priority: int | None = None
     """Indicates in which order Compose connects the service’s containers to its networks."""
+    aliases: list[str] | None = None
+    """If set, this will be the list of DNS aliases for the network interface inside the container."""
 
 
 class ContainerNetworks:
@@ -188,6 +194,14 @@ class ContainerNetworks:
                         f"[{net._config.priority}] as network [{existing_net._name}]"
                         f" in container [{container_name}]"
                     )
+            if net._config.aliases and existing_net._config.aliases:
+                overlapping_aliases = set(net._config.aliases) & set(existing_net._config.aliases)
+                if overlapping_aliases:
+                    raise RenderError(
+                        f"Network [{net_name}] cannot have the same aliases "
+                        f"[{', '.join(overlapping_aliases)}] as network [{existing_net._name}]"
+                        f" in container [{container_name}]"
+                    )
 
         self._networks[net_name] = net
 
@@ -214,13 +228,19 @@ class ContainerNetwork:
         if self._config.interface_name:
             result["interface_name"] = self._config.interface_name
         if self._config.ipv4_address:
-            result["ipv4_address"] = self._config.ipv4_address
+            result["ipv4_address"] = valid_ip_or_raise(self._config.ipv4_address)
         if self._config.ipv6_address:
-            result["ipv6_address"] = self._config.ipv6_address
+            result["ipv6_address"] = valid_ip_or_raise(self._config.ipv6_address)
         if self._config.mac_address:
-            result["mac_address"] = self._config.mac_address
+            result["mac_address"] = valid_mac_or_raise(self._config.mac_address)
         if isinstance(self._config.gw_priority, int):
             result["gw_priority"] = self._config.gw_priority
         if isinstance(self._config.priority, int):
             result["priority"] = self._config.priority
+        if self._config.aliases:
+            if len(self._config.aliases) != len(set(self._config.aliases)):
+                raise RenderError(
+                    f"Network [{self._name}] cannot have duplicate aliases " f"[{', '.join(self._config.aliases)}]"
+                )
+            result["aliases"] = self._config.aliases
         return result
