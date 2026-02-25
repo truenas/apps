@@ -1,0 +1,23 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.aiostreams_container_name, "image") %}
+
+{% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/manifest.json"}) %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("BASE_URL", values.aiostreams.base_url) %}
+{% do c1.environment.add_env("SECRET_KEY", values.aiostreams.secret_key) %}
+{% do c1.environment.add_env("DATABASE_URI", "sqlite://./data/db.sqlite") %}
+{% do c1.environment.add_user_envs(values.aiostreams.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/app/data", values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
