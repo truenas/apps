@@ -21,14 +21,21 @@
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/home/coder/.local", values.storage.local) %}
-{% do perm_container.add_or_skip_action("local", values.storage.local, perms_config) %}
-
-{% do c1.add_storage("/home/coder/.config", values.storage.config) %}
-{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
-
-{% do c1.add_storage("/home/coder/project", values.storage.project) %}
-{% do perm_container.add_or_skip_action("project", values.storage.project, perms_config) %}
+{% if not values.storage.use_deprecated_volumes %}
+  {% do c1.add_storage("/home/coder", values.storage.homedir) %}
+  {% do perm_container.add_or_skip_action("homedir", values.storage.homedir, perms_config) %}
+{% else %}
+  {% set is_install = values.get("ix_context", {}).get("is_install", False) %}
+  {% if is_install %}
+    {% do tpl.funcs.fail("Cannot use deprecated storages in new installs. Please disable it and try again.") %}
+  {% endif %}
+  {% do c1.add_storage("/home/coder/.local", values.storage.local) %}
+  {% do perm_container.add_or_skip_action("local", values.storage.local, perms_config) %}
+  {% do c1.add_storage("/home/coder/.config", values.storage.config) %}
+  {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+  {% do c1.add_storage("/home/coder/project", values.storage.project) %}
+  {% do perm_container.add_or_skip_action("project", values.storage.project, perms_config) %}
+{% endif %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
