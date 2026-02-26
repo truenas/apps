@@ -30,10 +30,11 @@
 
 {% set c1 = tpl.add_container(values.consts.firefly_iii_container_name, "image") %}
 {% do c1.add_network(firefly_net) %}
-{% set cron = tpl.add_container(values.consts.firefly_iii_cron_container_name, "alpine_image") %}
-{% do cron.add_network(firefly_net) %}
-{% set importer = namespace(x=None) %}
 
+{% set cron = tpl.add_container(values.consts.firefly_iii_cron_container_name, "cron_image") %}
+{% do cron.add_network(firefly_net) %}
+
+{% set importer = namespace(x=None) %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -68,17 +69,17 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
+{% set crontasks = [
+  "0 3 * * * wget -qO- http://%s:%d/api/v1/cron/$CRON_TOKEN"|format(values.consts.firefly_iii_container_name, values.consts.internal_web_port),
+] %}
+
+{% do cron.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do cron.deploy.resources.set_profile("low") %}
-{% do cron.add_caps(["SETUID", "SETGID"]) %}
 {% do cron.depends.add_dependency(values.consts.firefly_iii_container_name, "service_healthy") %}
-{% do cron.healthcheck.set_test("pidof", {"process": "crond"}) %}
+{% do cron.environment.add_env("METRICS_PORT", 8080) %}
+{% do cron.healthcheck.set_test("curl", {"port": 8080, "path": "/health"}) %}
 {% do cron.environment.add_env("CRON_TOKEN", static_cron_token) %}
-{% do cron.build_image([
-  "RUN apk add --no-cache tzdata || { echo 'Failed to install tzdata'; exit 1; }",
-  "RUN (ln -s /usr/share/zoneinfo/%s /etc/localtime) || { echo 'Failed to set timezone'; exit 1; }"|format(values.TZ),
-  "RUN (echo '0 3 * * * wget -qO- http://%s:%d/api/v1/cron/$CRON_TOKEN' | crontab -) || { echo 'Failed to set cron job'; exit 1; }"|format(values.consts.firefly_iii_container_name, values.consts.internal_web_port),
-  'ENTRYPOINT ["crond", "-f", "-L", "/dev/stdout"]'
-])%}
+{% do cron.configs.add("crontasks", crontasks | join("\n"), "/crontasks") %}
 
 {% if values.firefly_iii.enable_importer %}
   {% set importer.x = tpl.add_container(values.consts.firefly_iii_importer_container_name, "importer_image") %}
