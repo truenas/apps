@@ -9,6 +9,11 @@
 {% set s3 = tpl.add_container(values.consts.s3_container_name, "image") %}
 {% set master = tpl.add_container(values.consts.master_container_name, "image") %}
 
+{% set admin_addr = "%s:%d.%d"|format(values.consts.admin_container_name, values.network.admin_port.port_number, values.network.admin_grpc_port.port_number) %}
+{% set master_addr = "%s:%d.%d"|format(values.consts.master_container_name, values.network.master_port.port_number, values.network.master_grpc_port.port_number) %}
+{% set volume_addr = "%s:%d.%d"|format(values.consts.volume_container_name, values.network.volume_port.port_number, values.network.volume_grpc_port.port_number) %}
+{% set filer_addr = "%s:%d.%d"|format(values.consts.filer_container_name, values.network.filer_port.port_number, values.network.filer_grpc_port.port_number) %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
@@ -37,11 +42,12 @@
 {# Admin Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/admin.go#L44 #}
 {% do admin.set_entrypoint([
   "/usr/bin/weed", "-logtostderr=true", "admin",
-  "-masters=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
+  "-masters=%s"|format(master_addr),
   "-dataDir=%s"|format(values.consts.data_path),
   "-adminUser=%s"|format(values.seaweedfs.admin_user),
   "-adminPassword=%s"|format(values.seaweedfs.admin_password),
   "-port=%d"|format(values.network.admin_port.port_number),
+  "-port.grpc=%d"|format(values.network.admin_grpc_port.port_number),
 ]) %}
 {% do admin.add_storage(values.consts.data_path, values.storage.admin_data) %}
 {% do perm_container.add_or_skip_action("admin-data", values.storage.admin_data, perms_config) %}
@@ -56,7 +62,7 @@
   "/usr/bin/weed", "-logtostderr=true", "worker",
   "-workingDir=%s"|format(values.consts.data_path),
   "-metricsPort=%d"|format(values.network.worker_metrics_port.port_number),
-  "-admin=%s:%d"|format(values.consts.admin_container_name, values.network.admin_port.port_number),
+  "-admin=%s"|format(admin_addr),
 ]) %}
 {% do worker.add_port(values.network.worker_metrics_port) %}
 
@@ -69,10 +75,11 @@
 {# Volume Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/volume.go#L75 #}
 {% set volume_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "volume",
-  "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
+  "-master=%s"|format(master_addr),
   "-ip=%s"|format(values.consts.volume_container_name),
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.volume_port.port_number),
+  "-port.grpc=%d"|format(values.network.volume_grpc_port.port_number),
   "-dir=%s"|format(values.consts.data_path),
   "-max=0",
   "-rack=%s"|format(values.seaweedfs.rack_name),
@@ -97,10 +104,11 @@
 {# Filer Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/filer.go#L81 #}
 {% set filer_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "filer",
-  "-master=%s:%d"|format(values.consts.master_container_name, values.network.master_port.port_number),
+  "-master=%s"|format(master_addr),
   "-ip=%s"|format(values.consts.filer_container_name),
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.filer_port.port_number),
+  "-port.grpc=%d"|format(values.network.filer_grpc_port.port_number),
   "-defaultStoreDir=%s"|format(values.consts.data_path),
 ]) %}
 
@@ -124,9 +132,10 @@
 {# S3 Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/s3.go#L62 #}
 {% set s3_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "s3",
-  "-filer=%s:%d"|format(values.consts.filer_container_name, values.network.filer_port.port_number),
+  "-filer=%s"|format(filer_addr),
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.s3_port.port_number),
+  "-port.grpc=%d"|format(values.network.s3_grpc_port.port_number),
 ]) %}
 
 {% if values.network.s3_metrics_port.bind_mode %}
@@ -154,6 +163,7 @@
   "-ip=%s"|format(values.consts.master_container_name),
   "-ip.bind=0.0.0.0",
   "-port=%d"|format(values.network.master_port.port_number),
+  "-port.grpc=%d"|format(values.network.master_grpc_port.port_number),
   "-mdir=%s"|format(values.consts.data_path),
   "-volumeSizeLimitMB=%d"|format(values.seaweedfs.volume_size_limit_mb),
 ]) %}
