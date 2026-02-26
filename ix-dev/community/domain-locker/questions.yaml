@@ -13,6 +13,16 @@ groups:
     description: Configure Resources for Domain Locker
 
 questions:
+  - variable: TZ
+    group: Domain Locker Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
   - variable: domain_locker
     label: ""
     group: Domain Locker Configuration
@@ -20,15 +30,21 @@ questions:
       type: dict
       attrs:
         - variable: postgres_image_selector
-          label: Postgres Image
-          description: Select the Postgres image to use.
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: postgres_15_image
+            default: postgres_18_image
             required: true
             enum:
-              - value: postgres_15_image
-                description: Postgres 15
+              - value: postgres_18_image
+                description: Postgres 18
         - variable: db_password
           label: Database Password
           schema:
@@ -114,7 +130,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30120
+                  default: 30376
                   min: 1
                   max: 65535
                   required: true
@@ -173,8 +189,8 @@ questions:
                                     enum:
                                       - value: domain-locker
                                         description: domain-locker
-                                      - value: domain-locker-updater
-                                        description: domain-locker-updater
+                                      - value: cron
+                                        description: cron
                                       - value: postgres
                                         description: postgres
                                 - variable: config
@@ -417,8 +433,6 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
-                              $ref:
-                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -512,11 +526,10 @@ questions:
                         enum:
                           - value: domain-locker
                             description: domain-locker
-                          - value: domain-locker-updater
-                            description: domain-locker-updater
+                          - value: cron
+                            description: cron
                           - value: postgres
                             description: postgres
-
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -540,5 +553,5 @@ questions:
                 description: Memory limit for Domain Locker.
                 schema:
                   type: int
-                  default: 2048
+                  default: 4096
                   required: true
