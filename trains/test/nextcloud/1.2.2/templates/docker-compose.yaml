@@ -181,7 +181,8 @@
 {% set cron_container = tpl.add_container(values.consts.cron_container_name, "image") %}
 {% do cron_container.add_network(nc_net) %}
 {% do cron_container.set_user(values.run_as.user, values.run_as.group) %}
-{% do cron_container.healthcheck.disable() %}
+{% do cron_container.environment.add_env("METRICS_PORT", 8080) %}
+{% do cron_container.healthcheck.set_test("curl", {"port": 8080, "path": "/health"}) %}
 {% do cron_container.set_entrypoint(["/cron.sh"]) %}
 {% do cron_container.depends.add_dependency(values.consts.nginx_container_name, "service_healthy") %}
 {% do cron_container.configs.add("crontasks", crontasks(values.nextcloud.cron.tasks), "/crontasks") %}
