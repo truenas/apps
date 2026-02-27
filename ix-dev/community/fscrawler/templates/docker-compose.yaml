@@ -11,6 +11,7 @@
 {% set es = tpl.deps.elasticsearch(values.consts.elastic_search_container_name, "elastic_search_image", es_config, perm_container) %}
 {% do es.container.add_network(fscrawler_net) %}
 
+{% do c1.environment.add_env("FSCRAWLER_NAME", values.fscrawler.job_name) %}
 {% do c1.environment.add_env("FSCRAWLER_ELASTICSEARCH_URLS", es.get_url()) %}
 {% do c1.environment.add_env("FSCRAWLER_ELASTICSEARCH_USERNAME", "elastic") %}
 {% do c1.environment.add_env("FSCRAWLER_ELASTICSEARCH_PASSWORD", values.fscrawler.elastic_password) %}
@@ -20,8 +21,8 @@
 {% do c1.depends.add_dependency(values.consts.elastic_search_container_name, "service_healthy") %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.rest_port.port_number}) %}
 {% set cmd = namespace(x=[
-  values.fscrawler.job_name,
-  "--loop", values.fscrawler.loop, "--rest",
+  "--rest",
+  "--loop", values.fscrawler.loop,
 ]) %}
 {% if values.fscrawler.restart %}
   {% do cmd.x.append("--restart") %}
