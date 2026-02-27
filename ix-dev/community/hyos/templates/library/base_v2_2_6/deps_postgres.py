@@ -31,6 +31,7 @@ MAX_POSTGRES_VERSION = 18
 SUPPORTED_REPOS = [
     "postgres",
     "postgis/postgis",
+    "paradedb/paradedb",
     "pgvector/pgvector",
     "timescale/timescaledb",
     "ghcr.io/immich-app/postgres",
@@ -38,6 +39,7 @@ SUPPORTED_REPOS = [
 SUPPORTED_UPGRADE_REPOS = [
     "postgres",
     "postgis/postgis",
+    "paradedb/paradedb",
     "pgvector/pgvector",
     # "timescale/timescaledb", // Currently NOT supported for upgrades
     "ghcr.io/immich-app/postgres",
@@ -78,6 +80,14 @@ def get_major_version(variant: str, tag: str):
 
     elif variant == "timescale/timescaledb":
         # 2.24.0-pg18
+        regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
+
+        def oper(x):
+            parts = x.split("-")
+            return parts[1].lstrip("pg")
+
+    elif variant == "paradedb/paradedb":
+        # 0.21.8-pg18
         regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
 
         def oper(x):
