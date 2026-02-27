@@ -86,27 +86,38 @@ questions:
                 description: Staging/beta channel
               - value: "nightly"
                 description: Nightly development builds
-        - variable: additional_envs
-          label: Additional Environment Variables
-          description: Extra environment variables to pass to the server
+        - variable: whitelist
+          label: Whitelist Players
+          description: Player UUIDs or names to whitelist (Leave blank for disabled whitelist)
           schema:
             type: list
             default: []
             items:
-              - variable: env
-                label: Environment Variable
+              - variable: whitelist_entry
+                label: Whitelist Entry
                 schema:
-                  type: dict
-                  attrs:
-                    - variable: name
-                      label: Name
-                      schema:
-                        type: string
-                        required: true
-                    - variable: value
-                      label: Value
-                      schema:
-                        type: string
+                  type: string
+                  required: true
+        - variable: skip_broken_mods
+          label: Skip Broken Mods
+          description: Auto-quarantine mods that fail to load
+          schema:
+            type: boolean
+            default: false
+        - variable: max_view_radius
+          label: Max View Radius
+          description: Maximum view radius in chunks
+          schema:
+            type: int
+            default: 32
+            min: 8
+            max: 64
+        - variable: cookie_secure
+          label: Secure Cookies
+          description: Enable secure (HTTPS-only) cookies for the Manager web UI
+          schema:
+            type: boolean
+            default: false
         - variable: auto_update
           label: Auto-Update Configuration
           description: Configure automatic server updates
@@ -168,113 +179,68 @@ questions:
                 schema:
                   type: string
                   default: "hyos-manager"
-        - variable: advanced
-          label: Advanced Configuration
-          description: Advanced Hytale server options
+        - variable: auth_mode
+          label: Authentication Mode
+          description: Server authentication mode
+          schema:
+            type: string
+            default: ""
+            enum:
+              - value: ""
+                description: Default (use cached tokens)
+              - value: "authenticated"
+                description: Require authentication
+              - value: "offline"
+                description: Offline mode (no authentication)
+        - variable: backup
+          label: Backup Configuration
+          description: Backup configuration for Hytale.
           schema:
             type: dict
             attrs:
-              - variable: show_advanced
-                label: Show Advanced Options
-                description: Display advanced server configuration options
-                schema:
-                  type: boolean
-                  default: false
-              - variable: auth_mode
-                label: Authentication Mode
-                description: Server authentication mode
-                schema:
-                  type: string
-                  show_if: [["show_advanced", "=", true]]
-                  default: ""
-                  enum:
-                    - value: ""
-                      description: Default (use cached tokens)
-                    - value: "authenticated"
-                      description: Require authentication
-                    - value: "offline"
-                      description: Offline mode (no authentication)
-              - variable: enable_aot
-                label: Enable AOT Cache
-                description: Enable Ahead-of-Time compilation cache for faster startup
-                schema:
-                  type: boolean
-                  show_if: [["show_advanced", "=", true]]
-                  default: true
-              - variable: disable_sentry
-                label: Disable Sentry
-                description: Disable Sentry error reporting
-                schema:
-                  type: boolean
-                  show_if: [["show_advanced", "=", true]]
-                  default: false
-              - variable: debug
-                label: Enable Debug Logging
-                description: Enable verbose debug logging
-                schema:
-                  type: boolean
-                  show_if: [["show_advanced", "=", true]]
-                  default: false
-              - variable: enable_backup
+              - variable: enabled
                 label: Enable Server Backups
                 description: Enable periodic world backups
                 schema:
                   type: boolean
-                  show_if: [["show_advanced", "=", true]]
                   default: false
-              - variable: backup_frequency
+              - variable: frequency
                 label: Backup Frequency (minutes)
                 description: How often to create backups
                 schema:
                   type: int
-                  show_if: [["enable_backup", "=", true]]
+                  show_if: [["enabled", "=", true]]
                   default: 60
                   min: 5
-              - variable: backup_max_count
+              - variable: max_count
                 label: Max Backup Count
                 description: Maximum number of backups to keep
                 schema:
                   type: int
-                  show_if: [["enable_backup", "=", true]]
+                  show_if: [["enabled", "=", true]]
                   default: 10
                   min: 1
-              - variable: whitelist_enabled
-                label: Enable Whitelist
-                description: Only allow whitelisted players to join
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: Extra environment variables to pass to the server
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
                 schema:
-                  type: boolean
-                  show_if: [["show_advanced", "=", true]]
-                  default: false
-              - variable: whitelist_list
-                label: Whitelist Players
-                description: Comma-separated list of player UUIDs or names
-                schema:
-                  type: string
-                  show_if: [["whitelist_enabled", "=", true]]
-                  default: ""
-              - variable: skip_broken_mods
-                label: Skip Broken Mods
-                description: Auto-quarantine mods that fail to load
-                schema:
-                  type: boolean
-                  show_if: [["show_advanced", "=", true]]
-                  default: false
-              - variable: max_view_radius
-                label: Max View Radius
-                description: Maximum view radius in chunks
-                schema:
-                  type: int
-                  show_if: [["show_advanced", "=", true]]
-                  default: 32
-                  min: 8
-                  max: 64
-              - variable: cookie_secure
-                label: Secure Cookies
-                description: Enable secure (HTTPS-only) cookies for the Manager web UI
-                schema:
-                  type: boolean
-                  show_if: [["show_advanced", "=", true]]
-                  default: false
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
 
   - variable: run_as
     label: ""
@@ -334,7 +300,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30520
+                  default: 30380
                   min: 1
                   max: 65535
                   required: true
@@ -382,7 +348,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30365
+                  default: 30381
                   min: 1
                   max: 65535
                   required: true
@@ -430,7 +396,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30366
+                  default: 30382
                   min: 1
                   max: 65535
                   required: true
@@ -548,8 +514,8 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Hytale Data Storage
-          description: |
+          label: Data Storage
+          description:
             The path to store all Hytale server data including worlds,
             mods, backups, and configuration files.
           schema:
@@ -558,8 +524,8 @@ questions:
               - variable: type
                 label: Type
                 description: |
-                  ixVolume: Dataset created automatically by the system.
-                  Host Path: Path that already exists on the system.
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
@@ -627,7 +593,6 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage mounts for the server
           schema:
             type: list
             default: []
@@ -640,10 +605,10 @@ questions:
                     - variable: type
                       label: Type
                       description: |
-                        ixVolume: Dataset created automatically by the system.
-                        Host Path: Path that already exists on the system.
-                        SMB Share: SMB share mounted as a volume.
-                        NFS Share: NFS share mounted as a volume.
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
                       schema:
                         type: string
                         required: true
@@ -726,7 +691,7 @@ questions:
                               attrs: []
                     - variable: cifs_config
                       label: SMB Configuration
-                      description: The configuration for the SMB share.
+                      description: The configuration for the SMB dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "cifs"]]
@@ -763,7 +728,7 @@ questions:
                               type: string
                     - variable: nfs_config
                       label: NFS Configuration
-                      description: The configuration for the NFS share.
+                      description: The configuration for the NFS dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "nfs"]]
@@ -816,9 +781,9 @@ questions:
                         required: true
                         enum:
                           - value: server
-                            description: Hytale Game Server
+                            description: server
                           - value: manager
-                            description: HyOS Manager Web UI
+                            description: manager
 
   - variable: resources
     label: ""
@@ -833,19 +798,15 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: |
-                  CPUs limit for the Hytale server.
-                  Recommended: 4+ cores for smooth gameplay.
+                description: CPUs limit for Hytale.
                 schema:
                   type: int
-                  default: 4
+                  default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: |
-                  Memory limit for the Hytale server.
-                  Should be at least 2GB more than JVM XMX setting.
+                description: Memory limit for Hytale.
                 schema:
                   type: int
-                  default: 12288
+                  default: 4096
                   required: true

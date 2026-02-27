@@ -5,67 +5,47 @@
 {% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% set containers = [server, mgr] %}
+
 {# Server #}
 {% do server.set_stdin(true) %}
-{% do server.set_user(values.run_as.user, values.run_as.group) %}
 {% do server.add_caps(["DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
 {% do server.healthcheck.set_custom_test(["CMD", "/opt/scripts/healthcheck.sh"]) %}
 
-{% do server.environment.add_env("SERVER_NAME", values.hytale.server_name) %}
 {% do server.environment.add_env("SERVER_PORT", values.network.game_port.port_number) %}
 {% do server.environment.add_env("API_ENABLED", true) %}
-{% do server.environment.add_env("API_CLIENT_SECRET", values.hytale.api.client_secret) %}
-{% do server.environment.add_env("API_CLIENT_ID", values.hytale.api.client_id) %}
 {% do server.environment.add_env("API_WEBSOCKET_ENABLED", true) %}
 {% do server.environment.add_env("API_REGENERATE_CONFIG", true) %}
+
+{% do server.environment.add_env("SERVER_NAME", values.hytale.server_name) %}
 {% do server.environment.add_env("MAX_PLAYERS", values.hytale.max_players) %}
 {% do server.environment.add_env("DEFAULT_GAMEMODE", values.hytale.default_gamemode) %}
 {% do server.environment.add_env("PATCHLINE", values.hytale.patchline) %}
-
-{% if values.hytale.server_motd %}
-  {% do server.environment.add_env("SERVER_MOTD", values.hytale.server_motd) %}
-{% endif %}
-{% if values.hytale.server_password %}
-  {% do server.environment.add_env("SERVER_PASSWORD", values.hytale.server_password) %}
-{% endif %}
-
+{% do server.environment.add_env("SERVER_MOTD", values.hytale.server_motd) %}
+{% do server.environment.add_env("SERVER_PASSWORD", values.hytale.server_password) %}
+{% do server.environment.add_env("API_CLIENT_SECRET", values.hytale.api.client_secret) %}
+{% do server.environment.add_env("API_CLIENT_ID", values.hytale.api.client_id) %}
+{% do server.environment.add_env("HYTALE_AUTH_MODE", values.hytale.auth_mode) %}
+{% do server.environment.add_env("SKIP_BROKEN_MODS", values.hytale.skip_broken_mods) %}
+{% do server.environment.add_env("MAX_VIEW_RADIUS", values.hytale.advanced.max_view_radius) %}
 {% do server.environment.add_env("AUTO_UPDATE", values.hytale.auto_update.enabled) %}
 {% if values.hytale.auto_update.enabled %}
   {% do server.environment.add_env("AUTO_UPDATE_INTERVAL", values.hytale.auto_update.interval) %}
-  {% if values.hytale.auto_update.time %}
-    {% do server.environment.add_env("AUTO_UPDATE_TIME", values.hytale.auto_update.time) %}
-  {% endif %}
+  {% do server.environment.add_env("AUTO_UPDATE_TIME", values.hytale.auto_update.time) %}
   {% do server.environment.add_env("AUTO_UPDATE_RESTART", values.hytale.auto_update.restart) %}
   {% do server.environment.add_env("AUTO_UPDATE_BACKUP", values.hytale.auto_update.backup) %}
 {% endif %}
-
-{% if values.hytale.advanced.show_advanced %}
-  {% if values.hytale.advanced.auth_mode %}
-    {% do server.environment.add_env("HYTALE_AUTH_MODE", values.hytale.advanced.auth_mode) %}
-  {% endif %}
-  {% do server.environment.add_env("ENABLE_AOT", values.hytale.advanced.enable_aot) %}
-  {% do server.environment.add_env("HYTALE_DISABLE_SENTRY", values.hytale.advanced.disable_sentry) %}
-  {% do server.environment.add_env("DEBUG", values.hytale.advanced.debug) %}
-  {% if values.hytale.advanced.enable_backup %}
-    {% do server.environment.add_env("HYTALE_BACKUP", true) %}
-    {% do server.environment.add_env("HYTALE_BACKUP_FREQUENCY", values.hytale.advanced.backup_frequency) %}
-    {% do server.environment.add_env("HYTALE_BACKUP_MAX_COUNT", values.hytale.advanced.backup_max_count) %}
-  {% endif %}
-  {% do server.environment.add_env("WHITELIST_ENABLED", values.hytale.advanced.whitelist_enabled) %}
-  {% if values.hytale.advanced.whitelist_enabled and values.hytale.advanced.whitelist_list %}
-    {% do server.environment.add_env("WHITELIST_LIST", values.hytale.advanced.whitelist_list) %}
-  {% endif %}
-  {% do server.environment.add_env("SKIP_BROKEN_MODS", values.hytale.advanced.skip_broken_mods) %}
-  {% do server.environment.add_env("MAX_VIEW_RADIUS", values.hytale.advanced.max_view_radius) %}
+{% do server.environment.add_env("HYTALE_BACKUP", values.hytale.backup.enabled) %}
+{% if values.hytale.backup.enabled %}
+  {% do server.environment.add_env("HYTALE_BACKUP_FREQUENCY", values.hytale.frequency) %}
+  {% do server.environment.add_env("HYTALE_BACKUP_MAX_COUNT", values.hytale.max_count) %}
+{% endif %}
+{% do server.environment.add_env("WHITELIST_ENABLED", values.hytale.whitelist|length > 0) %}
+{% if values.hytale.whitelist %}
+  {% do server.environment.add_env("WHITELIST_LIST", values.hytale.whitelist|join(",")) %}
 {% endif %}
 
-{% do server.environment.add_user_envs(values.hytale.additional_envs) %}
-
-{% do server.add_port(values.network.game_port, {"protocol": "udp"}) %}
-{% do server.add_port(values.network.api_port) %}
-
 {# Manager #}
-{% do mgr.set_user(values.run_as.user, values.run_as.group) %}
 {% do mgr.healthcheck.set_test("wget", {"port": values.network.manager_port.port_number, "path": "/api/health"}) %}
 {% do mgr.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do mgr.add_docker_socket(read_only=False) %}
@@ -73,31 +53,37 @@
 {% do mgr.environment.add_env("NODE_ENV", "production") %}
 {% do mgr.environment.add_env("ADAPTER_TYPE", "rest") %}
 {% do mgr.environment.add_env("HYTALE_CONTAINER_NAME", values.consts.server_container_name) %}
-{% do mgr.environment.add_env("HYTALE_STATE_DIR", "/data/.state") %}
+{% do mgr.environment.add_env("HYTALE_STATE_DIR", "%s/.state"|format(values.consts.data_path)) %}
 {% do mgr.environment.add_env("HYTALE_SERVER_HOST", values.consts.server_container_name) %}
 {% do mgr.environment.add_env("HYTALE_SERVER_PORT", values.network.api_port.port_number) %}
 {% do mgr.environment.add_env("API_CLIENT_SECRET", values.hytale.api.client_secret) %}
 {% do mgr.environment.add_env("API_CLIENT_ID", values.hytale.api.client_id) %}
 {% do mgr.environment.add_env("COOKIE_SECURE", values.hytale.advanced.cookie_secure) %}
 {% do mgr.environment.add_env("PORT", values.network.manager_port.port_number) %}
-{% do mgr.environment.add_user_envs(values.hytale.additional_envs) %}
 
 {% do mgr.add_port(values.network.manager_port) %}
+{% do server.add_port(values.network.game_port, {"protocol": "udp"}) %}
+{% do server.add_port(values.network.api_port) %}
 
-{% do server.add_storage(values.consts.data_path, values.storage.data) %}
-{% do mgr.add_storage(values.consts.data_path, values.storage.data) %}
+{% for c in containers %}
+  {% do c.set_user(values.run_as.user, values.run_as.group) %}
+  {% do c.environment.add_user_envs(values.hytale.additional_envs) %}
+  {% do c.add_storage(values.consts.data_path, values.storage.data) %}
+  {% for store in values.storage.additional_storage %}
+    {% do c.add_storage(store.mount_path, store) %}
+  {% endfor %}
+{% endfor %}
+
 {% do perms.add_or_skip_action("data", values.storage.data, perms_config) %}
-
 {% for store in values.storage.additional_storage %}
-  {% do server.add_storage(store.mount_path, store) %}
-  {% do mgr.add_storage(store.mount_path, store) %}
   {% do perms.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perms.has_actions() %}
   {% do perms.activate() %}
-  {% do server.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do mgr.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% for c in containers %}
+    {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endfor %}
 {% endif %}
 
 {% do tpl.portals.add(values.network.manager_port) %}
