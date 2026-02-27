@@ -1,6 +1,6 @@
 groups:
-  - name: Hytale Server Configuration
-    description: Configure the Hytale game server
+  - name: Hytale Configuration
+    description: Configure Hytale
   - name: User and Group Configuration
     description: Configure User and Group for Hytale
   - name: Network Configuration
@@ -47,8 +47,8 @@ questions:
           description: Password to join the server (leave blank for no password)
           schema:
             type: string
-            private: true
             default: ""
+            private: true
         - variable: max_players
           label: Max Players
           description: Maximum number of players allowed on the server
@@ -59,8 +59,8 @@ questions:
             min: 1
             max: 1000
         - variable: default_gamemode
-          label: Default Gamemode
-          description: The default gamemode for new players
+          label: Default Game Mode
+          description: The default game mode for new players
           schema:
             type: string
             required: true
@@ -107,41 +107,6 @@ questions:
                       label: Value
                       schema:
                         type: string
-        - variable: jvm
-          label: JVM & Memory Configuration
-          description: Configure Java Virtual Machine settings
-          schema:
-            type: dict
-            attrs:
-              - variable: xms
-                label: Initial Heap Size (XMS)
-                description: Initial Java heap size (e.g., 4G, 2048M)
-                schema:
-                  type: string
-                  required: true
-                  default: "4G"
-              - variable: xmx
-                label: Maximum Heap Size (XMX)
-                description: Maximum Java heap size (e.g., 8G, 4096M)
-                schema:
-                  type: string
-                  required: true
-                  default: "8G"
-              - variable: use_zgc
-                label: Use ZGC Garbage Collector
-                description: Enable ZGC instead of G1GC (recommended for large heaps)
-                schema:
-                  type: boolean
-                  default: false
-              - variable: g1_max_pause
-                label: G1GC Max Pause (ms)
-                description: Maximum pause time target for G1GC
-                schema:
-                  type: int
-                  show_if: [["use_zgc", "=", false]]
-                  default: 200
-                  min: 50
-                  max: 1000
         - variable: auto_update
           label: Auto-Update Configuration
           description: Configure automatic server updates
@@ -369,7 +334,6 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
                   default: 30520
                   min: 1
                   max: 65535
@@ -418,7 +382,6 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
                   default: 30365
                   min: 1
                   max: 65535
@@ -467,7 +430,6 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
                   default: 30366
                   min: 1
                   max: 65535
@@ -487,12 +449,97 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: host_network
-          label: Host Network
-          description: Bind to the host network (not recommended)
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
           schema:
-            type: boolean
-            default: false
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: server
+                                        description: server
+                                      - value: manager
+                                        description: manager
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
 
   - variable: storage
     label: ""
