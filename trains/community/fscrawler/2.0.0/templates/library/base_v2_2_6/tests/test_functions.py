@@ -19,6 +19,15 @@ def mock_values():
 
 def test_funcs(mock_values):
     mock_values["ix_volumes"] = {"test": "/mnt/test123"}
+    mock_values["resources"] = {
+        "gpus": {
+            "use_all_gpus": True,
+            "kfd_device_exists": True,
+            "nvidia_gpu_selection": {
+                "pci_slot_0": {"uuid": "uuid_0", "use_gpu": True},
+            },
+        }
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -164,6 +173,8 @@ def test_funcs(mock_values):
             "values": [{"a": 1, "b": 2}],
             "expected": "a: 1\nb: 2\n",
         },
+        {"func": "has_amd_gpu", "values": [], "expected": True},
+        {"func": "has_nvidia_gpu", "values": [], "expected": True},
     ]
 
     for test in tests:
