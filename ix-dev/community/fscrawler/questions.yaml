@@ -41,14 +41,12 @@ questions:
             required: true
             enum:
               - value: "image"
-                description: With OCR Support - Elasticsearch 7 and 8
+                description: With OCR Support
               - value: "no_ocr_image"
-                description: Without OCR Support - Elasticsearch 7 and 8
+                description: Without OCR Support
         - variable: job_name
           label: Job Name
-          description: |
-            The name of the FSCrawler job to run. </br>
-            A _settings.yaml file in the directory named after the job name will have to be manually created.
+          description: The name of the FSCrawler job to run.
           schema:
             type: string
             default: ""
@@ -57,9 +55,9 @@ questions:
           label: Loop
           description: |
             The number of times to run the job.</br>
-            https://fscrawler.readthedocs.io/en/latest/admin/cli-options.html#loop </br>
-            -1 means run forever. </br>
-            0 means never run. </br>
+            https://fscrawler.readthedocs.io/en/latest/admin/cli-options.html#loop</br>
+            -1 means run forever.</br>
+            0 means never run.</br>
           schema:
             type: int
             default: -1
@@ -75,6 +73,10 @@ questions:
             default: false
         - variable: additional_envs
           label: Additional Environment Variables
+          description: |
+            FSCrawler supports a set of default placeholders that you can define using environment variables.
+            The form of those placeholders is the prefix FSCRAWLER_ and the setting name.
+            For example, fs.url can be set using the environment variable FSCRAWLER_FS_URL.
           schema:
             type: list
             default: []
@@ -102,11 +104,7 @@ questions:
       attrs:
         - variable: rest_port
           label: REST Port
-          description: |
-            Enable Rest API Service for FSCrawler by setting bind mode to something other than None.</br>
-            https://fscrawler.readthedocs.io/en/latest/admin/fs/rest.html</br>
-            Additional configuration is needed in the job file. Check the Notes card
-            after installation for more information.
+          description: https://fscrawler.readthedocs.io/en/latest/admin/fs/rest.html
           schema:
             type: dict
             attrs:
@@ -157,7 +155,6 @@ questions:
           description: The docker networks to join
           schema:
             type: list
-            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -193,6 +190,8 @@ questions:
                                     enum:
                                       - value: fscrawler
                                         description: fscrawler
+                                      - value: elastic-search
+                                        description: elastic-search
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -241,22 +240,99 @@ questions:
                                         schema:
                                           type: int
                                           "null": true
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
-          schema:
-            type: boolean
-            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: jobs
-          label: FSCrawler Jobs Storage
-          description: The path to store FSCrawler Jobs.
+        - variable: root_dir
+          label: Root Directory (Crawler) Storage
+          description: |
+            Storage for files to be crawled/ingested. (aka The Root Directory)</br>
+            You can set this as read only, as the crawler shouldn't write to this directory.</br>
+            https://fscrawler.readthedocs.io/en/latest/admin/fs/local-fs.html#root-directory
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: read_only
+                label: Read Only
+                description: Mount the volume as read only.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "crawler"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: es_data
+          label: Elastic Search Data Storage
           schema:
             type: dict
             attrs:
@@ -296,7 +372,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "jobs"
+                        default: "es_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -520,6 +596,8 @@ questions:
                         enum:
                           - value: fscrawler
                             description: fscrawler
+                          - value: elastic-search
+                            description: elastic-search
   - variable: resources
     label: ""
     group: Resources Configuration
