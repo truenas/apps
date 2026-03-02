@@ -1,6 +1,8 @@
 groups:
   - name: Pulsarr Configuration
     description: Configure Pulsarr
+  - name: Authentication Configuration
+    description: Web Authentication Configuration for Pulsarr
   - name: User and Group Configuration
     description: Configure User and Group for Pulsarr
   - name: Network Configuration
@@ -25,12 +27,26 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: Pulsarr
+  - variable: pulsarr
     label: ""
     group: Pulsarr Configuration
     schema:
       type: dict
       attrs:
+        - variable: allow_iframes
+          label: Allow IFrames
+          description: Allow embedding in Organizr, Homarr, Homepage, etc.
+          schema:
+            type: boolean
+            default: false
+            required: true
+        - variable: log_requests
+          label: Enable Request Logging
+          description: Log all HTTP requests - useful for debugging reverse proxy issues
+          schema:
+            type: boolean
+            default: false
+            required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -51,6 +67,23 @@ questions:
                       label: Value
                       schema:
                         type: string
+
+  - variable: authentication
+    label: ""
+    group: Authentication Configuration
+    description: |
+      Web interface authentication mode
+    schema:
+      type: string
+      required: true
+      default: "required"
+      enum:
+        - value: "required"
+          description: Require username/password
+        - value: "requiredExceptLocal"
+          description: Require username/password except on LAN
+        - value: "disabled"
+          description: Disable web ui authentication
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -108,7 +141,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30357
+                  default: 3003
                   min: 1
                   max: 65535
                   required: true
@@ -224,13 +257,21 @@ questions:
             type: boolean
             default: false
 
+        - variable: cookies_secured
+          label: Secure Cookies
+          description: |
+            Set to true if accessing Pulsarr through HTTPS (reverse proxy)
+          schema:
+            type: boolean
+            default: false
+
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: config
+        - variable: app_data
           label: App Data Storage
           schema:
             type: dict
