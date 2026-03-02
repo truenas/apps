@@ -3,6 +3,10 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set opencloud_net = tpl.networks.create_internal("opencloud-net") %}
+{% set healthcheck_scheme = namespace(x="https") %}
+{% for env in values.opencloud.additional_envs if env.name == "PROXY_TLS" %}
+  {% set healthcheck_scheme.x = "http" if env.value|lower == "true" else "https" %}
+{% endfor %}
 
 {% set c1 = tpl.add_container(values.consts.opencloud_container_name, "image") %}
 {% do c1.add_network(opencloud_net) %}
@@ -52,7 +56,7 @@
 {% if has_additional_config.x %}{% set body.x = "%s\n\n%s"|format(body.x, values.consts.app_config_notes_body) %}{% endif %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz", "scheme": "https"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz", "scheme": healthcheck_scheme.x}) %}
 {% do c1.configs.add("entrypoint", values.consts.entrypoint_script, "/ix-entrypoint.sh", "0755") %}
 {% do c1.set_entrypoint(["/ix-entrypoint.sh"]) %}
 
