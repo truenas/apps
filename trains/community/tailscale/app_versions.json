@@ -1,15 +1,15 @@
 {
-    "1.3.15": {
+    "1.4.2": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/tailscale/1.3.15",
-        "last_update": "2025-10-06 12:19:46",
+        "location": "/__w/apps/apps/trains/community/tailscale/1.4.2",
+        "last_update": "2026-02-20 22:46:32",
         "required_features": [],
-        "human_version": "v1.88.3_1.3.15",
-        "version": "1.3.15",
+        "human_version": "v1.94.2_1.4.2",
+        "version": "1.4.2",
         "app_metadata": {
-            "app_version": "v1.88.3",
+            "app_version": "v1.94.2",
             "capabilities": [
                 {
                     "description": "Tailscale is able to change file ownership arbitrarily",
@@ -52,10 +52,11 @@
             "icon": "https://media.sys.truenas.net/apps/tailscale/icons/icon.png",
             "keywords": [
                 "vpn",
-                "tailscale"
+                "tailscale",
+                "wireguard"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.2.2",
+            "lib_version_hash": "68a92a0c1f8193b040cc1193f9648e9ec8bd6cef0b45d9d5c0d1a6e641f8146b",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -66,11 +67,11 @@
             "name": "tailscale",
             "run_as_context": [
                 {
-                    "description": "Tailscale runs as a root user.",
+                    "description": "Container [tailscale] runs as root user and group.",
                     "gid": 0,
-                    "group_name": "root",
+                    "group_name": "Host group is [root]",
                     "uid": 0,
-                    "user_name": "root"
+                    "user_name": "Host user is [root]"
                 }
             ],
             "screenshots": [],
@@ -80,7 +81,7 @@
             ],
             "title": "Tailscale",
             "train": "community",
-            "version": "1.3.15"
+            "version": "1.4.2"
         },
         "schema": {
             "groups": [
@@ -180,6 +181,15 @@
                                 "variable": "userspace",
                                 "label": "Userspace",
                                 "description": "Run Tailscale in userspace</br>\nSame as `--userspace` flag.\n",
+                                "schema": {
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            },
+                            {
+                                "variable": "accept_routes",
+                                "label": "Accept Routes",
+                                "description": "Accept routes</br>\nSame as `--accept-routes` flag.</br>\n Accept subnet routes that other nodes advertise.\n",
                                 "schema": {
                                     "type": "boolean",
                                     "default": false
@@ -295,6 +305,153 @@
                     "schema": {
                         "type": "dict",
                         "attrs": [
+                            {
+                                "variable": "networks",
+                                "label": "Networks",
+                                "description": "The docker networks to join",
+                                "schema": {
+                                    "type": "list",
+                                    "show_if": [
+                                        [
+                                            "host_network",
+                                            "=",
+                                            false
+                                        ]
+                                    ],
+                                    "default": [],
+                                    "items": [
+                                        {
+                                            "variable": "network",
+                                            "label": "Network",
+                                            "schema": {
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "name",
+                                                        "label": "Name",
+                                                        "description": "The name of the network to join.</br>\nThe network must already exist.\n",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "containers",
+                                                        "label": "Containers",
+                                                        "description": "The containers to add to this network.",
+                                                        "schema": {
+                                                            "type": "list",
+                                                            "items": [
+                                                                {
+                                                                    "variable": "container",
+                                                                    "label": "Container",
+                                                                    "schema": {
+                                                                        "type": "dict",
+                                                                        "attrs": [
+                                                                            {
+                                                                                "variable": "name",
+                                                                                "label": "Container Name",
+                                                                                "schema": {
+                                                                                    "type": "string",
+                                                                                    "required": true,
+                                                                                    "enum": [
+                                                                                        {
+                                                                                            "value": "tailscale",
+                                                                                            "description": "tailscale"
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "variable": "config",
+                                                                                "label": "Container Network Configuration",
+                                                                                "schema": {
+                                                                                    "type": "dict",
+                                                                                    "attrs": [
+                                                                                        {
+                                                                                            "variable": "aliases",
+                                                                                            "label": "Aliases (Optional)",
+                                                                                            "description": "The network aliases to use for this container on this network.",
+                                                                                            "schema": {
+                                                                                                "type": "list",
+                                                                                                "default": [],
+                                                                                                "items": [
+                                                                                                    {
+                                                                                                        "variable": "alias",
+                                                                                                        "label": "Alias",
+                                                                                                        "schema": {
+                                                                                                            "type": "string"
+                                                                                                        }
+                                                                                                    }
+                                                                                                ]
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "interface_name",
+                                                                                            "label": "Interface Name (Optional)",
+                                                                                            "description": "The network interface name to use for this network",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "mac_address",
+                                                                                            "label": "MAC Address (Optional)",
+                                                                                            "description": "The MAC address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "ipv4_address",
+                                                                                            "label": "IPv4 Address (Optional)",
+                                                                                            "description": "The IPv4 address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "ipv6_address",
+                                                                                            "label": "IPv6 Address (Optional)",
+                                                                                            "description": "The IPv6 address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "gw_priority",
+                                                                                            "label": "Gateway Priority (Optional)",
+                                                                                            "description": "Indicates the priority of the gateway for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "int",
+                                                                                                "null": true
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "priority",
+                                                                                            "label": "Priority (Optional)",
+                                                                                            "description": "Indicates in which order Compose connects the service's containers to its networks.",
+                                                                                            "schema": {
+                                                                                                "type": "int",
+                                                                                                "null": true
+                                                                                            }
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
                             {
                                 "variable": "host_network",
                                 "label": "Host Network",
@@ -840,7 +997,7 @@
         "readme": "<h1>Tailscale</h1> <p><a href=\"https://tailscale.com\">Tailscale</a> Secure remote access to shared resources</p> <ul> <li>When <code>Userspace</code> is <strong>disabled</strong>, <code>Tailscale</code> will run with <code>/dev/net/tun</code> device mounted from the host.</li> </ul>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "v1.88.3",
+            "app_version": "v1.94.2",
             "capabilities": [
                 {
                     "description": "Tailscale is able to change file ownership arbitrarily",
@@ -883,10 +1040,11 @@
             "icon": "https://media.sys.truenas.net/apps/tailscale/icons/icon.png",
             "keywords": [
                 "vpn",
-                "tailscale"
+                "tailscale",
+                "wireguard"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.2.2",
+            "lib_version_hash": "68a92a0c1f8193b040cc1193f9648e9ec8bd6cef0b45d9d5c0d1a6e641f8146b",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -897,11 +1055,11 @@
             "name": "tailscale",
             "run_as_context": [
                 {
-                    "description": "Tailscale runs as a root user.",
+                    "description": "Container [tailscale] runs as root user and group.",
                     "gid": 0,
-                    "group_name": "root",
+                    "group_name": "Host group is [root]",
                     "uid": 0,
-                    "user_name": "root"
+                    "user_name": "Host user is [root]"
                 }
             ],
             "screenshots": [],
@@ -911,7 +1069,7 @@
             ],
             "title": "Tailscale",
             "train": "community",
-            "version": "1.3.15"
+            "version": "1.4.2"
         }
     }
 }

@@ -1,6 +1,9 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set warracker_net = tpl.networks.create_internal("warracker-net") %}
+
 {% set c1 = tpl.add_container(values.consts.warracker_container_name, "image") %}
+{% do c1.add_network(warracker_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set pg_config = {
@@ -9,11 +12,8 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.warracker.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.warracker.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(warracker_net) %}
 
 {% do c1.add_caps(["NET_BIND_SERVICE", "CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
 {% do c1.healthcheck.set_test("curl", {"port": 80}) %}

@@ -1,21 +1,21 @@
 {
-    "1.0.10": {
+    "1.2.2": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/opencloud/1.0.10",
-        "last_update": "2025-10-06 12:19:46",
+        "location": "/__w/apps/apps/trains/community/opencloud/1.2.2",
+        "last_update": "2026-02-27 18:45:51",
         "required_features": [],
-        "human_version": "3.5.0_1.0.10",
-        "version": "1.0.10",
+        "human_version": "4.0.3_1.2.2",
+        "version": "1.2.2",
         "app_metadata": {
-            "app_version": "3.5.0",
+            "app_version": "4.0.3",
             "capabilities": [],
             "categories": [
                 "storage"
             ],
             "changelog_url": "https://github.com/opencloud-eu/opencloud/releases",
-            "date_added": "2025-09-12",
+            "date_added": "2025-09-17",
             "description": "Excellent file management and collaboration for public authorities, providers and business - or anyone who values ease of use and digital sovereignty.",
             "home": "https://opencloud.eu",
             "host_mounts": [],
@@ -24,8 +24,8 @@
                 "file sharing",
                 "collaboration"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.2.2",
+            "lib_version_hash": "68a92a0c1f8193b040cc1193f9648e9ec8bd6cef0b45d9d5c0d1a6e641f8146b",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -36,22 +36,36 @@
             "name": "opencloud",
             "run_as_context": [
                 {
-                    "description": "OpenCloud runs as any non-root user.",
+                    "description": "Container [opencloud] can run as any non-root user and group.",
                     "gid": 568,
-                    "group_name": "opencloud",
+                    "group_name": "Host group is [apps]",
                     "uid": 568,
-                    "user_name": "opencloud"
+                    "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [radicale] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [tika] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
                 }
             ],
             "screenshots": [],
             "sources": [
                 "https://docs.opencloud.eu/",
                 "https://github.com/OpenCloud/OpenCloud",
-                "https://hub.docker.com/r/opencloudeu/opencloud-rolling"
+                "https://hub.docker.com/r/opencloudeu/opencloud"
             ],
             "title": "OpenCloud",
             "train": "community",
-            "version": "1.0.10"
+            "version": "1.2.2"
         },
         "schema": {
             "groups": [
@@ -112,12 +126,192 @@
                                 }
                             },
                             {
-                                "variable": "insecure_access",
+                                "variable": "insecure",
                                 "label": "Insecure Access",
-                                "description": "Enabled: Allow access via self-signed SSL certificates.</br>\nDisabled: Require a valid SSL certificate.\n",
+                                "description": "Enabled: Allow access via self-signed SSL certificates.</br>\nDisabled: Require a valid SSL certificate.</br>\nNote: Even with insecure access enabled, WOPI might still require valid\nSSL certificates depending on the collaboration application used\nand its configuration.\n",
                                 "schema": {
                                     "type": "boolean",
                                     "default": true
+                                }
+                            },
+                            {
+                                "variable": "jwt_secret",
+                                "label": "JWT Secret",
+                                "description": "The secret to mint and validate JWT tokens.",
+                                "schema": {
+                                    "type": "string",
+                                    "default": "",
+                                    "private": true,
+                                    "required": true
+                                }
+                            },
+                            {
+                                "variable": "full_text_search",
+                                "label": "Full Text Search",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": true
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "radicale",
+                                "label": "Radicale (CalDAV, CardDAV)",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enable calendar and contacts",
+                                            "description": "\u26a0\ufe0f Enabling Radicale will also override the file `proxy.yaml` in your Config Storage.</br>\nYour original file will remain untouched. But a file will be created on a upper (docker) layer overriding the original file.</br>\n",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "collaboration",
+                                "label": "Collaboration",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false
+                                            }
+                                        },
+                                        {
+                                            "variable": "proof_disable",
+                                            "label": "Proof Key Disable",
+                                            "description": "Disable proof key validation for Collaboration.",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ]
+                                                ],
+                                                "default": true
+                                            }
+                                        },
+                                        {
+                                            "variable": "type",
+                                            "label": "Type",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "collabora",
+                                                "required": true,
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ]
+                                                ],
+                                                "enum": [
+                                                    {
+                                                        "value": "collabora",
+                                                        "description": "Collabora Online"
+                                                    },
+                                                    {
+                                                        "value": "onlyoffice",
+                                                        "description": "OnlyOffice"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "url",
+                                            "label": "URL",
+                                            "description": "The URL of the collaboration application. (e.g. https://collabora.example.com)",
+                                            "schema": {
+                                                "type": "uri",
+                                                "default": "",
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ]
+                                                ],
+                                                "required": true
+                                            }
+                                        },
+                                        {
+                                            "variable": "insecure",
+                                            "label": "Insecure",
+                                            "description": "Allow insecure connections to the collaboration application.",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ]
+                                                ],
+                                                "default": false
+                                            }
+                                        },
+                                        {
+                                            "variable": "jwt_secret",
+                                            "label": "JWT Secret",
+                                            "description": "The JWT secret for OnlyOffice authentication. It must match the secret configured in the OnlyOffice server.",
+                                            "schema": {
+                                                "type": "string",
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ],
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "onlyoffice"
+                                                    ]
+                                                ],
+                                                "default": "",
+                                                "private": true,
+                                                "required": true
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "extra_services",
+                                "label": "Extra Services",
+                                "description": "A list of additional services to start in the same OpenCloud process.</br>\nFor example `collaboration`. Additional config may be required depending on the service.\n",
+                                "schema": {
+                                    "type": "list",
+                                    "items": [
+                                        {
+                                            "variable": "service",
+                                            "label": "Service",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "",
+                                                "required": true
+                                            }
+                                        }
+                                    ]
                                 }
                             },
                             {
@@ -354,6 +548,195 @@
                                 }
                             },
                             {
+                                "variable": "additional_csp",
+                                "label": "Additional Content Security Policy",
+                                "description": "Additional Content Security Policy directives to add to the default CSP.</br>\nThese will be merged with the default CSP directives.</br>\nOnly add here directives/items that are not already present in the CSP File (/etc/opencloud/csp.yaml).</br>\nIf you notice a directive/item is missing that affects the core functionality of OpenCloud, </br>\nor any of the integrations configured via this UI, please open an issue on GitHub.</br>\nCSP keywords should be enclosed in single quotes.</br>\nExample: `'unsafe-eval'`\n",
+                                "schema": {
+                                    "type": "list",
+                                    "default": [],
+                                    "items": [
+                                        {
+                                            "variable": "csp_entry",
+                                            "label": "Content Security Policy Entry",
+                                            "schema": {
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "directive",
+                                                        "label": "Directive",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "enum": [
+                                                                {
+                                                                    "value": "child-src",
+                                                                    "description": "child-src"
+                                                                },
+                                                                {
+                                                                    "value": "connect-src",
+                                                                    "description": "connect-src"
+                                                                },
+                                                                {
+                                                                    "value": "default-src",
+                                                                    "description": "default-src"
+                                                                },
+                                                                {
+                                                                    "value": "font-src",
+                                                                    "description": "font-src"
+                                                                },
+                                                                {
+                                                                    "value": "frame-ancestors",
+                                                                    "description": "frame-ancestors"
+                                                                },
+                                                                {
+                                                                    "value": "frame-src",
+                                                                    "description": "frame-src"
+                                                                },
+                                                                {
+                                                                    "value": "img-src",
+                                                                    "description": "img-src"
+                                                                },
+                                                                {
+                                                                    "value": "manifest-src",
+                                                                    "description": "manifest-src"
+                                                                },
+                                                                {
+                                                                    "value": "media-src",
+                                                                    "description": "media-src"
+                                                                },
+                                                                {
+                                                                    "value": "object-src",
+                                                                    "description": "object-src"
+                                                                },
+                                                                {
+                                                                    "value": "script-src",
+                                                                    "description": "script-src"
+                                                                },
+                                                                {
+                                                                    "value": "style-src",
+                                                                    "description": "style-src"
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "items",
+                                                        "label": "Items",
+                                                        "schema": {
+                                                            "type": "list",
+                                                            "items": [
+                                                                {
+                                                                    "variable": "item",
+                                                                    "label": "Item",
+                                                                    "schema": {
+                                                                        "type": "dict",
+                                                                        "attrs": [
+                                                                            {
+                                                                                "variable": "value",
+                                                                                "label": "Value",
+                                                                                "schema": {
+                                                                                    "type": "string",
+                                                                                    "required": true
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "variable": "placeholder",
+                                                                                "label": "",
+                                                                                "schema": {
+                                                                                    "type": "string",
+                                                                                    "default": "",
+                                                                                    "hidden": true
+                                                                                }
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "additional_oidc_role_config",
+                                "label": "Additional OIDC Role Configuration",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false
+                                            }
+                                        },
+                                        {
+                                            "variable": "role_claim",
+                                            "label": "Role Claim",
+                                            "description": "The OIDC claim used to create the users role assignment.",
+                                            "schema": {
+                                                "type": "string",
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ]
+                                                ],
+                                                "required": true,
+                                                "default": "groups"
+                                            }
+                                        },
+                                        {
+                                            "variable": "role_mapping",
+                                            "label": "Role Mapping",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "mapping_entry",
+                                                        "label": "Mapping Entry",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "attrs": [
+                                                                {
+                                                                    "variable": "role_name",
+                                                                    "label": "Role Name",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "variable": "claim_value",
+                                                                    "label": "Claim Value",
+                                                                    "schema": {
+                                                                        "type": "string",
+                                                                        "required": true
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
                                 "variable": "additional_envs",
                                 "label": "Additional Environment Variables",
                                 "schema": {
@@ -502,12 +885,223 @@
                                 }
                             },
                             {
-                                "variable": "host_network",
-                                "label": "Host Network",
-                                "description": "Bind to the host network. It's recommended to keep this disabled.\n",
+                                "variable": "metrics_port",
+                                "label": "Metrics Port",
                                 "schema": {
-                                    "type": "boolean",
-                                    "default": false
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The port will not be exposed or published.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 30268,
+                                                "min": 1,
+                                                "max": 65535,
+                                                "required": true
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "networks",
+                                "label": "Networks",
+                                "description": "The docker networks to join",
+                                "schema": {
+                                    "type": "list",
+                                    "default": [],
+                                    "items": [
+                                        {
+                                            "variable": "network",
+                                            "label": "Network",
+                                            "schema": {
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "name",
+                                                        "label": "Name",
+                                                        "description": "The name of the network to join.</br>\nThe network must already exist.\n",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "containers",
+                                                        "label": "Containers",
+                                                        "description": "The containers to add to this network.",
+                                                        "schema": {
+                                                            "type": "list",
+                                                            "items": [
+                                                                {
+                                                                    "variable": "container",
+                                                                    "label": "Container",
+                                                                    "schema": {
+                                                                        "type": "dict",
+                                                                        "attrs": [
+                                                                            {
+                                                                                "variable": "name",
+                                                                                "label": "Container Name",
+                                                                                "schema": {
+                                                                                    "type": "string",
+                                                                                    "required": true,
+                                                                                    "enum": [
+                                                                                        {
+                                                                                            "value": "opencloud",
+                                                                                            "description": "opencloud"
+                                                                                        },
+                                                                                        {
+                                                                                            "value": "tika",
+                                                                                            "description": "tika"
+                                                                                        },
+                                                                                        {
+                                                                                            "value": "radicale",
+                                                                                            "description": "radicale"
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "variable": "config",
+                                                                                "label": "Container Network Configuration",
+                                                                                "schema": {
+                                                                                    "type": "dict",
+                                                                                    "attrs": [
+                                                                                        {
+                                                                                            "variable": "aliases",
+                                                                                            "label": "Aliases (Optional)",
+                                                                                            "description": "The network aliases to use for this container on this network.",
+                                                                                            "schema": {
+                                                                                                "type": "list",
+                                                                                                "default": [],
+                                                                                                "items": [
+                                                                                                    {
+                                                                                                        "variable": "alias",
+                                                                                                        "label": "Alias",
+                                                                                                        "schema": {
+                                                                                                            "type": "string"
+                                                                                                        }
+                                                                                                    }
+                                                                                                ]
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "interface_name",
+                                                                                            "label": "Interface Name (Optional)",
+                                                                                            "description": "The network interface name to use for this network",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "mac_address",
+                                                                                            "label": "MAC Address (Optional)",
+                                                                                            "description": "The MAC address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "ipv4_address",
+                                                                                            "label": "IPv4 Address (Optional)",
+                                                                                            "description": "The IPv4 address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "ipv6_address",
+                                                                                            "label": "IPv6 Address (Optional)",
+                                                                                            "description": "The IPv6 address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "gw_priority",
+                                                                                            "label": "Gateway Priority (Optional)",
+                                                                                            "description": "Indicates the priority of the gateway for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "int",
+                                                                                                "null": true
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "priority",
+                                                                                            "label": "Priority (Optional)",
+                                                                                            "description": "Indicates in which order Compose connects the service's containers to its networks.",
+                                                                                            "schema": {
+                                                                                                "type": "int",
+                                                                                                "null": true
+                                                                                            }
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
                                 }
                             }
                         ]
@@ -724,6 +1318,149 @@
                                                             "required": true,
                                                             "hidden": true,
                                                             "default": "data"
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl_entries",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": []
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_path_config",
+                                            "label": "Host Path Configuration",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "host_path"
+                                                    ]
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "acl",
+                                                        "label": "ACL Configuration",
+                                                        "schema": {
+                                                            "type": "dict",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    true
+                                                                ]
+                                                            ],
+                                                            "attrs": [],
+                                                            "$ref": [
+                                                                "normalize/acl"
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "path",
+                                                        "label": "Host Path",
+                                                        "description": "The host path to use for storage.",
+                                                        "schema": {
+                                                            "type": "hostpath",
+                                                            "show_if": [
+                                                                [
+                                                                    "acl_enable",
+                                                                    "=",
+                                                                    false
+                                                                ]
+                                                            ],
+                                                            "required": true
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "radicale_data",
+                                "label": "Radicale Data Storage",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "type",
+                                            "label": "Type",
+                                            "description": "ixVolume: Is dataset created automatically by the system.</br>\nHost Path: Is a path that already exists on the system.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "required": true,
+                                                "default": "ix_volume",
+                                                "enum": [
+                                                    {
+                                                        "value": "host_path",
+                                                        "description": "Host Path (Path that already exists on the system)"
+                                                    },
+                                                    {
+                                                        "value": "ix_volume",
+                                                        "description": "ixVolume (Dataset created automatically by the system)"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "ix_volume_config",
+                                            "label": "ixVolume Configuration",
+                                            "description": "The configuration for the ixVolume dataset.",
+                                            "schema": {
+                                                "type": "dict",
+                                                "show_if": [
+                                                    [
+                                                        "type",
+                                                        "=",
+                                                        "ix_volume"
+                                                    ]
+                                                ],
+                                                "$ref": [
+                                                    "normalize/ix_volume"
+                                                ],
+                                                "attrs": [
+                                                    {
+                                                        "variable": "acl_enable",
+                                                        "label": "Enable ACL",
+                                                        "description": "Enable ACL for the storage.",
+                                                        "schema": {
+                                                            "type": "boolean",
+                                                            "default": false
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "dataset_name",
+                                                        "label": "Dataset Name",
+                                                        "description": "The name of the dataset to use for storage.",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "hidden": true,
+                                                            "default": "radicale_data"
                                                         }
                                                     },
                                                     {
@@ -1134,6 +1871,14 @@
                                                                 {
                                                                     "value": "opencloud",
                                                                     "description": "opencloud"
+                                                                },
+                                                                {
+                                                                    "value": "tika",
+                                                                    "description": "tika"
+                                                                },
+                                                                {
+                                                                    "value": "radicale",
+                                                                    "description": "radicale"
                                                                 }
                                                             ]
                                                         }
@@ -1191,13 +1936,13 @@
         "readme": "<h1>OpenCloud</h1> <p><a href=\"https://opencloud.eu\">OpenCloud</a> is an excellent file management and collaboration for public authorities, providers and business - or anyone who values ease of use and digital sovereignty.</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "3.5.0",
+            "app_version": "4.0.3",
             "capabilities": [],
             "categories": [
                 "storage"
             ],
             "changelog_url": "https://github.com/opencloud-eu/opencloud/releases",
-            "date_added": "2025-09-12",
+            "date_added": "2025-09-17",
             "description": "Excellent file management and collaboration for public authorities, providers and business - or anyone who values ease of use and digital sovereignty.",
             "home": "https://opencloud.eu",
             "host_mounts": [],
@@ -1206,8 +1951,8 @@
                 "file sharing",
                 "collaboration"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.2.2",
+            "lib_version_hash": "68a92a0c1f8193b040cc1193f9648e9ec8bd6cef0b45d9d5c0d1a6e641f8146b",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -1218,22 +1963,36 @@
             "name": "opencloud",
             "run_as_context": [
                 {
-                    "description": "OpenCloud runs as any non-root user.",
+                    "description": "Container [opencloud] can run as any non-root user and group.",
                     "gid": 568,
-                    "group_name": "opencloud",
+                    "group_name": "Host group is [apps]",
                     "uid": 568,
-                    "user_name": "opencloud"
+                    "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [radicale] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [tika] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
                 }
             ],
             "screenshots": [],
             "sources": [
                 "https://docs.opencloud.eu/",
                 "https://github.com/OpenCloud/OpenCloud",
-                "https://hub.docker.com/r/opencloudeu/opencloud-rolling"
+                "https://hub.docker.com/r/opencloudeu/opencloud"
             ],
             "title": "OpenCloud",
             "train": "community",
-            "version": "1.0.10"
+            "version": "1.2.2"
         }
     }
 }

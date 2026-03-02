@@ -1,15 +1,15 @@
 {
-    "1.0.7": {
+    "1.1.2": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/zoraxy/1.0.7",
-        "last_update": "2025-10-06 12:19:46",
+        "location": "/__w/apps/apps/trains/community/zoraxy/1.1.2",
+        "last_update": "2026-02-20 22:46:32",
         "required_features": [],
-        "human_version": "v3.2.6_1.0.7",
-        "version": "1.0.7",
+        "human_version": "v3.3.1_1.1.2",
+        "version": "1.1.2",
         "app_metadata": {
-            "app_version": "v3.2.6",
+            "app_version": "v3.3.1",
             "capabilities": [
                 {
                     "description": "Zoraxy is able to perform network administration tasks",
@@ -24,7 +24,7 @@
                 "networking"
             ],
             "changelog_url": "https://github.com/tobychui/zoraxy/releases",
-            "date_added": "2025-09-04",
+            "date_added": "2025-09-05",
             "description": "A general purpose HTTP reverse proxy and forwarding tool.",
             "home": "https://zoraxy.aroz.org/",
             "host_mounts": [
@@ -38,8 +38,8 @@
                 "proxy",
                 "reverse-proxy"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.2.2",
+            "lib_version_hash": "68a92a0c1f8193b040cc1193f9648e9ec8bd6cef0b45d9d5c0d1a6e641f8146b",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -50,11 +50,11 @@
             "name": "zoraxy",
             "run_as_context": [
                 {
-                    "description": "Zoraxy runs as a root user.",
+                    "description": "Container [zoraxy] runs as root user and group.",
                     "gid": 0,
-                    "group_name": "root",
+                    "group_name": "Host group is [root]",
                     "uid": 0,
-                    "user_name": "root"
+                    "user_name": "Host user is [root]"
                 }
             ],
             "screenshots": [],
@@ -65,7 +65,7 @@
             ],
             "title": "Zoraxy",
             "train": "community",
-            "version": "1.0.7"
+            "version": "1.1.2"
         },
         "schema": {
             "groups": [
@@ -92,6 +92,19 @@
             ],
             "questions": [
                 {
+                    "variable": "TZ",
+                    "group": "Zoraxy Configuration",
+                    "label": "Timezone",
+                    "schema": {
+                        "type": "string",
+                        "default": "Etc/UTC",
+                        "required": true,
+                        "$ref": [
+                            "definitions/timezone"
+                        ]
+                    }
+                },
+                {
                     "variable": "zoraxy",
                     "label": "",
                     "group": "Zoraxy Configuration",
@@ -111,6 +124,15 @@
                                 "variable": "enable_zerotier",
                                 "label": "Enable ZeroTier",
                                 "description": "Enable ZeroTier functionality for GAN.",
+                                "schema": {
+                                    "type": "boolean",
+                                    "default": false
+                                }
+                            },
+                            {
+                                "variable": "enable_mdns",
+                                "label": "Enable mDNS",
+                                "description": "Enable multicast DNS.</br>\nIt will not work unless you have host networking enabled.\n",
                                 "schema": {
                                     "type": "boolean",
                                     "default": false
@@ -332,6 +354,153 @@
                                                                         "required": true,
                                                                         "$ref": [
                                                                             "definitions/node_bind_ip"
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "networks",
+                                "label": "Networks",
+                                "description": "The docker networks to join",
+                                "schema": {
+                                    "type": "list",
+                                    "show_if": [
+                                        [
+                                            "host_network",
+                                            "=",
+                                            false
+                                        ]
+                                    ],
+                                    "default": [],
+                                    "items": [
+                                        {
+                                            "variable": "network",
+                                            "label": "Network",
+                                            "schema": {
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "name",
+                                                        "label": "Name",
+                                                        "description": "The name of the network to join.</br>\nThe network must already exist.\n",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "containers",
+                                                        "label": "Containers",
+                                                        "description": "The containers to add to this network.",
+                                                        "schema": {
+                                                            "type": "list",
+                                                            "items": [
+                                                                {
+                                                                    "variable": "container",
+                                                                    "label": "Container",
+                                                                    "schema": {
+                                                                        "type": "dict",
+                                                                        "attrs": [
+                                                                            {
+                                                                                "variable": "name",
+                                                                                "label": "Container Name",
+                                                                                "schema": {
+                                                                                    "type": "string",
+                                                                                    "required": true,
+                                                                                    "enum": [
+                                                                                        {
+                                                                                            "value": "zoraxy",
+                                                                                            "description": "zoraxy"
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "variable": "config",
+                                                                                "label": "Container Network Configuration",
+                                                                                "schema": {
+                                                                                    "type": "dict",
+                                                                                    "attrs": [
+                                                                                        {
+                                                                                            "variable": "aliases",
+                                                                                            "label": "Aliases (Optional)",
+                                                                                            "description": "The network aliases to use for this container on this network.",
+                                                                                            "schema": {
+                                                                                                "type": "list",
+                                                                                                "default": [],
+                                                                                                "items": [
+                                                                                                    {
+                                                                                                        "variable": "alias",
+                                                                                                        "label": "Alias",
+                                                                                                        "schema": {
+                                                                                                            "type": "string"
+                                                                                                        }
+                                                                                                    }
+                                                                                                ]
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "interface_name",
+                                                                                            "label": "Interface Name (Optional)",
+                                                                                            "description": "The network interface name to use for this network",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "mac_address",
+                                                                                            "label": "MAC Address (Optional)",
+                                                                                            "description": "The MAC address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "ipv4_address",
+                                                                                            "label": "IPv4 Address (Optional)",
+                                                                                            "description": "The IPv4 address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "ipv6_address",
+                                                                                            "label": "IPv6 Address (Optional)",
+                                                                                            "description": "The IPv6 address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "gw_priority",
+                                                                                            "label": "Gateway Priority (Optional)",
+                                                                                            "description": "Indicates the priority of the gateway for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "int",
+                                                                                                "null": true
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "priority",
+                                                                                            "label": "Priority (Optional)",
+                                                                                            "description": "Indicates in which order Compose connects the service's containers to its networks.",
+                                                                                            "schema": {
+                                                                                                "type": "int",
+                                                                                                "null": true
+                                                                                            }
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            }
                                                                         ]
                                                                     }
                                                                 }
@@ -1031,7 +1200,7 @@
         "readme": "<h1>Zoraxy</h1> <p><a href=\"https://zoraxy.aroz.org/\">Zoraxy</a> A general purpose HTTP reverse proxy and forwarding tool.</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "v3.2.6",
+            "app_version": "v3.3.1",
             "capabilities": [
                 {
                     "description": "Zoraxy is able to perform network administration tasks",
@@ -1046,7 +1215,7 @@
                 "networking"
             ],
             "changelog_url": "https://github.com/tobychui/zoraxy/releases",
-            "date_added": "2025-09-04",
+            "date_added": "2025-09-05",
             "description": "A general purpose HTTP reverse proxy and forwarding tool.",
             "home": "https://zoraxy.aroz.org/",
             "host_mounts": [
@@ -1060,8 +1229,8 @@
                 "proxy",
                 "reverse-proxy"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.2.2",
+            "lib_version_hash": "68a92a0c1f8193b040cc1193f9648e9ec8bd6cef0b45d9d5c0d1a6e641f8146b",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -1072,11 +1241,11 @@
             "name": "zoraxy",
             "run_as_context": [
                 {
-                    "description": "Zoraxy runs as a root user.",
+                    "description": "Container [zoraxy] runs as root user and group.",
                     "gid": 0,
-                    "group_name": "root",
+                    "group_name": "Host group is [root]",
                     "uid": 0,
-                    "user_name": "root"
+                    "user_name": "Host user is [root]"
                 }
             ],
             "screenshots": [],
@@ -1087,7 +1256,7 @@
             ],
             "title": "Zoraxy",
             "train": "community",
-            "version": "1.0.7"
+            "version": "1.1.2"
         }
     }
 }

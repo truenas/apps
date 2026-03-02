@@ -3,9 +3,25 @@ resources:
     cpus: 2.0
     memory: 4096
 
+TZ: UTC
+
 opencloud:
   app_url: https://localhost:8080
-  insecure_access: true
+  insecure: true
+  jwt_secret: some_secret
+  full_text_search:
+    enabled: true
+  radicale:
+    enabled: true
+  collaboration:
+    enabled: false
+    type: collabora # collabora | onlyoffice
+    url: https://localhost:9980
+    insecure: true
+    proof_disable: true
+    # Only for OnlyOffice
+    jwt_secret: some_secret
+  extra_services: []
   smtp:
     enabled: false
     sender: null
@@ -25,13 +41,29 @@ opencloud:
     arcade: true
     maps: true
     importer: true
-  additional_envs: []
-
+  additional_csp:
+    - directive: child-src
+      items:
+        - value: opencloud.example.com
+  additional_oidc_role_config:
+    enabled: false
+    role_claim: groups
+    role_mapping:
+      - role_name: admin
+        claim_value: opencloud-admins
+  additional_envs:
+    - name: OC_LOG_PRETTY
+      value: "true"
+    - name: OC_LOG_LEVEL
+      value: "debug"
 network:
   host_network: false
   web_port:
     bind_mode: published
     port_number: 8080
+  metrics_port:
+    bind_mode: published
+    port_number: 8081
   certificate_id: null
 
 run_as:
@@ -41,6 +73,7 @@ run_as:
 ix_volumes:
   config: /opt/tests/mnt/opencloud/config
   data: /opt/tests/mnt/opencloud/data
+  radicale_data: /opt/tests/mnt/opencloud/radicale_data
 
 storage:
   config:
@@ -52,5 +85,10 @@ storage:
     type: ix_volume
     ix_volume_config:
       dataset_name: data
+      create_host_path: true
+  radicale_data:
+    type: ix_volume
+    ix_volume_config:
+      dataset_name: radicale_data
       create_host_path: true
   additional_storage: []

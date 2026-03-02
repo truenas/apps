@@ -1,4 +1,5 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
+{% set affine_net = tpl.networks.create_internal("affine-net") %}
 
 {% set c1 = tpl.add_container(values.consts.affine_container_name, "image") %}
 {% set migrations = tpl.add_container(values.consts.migrations_container_name, "image") %}
@@ -10,56 +11,42 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.affine.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.affine.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(affine_net) %}
 
 {% set redis_config = {
   "password": values.affine.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(affine_net) %}
 
-{% set envs = {
-  "AFFINE_SERVER_PORT": values.network.web_port.port_number,
-  "REDIS_SERVER_HOST": values.consts.redis_container_name,
-  "REDIS_SERVER_PORT": 6379,
-  "REDIS_SERVER_PASSWORD": values.affine.redis_password,
-  "DATABASE_URL": postgres.get_url("postgresql"),
-} %}
+{% set containers = [c1, migrations] %}
+{% for c in containers %}
+  {% do c.add_network(affine_net) %}
+  {% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+  {% do c.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
-{# Add envs to both containers #}
-{% for key, value in envs.items() %}
-  {% do c1.environment.add_env(key, value) %}
-  {% do migrations.environment.add_env(key, value) %}
+  {% do c.environment.add_env("AFFINE_SERVER_PORT", values.network.web_port.port_number) %}
+  {% do c.environment.add_env("REDIS_SERVER_HOST", values.consts.redis_container_name) %}
+  {% do c.environment.add_env("REDIS_SERVER_PORT", redis.get_port()) %}
+  {% do c.environment.add_env("REDIS_SERVER_PASSWORD", values.affine.redis_password) %}
+  {% do c.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
+
+  {% do c.environment.add_user_envs(values.affine.additional_envs) %}
+
+  {% do c.add_storage(values.consts.uploads_path, values.storage.uploads) %}
+  {% do c.add_storage(values.consts.config_path, values.storage.config) %}
 {% endfor %}
 
 {# Migrations #}
-{% do migrations.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do migrations.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do migrations.setup_as_helper(disable_network=false) %}
 {% do migrations.set_command(['/bin/sh', '-c', 'node ./scripts/self-host-predeploy.js']) %}
 
-{% do migrations.environment.add_user_envs(values.affine.additional_envs) %}
-
-{% do migrations.add_storage(values.consts.uploads_path, values.storage.uploads) %}
-{% do migrations.add_storage(values.consts.config_path, values.storage.config) %}
-
 {# Application #}
 {% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/info"}) %}
-
-{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.migrations_container_name, "service_completed_successfully") %}
-
-{% do c1.environment.add_user_envs(values.affine.additional_envs) %}
-
 {% do c1.add_port(values.network.web_port) %}
-
-{% do c1.add_storage(values.consts.uploads_path, values.storage.uploads) %}
-{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}

@@ -1,18 +1,18 @@
 {
-    "1.3.16": {
+    "1.5.5": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/vaultwarden/1.3.16",
-        "last_update": "2025-10-06 12:19:46",
+        "location": "/__w/apps/apps/trains/community/vaultwarden/1.5.5",
+        "last_update": "2026-02-27 15:29:19",
         "required_features": [],
-        "human_version": "1.34.3_1.3.16",
-        "version": "1.3.16",
+        "human_version": "1.35.4_1.5.5",
+        "version": "1.5.5",
         "app_metadata": {
             "annotations": {
                 "min_scale_version": "24.10.2.2"
             },
-            "app_version": "1.34.3",
+            "app_version": "1.35.4",
             "capabilities": [],
             "categories": [
                 "security"
@@ -22,13 +22,13 @@
             "description": "Alternative implementation of the Bitwarden server API written in Rust and compatible with upstream Bitwarden clients.",
             "home": "https://github.com/dani-garcia/vaultwarden",
             "host_mounts": [],
-            "icon": "https://media.sys.truenas.net/apps/vaultwarden/icons/icon.png",
+            "icon": "https://media.sys.truenas.net/apps/vaultwarden/icons/icon.svg",
             "keywords": [
                 "password",
                 "manager"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.2.2",
+            "lib_version_hash": "68a92a0c1f8193b040cc1193f9648e9ec8bd6cef0b45d9d5c0d1a6e641f8146b",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -39,18 +39,18 @@
             "name": "vaultwarden",
             "run_as_context": [
                 {
-                    "description": "Vaultwarden runs as any non-root user.",
-                    "gid": 568,
-                    "group_name": "vaultwarden",
-                    "uid": 568,
-                    "user_name": "vaultwarden"
+                    "description": "Container [postgres] runs as non-root user and group.",
+                    "gid": 999,
+                    "group_name": "Host group is [docker]",
+                    "uid": 999,
+                    "user_name": "Host user is [netdata]"
                 },
                 {
-                    "description": "Postgres runs as non-root user.",
-                    "gid": 999,
-                    "group_name": "postgres",
-                    "uid": 999,
-                    "user_name": "postgres"
+                    "description": "Container [vaultwarden] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
                 }
             ],
             "screenshots": [
@@ -61,7 +61,7 @@
             ],
             "title": "Vaultwarden",
             "train": "community",
-            "version": "1.3.16"
+            "version": "1.5.5"
         },
         "schema": {
             "groups": [
@@ -117,16 +117,20 @@
                                 "description": "If you are changing this after the postgres directory has been initialized,</br>\nSTOP! and make sure you have a backup of your data.</br>\nChanging this will trigger an one way database upgrade.</br>\nYou can only select newer versions of postgres.</br>\nSelecting an older version will refuse to start.</br>\nIf something goes wrong, you will have to restore from backup.\n",
                                 "schema": {
                                     "type": "string",
-                                    "default": "postgres_17_image",
+                                    "default": "postgres_18_image",
                                     "required": true,
                                     "enum": [
                                         {
                                             "value": "postgres_15_image",
-                                            "description": "Postgres 15"
+                                            "description": "Postgres 15 (Deprecated)"
                                         },
                                         {
                                             "value": "postgres_17_image",
                                             "description": "Postgres 17"
+                                        },
+                                        {
+                                            "value": "postgres_18_image",
+                                            "description": "Postgres 18"
                                         }
                                     ]
                                 }
@@ -328,6 +332,150 @@
                                 "schema": {
                                     "type": "uri",
                                     "default": ""
+                                }
+                            },
+                            {
+                                "variable": "networks",
+                                "label": "Networks",
+                                "description": "The docker networks to join",
+                                "schema": {
+                                    "type": "list",
+                                    "default": [],
+                                    "items": [
+                                        {
+                                            "variable": "network",
+                                            "label": "Network",
+                                            "schema": {
+                                                "type": "dict",
+                                                "attrs": [
+                                                    {
+                                                        "variable": "name",
+                                                        "label": "Name",
+                                                        "description": "The name of the network to join.</br>\nThe network must already exist.\n",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "default": "",
+                                                            "required": true
+                                                        }
+                                                    },
+                                                    {
+                                                        "variable": "containers",
+                                                        "label": "Containers",
+                                                        "description": "The containers to add to this network.",
+                                                        "schema": {
+                                                            "type": "list",
+                                                            "items": [
+                                                                {
+                                                                    "variable": "container",
+                                                                    "label": "Container",
+                                                                    "schema": {
+                                                                        "type": "dict",
+                                                                        "attrs": [
+                                                                            {
+                                                                                "variable": "name",
+                                                                                "label": "Container Name",
+                                                                                "schema": {
+                                                                                    "type": "string",
+                                                                                    "required": true,
+                                                                                    "enum": [
+                                                                                        {
+                                                                                            "value": "vaultwarden",
+                                                                                            "description": "vaultwarden"
+                                                                                        },
+                                                                                        {
+                                                                                            "value": "postgres",
+                                                                                            "description": "postgres"
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "variable": "config",
+                                                                                "label": "Container Network Configuration",
+                                                                                "schema": {
+                                                                                    "type": "dict",
+                                                                                    "attrs": [
+                                                                                        {
+                                                                                            "variable": "aliases",
+                                                                                            "label": "Aliases (Optional)",
+                                                                                            "description": "The network aliases to use for this container on this network.",
+                                                                                            "schema": {
+                                                                                                "type": "list",
+                                                                                                "default": [],
+                                                                                                "items": [
+                                                                                                    {
+                                                                                                        "variable": "alias",
+                                                                                                        "label": "Alias",
+                                                                                                        "schema": {
+                                                                                                            "type": "string"
+                                                                                                        }
+                                                                                                    }
+                                                                                                ]
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "interface_name",
+                                                                                            "label": "Interface Name (Optional)",
+                                                                                            "description": "The network interface name to use for this network",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "mac_address",
+                                                                                            "label": "MAC Address (Optional)",
+                                                                                            "description": "The MAC address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "ipv4_address",
+                                                                                            "label": "IPv4 Address (Optional)",
+                                                                                            "description": "The IPv4 address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "ipv6_address",
+                                                                                            "label": "IPv6 Address (Optional)",
+                                                                                            "description": "The IPv6 address to use for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "string"
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "gw_priority",
+                                                                                            "label": "Gateway Priority (Optional)",
+                                                                                            "description": "Indicates the priority of the gateway for this network interface.",
+                                                                                            "schema": {
+                                                                                                "type": "int",
+                                                                                                "null": true
+                                                                                            }
+                                                                                        },
+                                                                                        {
+                                                                                            "variable": "priority",
+                                                                                            "label": "Priority (Optional)",
+                                                                                            "description": "Indicates in which order Compose connects the service\u2019s containers to its networks.",
+                                                                                            "schema": {
+                                                                                                "type": "int",
+                                                                                                "null": true
+                                                                                            }
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
                                 }
                             }
                         ]
@@ -1036,7 +1184,7 @@
             "annotations": {
                 "min_scale_version": "24.10.2.2"
             },
-            "app_version": "1.34.3",
+            "app_version": "1.35.4",
             "capabilities": [],
             "categories": [
                 "security"
@@ -1046,13 +1194,13 @@
             "description": "Alternative implementation of the Bitwarden server API written in Rust and compatible with upstream Bitwarden clients.",
             "home": "https://github.com/dani-garcia/vaultwarden",
             "host_mounts": [],
-            "icon": "https://media.sys.truenas.net/apps/vaultwarden/icons/icon.png",
+            "icon": "https://media.sys.truenas.net/apps/vaultwarden/icons/icon.svg",
             "keywords": [
                 "password",
                 "manager"
             ],
-            "lib_version": "2.1.57",
-            "lib_version_hash": "6659ad369fff2f1df318cb6353bb32bffe7047dc21df4823750d39be7284e605",
+            "lib_version": "2.2.2",
+            "lib_version_hash": "68a92a0c1f8193b040cc1193f9648e9ec8bd6cef0b45d9d5c0d1a6e641f8146b",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -1063,18 +1211,18 @@
             "name": "vaultwarden",
             "run_as_context": [
                 {
-                    "description": "Vaultwarden runs as any non-root user.",
-                    "gid": 568,
-                    "group_name": "vaultwarden",
-                    "uid": 568,
-                    "user_name": "vaultwarden"
+                    "description": "Container [postgres] runs as non-root user and group.",
+                    "gid": 999,
+                    "group_name": "Host group is [docker]",
+                    "uid": 999,
+                    "user_name": "Host user is [netdata]"
                 },
                 {
-                    "description": "Postgres runs as non-root user.",
-                    "gid": 999,
-                    "group_name": "postgres",
-                    "uid": 999,
-                    "user_name": "postgres"
+                    "description": "Container [vaultwarden] can run as any non-root user and group.",
+                    "gid": 568,
+                    "group_name": "Host group is [apps]",
+                    "uid": 568,
+                    "user_name": "Host user is [apps]"
                 }
             ],
             "screenshots": [
@@ -1085,7 +1233,7 @@
             ],
             "title": "Vaultwarden",
             "train": "community",
-            "version": "1.3.16"
+            "version": "1.5.5"
         }
     }
 }

@@ -1,5 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set outline_net = tpl.networks.create_internal("outline-net") %}
+
 {% if not values.ci %}
   {% set auth_enabled = namespace(x=false) %}
   {% for auth in ["oidc_auth", "slack_auth", "google_auth", "github_auth", "azure_auth", "discord_auth"] %}
@@ -14,6 +16,7 @@
 {% endif %}
 
 {% set c1 = tpl.add_container(values.consts.outline_container_name, "image") %}
+{% do c1.add_network(outline_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
@@ -23,17 +26,15 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.outline.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.outline.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(outline_net) %}
 
 {% set redis_config = {
   "password": values.outline.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(outline_net) %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/_health"}) %}

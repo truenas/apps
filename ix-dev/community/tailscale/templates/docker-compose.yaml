@@ -5,23 +5,24 @@
 {% set perm_config = {"uid": 568, "gid": 568, "mode": "check"} %}
 
 {% do c1.add_caps(["NET_ADMIN", "NET_RAW", "SYS_MODULE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
-{% do c1.healthcheck.set_custom_test("tailscale status") %}
+{% do c1.healthcheck.set_custom_test(["CMD", "tailscale", "status"]) %}
 
 {% set args = namespace(x=[]) %}
-{% if values.tailscale.advertise_exit_node %}
-  {% do args.x.append("--advertise-exit-node") %}
-{% endif %}
-{% if values.tailscale.reset %}
-  {% do args.x.append("--reset") %}
-{% endif %}
+{% set arg_map = {
+  "advertise_exit_node": "--advertise-exit-node",
+  "reset": "--reset",
+  "accept_routes": "--accept-routes",
+} %}
+
+{% for key, value in arg_map.items() %}
+  {% if values.tailscale[key] %}
+    {% do args.x.append(value) %}
+  {% endif %}
+{% endfor %}
+
+{% do tpl.funcs.require_no_reserved(values.tailscale.extra_args, "Extra Arguments", values.consts.reserved_keys, starts_with=true) %}
 
 {% for arg in values.tailscale.extra_args %}
-  {% for key in values.consts.reserved_keys %}
-    {% if arg.startswith(key) %}
-      {% do tpl.funcs.fail("Please use the dedicated field for [%s]"|format(key)) %}
-    {% endif %}
-  {% endfor %}
-
   {% do args.x.append(arg) %}
 {% endfor %}
 

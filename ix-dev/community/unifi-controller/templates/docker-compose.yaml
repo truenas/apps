@@ -5,12 +5,14 @@
 {% set perm_config = {"uid": values.consts.user_id, "gid": values.consts.group_id, "mode": "check"} %}
 
 {% do c1.set_user(values.consts.user_id, values.consts.group_id) %}
-{% do c1.healthcheck.set_custom_test("/usr/local/bin/docker-healthcheck.sh") %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/usr/local/bin/docker-healthcheck.sh"]) %}
 
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+  {# Mounted secrets are combined into a java keystore at startup, this makes it writeable #}
+  {% do c1.add_storage("/usr/lib/unifi/cert", {"type": "anonymous"}) %}
 {% endif %}
 
 {% do c1.environment.add_env("DB_MONGO_LOCAL", true) %}
@@ -38,8 +40,6 @@
 {% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
 
 {% do c1.add_storage("/usr/lib/unifi/logs", {"type": "anonymous"}) %}
-{# Mounted secrets are combined into a java keystore at startup, this makes it writeable #}
-{% do c1.add_storage("/usr/lib/unifi/cert", {"type": "anonymous"}) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}

@@ -133,7 +133,7 @@ def fix_permissions(file_path):
     print_stderr("Fixing permissions")
     cmd = " ".join(
         [
-            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace",
+            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace -e FAKE_ENV=1",
             f"--entrypoint /bin/bash {CONTAINER_IMAGE} -c 'chmod 777 /workspace/{file_path}'",
         ]
     )
@@ -151,7 +151,11 @@ def render_compose():
     app_dir = f"ix-dev/{args['train']}/{args['app']}"
     cmd = " ".join(
         [
-            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
+            f"docker run --platform {PLATFORM} --quiet --rm",
+            "-e FAKE_ENV=1",
+            f"-v {os.getcwd()}:/workspace",
+            "-v /var/run/docker.sock:/var/run/docker.sock:ro",
+            CONTAINER_IMAGE,
             "apps_render_app render",
             f"--path /workspace/{app_dir}",
             f"--values /workspace/{app_dir}/{test_values_dir}/{args['test_file']}",
@@ -247,11 +251,28 @@ def docker_cleanup():
 
 
 def print_logs():
-    cmd = f"{get_base_cmd()} logs"
-    print_cmd(cmd)
-    separator_start()
-    subprocess.run(cmd, shell=True)
-    separator_end()
+    # Get all service names
+    ps = f"{get_base_cmd()} ps --all --format" + " {{.Service}}"
+    print_cmd(ps)
+    res = subprocess.run(ps, shell=True, capture_output=True)
+    if res.returncode != 0:
+        print_stderr("Failed to get running containers")
+        sys.exit(1)
+
+    # Parse output
+    services = res.stdout.decode("utf-8").split("\n")
+    if not services:
+        print_stderr("No services found to print logs for")
+        return
+
+    # Remove empty lines and whitespace
+    services = [s.strip() for s in services if s.strip()]
+    for service in services:
+        cmd = f"{get_base_cmd()} logs {service}"
+        print_cmd(cmd)
+        separator_start()
+        subprocess.run(cmd, shell=True)
+        separator_end()
 
 
 def print_docker_processes():
@@ -436,8 +457,9 @@ def check_app_dir_exists():
 def copy_lib():
     cmd = " ".join(
         [
-            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
-            "apps_catalog_hash_generate --path /workspace",
+            f"docker run --platform {PLATFORM} --quiet --rm",
+            f"-e FAKE_ENV=1 -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
+            f"apps_catalog_hash_generate --path /workspace --train {args['train']} --app {args['app']}",
         ]
     )
     print_cmd(cmd)

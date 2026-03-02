@@ -1,0 +1,21 @@
+{% from "macros/entrypoint.sh" import entrypoint %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set xmrig = tpl.add_container(values.consts.xmrig_container_name, "image") %}
+{% do xmrig.add_extra_host("host.docker.internal", "host-gateway") %}
+{% do xmrig.healthcheck.disable() %}
+
+{% do xmrig.set_privileged(values.xmrig.use_msr_mod) %}
+
+{% do xmrig.configs.add("entrypoint.sh", entrypoint(values), "/entrypoint.sh", "0755") %}
+{% do xmrig.set_entrypoint(["/entrypoint.sh"]) %}
+
+{% do xmrig.add_storage("/dev/hugepages", {"type": "host_path", "host_path_config": {"path": "/dev/hugepages"}}) %}
+{% do xmrig.add_storage("/dev/cpu", {"type": "host_path", "host_path_config": {"path": "/dev/cpu"}}) %}
+{% do xmrig.add_storage("/root/.config", values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do xmrig.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
