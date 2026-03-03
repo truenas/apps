@@ -31,6 +31,7 @@ MAX_POSTGRES_VERSION = 18
 SUPPORTED_REPOS = [
     "postgres",
     "postgis/postgis",
+    "paradedb/paradedb",
     "pgvector/pgvector",
     "timescale/timescaledb",
     "ghcr.io/immich-app/postgres",
@@ -38,6 +39,7 @@ SUPPORTED_REPOS = [
 SUPPORTED_UPGRADE_REPOS = [
     "postgres",
     "postgis/postgis",
+    "paradedb/paradedb",
     "pgvector/pgvector",
     # "timescale/timescaledb", // Currently NOT supported for upgrades
     "ghcr.io/immich-app/postgres",
@@ -78,6 +80,14 @@ def get_major_version(variant: str, tag: str):
 
     elif variant == "timescale/timescaledb":
         # 2.24.0-pg18
+        regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
+
+        def oper(x):
+            parts = x.split("-")
+            return parts[1].lstrip("pg")
+
+    elif variant == "paradedb/paradedb":
+        # 0.21.8-pg18
         regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
 
         def oper(x):
@@ -213,18 +223,26 @@ class PostgresContainer:
         return self._config.get("port") or 5432
 
     def get_url(self, variant: str):
-        user = urllib.parse.quote_plus(self._config["user"])
-        password = urllib.parse.quote_plus(self._config["password"])
+        raw_user = self._config["user"]
+        raw_password = self._config["password"]
+
+        user = urllib.parse.quote_plus(raw_user)
+        password = urllib.parse.quote_plus(raw_password)
         creds = f"{user}:{password}"
         addr = f"{self._name}:{self.get_port()}"
         db = self._config["database"]
+
+        if variant == "dotnet_pgsql":
+            for char in ["'", ";"]:
+                if char in raw_password:
+                    raise RenderError(f"Password cannot contain [{char}] for Dotnet Postgres Password")
 
         urls = {
             "postgres": f"postgres://{creds}@{addr}/{db}?sslmode=disable",
             "postgresql": f"postgresql://{creds}@{addr}/{db}?sslmode=disable",
             "postgresql_no_creds": f"postgresql://{addr}/{db}?sslmode=disable",
             "jdbc": f"jdbc:postgresql://{addr}/{db}",
-            "dotnet_pgsql": f"Host={addr};Database={db};Username={user};Password={password}",
+            "dotnet_pgsql": f"Host={addr};Database={db};Username={raw_user};Password={raw_password}",
             "host_port": addr,
         }
 
