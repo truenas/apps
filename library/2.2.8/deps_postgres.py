@@ -34,6 +34,7 @@ SUPPORTED_REPOS = [
     "paradedb/paradedb",
     "pgvector/pgvector",
     "timescale/timescaledb",
+    "ghcr.io/oss-apps/postgres",
     "ghcr.io/immich-app/postgres",
 ]
 SUPPORTED_UPGRADE_REPOS = [
@@ -42,6 +43,7 @@ SUPPORTED_UPGRADE_REPOS = [
     "paradedb/paradedb",
     "pgvector/pgvector",
     # "timescale/timescaledb", // Currently NOT supported for upgrades
+    "ghcr.io/oss-apps/postgres",
     "ghcr.io/immich-app/postgres",
 ]
 
@@ -93,6 +95,13 @@ def get_major_version(variant: str, tag: str):
         def oper(x):
             parts = x.split("-")
             return parts[1].lstrip("pg")
+
+    elif variant == "ghcr.io/oss-apps/postgres":
+        # 18.0-trixie
+        regex = re.compile(r"^\d+\.\d+-\w+")
+
+        def oper(x):
+            return x.split(".")[0]
 
     if not regex.match(tag):
         raise RenderError(f"Could not determine major version from tag [{tag}] for variant [{variant}]")
