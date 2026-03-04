@@ -1,86 +1,45 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set split_net = tpl.networks.create_internal("split-pro-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
   "password": values.splitpro.db_password,
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
+  "additional_options": {
+    "shared_preload_libraries": "pg_cron",
+    "cron.database_name": values.consts.db_name,
+    "cron.timezone": values.TZ,
+  }
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.splitpro.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.splitpro.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(split_net) %}
 
 {% set c1 = tpl.add_container(values.consts.splitpro_container_name, "image") %}
-{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.add_network(split_net) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_test("pgrep", {"process": "next-server"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/auth/providers"}) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-
-{% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
-{% do c1.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
-{% do c1.environment.add_env("POSTGRES_PASSWORD", values.splitpro.db_password) %}
-{% do c1.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
-{% do c1.environment.add_env("POSTGRES_PORT", postgres.get_port()) %}
-{% do c1.environment.add_env("NEXTAUTH_SECRET", values.splitpro.nextauth_secret) %}
-{% do c1.environment.add_env("NEXTAUTH_URL", values.splitpro.nextauth_url) %}
-{% do c1.environment.add_env("NEXTAUTH_URL_INTERNAL", "http://%s:%d"|format(values.consts.splitpro_container_name, values.consts.internal_web_port)) %}
-{% do c1.environment.add_env("DEFAULT_HOMEPAGE", values.splitpro.default_homepage) %}
-{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("NODE_ENV", "production") %}
 {% do c1.environment.add_env("HOSTNAME", "0.0.0.0") %}
-
-{% if values.splitpro.enable_sending_invites %}
-  {% do c1.environment.add_env("ENABLE_SENDING_INVITES", "true") %}
-{% else %}
-  {% do c1.environment.add_env("ENABLE_SENDING_INVITES", "false") %}
-{% endif %}
-
-{% if values.splitpro.disable_email_signup %}
-  {% do c1.environment.add_env("DISABLE_EMAIL_SIGNUP", "true") %}
-{% else %}
-  {% do c1.environment.add_env("DISABLE_EMAIL_SIGNUP", "false") %}
-{% endif %}
-
-{% if values.auth.smtp_enabled %}
-  {% do c1.environment.add_env("FROM_EMAIL", values.auth.smtp.from_email) %}
-  {% do c1.environment.add_env("EMAIL_SERVER_HOST", values.auth.smtp.server_host) %}
-  {% do c1.environment.add_env("EMAIL_SERVER_PORT", values.auth.smtp.server_port) %}
-  {% do c1.environment.add_env("EMAIL_SERVER_USER", values.auth.smtp.server_user) %}
-  {% do c1.environment.add_env("EMAIL_SERVER_PASSWORD", values.auth.smtp.server_password) %}
-{% endif %}
-
-{% if values.auth.google_enabled %}
-  {% do c1.environment.add_env("GOOGLE_CLIENT_ID", values.auth.google.client_id) %}
-  {% do c1.environment.add_env("GOOGLE_CLIENT_SECRET", values.auth.google.client_secret) %}
-{% endif %}
-
-{% if values.auth.authentik_enabled %}
-  {% do c1.environment.add_env("AUTHENTIK_ID", values.auth.authentik.client_id) %}
-  {% do c1.environment.add_env("AUTHENTIK_SECRET", values.auth.authentik.client_secret) %}
-  {% do c1.environment.add_env("AUTHENTIK_ISSUER", values.auth.authentik.issuer) %}
-{% endif %}
-
-{% if values.auth.keycloak_enabled %}
-  {% do c1.environment.add_env("KEYCLOAK_ID", values.auth.keycloak.client_id) %}
-  {% do c1.environment.add_env("KEYCLOAK_SECRET", values.auth.keycloak.client_secret) %}
-  {% do c1.environment.add_env("KEYCLOAK_ISSUER", values.auth.keycloak.issuer) %}
-{% endif %}
-
-{% if values.auth.oidc_enabled %}
-  {% do c1.environment.add_env("OIDC_NAME", values.auth.oidc.name) %}
-  {% do c1.environment.add_env("OIDC_CLIENT_ID", values.auth.oidc.client_id) %}
-  {% do c1.environment.add_env("OIDC_CLIENT_SECRET", values.auth.oidc.client_secret) %}
-  {% do c1.environment.add_env("OIDC_WELL_KNOWN_URL", values.auth.oidc.well_known_url) %}
-  {% if values.auth.oidc.allow_dangerous_email_linking %}
-    {% do c1.environment.add_env("OIDC_ALLOW_DANGEROUS_EMAIL_LINKING", "1") %}
-  {% endif %}
-{% endif %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do c1.environment.add_env("NEXTAUTH_URL_INTERNAL", "http://%s:%d"|format(values.consts.splitpro_container_name, values.network.web_port.port_number)) %}
+{% do c1.environment.add_env("POSTGRES_PASSWORD", values.splitpro.db_password) %}
+{% do c1.environment.add_env("NEXTAUTH_SECRET", values.splitpro.nextauth_secret) %}
+{% do c1.environment.add_env("NEXTAUTH_URL", values.splitpro.nextauth_url.rstrip("/")) %}
 
 {% do c1.environment.add_user_envs(values.splitpro.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/app/uploads", values.storage.uploads) %}
+{% do perm_container.add_or_skip_action("uploads", values.storage.uploads, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
