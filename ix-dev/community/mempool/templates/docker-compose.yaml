@@ -1,5 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set mempool_net = tpl.networks.create_internal("mempool-net") %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 {% set mariadb_config = {
@@ -10,8 +12,10 @@
   "volume": values.storage.mariadb_data,
 } %}
 {% set mariadb_container = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", mariadb_config, perm_container) %}
+{% do mariadb_container.container.add_network(mempool_net) %}
 
 {% set mempool_backend = tpl.add_container(values.consts.mempool_backend_container_name, "image") %}
+{% do mempool_backend.add_network(mempool_net) %}
 {% do mempool_backend.add_extra_host("host.docker.internal", "host-gateway") %}
 {% do mempool_backend.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do mempool_backend.healthcheck.set_test("tcp", {"port": values.consts.mempool_backend_http_port}) %}
@@ -37,6 +41,7 @@
 {% do perm_container.add_or_skip_action("cache_data", values.storage.cache, perm_config) %}
 
 {% set mempool_frontend = tpl.add_container(values.consts.mempool_frontend_container_name, "frontend_image") %}
+{% do mempool_frontend.add_network(mempool_net) %}
 {% do mempool_frontend.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do mempool_frontend.healthcheck.set_test("curl", {"port": values.network.web_ui_port.port_number}) %}
 {% do mempool_frontend.environment.add_env("FRONTEND_HTTP_PORT", values.network.web_ui_port.port_number) %}
@@ -44,9 +49,7 @@
 {% do mempool_frontend.environment.add_env("BACKEND_MAINNET_HTTP_PORT", values.consts.mempool_backend_http_port) %}
 {% do mempool_frontend.environment.add_user_envs(values.mempool.additional_envs) %}
 
-{% if not values.network.host_network %}
-  {% do mempool_frontend.add_port(values.network.web_ui_port) %}
-{% endif %}
+{% do mempool_frontend.add_port(values.network.web_ui_port) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
