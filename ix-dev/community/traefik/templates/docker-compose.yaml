@@ -1,0 +1,82 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.traefik_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.environment.add_user_envs(values.traefik.additional_envs) %}
+{% do c1.add_docker_socket(read_only=True) %}
+{% do c1.healthcheck.set_custom_test([
+  "CMD", "traefik",
+  "healthcheck",
+  "--ping=true",
+  "--ping.entrypoint=ping",
+  "--entrypoints.ping.address=:55555",
+]) %}
+
+{% set cmd = namespace(x=[
+  "--providers.docker=true",
+  "--providers.file.watch=true",
+  "--providers.file.directory=%s"|format(values.consts.config_dir_path),
+  "--ping=true",
+  "--ping.entrypoint=ping",
+  "--entrypoints.ping.address=:55555",
+  "--api.basepath=/",
+  "--api.insecure=%s"|format(values.traefik.api_insecure),
+  "--api.dashboard=true",
+  "--entrypoints.traefik.address=:%d"|format(values.network.api_port.port_number),
+]) %}
+
+{% set cert_resolvers = namespace(x=[]) %}
+{% for arg in values.traefik.additional_args %}
+  {% set flag = arg.flag.lstrip("-") %}
+
+  {% if "=" in flag %}{% do tpl.funcs.fail("Flag [--%s] cannot contain '=' character" | format(flag)) %}{% endif %}
+  {% if flag in values.consts.reserved_flags %}{% do tpl.funcs.fail("Flag [--%s] is reserved" | format(flag)) %}{% endif %}
+
+  {# Override the storage location for cert resolvers #}
+  {% if flag.startswith("certificatesresolvers.") %}
+    {% set resolver_name = flag.split(".")[1] %}
+
+    {% if flag.endswith(".acme.storage") %}
+      {% set loc = "%s/%s"|format(values.consts.acme_base_path, resolver_name) %}
+      {% do tpl.funcs.fail("You do not need to set the acme.storage flag for cert resolvers. It is automatically set to [%s]" | format(loc)) %}
+    {% endif %}
+
+    {% if resolver_name not in cert_resolvers.x %}
+      {% do cert_resolvers.x.append(resolver_name) %}
+    {% endif %}
+  {% endif %}
+
+  {% set x = "--%s=%s" | format(flag, arg.value) if arg.value else "--%s" | format(flag) %}
+  {% do cmd.x.append(x) %}
+{% endfor %}
+
+{% for resolver_name in cert_resolvers.x %}
+  {% do cmd.x.append("--certificatesresolvers.%s.acme.storage=%s/%s-acme.json"|format(resolver_name)) %}
+{% endfor %}
+
+{% do c1.set_command(cmd.x) %}
+
+{% do c1.add_port(values.network.api_port) %}
+
+{% do c1.add_storage("/plugins-storage", {"type": "tmpfs", "tmpfs_config": {"uid": values.run_as.user, "gid": values.run_as.group}}) %}
+{% do c1.add_storage(values.consts.config_dir_path, values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+{% do c1.add_storage(values.consts.acme_base_path, values.storage.acme) %}
+{% do perm_container.add_or_skip_action("acme", values.storage.acme, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.api_port) %}
+
+{{ tpl.render() | tojson }}
