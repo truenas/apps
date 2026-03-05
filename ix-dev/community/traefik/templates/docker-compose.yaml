@@ -12,7 +12,7 @@
   "healthcheck",
   "--ping=true",
   "--ping.entrypoint=ping",
-  "--entrypoints.ping.address=:55555",
+  "--entrypoints.ping.address=:%d"|format(values.consts.ping_port),
 ]) %}
 
 {% set cmd = namespace(x=[
@@ -21,21 +21,35 @@
   "--providers.file.directory=%s"|format(values.consts.config_dir_path),
   "--ping=true",
   "--ping.entrypoint=ping",
-  "--entrypoints.ping.address=:55555",
+  "--entrypoints.ping.address=:%d"|format(values.consts.ping_port),
   "--api.basepath=/",
   "--api.insecure=%s"|format(values.traefik.api_insecure),
   "--api.dashboard=true",
   "--entrypoints.traefik.address=:%d"|format(values.network.api_port.port_number),
 ]) %}
 
+{% set entrypoints = namespace(x={
+  "ping": "%d/tcp" | format(values.consts.ping_port),
+  "traefik": "%d/tcp" | format(values.network.api_port.port_number),
+}) %}
+{% for entry_point in values.network.entry_points %}
+  {% if entry_point.entrypoint_name in entrypoints.x %}
+    {% do tpl.funcs.fail("Entry point [%s] is already defined on port [%s]" | format(entry_point.entrypoint_name, entrypoints.x[entry_point.entrypoint_name])) %}
+  {% endif %}
+
+  {% do cmd.x.append("--entrypoints.%s.address=:%d/%s"|format(entry_point.entrypoint_name, entry_point.port_number, entry_point.protocol)) %}
+  {% do entrypoints.x.update({entry_point.entrypoint_name: "%d/%s"|format(entry_point.port_number, entry_point.protocol)}) %}
+  {% do c1.add_port(entry_point) %}
+{% endfor %}
+
 {% set cert_resolvers = namespace(x=[]) %}
 {% for arg in values.traefik.additional_args %}
-  {% set flag = arg.flag.lstrip("-") %}
+  {% set flag = arg.flag.lstrip("-")|lower %}
 
   {% if "=" in flag %}{% do tpl.funcs.fail("Flag [--%s] cannot contain '=' character" | format(flag)) %}{% endif %}
   {% if flag in values.consts.reserved_flags %}{% do tpl.funcs.fail("Flag [--%s] is reserved" | format(flag)) %}{% endif %}
 
-  {# Override the storage location for cert resolvers #}
+  {# Handle certificate resolver storage location #}
   {% if flag.startswith("certificatesresolvers.") %}
     {% set resolver_name = flag.split(".")[1] %}
 
@@ -49,12 +63,25 @@
     {% endif %}
   {% endif %}
 
+  {# Handle entry point addresses #}
+  {% if flag.startswith("entrypoints.") %}
+    {% set entrypoint_name = flag.split(".")[1] %}
+    {% if entrypoint_name not in entrypoints.x %}
+      {% do tpl.funcs.fail("Entry point [%s] is not defined in the network configuration" | format(entrypoint_name)) %}
+    {% endif %}
+
+    {% set port_number = entrypoints.x.get(entrypoint_name) %}
+    {% if flag.endswith(".address") %}
+      {% do tpl.funcs.fail("You do not need to set the address flag for entry point [%s]. It is automatically set to [:%s]" | format(entrypoint_name, port_number)) %}
+    {% endif %}
+  {% endif %}
+
   {% set x = "--%s=%s" | format(flag, arg.value) if arg.value else "--%s" | format(flag) %}
   {% do cmd.x.append(x) %}
 {% endfor %}
 
 {% for resolver_name in cert_resolvers.x %}
-  {% do cmd.x.append("--certificatesresolvers.%s.acme.storage=%s/%s-acme.json"|format(resolver_name)) %}
+  {% do cmd.x.append("--certificatesresolvers.%s.acme.storage=%s/%s-acme.json"|format(resolver_name, values.consts.acme_base_path, resolver_name)) %}
 {% endfor %}
 
 {% do c1.set_command(cmd.x) %}
