@@ -1,0 +1,100 @@
+groups:
+  - name: Midnight Commander Configuration
+    description: Configure Midnight Commander settings
+  - name: Network Configuration
+    description: Configure network settings
+  - name: Storage Configuration
+    description: Configure storage settings
+
+questions:
+  - variable: service
+    group: Network Configuration
+    label: ""
+    schema:
+      type: dict
+      attrs:
+        - variable: port
+          label: WebUI Port
+          description: The port to access Midnight Commander web interface.
+          schema:
+            type: int
+            default: 7681
+            min: 1
+            max: 65535
+            required: true
+
+  - variable: storage
+    group: Storage Configuration
+    label: ""
+    schema:
+      type: dict
+      attrs:
+        - variable: additional_storage
+          label: Additional Storage
+          description: |
+            Mount additional datasets or directories into the container.
+            The first mounted path will be automatically opened in Midnight Commander on startup.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      schema:
+                        type: string
+                        default: host_path
+                        required: true
+                        enum:
+                          - value: host_path
+                            description: Host Path (Use a path from the host system)
+                          - value: ix_volume
+                            description: iX Volume (Use a TrueNAS dataset)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the storage as read-only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if:
+                          - - type
+                            - "="
+                            - host_path
+                        attrs:
+                          - variable: path
+                            label: Host Path
+                            description: The path on the host to mount inside the container.
+                            schema:
+                              type: hostpath
+                              required: true
+                    - variable: ix_volume_config
+                      label: iX Volume Configuration
+                      schema:
+                        type: dict
+                        show_if:
+                          - - type
+                            - "="
+                            - ix_volume
+                        attrs:
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the TrueNAS dataset to use.
+                            schema:
+                              type: string
+                              required: true
+                              immutable: true
+                              default: midnight-commander-data
+                    - variable: mount_path
+                      label: Mount Path (inside container)
+                      description: The path inside the container where the storage will be mounted.
+                      schema:
+                        type: path
+                        required: true

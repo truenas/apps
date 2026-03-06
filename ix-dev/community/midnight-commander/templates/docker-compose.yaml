@@ -1,0 +1,23 @@
+{% from "macros/global_labels.jinja" import global_labels %}
+{% from "macros/container_security_context.jinja" import container_security_context %}
+{% from "macros/ix_volume.jinja" import ix_volume_config %}
+
+{%- set service_port = values.service.port | default(7681) -%}
+
+services:
+  midnight-commander:
+    image: {{ "%s:%s" | format(values.image.repository, values.image.tag) }}
+    restart: unless-stopped
+    labels:
+      {{ global_labels() | indent(6) }}
+    ports:
+      - {{ service_port }}:7681
+    volumes:
+      {%- for store in values.storage.additional_storage | default([]) %}
+      {%- if store.type == "host_path" %}
+      - {{ store.host_path_config.path }}:{{ store.mount_path }}{% if store.read_only %}:ro{% endif %}
+      {%- elif store.type == "ix_volume" %}
+      - {{ ix_volume_config(store.ix_volume_config.dataset_name) }}:{{ store.mount_path }}{% if store.read_only %}:ro{% endif %}
+      {%- endif %}
+      {%- endfor %}
+    {{ container_security_context(run_as_user=0, run_as_group=0) | indent(4) }}
