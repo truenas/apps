@@ -17,13 +17,13 @@
   {% do c.add_storage(values.consts.home_dir, values.storage.config) %}
 {% endfor %}
 
-{% do config.setup_as_helper(disable_network=False) %}
+{% do config.setup_as_helper(disable_network=false) %}
 {% do config.set_entrypoint(["/entrypoint.sh"]) %}
 {% do config.set_tty(true) %}
 
 {% set allowed_origins = namespace(x=[]) %}
 {% for origin in values.openclaw.allowed_origins %}
-  {% do allowed_origin.x.append(origin.rstrip("/")) %}
+  {% do allowed_origins.x.append(origin.rstrip("/")) %}
 {% endfor %}
 
 {% set base = "node dist/index.js config set" %}
@@ -34,10 +34,10 @@
 ] %}
 
 {% if not allowed_origins.x %}
-  {% do tpl.notes.add_warning("No allowed origins specified. Failing back to dangerouslyAllowHostHeaderOriginFallback=true.") %}
+  {% do tpl.notes.add_warning("No allowed origins specified. Falling back to dangerouslyAllowHostHeaderOriginFallback=true.") %}
 {% endif %}
 
-{% set entrypoint = "#!/bin/sh\nset -e\n" ~ (cmds | join("\n")) %}
+{% set entrypoint = "#!/bin/sh\nset -e\n%s" | format(cmds | join("\n")) %}
 {% do config.configs.add("entrypoint", entrypoint, "/entrypoint.sh", "0755") %}
 
 {% do c1.depends.add_dependency(values.consts.config_container_name, "service_completed_successfully") %}
