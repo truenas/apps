@@ -1,0 +1,103 @@
+version: 1
+templateName: hashcat
+title: CUDA Hashcat + John Ripper
+description: GPU-accelerated password cracking avec SSH (RTX 2070 ready)
+icon: https://hashcat.net/img/hashcat-logo.png
+order: 1
+
+groups:
+  # 1. IMAGE + GPU
+  - name: Image
+    description: "Configuration Docker"
+    questions:
+      - variable: image.repository
+        label: "Image Repository"
+        description: "hikage/cuda-hashcat-john"
+        schema:
+          type: string
+          default: "hikage/cuda-hashcat-john"
+      - variable: image.tag
+        label: "Image Tag"
+        schema:
+          type: string
+          default: "latest"
+      - variable: ix.gpuConfiguration.enabled
+        label: "Enable NVIDIA GPU"
+        schema:
+          type: boolean
+          default: true
+
+  # 2. SSH + Mots de passe
+  - name: SSH Access
+    description: "Connexion distante (cracker/password123)"
+    questions:
+      - variable: service.ssh.enabled
+        label: "Enable SSH (port 22)"
+        schema:
+          type: boolean
+          default: true
+      - variable: env.CRACKER_PASS
+        label: "User Password (cracker)"
+        schema:
+          type: string
+          default: "password123"
+          writeOnly: true
+          isSecret: true
+      - variable: env.ROOT_PASS
+        label: "Root Password"
+        schema:
+          type: string
+          default: "password123"
+          writeOnly: true
+          isSecret: true
+
+  # 3. Stockage
+  - name: Storage
+    questions:
+      - variable: persistence.workspace.enabled
+        label: "Enable Workspace (/workspace)"
+        schema:
+          type: boolean
+          default: true
+      - variable: persistence.workspace.size
+        label: "Workspace Size"
+        schema:
+          type: int
+          default: 20
+          minimum: 1
+          unit: Gi
+
+  # 4. Hashcat Config
+  - name: Hashcat Settings
+    description: "Attaques GPU"
+    questions:
+      - variable: hashcat.mode
+        label: "Hash Mode"
+        schema:
+          type: int
+          default: 0  # MD5
+          enum:
+            - label: "MD5 (0)"
+              value: 0
+            - label: "NTLM (1000)"
+              value: 1000
+            - label: "SHA1 (100)"
+              value: 100
+      - variable: hashcat.workload
+        label: "GPU Workload (0-4)"
+        schema:
+          type: int
+          default: 3
+          minimum: 0
+          maximum: 4
+
+  # 5. Resources
+  - name: Resources
+    questions:
+      - variable: resources.limits.nvidia.com/gpu
+        label: "GPU Count"
+        schema:
+          type: int
+          default: 1
+          minimum: 0
+          maximum: 4

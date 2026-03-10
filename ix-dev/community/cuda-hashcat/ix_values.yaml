@@ -1,0 +1,75 @@
+image:
+  repository: hikage/cuda-hashcat-john  # TON repo Docker Hub !
+  tag: "latest"  # Change si tag spécifique
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# TrueNAS SCALE GPU + ACL
+ix:
+  volumePermissions:
+    enabled: true
+    securityContext:
+      runAsUser: 568
+      fsGroup: 568
+      runAsGroup: 568
+  gpuConfiguration:  # RTX 2070
+    enabled: true
+    type: nvidia
+    deviceID: "0"
+
+service:
+  main:
+    enabled: false  # Hashcat = CLI (pas web)
+    ports:
+      http:
+        enabled: false
+      metrics:
+        enabled: false
+
+persistence:
+  workspace:  # /workspace (wordlists, attacks)
+    enabled: true
+    type: ixVolume
+    datasetName: ""
+    size: "20Gi"
+    mountPath: /workspace
+
+# Hashcat/John config
+hashcat:
+  mode: 0  # 0=MD5, 1000=NTLM, etc
+  workload: 3  # GPU intensity
+  wordlist: "rockyou.txt"
+  rules: "best64.rule"
+
+john:
+  format: "raw-md5"  # ou sha1, etc
+
+env:
+  NVIDIA_VISIBLE_DEVICES: "all"
+  NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+
+probes:
+  liveness:
+    enabled: false  # Batch job
+  readiness:
+    enabled: false
+  startup:
+    enabled: true
+    action: "hashcat --version"  # Vérif CUDA
+
+resources:
+  limits:
+    nvidia.com/gpu: 1
+    memory: 4Gi
+  requests:
+    cpu: "2"
+    memory: 1Gi
+
+service:
+  ssh:  # Ajoute pour exposer port 22
+    enabled: true
+    ports:
+      ssh:
+        enabled: true
+        port: 2222  # Host port
