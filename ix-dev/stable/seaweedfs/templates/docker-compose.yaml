@@ -2,6 +2,19 @@
 
 {% set seaweed_net = tpl.networks.create_internal("seaweedfs-net") %}
 
+{% set flags = namespace(x={"admin": [], "worker": [], "master": [], "volume": [], "filer": [], "s3": []}) %}
+
+{% for item in values.seaweedfs.additional_flags %}
+  {% set reserved = values.consts.reserved_flags[item.container] %}
+  {% set flag = item.flag.lstrip("-") %}
+  {% if "=" in flag %}{% do tpl.funcs.fail("Flag [%s] is invalid for the [%s] container. Flags must not contain '='."|format(flag, item.container)) %}{% endif %}
+  {% if flag in reserved %}
+    {% do tpl.funcs.fail("Flag [%s] is reserved for the [%s] container."|format(flag, item.container)) %}
+  {% endif %}
+
+  {% do flags.x[item.container].append("-%s%s"|format(flag, "=%s"|format(item.value) if item.value else "")) %}
+{% endfor %}
+
 {% set admin = tpl.add_container(values.consts.admin_container_name, "image") %}
 {% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
 {% set volume = tpl.add_container(values.consts.volume_container_name, "image") %}
@@ -41,7 +54,7 @@
 {% do admin.add_port(values.network.admin_port) %}
 {% do admin.add_port(values.network.admin_grpc_port) %}
 {# Admin Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/admin.go#L44 #}
-{% do admin.set_entrypoint([
+{% set admin_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "admin",
   "-masters=%s"|format(master_addr),
   "-dataDir=%s"|format(values.consts.data_path),
@@ -50,6 +63,10 @@
   "-port=%d"|format(values.network.admin_port.port_number),
   "-port.grpc=%d"|format(values.network.admin_grpc_port.port_number),
 ]) %}
+
+{% do admin_entrypoint.x.extend(flags.x.admin) %}
+
+{% do admin.set_entrypoint(admin_entrypoint.x) %}
 {% do admin.add_storage(values.consts.data_path, values.storage.admin_data) %}
 {% do perm_container.add_or_skip_action("admin-data", values.storage.admin_data, perms_config) %}
 
@@ -59,12 +76,16 @@
 {% do worker.add_storage(values.consts.data_path, values.storage.worker_data) %}
 {% do perm_container.add_or_skip_action("worker-data", values.storage.worker_data, perms_config) %}
 {# Worker Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/worker.go#L42 #}
-{% do worker.set_entrypoint([
+{% set worker_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "worker",
   "-workingDir=%s"|format(values.consts.data_path),
   "-metricsPort=%d"|format(values.network.worker_metrics_port.port_number),
   "-admin=%s"|format(admin_addr),
 ]) %}
+
+{% do worker_entrypoint.x.extend(flags.x.worker) %}
+
+{% do worker.set_entrypoint(worker_entrypoint.x) %}
 {% do worker.add_port(values.network.worker_metrics_port) %}
 
 {# Volume #}
@@ -92,6 +113,8 @@
   {% do volume_entrypoint.x.append("-metricsPort=%d"|format(values.network.volume_metrics_port.port_number)) %}
 {% endif %}
 
+{% do volume_entrypoint.x.extend(flags.x.volume) %}
+
 {% do volume.set_entrypoint(volume_entrypoint.x) %}
 {% do volume.add_storage(values.consts.data_path, values.storage.volume_data) %}
 {% do perm_container.add_or_skip_action("volume-data", values.storage.volume_data, perms_config) %}
@@ -118,6 +141,8 @@
 {% if values.network.filer_metrics_port.bind_mode %}
   {% do filer_entrypoint.x.append("-metricsPort=%d"|format(values.network.filer_metrics_port.port_number)) %}
 {% endif %}
+
+{% do filer_entrypoint.x.extend(flags.x.filer) %}
 
 {% do filer.set_entrypoint(filer_entrypoint.x) %}
 {% do filer.add_storage(values.consts.data_path, values.storage.filer_data) %}
@@ -154,6 +179,8 @@
   {% do s3_entrypoint.x.extend(["-cert.file=%s"|format(values.consts.s3_ssl_cert_path)]) %}
 {% endif %}
 
+{% do s3_entrypoint.x.extend(flags.x.s3) %}
+
 {% do s3.set_entrypoint(s3_entrypoint.x) %}
 
 {# Master #}
@@ -187,6 +214,8 @@
   {% endfor %}
   {% do master_entrypoint.x.append("-peers=%s"|format(peers.x|join(","))) %}
 {% endif %}
+
+{% do master_entrypoint.x.extend(flags.x.master) %}
 
 {% do master.set_entrypoint(master_entrypoint.x) %}
 
