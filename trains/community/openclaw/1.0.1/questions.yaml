@@ -1,70 +1,41 @@
 groups:
-  - name: Rust Desk Configuration
-    description: Configure Rust Desk
+  - name: OpenClaw Configuration
+    description: Configure OpenClaw
   - name: User and Group Configuration
-    description: Configure User and Group for Rust Desk
+    description: Configure User and Group for OpenClaw
   - name: Network Configuration
-    description: Configure Network for Rust Desk
+    description: Configure Network for OpenClaw
   - name: Storage Configuration
-    description: Configure Storage for Rust Desk
+    description: Configure Storage for OpenClaw
   - name: Labels Configuration
-    description: Configure Labels for Rust Desk
+    description: Configure Labels for OpenClaw
   - name: Resources Configuration
-    description: Configure Resources for Rust Desk
+    description: Configure Resources for OpenClaw
 
 questions:
-  - variable: rust_desk
+  - variable: openclaw
     label: ""
-    group: Rust Desk Configuration
+    group: OpenClaw Configuration
     schema:
       type: dict
       attrs:
-        - variable: image_selector
-          label: Image Selector
-          description: The image selector to use for Scrypted.
-          schema:
-            type: string
-            default: image
-            enum:
-              - value: image
-                description: OSS Image
-              - value: pro_image
-                description: Pro Image - Requires a paid license
-        - variable: mac_address
-          label: MAC Address
-          description: |
-            For licensing purposes, Rust Desk needs the MAC Address to tie the license to your server.</br>
-            Format: XX:XX:XX:XX:XX:XX
+        - variable: gateway_token
+          label: Gateway Token
           schema:
             type: string
             default: ""
-            min_length: 17
-            max_length: 17
-            show_if: [["image_selector", "=", "pro_image"]]
+            private: true
             required: true
-        - variable: allow_only_encrypted_connections
-          label: Allow Only Encrypted Connections
-          description: |
-            Allow only encrypted connections.</br>
-            Clients have to use the generated key to connect to the server.
-          schema:
-            type: boolean
-            default: false
-        - variable: additional_relay_servers
-          label: Additional Relay Servers
-          description: |
-            Configure additional relay servers for Rust Desk.</br>
-            The internal relay server will be added automatically. </br>
-            Format: </br> host:port
+        - variable: allowed_origins
+          label: Allowed Origins
           schema:
             type: list
             default: []
             items:
-              - variable: server
-                label: Server
+              - variable: origin
+                label: Origin
                 schema:
-                  type: string
-                  default: ""
+                  type: uri
                   required: true
         - variable: additional_envs
           label: Additional Environment Variables
@@ -95,7 +66,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Rust Desk files will be owned by.
+          description: The user id that Actual Budget files will be owned by.
           schema:
             type: int
             min: 568
@@ -103,7 +74,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Rust Desk files will be owned by.
+          description: The group id that Actual Budget files will be owned by.
           schema:
             type: int
             min: 568
@@ -116,22 +87,10 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
-          schema:
-            type: boolean
-            default: false
-        - variable: webui_port
-          label: Port for the webui
-          description: |
-            This port will be used to connect to the webui.</br>
-            The internal port will always be 21114.</br>
-            This is only available in the PRO version.
+        - variable: gateway_port
+          label: Gateway Port
           schema:
             type: dict
-            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -139,61 +98,7 @@ questions:
                   The port bind mode.</br>
                   - Publish: The port will be published on the host for external access.</br>
                   - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: ""
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 21114
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: nat_type_test_port
-          label: NAT Type Test Port
-          description: |
-            The port to use for NAT type test.</br>
-            Internal port will always be 21115
-          schema:
-            type: dict
-            show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
+                  - None: The port will not be exposed or published.
                 schema:
                   type: string
                   default: "published"
@@ -208,216 +113,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 21115
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: id_reg_hole_punch_port
-          label: ID Registration and Hole Punching Port
-          description: |
-            The port to use for ID registration and Hole punching.</br>
-            Internal port will always be 21116 (TCP/UDP)
-          schema:
-            type: dict
-            show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 21116
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: relay_port
-          label: Relay Port
-          description: |
-            The port to use for relay.</br>
-            Internal port will always be 21117
-          schema:
-            type: dict
-            show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 21117
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: server_web_clients_port
-          label: Server Web Clients Port
-          description: |
-            The port to use for server web clients.</br>
-            Internal port will always be 21118
-          schema:
-            type: dict
-            show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 21118
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: relay_web_clients_port
-          label: Relay Web Clients Port
-          description: |
-            The port to use for relay web clients.</br>
-            Internal port will always be 21119
-          schema:
-            type: dict
-            show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 21119
+                  default: 30262
                   min: 1
                   max: 65535
                   required: true
@@ -441,7 +137,6 @@ questions:
           description: The docker networks to join
           schema:
             type: list
-            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -475,10 +170,8 @@ questions:
                                     type: string
                                     required: true
                                     enum:
-                                      - value: rust-desk
-                                        description: rust-desk
-                                      - value: rust-desk-relay
-                                        description: rust-desk-relay
+                                      - value: openclaw
+                                        description: openclaw
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -527,15 +220,22 @@ questions:
                                         schema:
                                           type: int
                                           "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
+
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: data
-          label: Rust Desk Data Storage
-          description: The path to store Rust Desk Data.
+        - variable: config
+          label: Config Storage
           schema:
             type: dict
             attrs:
@@ -575,7 +275,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "data"
+                        default: "config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -615,7 +315,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -799,10 +499,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: rust-desk
-                            description: rust-desk
-                          - value: rust-desk-relay
-                            description: rust-desk-relay
+                          - value: openclaw
+                            description: openclaw
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -816,14 +514,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Rust Desk.
+                description: CPUs limit for OpenClaw.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Rust Desk.
+                description: Memory limit for OpenClaw.
                 schema:
                   type: int
                   default: 4096
