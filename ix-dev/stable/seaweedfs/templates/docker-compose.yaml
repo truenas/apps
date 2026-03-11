@@ -41,7 +41,7 @@
 {% do admin.add_port(values.network.admin_port) %}
 {% do admin.add_port(values.network.admin_grpc_port) %}
 {# Admin Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/admin.go#L44 #}
-{% do admin.set_entrypoint([
+{% set admin_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "admin",
   "-masters=%s"|format(master_addr),
   "-dataDir=%s"|format(values.consts.data_path),
@@ -50,6 +50,16 @@
   "-port=%d"|format(values.network.admin_port.port_number),
   "-port.grpc=%d"|format(values.network.admin_grpc_port.port_number),
 ]) %}
+
+{% for item in values.seaweedfs.additional_flags | selectattr("container", "equalto", "admin") | list %}
+  {% set flag = item.flag.split("=")[0].lstrip("-") %}
+  {% if flag in values.consts.reserved_flags.admin %}
+    {% do tpl.funcs.fail("Flag [%s] is reserved for the admin container."|format(flag)) %}
+  {% endif %}
+  {% do admin_entrypoint.x.append("-%s%s"|format(flag, "=%s"|format(item.value) if item.value else "")) %}
+{% endfor %}
+
+{% do admin.set_entrypoint(admin_entrypoint.x) %}
 {% do admin.add_storage(values.consts.data_path, values.storage.admin_data) %}
 {% do perm_container.add_or_skip_action("admin-data", values.storage.admin_data, perms_config) %}
 
@@ -59,12 +69,22 @@
 {% do worker.add_storage(values.consts.data_path, values.storage.worker_data) %}
 {% do perm_container.add_or_skip_action("worker-data", values.storage.worker_data, perms_config) %}
 {# Worker Options https://github.com/seaweedfs/seaweedfs/blob/a24c31de06093337cd31e42ed94de67ce1d5c95b/weed/command/worker.go#L42 #}
-{% do worker.set_entrypoint([
+{% set worker_entrypoint = namespace(x=[
   "/usr/bin/weed", "-logtostderr=true", "worker",
   "-workingDir=%s"|format(values.consts.data_path),
   "-metricsPort=%d"|format(values.network.worker_metrics_port.port_number),
   "-admin=%s"|format(admin_addr),
 ]) %}
+
+{% for item in values.seaweedfs.additional_flags | selectattr("container", "equalto", "worker") | list %}
+  {% set flag = item.flag.split("=")[0].lstrip("-") %}
+  {% if flag in values.consts.reserved_flags.worker %}
+    {% do tpl.funcs.fail("Flag [%s] is reserved for the worker container."|format(flag)) %}
+  {% endif %}
+  {% do worker_entrypoint.x.append("-%s%s"|format(flag, "=%s"|format(item.value) if item.value else "")) %}
+{% endfor %}
+
+{% do worker.set_entrypoint(worker_entrypoint.x) %}
 {% do worker.add_port(values.network.worker_metrics_port) %}
 
 {# Volume #}
@@ -91,6 +111,14 @@
 {% if values.network.volume_metrics_port.bind_mode %}
   {% do volume_entrypoint.x.append("-metricsPort=%d"|format(values.network.volume_metrics_port.port_number)) %}
 {% endif %}
+
+{% for item in values.seaweedfs.additional_flags | selectattr("container", "equalto", "volume") | list %}
+  {% set flag = item.flag.split("=")[0].lstrip("-") %}
+  {% if flag in values.consts.reserved_flags.volume %}
+    {% do tpl.funcs.fail("Flag [%s] is reserved for the volume container."|format(flag)) %}
+  {% endif %}
+  {% do volume_entrypoint.x.append("-%s%s"|format(flag, "=%s"|format(item.value) if item.value else "")) %}
+{% endfor %}
 
 {% do volume.set_entrypoint(volume_entrypoint.x) %}
 {% do volume.add_storage(values.consts.data_path, values.storage.volume_data) %}
@@ -119,6 +147,14 @@
   {% do filer_entrypoint.x.append("-metricsPort=%d"|format(values.network.filer_metrics_port.port_number)) %}
 {% endif %}
 
+{% for item in values.seaweedfs.additional_flags | selectattr("container", "equalto", "filer") | list %}
+  {% set flag = item.flag.split("=")[0].lstrip("-") %}
+  {% if flag in values.consts.reserved_flags.filer %}
+    {% do tpl.funcs.fail("Flag [%s] is reserved for the filer container."|format(flag)) %}
+  {% endif %}
+  {% do filer_entrypoint.x.append("-%s%s"|format(flag, "=%s"|format(item.value) if item.value else "")) %}
+{% endfor %}
+
 {% do filer.set_entrypoint(filer_entrypoint.x) %}
 {% do filer.add_storage(values.consts.data_path, values.storage.filer_data) %}
 {% do perm_container.add_or_skip_action("filer-data", values.storage.filer_data, perms_config) %}
@@ -146,8 +182,6 @@
   {% do s3_entrypoint.x.append("-metricsPort=%d"|format(values.network.s3_metrics_port.port_number)) %}
 {% endif %}
 
-{% do s3_entrypoint.x.append("-readOnly=%s"|format("true" if values.seaweedfs.s3_iam_readonly else "false")) %}
-
 {% if values.network.s3_port.certificate_id %}
   {% set cert = values.ix_certificates[values.network.s3_port.certificate_id] %}
   {% do s3.configs.add("private", cert.privatekey, values.consts.s3_ssl_key_path) %}
@@ -155,6 +189,14 @@
   {% do s3_entrypoint.x.extend(["-key.file=%s"|format(values.consts.s3_ssl_key_path)]) %}
   {% do s3_entrypoint.x.extend(["-cert.file=%s"|format(values.consts.s3_ssl_cert_path)]) %}
 {% endif %}
+
+{% for item in values.seaweedfs.additional_flags | selectattr("container", "equalto", "s3") | list %}
+  {% set flag = item.flag.split("=")[0].lstrip("-") %}
+  {% if flag in values.consts.reserved_flags.s3 %}
+    {% do tpl.funcs.fail("Flag [%s] is reserved for the s3 container."|format(flag)) %}
+  {% endif %}
+  {% do s3_entrypoint.x.append("-%s%s"|format(flag, "=%s"|format(item.value) if item.value else "")) %}
+{% endfor %}
 
 {% do s3.set_entrypoint(s3_entrypoint.x) %}
 
@@ -189,6 +231,14 @@
   {% endfor %}
   {% do master_entrypoint.x.append("-peers=%s"|format(peers.x|join(","))) %}
 {% endif %}
+
+{% for item in values.seaweedfs.additional_flags | selectattr("container", "equalto", "master") | list %}
+  {% set flag = item.flag.split("=")[0].lstrip("-") %}
+  {% if flag in values.consts.reserved_flags.master %}
+    {% do tpl.funcs.fail("Flag [%s] is reserved for the master container."|format(flag)) %}
+  {% endif %}
+  {% do master_entrypoint.x.append("-%s%s"|format(flag, "=%s"|format(item.value) if item.value else "")) %}
+{% endfor %}
 
 {% do master.set_entrypoint(master_entrypoint.x) %}
 
