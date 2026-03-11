@@ -63,6 +63,7 @@
 
 {% set archivebox = tpl.add_container(values.consts.archivebox_container_name, "image") %}
 {% do archivebox.add_network(archivebox_net) %}
+{% do archivebox.set_command(["server", "--init", "0.0.0.0:%d"|format(values.network.web_port.port_number)]) %}
 {% set scheduler = tpl.add_container(values.consts.scheduler_container_name, "image") %}
 {% do scheduler.add_network(archivebox_net) %}
 {% do scheduler.set_command(["schedule", "--foreground", "--update", "--every=day"]) %}
@@ -70,7 +71,7 @@
 
 {# Health checks #}
 {% do archivebox.healthcheck.set_test("curl", {
-  "port": values.consts.internal_web_port,
+  "port": values.network.web_port.port_number,
   "path": "/health/",
   "host": "127.0.0.1",
   "headers": [["Host", allowed_host]]
@@ -101,7 +102,7 @@
 {% do perm_container.add_or_skip_action("sonic_data", values.storage.sonic_data, {"uid": 568, "gid": 568, "mode": "check"}) %}
 
 {# Port mapping #}
-{% do archivebox.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do archivebox.add_port(values.network.web_port) %}
 
 {# Storage: main data directory #}
 {% do archivebox.add_storage("/data", values.storage.data) %}
