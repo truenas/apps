@@ -26,50 +26,50 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: public_url
+          label: Public URL
+          description: |
+            The URL users will use to access this ArchiveBox server (e.g. http://archivebox.example.com:30820).</br>
+            This value is used to fill the <code>CSRF_TRUSTED_ORIGINS</code> and <code>ALLOWED_HOSTS</code> env vars if they are not set.
+          schema:
+            type: string
+            default: ""
+            required: true
         - variable: admin_username
           label: Admin Username
-          description: The admin username for ArchiveBox (only used on first run).
+          description: The initial admin username for ArchiveBox (only used on first run).
           schema:
             type: string
             default: "admin"
             required: true
         - variable: admin_password
           label: Admin Password
-          description: The admin password for ArchiveBox (only used on first run).
+          description: The initial admin password for ArchiveBox (only used on first run).
           schema:
             type: string
             default: ""
             required: true
             private: true
         - variable: public_index
-          label: Public Index
-          description: Allow anonymous users to view the snapshot list.
+          label: Public Index Visibility
+          description: Allow anonymous/non-logged-in users to view the archived URLs list.
           schema:
             type: boolean
-            default: true
+            default: false
         - variable: public_snapshots
-          label: Public Snapshots
-          description: Allow anonymous users to view snapshot content.
+          label: Public Snapshot Contents
+          description: Allow anonymous/non-logged-in users to view archived snapshot contents.
           schema:
             type: boolean
-            default: true
-        - variable: csrf_trusted_origins
-          label: CSRF Trusted Origins
-          description: |
-            Comma-separated list of trusted origins for CSRF protection.</br>
-            Must match the URL(s) you use to access ArchiveBox (e.g. http://truenas.local:30820).</br>
-            If left empty, it defaults to http://localhost:{port}.
-          schema:
-            type: string
-            default: ""
+            default: false
         - variable: public_add_view
           label: Public Add View
-          description: Allow anonymous users to submit new URLs to archive.
+          description: Allow anonymous/non-logged-in users to submit new URLs to archive.
           schema:
             type: boolean
             default: false
         - variable: timeout
-          label: Timeout
+          label: Extraction Time Limit
           description: |
             Maximum time in seconds to wait for each archive method to complete.</br>
             Increase to 120+ if you see many slow downloads timing out.
@@ -78,67 +78,43 @@ questions:
             default: 60
             min: 10
             max: 3600
-        - variable: check_ssl_validity
-          label: Check SSL Validity
-          description: |
-            Enforce strict SSL certificate checking.</br>
-            Set to false to allow saving URLs with expired or self-signed certificates.
-          schema:
-            type: boolean
-            default: true
         - variable: save_archive_dot_org
           label: Save to Archive.org
           description: |
-            Submit all archived URLs to Archive.org's Wayback Machine.</br>
-            Set to false to disable this behavior.
+            Submit all archived URLs to Archive.org's Wayback Machine.
           schema:
             type: boolean
-            default: true
+            default: false
         - variable: user_agent
           label: User Agent
           description: |
             Custom browser User-Agent string to use when fetching pages.</br>
             Useful to avoid being blocked as a bot by some websites.</br>
-            Leave empty to use the default.
+            Leave empty to use the default ArchiveBox/vX.X.X user agent.
           schema:
             type: string
             default: ""
         - variable: cookies_file
           label: Cookies File Path
           description: |
-            Path to a Netscape-format cookies.txt file inside the container.</br>
+            Path to a Netscape-format cookies.txt file mounted inside the container /data volume.</br>
             Used to pass login sessions to ArchiveBox for archiving authenticated content.</br>
-            Mount the file via Additional Storage and reference its container path here (e.g. /data/cookies.txt).
+            Mount the file via Additional Storage and reference its container path here (e.g. /data/cookies.txt).</br>
+            See https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration/#cookies_file for more information.
           schema:
             type: string
             default: ""
         - variable: chrome_user_data_dir
           label: Chrome User Data Dir
           description: |
-            Path to a Chrome user data directory inside the container.</br>
+            Path to a Chrome user data directory inside the container /data volume.</br>
             Allows using a persistent Chrome profile with saved logins, extensions, etc.</br>
             Mount the directory via Additional Storage and reference its container path here</br>
-            (e.g. /data/personas/Default/chrome_profile).
+            (e.g. /data/personas/Default/chrome_profile).</br>
+            See https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile for more information.
           schema:
             type: string
             default: ""
-        - variable: search_backend_enabled
-          label: Enable Sonic Search
-          description: |
-            Enable the Sonic full-text search backend for faster searching.</br>
-            This will deploy an additional Sonic container.
-          schema:
-            type: boolean
-            default: true
-        - variable: search_backend_password
-          label: Sonic Search Password
-          description: Password for the Sonic search backend.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-            show_if: [["search_backend_enabled", "=", true]]
         - variable: additional_envs
           label: Additional Environment Variables
           description: |
@@ -256,8 +232,8 @@ questions:
                                     enum:
                                       - value: archivebox
                                         description: archivebox
-                                      - value: sonic
-                                        description: sonic
+                                      - value: archivebox_scheduler
+                                        description: archivebox_scheduler
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -657,8 +633,8 @@ questions:
                         enum:
                           - value: archivebox
                             description: archivebox
-                          - value: sonic
-                            description: sonic
+                          - value: archivebox_scheduler
+                            description: archivebox_scheduler
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -672,15 +648,16 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for ArchiveBox.
+                description: CPUs limit for ArchiveBox (at least 2 recommended).
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for ArchiveBox.
+                description: Memory limit for ArchiveBox (at least 1536MB recommended).
                 schema:
                   type: int
                   default: 4096
+                  min: 512
                   required: true
