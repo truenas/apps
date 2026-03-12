@@ -1,6 +1,8 @@
 groups:
   - name: ArchiveBox Configuration
     description: Configure ArchiveBox
+  - name: User and Group Configuration
+    description: Configure User and Group for ArchiveBox
   - name: Network Configuration
     description: Configure Network for ArchiveBox
   - name: Storage Configuration
@@ -20,6 +22,7 @@ questions:
       required: true
       $ref:
         - definitions/timezone
+
   - variable: archivebox
     label: ""
     group: ArchiveBox Configuration
@@ -29,10 +32,10 @@ questions:
         - variable: public_url
           label: Public URL
           description: |
-            The URL users will use to access this ArchiveBox server (e.g. http://archivebox.example.com:30820).</br>
+            The URL users will use to access this ArchiveBox server (e.g. http://archivebox.example.com:30387).</br>
             This value is used to fill the <code>CSRF_TRUSTED_ORIGINS</code> and <code>ALLOWED_HOSTS</code> env vars if they are not set.
           schema:
-            type: string
+            type: uri
             default: ""
             required: true
         - variable: admin_username
@@ -40,7 +43,7 @@ questions:
           description: The initial admin username for ArchiveBox (only used on first run).
           schema:
             type: string
-            default: "admin"
+            default: ""
             required: true
         - variable: admin_password
           label: Admin Password
@@ -80,8 +83,7 @@ questions:
             max: 3600
         - variable: save_archive_dot_org
           label: Save to Archive.org
-          description: |
-            Submit all archived URLs to Archive.org's Wayback Machine.
+          description: Submit all archived URLs to Archive.org's Wayback Machine.
           schema:
             type: boolean
             default: false
@@ -91,27 +93,6 @@ questions:
             Custom browser User-Agent string to use when fetching pages.</br>
             Useful to avoid being blocked as a bot by some websites.</br>
             Leave empty to use the default ArchiveBox/vX.X.X user agent.
-          schema:
-            type: string
-            default: ""
-        - variable: cookies_file
-          label: Cookies File Path
-          description: |
-            Path to a Netscape-format cookies.txt file mounted inside the container /data volume.</br>
-            Used to pass login sessions to ArchiveBox for archiving authenticated content.</br>
-            Mount the file via Additional Storage and reference its container path here (e.g. /data/cookies.txt).</br>
-            See https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration/#cookies_file for more information.
-          schema:
-            type: string
-            default: ""
-        - variable: chrome_user_data_dir
-          label: Chrome User Data Dir
-          description: |
-            Path to a Chrome user data directory inside the container /data volume.</br>
-            Allows using a persistent Chrome profile with saved logins, extensions, etc.</br>
-            Mount the directory via Additional Storage and reference its container path here</br>
-            (e.g. /data/personas/Default/chrome_profile).</br>
-            See https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile for more information.
           schema:
             type: string
             default: ""
@@ -138,6 +119,28 @@ questions:
                       label: Value
                       schema:
                         type: string
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that ArchiveBox files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that ArchiveBox files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
@@ -173,7 +176,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30820
+                  default: 30387
                   min: 1
                   max: 65535
                   required: true
@@ -232,8 +235,10 @@ questions:
                                     enum:
                                       - value: archivebox
                                         description: archivebox
-                                      - value: archivebox_scheduler
-                                        description: archivebox_scheduler
+                                      - value: scheduler
+                                        description: scheduler
+                                      - value: sonic
+                                        description: sonic
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -290,7 +295,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: ArchiveBox Data Storage
+          label: Data Storage
           description: Stores all archived data, configuration, and the SQLite database.
           schema:
             type: dict
@@ -447,7 +452,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -633,8 +638,11 @@ questions:
                         enum:
                           - value: archivebox
                             description: archivebox
-                          - value: archivebox_scheduler
-                            description: archivebox_scheduler
+                          - value: scheduler
+                            description: scheduler
+                          - value: sonic
+                            description: sonic
+
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -659,5 +667,4 @@ questions:
                 schema:
                   type: int
                   default: 4096
-                  min: 512
                   required: true
