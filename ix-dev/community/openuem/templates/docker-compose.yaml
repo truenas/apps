@@ -135,7 +135,6 @@
 {% do console.environment.add_env("ORGADDRESS", values.openuem.org_address) %}
 {% do console.environment.add_env("ORGCOUNTRY", values.openuem.org_country) %}
 {% do console.add_storage("/bin/certificates", console_certs_vol) %}
-{% do console.add_storage("/var/log/openuem-server", {"type": "tmpfs", "tmpfs_config": {"size": 50, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
 
 {% do console.add_port(values.network.web_port) %}
 {% do console.add_port(values.network.auth_port) %}
@@ -158,7 +157,7 @@
 {% do notification_worker.add_network(openuem_net) %}
 {% do notification_worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do notification_worker.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
-{% do notification_worker.depends.add_dependency(values.consts.nats_server_container_name, "service_healthy") %}
+{% do notification_worker.depends.add_dependency(values.consts.nats_server_container_name, "service_started") %}
 {% do notification_worker.set_command(["notifications", "start"]) %}
 {% do notification_worker.healthcheck.set_custom_test(["CMD", "/bin/openuem-worker", "healthcheck"]) %}
 {% do notification_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
@@ -170,7 +169,7 @@
 {% do cert_manager_worker.add_network(openuem_net) %}
 {% do cert_manager_worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do cert_manager_worker.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
-{% do cert_manager_worker.depends.add_dependency(values.consts.nats_server_container_name, "service_healthy") %}
+{% do cert_manager_worker.depends.add_dependency(values.consts.nats_server_container_name, "service_started") %}
 {% do cert_manager_worker.set_command(["cert-manager", "start"]) %}
 {% do cert_manager_worker.healthcheck.set_custom_test(["CMD", "/bin/openuem-worker", "healthcheck"]) %}
 {% do cert_manager_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
