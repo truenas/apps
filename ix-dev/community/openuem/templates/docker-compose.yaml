@@ -6,12 +6,12 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set console = tpl.add_container(values.consts.console_container_name, "image") %}
-{% set cert_manager = tpl.add_container(values.consts.cert_manager_container_name, "image") %}
-{% set ocsp_responder = tpl.add_container(values.consts.ocsp_responder_container_name, "image") %}
-{% set notification_worker = tpl.add_container(values.consts.notification_worker_container_name, "image") %}
-{% set cert_manager_worker = tpl.add_container(values.consts.cert_manager_worker_container_name, "image") %}
-{% set agents_worker = tpl.add_container(values.consts.agents_worker_container_name, "image") %}
-{% set nats_server = tpl.add_container(values.consts.nats_server_container_name, "image") %}
+{% set cert_manager = tpl.add_container(values.consts.cert_manager_container_name, "cert_manager_image") %}
+{% set ocsp_responder = tpl.add_container(values.consts.ocsp_responder_container_name, "ocsp_responder_image") %}
+{% set notification_worker = tpl.add_container(values.consts.notification_worker_container_name, "worker_image") %}
+{% set cert_manager_worker = tpl.add_container(values.consts.cert_manager_worker_container_name, "worker_image") %}
+{% set agents_worker = tpl.add_container(values.consts.agents_worker_container_name, "worker_image") %}
+{% set nats_server = tpl.add_container(values.consts.nats_server_container_name, "nats_server_image") %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -49,8 +49,10 @@
 
 {# Cert Manager #}
 {# {% do cert_manager.set_user(values.run_as.user, values.run_as.group) %} FIXME: test once its setup #}
+{% do cert_manager.add_network(openuem_net) %}
 {% do cert_manager.set_entrypoint(["/bin/configure.sh"]) %}
 {% do cert_manager.setup_as_helper(disable_network=false) %}
+{% do cert_manager.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do cert_manager.environment.add_env("NATS_PORT", values.network.nats_port.port_number) %}
 {% do cert_manager.environment.add_env("NATS_SERVER", nats_address) %}
 {% do cert_manager.environment.add_env("OCSP", "http://%s"|format(ocsp_address)) %}
@@ -83,11 +85,10 @@
 {% do nats_server.environment.add_env("COUNTRY", values.openuem.org_country) %}
 {% do nats_server.add_port(values.network.nats_port) %}
 {% do nats_server.add_storage("/var/lib/jetstream/data", values.storage.nats_data) %}
-
-{% do nats_server.add_storage("/nats-cfg", nats_config_vol) %}
+{# {% do nats_server.add_storage("/nats-cfg", nats_config_vol) %}
 {% do nats_server.add_storage("/etc/nats-certificates/nats.cer", {"type": "host_path", "host_path_config": {"path": "%s/nats/nats.cer"|format(certs_host_path)}}) %}
 {% do nats_server.add_storage("/etc/nats-certificates/nats.key", {"type": "host_path", "host_path_config": {"path": "%s/nats/nats.key"|format(certs_host_path)}}) %}
-{% do nats_server.add_storage("/etc/nats-certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %}
+{% do nats_server.add_storage("/etc/nats-certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %} #}
 
 {# Console #}
 {# {% do console.set_user(values.run_as.user, values.run_as.group) %} FIXME: test once its setup #}
@@ -110,10 +111,10 @@
 {% do console.environment.add_env("ORGLOCALITY", values.openuem.org_locality) %}
 {% do console.environment.add_env("ORGADDRESS", values.openuem.org_address) %}
 {% do console.environment.add_env("ORGCOUNTRY", values.openuem.org_country) %}
-{% do console.add_storage("/bin/certificates/console.key", {"type": "host_path", "host_path_config": {"path": "%s/console/console.key"|format(certs_host_path)}}) %}
+{# {% do console.add_storage("/bin/certificates/console.key", {"type": "host_path", "host_path_config": {"path": "%s/console/console.key"|format(certs_host_path)}}) %}
 {% do console.add_storage("/bin/certificates/console.cer", {"type": "host_path", "host_path_config": {"path": "%s/console/console.cer"|format(certs_host_path)}}) %}
 {% do console.add_storage("/bin/certificates/sftp.key", {"type": "host_path", "host_path_config": {"path": "%s/console/sftp.key"|format(certs_host_path)}}) %}
-{% do console.add_storage("/bin/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %}
+{% do console.add_storage("/bin/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %} #}
 
 {% do console.add_port(values.network.web_port) %}
 {% do console.add_port(values.network.auth_port) %}
@@ -129,9 +130,9 @@
 {% do ocsp_responder.environment.add_env("NATS_SERVERS", nats_address) %}
 {% do ocsp_responder.environment.add_env("OCSP_PORT", values.network.ocsp_port.port_number) %}
 {% do ocsp_responder.add_port(values.network.ocsp_port) %}
-{% do ocsp_responder.add_storage("/usr/bin/certificates/ocsp.cer", {"type": "host_path", "host_path_config": {"path": "%s/oscp/ocsp.cer"|format(certs_host_path)}}) %}
+{# {% do ocsp_responder.add_storage("/usr/bin/certificates/ocsp.cer", {"type": "host_path", "host_path_config": {"path": "%s/oscp/ocsp.cer"|format(certs_host_path)}}) %}
 {% do ocsp_responder.add_storage("/usr/bin/certificates/ocsp.key", {"type": "host_path", "host_path_config": {"path": "%s/oscp/ocsp.key"|format(certs_host_path)}}) %}
-{% do ocsp_responder.add_storage("/usr/bin/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %}
+{% do ocsp_responder.add_storage("/usr/bin/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %} #}
 
 {# Notification Worker #}
 {# {% do notification_worker.set_user(values.run_as.user, values.run_as.group) %} FIXME: test once its setup #}
@@ -143,9 +144,9 @@
 {% do notification_worker.healthcheck.set_custom_test(["CMD", "/bin/openuem-worker", "healthcheck"]) %}
 {% do notification_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do notification_worker.environment.add_env("NATS_SERVERS", nats_address) %}
-{% do notification_worker.add_storage("/tmp/certificates/worker.key", {"type": "host_path", "host_path_config": {"path": "%s/notification-worker/worker.key"|format(certs_host_path)}}) %}
+{# {% do notification_worker.add_storage("/tmp/certificates/worker.key", {"type": "host_path", "host_path_config": {"path": "%s/notification-worker/worker.key"|format(certs_host_path)}}) %}
 {% do notification_worker.add_storage("/tmp/certificates/worker.cer", {"type": "host_path", "host_path_config": {"path": "%s/notification-worker/worker.cer"|format(certs_host_path)}}) %}
-{% do notification_worker.add_storage("/tmp/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %}
+{% do notification_worker.add_storage("/tmp/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %} #}
 
 {# Cert Manager Worker #}
 {# {% do cert_manager_worker.set_user(values.run_as.user, values.run_as.group) %} FIXME: test once its setup #}
@@ -158,10 +159,10 @@
 {% do cert_manager_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do cert_manager_worker.environment.add_env("NATS_SERVERS", nats_address) %}
 {% do cert_manager_worker.environment.add_env("OCSP", "http://%s"|format(ocsp_address)) %}
-{% do cert_manager_worker.add_storage("/tmp/certificates/worker.key", {"type": "host_path", "host_path_config": {"path": "%s/cert-manager-worker/worker.key"|format(certs_host_path)}}) %}
+{# {% do cert_manager_worker.add_storage("/tmp/certificates/worker.key", {"type": "host_path", "host_path_config": {"path": "%s/cert-manager-worker/worker.key"|format(certs_host_path)}}) %}
 {% do cert_manager_worker.add_storage("/tmp/certificates/worker.cer", {"type": "host_path", "host_path_config": {"path": "%s/cert-manager-worker/worker.cer"|format(certs_host_path)}}) %}
 {% do cert_manager_worker.add_storage("/tmp/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %}
-{% do cert_manager_worker.add_storage("/tmp/certificates/ca.key", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.key"|format(certs_host_path)}}) %}
+{% do cert_manager_worker.add_storage("/tmp/certificates/ca.key", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.key"|format(certs_host_path)}}) %} #}
 
 {# Agents Worker #}
 {# {% do agents_worker.set_user(values.run_as.user, values.run_as.group) %} FIXME: test once its setup #}
@@ -173,9 +174,9 @@
 {% do agents_worker.healthcheck.set_custom_test(["CMD", "/bin/openuem-worker", "healthcheck"]) %}
 {% do agents_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do agents_worker.environment.add_env("NATS_SERVERS", nats_address) %}
-{% do agents_worker.add_storage("/tmp/certificates/worker.key", {"type": "host_path", "host_path_config": {"path": "%s/agents-worker/worker.key"|format(certs_host_path)}}) %}
+{# {% do agents_worker.add_storage("/tmp/certificates/worker.key", {"type": "host_path", "host_path_config": {"path": "%s/agents-worker/worker.key"|format(certs_host_path)}}) %}
 {% do agents_worker.add_storage("/tmp/certificates/worker.cer", {"type": "host_path", "host_path_config": {"path": "%s/agents-worker/worker.cer"|format(certs_host_path)}}) %}
-{% do agents_worker.add_storage("/tmp/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %}
+{% do agents_worker.add_storage("/tmp/certificates/ca.cer", {"type": "host_path", "host_path_config": {"path": "%s/ca/ca.cer"|format(certs_host_path)}}) %} #}
 
 {% do perm_container.add_or_skip_action("nats_config", nats_config_vol, perms_config) %}
 {% do perm_container.add_or_skip_action("nats_data", values.storage.nats_data, perms_config) %}
