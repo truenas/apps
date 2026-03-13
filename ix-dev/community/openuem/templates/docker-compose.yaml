@@ -116,8 +116,7 @@
 {# Console #}
 {% do console.set_user(values.run_as.user, values.run_as.group) %}
 {% do console.add_network(openuem_net, {"aliases": [console_host]}) %}
-{# FIXME: add something #}
-{% do console.healthcheck.disable() %}
+{% do console.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/favicon.ico", "scheme": "https"}) %}
 {% do console.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do console.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
 {% do console.depends.add_dependency(values.consts.ocsp_responder_container_name, "service_healthy") %}
@@ -209,6 +208,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
 
 {{ tpl.render() | tojson }}
