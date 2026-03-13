@@ -337,6 +337,11 @@ module.exports = {
       "^(?<compatibility>backend|frontend|fc-worker-api|fc-worker-celery)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["amrit3701/lens"],
     ),
+    customVersioning(
+      // release-1.11.0
+      "^release-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["ghcr.io/lukegus/termix"],
+    ),
   ],
 };
 
