@@ -1,0 +1,213 @@
+{% from "macros/configure.sh" import configure %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set openuem_net = tpl.networks.create_internal("openuem-net") %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% set console = tpl.add_container(values.consts.console_container_name, "image") %}
+{% set cert_manager = tpl.add_container(values.consts.cert_manager_container_name, "cert_manager_image") %}
+{% set ocsp_responder = tpl.add_container(values.consts.ocsp_responder_container_name, "ocsp_responder_image") %}
+{% set notification_worker = tpl.add_container(values.consts.notification_worker_container_name, "worker_image") %}
+{% set cert_manager_worker = tpl.add_container(values.consts.cert_manager_worker_container_name, "worker_image") %}
+{% set agents_worker = tpl.add_container(values.consts.agents_worker_container_name, "worker_image") %}
+{% set nats_server = tpl.add_container(values.consts.nats_server_container_name, "nats_server_image") %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.openuem.postgres_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.openuem.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(openuem_net) %}
+
+{# Calculated Values #}
+{% set nats_config_vol = {"type": "temporary", "volume_config": {"volume_name": "nats_config"}} %}
+{% set nats_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "nats_certs"}} %}
+{% set console_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "console_certs"}} %}
+{% set ocsp_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "ocsp_certs"}} %}
+{% set notification_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "notification_worker_certs"}} %}
+{% set cert_manager_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "cert_manager_worker_certs"}} %}
+{% set agents_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "agents_worker_certs"}} %}
+
+{% do perm_container.add_or_skip_action("nats_config", nats_config_vol, perms_config) %}
+{% do perm_container.add_or_skip_action("nats_certs", nats_certs_vol, perms_config) %}
+{% do perm_container.add_or_skip_action("console_certs", console_certs_vol, perms_config) %}
+{% do perm_container.add_or_skip_action("ocsp_certs", ocsp_certs_vol, perms_config) %}
+{% do perm_container.add_or_skip_action("notification_worker_certs", notification_worker_cert_vol, perms_config) %}
+{% do perm_container.add_or_skip_action("cert_manager_worker_certs", cert_manager_worker_cert_vol, perms_config) %}
+{% do perm_container.add_or_skip_action("agents_worker_certs", agents_worker_cert_vol, perms_config) %}
+
+{% set certs_host_path = tpl.funcs.get_host_path(values.storage.certificates) %}
+{% set nats_host = "%s.%s"|format(values.openuem.nats_subdomain, values.openuem.domain) %}
+{% set ocsp_host = "%s.%s"|format(values.openuem.ocsp_subdomain, values.openuem.domain) %}
+{% set console_host = "%s.%s"|format(values.openuem.console_subdomain, values.openuem.domain) %}
+{% set nats_address = "%s:%d"|format(nats_host, values.network.nats_port.port_number) %}
+{% set ocsp_address = "%s:%d"|format(ocsp_host, values.network.ocsp_port.port_number) %}
+{% set console_address = "%s:%d"|format(console_host, values.network.web_port.port_number) %}
+
+{% for c in containers %}
+  {# {% do c.environment.add_user_envs(values.openuem.additional_envs) %}
+
+  {% for store in values.storage.additional_storage %}
+    {% do c.add_storage(store.mount_path, store) %}
+  {% endfor %} #}
+
+
+  {# {% do c.environment.add_user_envs(values.openuem.additional_envs) %}
+
+  {% for store in values.storage.additional_storage %}
+    {% do c.add_storage(store.mount_path, store) %}
+  {% endfor %} #}
+{% endfor %}
+
+{# Cert Manager #}
+{% do cert_manager.set_user(values.run_as.user, values.run_as.group) %}
+{% do cert_manager.add_network(openuem_net) %}
+{% do cert_manager.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do cert_manager.set_entrypoint(["/bin/tn-config.sh"]) %}
+{% do cert_manager.setup_as_helper(disable_network=false) %}
+{# Add a script to move things around in the cert manager #}
+{% do cert_manager.configs.add("cert-configure", configure(), "/bin/tn-config.sh", "0755") %}
+{% do cert_manager.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do cert_manager.environment.add_env("NATS_PORT", values.network.nats_port.port_number) %}
+{% do cert_manager.environment.add_env("NATS_SERVER", nats_host) %}
+{% do cert_manager.environment.add_env("OCSP", "http://%s"|format(ocsp_address)) %}
+{% do cert_manager.environment.add_env("DOMAIN", values.openuem.domain) %}
+{% do cert_manager.environment.add_env("SERVER_NAME", console_host) %}
+{% do cert_manager.environment.add_env("ORGNAME", values.openuem.org_name) %}
+{% do cert_manager.environment.add_env("ORGPROVINCE", values.openuem.org_province) %}
+{% do cert_manager.environment.add_env("ORGLOCALITY", values.openuem.org_locality) %}
+{% do cert_manager.environment.add_env("ORGADDRESS", values.openuem.org_address) %}
+{% do cert_manager.environment.add_env("COUNTRY", values.openuem.org_country) %}
+{% do cert_manager.add_storage("/etc/nats", nats_config_vol) %}
+{% do cert_manager.add_storage("/certificates", values.storage.certificates) %}
+{% do cert_manager.add_storage("/console-certs", console_certs_vol) %}
+{% do cert_manager.add_storage("/ocsp-certs", ocsp_certs_vol) %}
+{% do cert_manager.add_storage("/notification-worker-certs", notification_worker_cert_vol) %}
+{% do cert_manager.add_storage("/cert-manager-worker-certs", cert_manager_worker_cert_vol) %}
+{% do cert_manager.add_storage("/agents-worker-certs", agents_worker_cert_vol) %}
+{% do cert_manager.add_storage("/nats-certs", nats_certs_vol) %}
+
+{# NATS Server #}
+{% do nats_server.set_user(values.run_as.user, values.run_as.group) %}
+{% do nats_server.add_network(openuem_net, {"aliases": [nats_host]}) %}
+{% do nats_server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do nats_server.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
+{% do nats_server.set_command(["-c", "/nats-config/nats.cfg"]) %}
+{# There is no binaries inside to use for any kind of healthcheck #}
+{# https://github.com/nats-io/nats-docker/issues/143 #}
+{% do nats_server.healthcheck.disable() %}
+{% do nats_server.depends.add_dependency(values.consts.ocsp_responder_container_name, "service_healthy") %}
+{% do nats_server.environment.add_env("NATS_PORT", values.network.nats_port.port_number) %}
+{% do nats_server.environment.add_env("NATS_SERVER", nats_host) %}
+{% do nats_server.environment.add_env("ORGNAME", values.openuem.org_name) %}
+{% do nats_server.environment.add_env("ORGPROVINCE", values.openuem.org_province) %}
+{% do nats_server.environment.add_env("ORGLOCALITY", values.openuem.org_locality) %}
+{% do nats_server.environment.add_env("ORGADDRESS", values.openuem.org_address) %}
+{% do nats_server.environment.add_env("COUNTRY", values.openuem.org_country) %}
+{% do nats_server.add_port(values.network.nats_port) %}
+{% do nats_server.add_storage("/var/lib/jetstream/data", values.storage.nats_data) %}
+{% do nats_server.add_storage("/nats-config", dict(nats_config_vol, **{"read_only":true})) %}
+{% do nats_server.add_storage("/etc/nats-certificates", dict(nats_certs_vol, **{"read_only":true})) %}
+
+{# Console #}
+{% do console.set_user(values.run_as.user, values.run_as.group) %}
+{% do console.add_network(openuem_net, {"aliases": [console_host]}) %}
+{% do console.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
+{% do console.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do console.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
+{% do console.depends.add_dependency(values.consts.ocsp_responder_container_name, "service_healthy") %}
+{% do console.set_command(["start"]) %}
+{% do console.environment.add_env("DOMAIN", values.openuem.domain) %}
+{% do console.environment.add_env("SERVER_NAME", console_host) %}
+{% do console.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do console.environment.add_env("NATS_SERVERS", nats_address) %}
+{% do console.environment.add_env("CONSOLE_PORT", values.network.web_port.port_number) %}
+{% do console.environment.add_env("AUTH_PORT", values.network.auth_port.port_number) %}
+{% do console.environment.add_env("JWT_KEY", values.openuem.jwt_key) %}
+{% do console.environment.add_env("ORGNAME", values.openuem.org_name) %}
+{% do console.environment.add_env("ORGPROVINCE", values.openuem.org_province) %}
+{% do console.environment.add_env("ORGLOCALITY", values.openuem.org_locality) %}
+{% do console.environment.add_env("ORGADDRESS", values.openuem.org_address) %}
+{% do console.environment.add_env("ORGCOUNTRY", values.openuem.org_country) %}
+{% do console.add_storage("/bin/certificates", dict(console_certs_vol, **{"read_only":true})) %}
+{% do console.add_storage("/var/log/openuem-server", {"type": "tmpfs", "tmpfs_config": {"size": 50, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
+{% do console.add_storage("/usr/bin/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 50, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
+
+{% do console.add_port(values.network.web_port) %}
+{% do console.add_port(values.network.auth_port) %}
+
+{# OCSP Responder #}
+{% do ocsp_responder.set_user(values.run_as.user, values.run_as.group) %}
+{% do ocsp_responder.add_network(openuem_net, {"aliases": [ocsp_host]}) %}
+{% do ocsp_responder.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do ocsp_responder.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
+{% do ocsp_responder.set_command(["start"]) %}
+{% do ocsp_responder.healthcheck.set_test("curl", {"port": values.network.ocsp_port.port_number, "path": "/health"}) %}
+{% do ocsp_responder.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do ocsp_responder.environment.add_env("NATS_SERVERS", nats_address) %}
+{% do ocsp_responder.environment.add_env("OCSP_PORT", values.network.ocsp_port.port_number) %}
+{% do ocsp_responder.add_port(values.network.ocsp_port) %}
+{% do ocsp_responder.add_storage("/usr/bin/certificates", dict(ocsp_certs_vol, **{"read_only":true})) %}
+
+{# Notification Worker #}
+{% do notification_worker.set_user(values.run_as.user, values.run_as.group) %}
+{% do notification_worker.add_network(openuem_net) %}
+{% do notification_worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do notification_worker.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
+{% do notification_worker.depends.add_dependency(values.consts.nats_server_container_name, "service_started") %}
+{% do notification_worker.set_command(["notifications", "start"]) %}
+{% do notification_worker.healthcheck.set_custom_test(["CMD", "/bin/openuem-worker", "healthcheck"]) %}
+{% do notification_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do notification_worker.environment.add_env("NATS_SERVERS", nats_address) %}
+{% do notification_worker.add_storage("/tmp/certificates", dict(notification_worker_cert_vol, **{"read_only":true})) %}
+
+{# Cert Manager Worker #}
+{% do cert_manager_worker.set_user(values.run_as.user, values.run_as.group) %}
+{% do cert_manager_worker.add_network(openuem_net) %}
+{% do cert_manager_worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do cert_manager_worker.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
+{% do cert_manager_worker.depends.add_dependency(values.consts.nats_server_container_name, "service_started") %}
+{% do cert_manager_worker.set_command(["cert-manager", "start"]) %}
+{% do cert_manager_worker.healthcheck.set_custom_test(["CMD", "/bin/openuem-worker", "healthcheck"]) %}
+{% do cert_manager_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do cert_manager_worker.environment.add_env("NATS_SERVERS", nats_address) %}
+{% do cert_manager_worker.environment.add_env("OCSP", "http://%s"|format(ocsp_address)) %}
+{% do cert_manager_worker.add_storage("/tmp/certificates", dict(cert_manager_worker_cert_vol, **{"read_only":true})) %}
+
+{# Agents Worker #}
+{% do agents_worker.set_user(values.run_as.user, values.run_as.group) %}
+{% do agents_worker.add_network(openuem_net) %}
+{% do agents_worker.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do agents_worker.depends.add_dependency(values.consts.cert_manager_container_name, "service_completed_successfully") %}
+{% do agents_worker.depends.add_dependency(values.consts.nats_server_container_name, "service_started") %}
+{% do agents_worker.set_command(["agents", "start"]) %}
+{% do agents_worker.healthcheck.set_custom_test(["CMD", "/bin/openuem-worker", "healthcheck"]) %}
+{% do agents_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{% do agents_worker.environment.add_env("NATS_SERVERS", nats_address) %}
+{% do agents_worker.add_storage("/tmp/certificates", dict(agents_worker_cert_vol, **{"read_only":true})) %}
+
+{% do perm_container.add_or_skip_action("nats_data", values.storage.nats_data, perms_config) %}
+{% do perm_container.add_or_skip_action("certificates", values.storage.certificates, perms_config) %}
+{% for store in values.storage.additional_storage %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do cert_manager.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do nats_server.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do console.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do ocsp_responder.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do notification_worker.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do cert_manager_worker.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do agents_worker.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"host" console_host, "scheme": "https"}) %}
+
+{{ tpl.render() | tojson }}
