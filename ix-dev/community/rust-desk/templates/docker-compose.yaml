@@ -1,7 +1,11 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set rust_desk_net = tpl.networks.create_internal("rust-desk-net") %}
+
 {% set server = tpl.add_container(values.consts.rust_desk_container_name, values.rust_desk.image_selector) %}
+{% do server.add_network(rust_desk_net) %}
 {% set relay = tpl.add_container(values.consts.rust_desk_relay_container_name, values.rust_desk.image_selector) %}
+{% do relay.add_network(rust_desk_net) %}
 
 {% set is_pro = values.rust_desk.image_selector == "pro_image" %}
 
@@ -35,20 +39,18 @@
 {% do server.environment.add_user_envs(values.rust_desk.additional_envs) %}
 {% do relay.environment.add_user_envs(values.rust_desk.additional_envs) %}
 
-{% if not values.network.host_network %}
-  {% if is_pro %}{% do server.add_port(values.network.webui_port, {"container_port": 21114}) %}{% endif %}
-  {% do server.add_port(values.network.nat_type_test_port, {"container_port": 21115}) %}
-  {% do server.add_port(values.network.id_reg_hole_punch_port, {"container_port": 21116}) %}
-  {% do server.add_port(values.network.id_reg_hole_punch_port, {"container_port": 21116, "protocol": "udp"}) %}
+{% if is_pro %}{% do server.add_port(values.network.webui_port, {"container_port": 21114}) %}{% endif %}
+{% do server.add_port(values.network.nat_type_test_port, {"container_port": 21115}) %}
+{% do server.add_port(values.network.id_reg_hole_punch_port, {"container_port": 21116}) %}
+{% do server.add_port(values.network.id_reg_hole_punch_port, {"container_port": 21116, "protocol": "udp"}) %}
 
-  {% do relay.add_port(values.network.relay_port, {"container_port": 21117}) %}
+{% do relay.add_port(values.network.relay_port, {"container_port": 21117}) %}
 
-  {% if values.network.server_web_clients_port.bind_mode %}
-    {% do server.add_port(values.network.server_web_clients_port, {"container_port": 21118}) %}
-  {% endif %}
-  {% if values.network.relay_web_clients_port.bind_mode %}
-    {% do relay.add_port(values.network.relay_web_clients_port, {"container_port": 21119}) %}
-  {% endif %}
+{% if values.network.server_web_clients_port.bind_mode %}
+  {% do server.add_port(values.network.server_web_clients_port, {"container_port": 21118}) %}
+{% endif %}
+{% if values.network.relay_web_clients_port.bind_mode %}
+  {% do relay.add_port(values.network.relay_web_clients_port, {"container_port": 21119}) %}
 {% endif %}
 
 {% do server.add_storage("/root", values.storage.data) %}

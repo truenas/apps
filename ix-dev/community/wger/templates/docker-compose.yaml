@@ -1,9 +1,15 @@
 {% from "macros/nginx.conf" import nginx_config %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{# {% if values.wger.postgres_image_selector == "postgres_17_image" %}
+  {% do tpl.notes.add_deprecation("Postgres 17 is deprecated and will be removed in the near future. Please upgrade.") %}
+{% endif %} #}
+
 {% if not values.wger.trusted_origins %}
   {% do tpl.funcs.fail("At least one trusted origin must be specified") %}
 {% endif %}
+
+{% set wger_net = tpl.networks.create_internal("wger-net") %}
 
 {% set nginx = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
 {% set server = tpl.add_container(values.consts.server_container_name, "image") %}
@@ -19,11 +25,8 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.wger.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.wger.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(wger_net) %}
 
 {# -- Redis -- #}
 {% set redis_config = {
@@ -31,9 +34,11 @@
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(wger_net) %}
 
 {% set containers = [server, worker, beat] %}
 {% for c in containers + [nginx] %}
+  {% do c.add_network(wger_net) %}
   {% do c.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% endfor %}
 {% set celery_password = tpl.funcs.secure_string(32) %}
@@ -58,7 +63,7 @@
   {% do c.environment.add_env("DJANGO_DB_USER", values.consts.db_user) %}
   {% do c.environment.add_env("DJANGO_DB_PASSWORD", values.wger.db_password) %}
   {% do c.environment.add_env("DJANGO_DB_HOST", values.consts.postgres_container_name) %}
-  {% do c.environment.add_env("DJANGO_DB_PORT", 5432) %}
+  {% do c.environment.add_env("DJANGO_DB_PORT", postgres.get_port()) %}
   {% do c.environment.add_env("DJANGO_PERFORM_MIGRATIONS", "True") %}
   {% do c.environment.add_env("DJANGO_CACHE_BACKEND", "django_redis.cache.RedisCache") %}
   {% do c.environment.add_env("DJANGO_CACHE_LOCATION", "%s/1" | format(redis.get_url("redis"))) %}
@@ -83,6 +88,7 @@
 
 {# -- Server -- #}
 {% do server.healthcheck.set_test("wget", {"port": values.consts.internal_server_port}) %}
+{% do server.environment.add_env("WGER_PORT", values.consts.internal_server_port) %}
 {% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do server.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do server.add_storage("/home/wger/static", values.storage.static) %}

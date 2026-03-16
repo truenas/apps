@@ -1,6 +1,9 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set pterodactyl_net = tpl.networks.create_internal("pterodactyl-net") %}
+
 {% set c1 = tpl.add_container(values.consts.pterodactyl_container_name, "image") %}
+{% do c1.add_network(pterodactyl_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set redis_config = {
@@ -8,6 +11,7 @@
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis_container = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis_container.container.add_network(pterodactyl_net) %}
 
 {% set mariadb_config = {
   "user": values.consts.db_user,
@@ -17,6 +21,7 @@
   "volume": values.storage.mariadb_data,
 } %}
 {% set mariadb_container = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", mariadb_config, perm_container) %}
+{% do mariadb_container.container.add_network(pterodactyl_net) %}
 
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "SETGID", "SETUID", "DAC_OVERRIDE", "FOWNER"]) %}
