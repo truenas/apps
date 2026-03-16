@@ -5,25 +5,24 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{# https://forgejo.ellis.link/continuwuation/continuwuity/issues/1546 #}
 {% do c1.healthcheck.disable() %}
 
-{% do c1.environment.add_env("CONTINUWUITY_SERVER_NAME", values.continuwuity.server_name) %}
+{% do c1.environment.add_env("CONTINUWUITY_ADDRESS", "0.0.0.0") %}
 {% do c1.environment.add_env("CONTINUWUITY_PORT", values.network.web_port.port_number) %}
-{% do c1.environment.add_env("CONTINUWUITY_DATABASE_PATH", "/var/lib/continuwuity") %}
-{% do c1.environment.add_env("CONTINUWUITY_MAX_REQUEST_SIZE", values.continuwuity.max_request_size) %}
+{% do c1.environment.add_env("CONTINUWUITY_DATABASE_PATH", values.consts.database_path) %}
+{% do c1.environment.add_env("CONTINUWUITY_SERVER_NAME", values.continuwuity.server_name) %}
 {% do c1.environment.add_env("CONTINUWUITY_ALLOW_REGISTRATION", values.continuwuity.allow_registration) %}
 {% do c1.environment.add_env("CONTINUWUITY_REGISTRATION_TOKEN", values.continuwuity.registration_token) %}
 {% do c1.environment.add_env("CONTINUWUITY_ALLOW_FEDERATION", values.continuwuity.allow_federation) %}
-{% do c1.environment.add_env("CONTINUWUITY_TRUSTED_SERVERS", values.continuwuity.trusted_servers) %}
-{% do c1.environment.add_env("CONTINUWUITY_ALLOW_CHECK_FOR_UPDATES", values.continuwuity.check_for_updates) %}
-{% do c1.environment.add_env("CONTINUWUITY_ADDRESS", values.continuwuity.bind_to_adress) %}
+{% do c1.environment.add_env("CONTINUWUITY_TRUSTED_SERVERS", values.continuwuity.trusted_servers|tojson) %}
 
 {% do c1.environment.add_user_envs(values.continuwuity.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/var/lib/continuwuity", values.storage.db_data) %}
-{% do perm_container.add_or_skip_action("db_data", values.storage.db_data, perms_config) %}
+{% do c1.add_storage(values.consts.database_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
