@@ -17,7 +17,12 @@ else
 fi
 echo "\n\n"
 
+if [ ! -f /data/config.yaml ]; then
+  echo "Generating default config"
+  forgejo-runner generate-config > /data/config.yaml
+fi
+
 echo "Starting the runner"
-forgejo-runner daemon
+forgejo-runner daemon --config /data/config.yaml
 exit 0
 {% endmacro %}
