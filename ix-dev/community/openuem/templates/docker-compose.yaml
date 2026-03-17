@@ -54,14 +54,6 @@
 {% set ocsp_address = "%s:%d"|format(ocsp_host, values.network.ocsp_port.port_number) %}
 {% set console_address = "%s:%d"|format(console_host, values.network.web_port.port_number) %}
 
-{% for c in containers %}
-  {# {% do c.environment.add_user_envs(values.openuem.additional_envs) %}
-
-  {% for store in values.storage.additional_storage %}
-    {% do c.add_storage(store.mount_path, store) %}
-  {% endfor %} #}
-{% endfor %}
-
 {# Cert Manager #}
 {% do cert_manager.set_user(values.run_as.user, values.run_as.group) %}
 {% do cert_manager.add_network(openuem_net) %}
@@ -108,6 +100,7 @@
 {% do nats_server.environment.add_env("ORGLOCALITY", values.openuem.org_locality) %}
 {% do nats_server.environment.add_env("ORGADDRESS", values.openuem.org_address) %}
 {% do nats_server.environment.add_env("COUNTRY", values.openuem.org_country) %}
+{% do nats_server.environment.add_user_envs(values.zabbix.additional_envs | selectattr("container", "equalto", "nats-server") | list) %}
 {% do nats_server.add_port(values.network.nats_port) %}
 {% do nats_server.add_storage("/var/lib/jetstream/data", values.storage.nats_data) %}
 {% do nats_server.add_storage("/nats-config", dict(nats_config_vol, **{"read_only":true})) %}
@@ -135,6 +128,7 @@
 {% do console.environment.add_env("ORGLOCALITY", values.openuem.org_locality) %}
 {% do console.environment.add_env("ORGADDRESS", values.openuem.org_address) %}
 {% do console.environment.add_env("ORGCOUNTRY", values.openuem.org_country) %}
+{% do console.environment.add_user_envs(values.zabbix.additional_envs | selectattr("container", "equalto", "console") | list) %}
 {% do console.add_storage("/bin/certificates", dict(console_certs_vol, **{"read_only":true})) %}
 {% do console.add_storage("/var/log/openuem-server", {"type": "tmpfs", "tmpfs_config": {"size": 50, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
 {% do console.add_storage("/usr/bin/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 50, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
@@ -154,6 +148,7 @@
 {% do ocsp_responder.environment.add_env("OCSP_PORT", values.network.ocsp_port.port_number) %}
 {% do ocsp_responder.add_port(values.network.ocsp_port) %}
 {% do ocsp_responder.add_storage("/usr/bin/certificates", dict(ocsp_certs_vol, **{"read_only":true})) %}
+{% do ocsp_responder.environment.add_user_envs(values.zabbix.additional_envs | selectattr("container", "equalto", "ocsp-responder") | list) %}
 
 {# Notification Worker #}
 {% do notification_worker.set_user(values.run_as.user, values.run_as.group) %}
@@ -166,6 +161,7 @@
 {% do notification_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do notification_worker.environment.add_env("NATS_SERVERS", nats_address) %}
 {% do notification_worker.add_storage("/tmp/certificates", dict(notification_worker_cert_vol, **{"read_only":true})) %}
+{% do notification_worker.environment.add_user_envs(values.zabbix.additional_envs | selectattr("container", "equalto", "notification-worker") | list) %}
 
 {# Cert Manager Worker #}
 {% do cert_manager_worker.set_user(values.run_as.user, values.run_as.group) %}
@@ -179,6 +175,7 @@
 {% do cert_manager_worker.environment.add_env("NATS_SERVERS", nats_address) %}
 {% do cert_manager_worker.environment.add_env("OCSP", "http://%s"|format(ocsp_address)) %}
 {% do cert_manager_worker.add_storage("/tmp/certificates", dict(cert_manager_worker_cert_vol, **{"read_only":true})) %}
+{% do cert_manager_worker.environment.add_user_envs(values.zabbix.additional_envs | selectattr("container", "equalto", "cert-manager-worker") | list) %}
 
 {# Agents Worker #}
 {% do agents_worker.set_user(values.run_as.user, values.run_as.group) %}
@@ -191,10 +188,24 @@
 {% do agents_worker.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do agents_worker.environment.add_env("NATS_SERVERS", nats_address) %}
 {% do agents_worker.add_storage("/tmp/certificates", dict(agents_worker_cert_vol, **{"read_only":true})) %}
+{% do agents_worker.environment.add_user_envs(values.zabbix.additional_envs | selectattr("container", "equalto", "agents-worker") | list) %}
 
 {% do perm_container.add_or_skip_action("nats_data", values.storage.nats_data, perms_config) %}
 {% do perm_container.add_or_skip_action("certificates", values.storage.certificates, perms_config) %}
 {% for store in values.storage.additional_storage %}
+  {% if store.container == "console" %}
+    {% do console.add_storage(store.mount_path, store) %}
+  {% elif store.container == "ocsp-responder" %}
+    {% do ocsp_responder.add_storage(store.mount_path, store) %}
+  {% elif store.container == "notification-worker" %}
+    {% do notification_worker.add_storage(store.mount_path, store) %}
+  {% elif store.container == "cert-manager-worker" %}
+    {% do cert_manager_worker.add_storage(store.mount_path, store) %}
+  {% elif store.container == "agents-worker" %}
+    {% do agents_worker.add_storage(store.mount_path, store) %}
+  {% elif store.container == "nats-server" %}
+    {% do nats_server.add_storage(store.mount_path, store) %}
+  {% endif %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
