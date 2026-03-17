@@ -1,7 +1,13 @@
 {% macro entrypoint(values) %}
+if [ ! -f /data/config.yaml ]; then
+  echo "Generating default config"
+  forgejo-runner generate-config > /data/config.yaml
+fi
+
 if [ ! -f /data/.runner ]; then
   echo "Registering the runner"
   forgejo-runner register \
+    --config /data/config.yaml \
     --no-interactive \
     --name {{ values.forgejo_runner.runner_name }} \
     --instance {{ values.forgejo_runner.instance_url }} \
@@ -15,9 +21,9 @@ else
   echo "Skipping registration"
   echo "If you want to re-register the runner, please delete the file /data/.runner"
 fi
-echo "\n\n"
+echo -e "\n\n"
 
 echo "Starting the runner"
-forgejo-runner daemon
+forgejo-runner daemon --config /data/config.yaml
 exit 0
 {% endmacro %}
