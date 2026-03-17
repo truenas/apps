@@ -15,7 +15,7 @@ else
   echo "Skipping registration"
   echo "If you want to re-register the runner, please delete the file /data/.runner"
 fi
-echo "\n\n"
+echo -e "\n\n"
 
 if [ ! -f /data/config.yaml ]; then
   echo "Generating default config"
