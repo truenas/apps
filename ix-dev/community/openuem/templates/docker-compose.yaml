@@ -23,39 +23,38 @@
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.openuem.postgres_image_selector, pg_config, perm_container) %}
 {% do postgres.container.add_network(openuem_net) %}
 
-{# Calculated Values #}
+{# Temporary Certificate Volumes #}
 {% set nats_config_vol = {"type": "temporary", "volume_config": {"volume_name": "nats_config"}} %}
-{% set nats_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "nats_certs"}} %}
-{% set console_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "console_certs"}} %}
-{% set ocsp_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "ocsp_certs"}} %}
-{% set notification_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "notification_worker_certs"}} %}
-{% set cert_manager_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "cert_manager_worker_certs"}} %}
-{% set agents_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "agents_worker_certs"}} %}
-
 {% do perm_container.add_or_skip_action("nats_config", nats_config_vol, perms_config) %}
+
+{% set nats_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "nats_certs"}} %}
 {% do perm_container.add_or_skip_action("nats_certs", nats_certs_vol, perms_config) %}
+
+{% set console_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "console_certs"}} %}
 {% do perm_container.add_or_skip_action("console_certs", console_certs_vol, perms_config) %}
+
+{% set ocsp_certs_vol = {"type": "temporary", "volume_config": {"volume_name": "ocsp_certs"}} %}
 {% do perm_container.add_or_skip_action("ocsp_certs", ocsp_certs_vol, perms_config) %}
+
+{% set notification_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "notification_worker_certs"}} %}
 {% do perm_container.add_or_skip_action("notification_worker_certs", notification_worker_cert_vol, perms_config) %}
+
+{% set cert_manager_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "cert_manager_worker_certs"}} %}
 {% do perm_container.add_or_skip_action("cert_manager_worker_certs", cert_manager_worker_cert_vol, perms_config) %}
+
+{% set agents_worker_cert_vol = {"type": "temporary", "volume_config": {"volume_name": "agents_worker_certs"}} %}
 {% do perm_container.add_or_skip_action("agents_worker_certs", agents_worker_cert_vol, perms_config) %}
 
 {% set certs_host_path = tpl.funcs.get_host_path(values.storage.certificates) %}
 {% set nats_host = "%s.%s"|format(values.openuem.nats_subdomain, values.openuem.domain) %}
 {% set ocsp_host = "%s.%s"|format(values.openuem.ocsp_subdomain, values.openuem.domain) %}
 {% set console_host = "%s.%s"|format(values.openuem.console_subdomain, values.openuem.domain) %}
+
 {% set nats_address = "%s:%d"|format(nats_host, values.network.nats_port.port_number) %}
 {% set ocsp_address = "%s:%d"|format(ocsp_host, values.network.ocsp_port.port_number) %}
 {% set console_address = "%s:%d"|format(console_host, values.network.web_port.port_number) %}
 
 {% for c in containers %}
-  {# {% do c.environment.add_user_envs(values.openuem.additional_envs) %}
-
-  {% for store in values.storage.additional_storage %}
-    {% do c.add_storage(store.mount_path, store) %}
-  {% endfor %} #}
-
-
   {# {% do c.environment.add_user_envs(values.openuem.additional_envs) %}
 
   {% for store in values.storage.additional_storage %}
@@ -69,7 +68,7 @@
 {% do cert_manager.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do cert_manager.set_entrypoint(["/bin/tn-config.sh"]) %}
 {% do cert_manager.setup_as_helper(disable_network=false) %}
-{# Add a script to move things around in the cert manager #}
+{# Script that moves generated certificates to the right places. #}
 {% do cert_manager.configs.add("cert-configure", configure(), "/bin/tn-config.sh", "0755") %}
 {% do cert_manager.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
 {% do cert_manager.environment.add_env("NATS_PORT", values.network.nats_port.port_number) %}
@@ -77,6 +76,7 @@
 {% do cert_manager.environment.add_env("OCSP", "http://%s"|format(ocsp_address)) %}
 {% do cert_manager.environment.add_env("DOMAIN", values.openuem.domain) %}
 {% do cert_manager.environment.add_env("SERVER_NAME", console_host) %}
+{% do cert_manager.environment.add_env("REVERSE_PROXY_SERVER", values.openuem.reverse_proxy_host) %}
 {% do cert_manager.environment.add_env("ORGNAME", values.openuem.org_name) %}
 {% do cert_manager.environment.add_env("ORGPROVINCE", values.openuem.org_province) %}
 {% do cert_manager.environment.add_env("ORGLOCALITY", values.openuem.org_locality) %}
@@ -128,6 +128,8 @@
 {% do console.environment.add_env("CONSOLE_PORT", values.network.web_port.port_number) %}
 {% do console.environment.add_env("AUTH_PORT", values.network.auth_port.port_number) %}
 {% do console.environment.add_env("JWT_KEY", values.openuem.jwt_key) %}
+{% do console.environment.add_env("REVERSE_PROXY_SERVER", values.openuem.reverse_proxy_host) %}
+{% do console.environment.add_env("REVERSE_PROXY_AUTH_PORT", values.openuem.reverse_proxy_auth_port) %}
 {% do console.environment.add_env("ORGNAME", values.openuem.org_name) %}
 {% do console.environment.add_env("ORGPROVINCE", values.openuem.org_province) %}
 {% do console.environment.add_env("ORGLOCALITY", values.openuem.org_locality) %}
@@ -209,5 +211,6 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port, {"host": console_host, "scheme": "https"}) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
