@@ -3,15 +3,15 @@
 {% set app = tpl.add_container(values.consts.app_container_name, "image") %}
 {% do app.set_user(values.run_as.user, values.run_as.group) %}
 
-{% do app.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/"}) %}
+{% do app.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/v1/instance", "args": ["-qO-"]}) %}
 
 {% do app.environment.add_env("GTS_PORT", values.network.web_port.port_number) %}
 {% do app.environment.add_env("GTS_HOST", values.gotosocial.host) %}
 {% do app.environment.add_env("GTS_DB_TYPE", "sqlite") %}
 {% do app.environment.add_env("GTS_DB_ADDRESS", "/data/sqlite.db") %}
 {% do app.environment.add_env("GTS_TRUSTED_PROXIES", values.gotosocial.trusted_proxies) %}
-{% do app.environment.add_env("GTS_LETSENCRYPT_ENABLED", values.gotosocial.letsencrypt_enabled | string | lower) %}
-{% do app.environment.add_env("GTS_LETSENCRYPT_EMAIL_ADDRESS", values.gotosocial.letsencrypt_email) %}
+{% do app.environment.add_env("GTS_LETSENCRYPT_ENABLED", "false") %}
+{% do app.environment.add_env("GTS_LETSENCRYPT_EMAIL_ADDRESS", "") %}
 
 {% do app.add_port(values.network.web_port) %}
 
@@ -19,10 +19,35 @@
 
 {% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
 {% do perms.add_or_skip_action("data", values.storage.data, {"uid": 568, "gid": 568, "mode": "check"}) %}
-
 {% if perms.has_actions() %}
   {% do perms.activate() %}
-  {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% if values.gotosocial.initial_admin_email and values.gotosocial.initial_admin_password %}
+  {% set setup = tpl.add_container("gotosocial-setup", "image") %}
+  {% do setup.set_user(values.run_as.user, values.run_as.group) %}
+  
+  {% do setup.environment.add_env("GTS_PORT", values.network.web_port.port_number) %}
+  {% do setup.environment.add_env("GTS_HOST", values.gotosocial.host) %}
+  {% do setup.environment.add_env("GTS_DB_TYPE", "sqlite") %}
+  {% do setup.environment.add_env("GTS_DB_ADDRESS", "/data/sqlite.db") %}
+  {% do setup.environment.add_env("GTS_TRUSTED_PROXIES", values.gotosocial.trusted_proxies) %}
+  
+  {% do setup.add_storage("/data", values.storage.data) %}
+  
+  {% do setup.healthcheck.disable() %}
+  
+  {% do setup.set_entrypoint(["/bin/sh", "-c", "sleep 10 && /gotosocial/gotosocial admin account create --username admin --email '" ~ values.gotosocial.initial_admin_email ~ "' --password '" ~ values.gotosocial.initial_admin_password ~ "' || true && /gotosocial/gotosocial admin account promote --username admin || true"]) %}
+
+  {% if perms.has_actions() %}
+    {% do setup.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+    {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endif %}
+  {% do setup.depends.add_dependency(values.consts.app_container_name, "service_healthy") %}
+{% else %}
+  {% if perms.has_actions() %}
+    {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endif %}
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port, {"scheme": "http", "path": "/"}) %}
