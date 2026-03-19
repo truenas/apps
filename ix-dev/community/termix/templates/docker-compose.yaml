@@ -6,11 +6,9 @@
 
 {% do c1.environment.add_env("ENABLE_GUACAMOLE", values.network.guacd_port.bind_mode != "") %}
 {% if values.network.guacd_port.bind_mode %}
-  {% set guacd = tpl.add_container(values.consts.guacd_container_name, "guacd_image") %}
-  {% do guacd.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-  {% do guacd.set_command(["-l", values.network.guacd_port.port_number]) %}
-  {% do guacd.healthcheck.set_test("netcat", {"port": values.network.guacd_port.port_number}) %}
-  {% do guacd.add_port(values.network.guacd_port) %}
+  {% set guacd_config = {"port": values.network.guacd_port.port_number} %}
+  {% set guacd = tpl.deps.guacd(values.consts.guacd_container_name, "guacd_image", guacd_config) %}
+  {% do guacd.container.add_port(values.network.guacd_port) %}
 
   {% do c1.depends.add_dependency(values.consts.guacd_container_name, "service_healthy") %}
   {% do c1.environment.add_env("GUACD_HOST", values.consts.guacd_container_name) %}
@@ -18,7 +16,7 @@
 
   {% set termix_net = tpl.networks.create_internal("termix-net") %}
   {% do c1.add_network(termix_net) %}
-  {% do guacd.add_network(termix_net) %}
+  {% do guacd.container.add_network(termix_net) %}
 {% endif %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
