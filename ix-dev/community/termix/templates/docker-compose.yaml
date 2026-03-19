@@ -4,10 +4,23 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
+{% do c1.environment.add_env("ENABLE_GUACAMOLE", values.network.guacd_port.bind_mode != "") %}
+{% if values.network.guacd_port.bind_mode %}
+  {% set guacd_config = {"port": values.network.guacd_port.port_number} %}
+  {% set guacd = tpl.deps.guacd(values.consts.guacd_container_name, "guacd_image", guacd_config) %}
+  {% do guacd.container.add_port(values.network.guacd_port) %}
+
+  {% do c1.depends.add_dependency(values.consts.guacd_container_name, "service_healthy") %}
+  {% do c1.environment.add_env("GUACD_HOST", values.consts.guacd_container_name) %}
+  {% do c1.environment.add_env("GUACD_PORT", values.network.guacd_port.port_number) %}
+
+  {% set termix_net = tpl.networks.create_internal("termix-net") %}
+  {% do c1.add_network(termix_net) %}
+  {% do guacd.container.add_network(termix_net) %}
+{% endif %}
+
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do c1.healthcheck.set_custom_test(["CMD", "node", "-e",
-  "require('http').get('http://localhost:30001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
-]) %}
+{% do c1.healthcheck.set_test("wget", {"port": 30001, "path": "/health"}) %}
 {% do c1.environment.add_env("PORT", values.network.http_port.port_number) %}
 {% if values.network.certificate_id %}
   {% do c1.environment.add_env("ENABLE_SSL", true) %}
