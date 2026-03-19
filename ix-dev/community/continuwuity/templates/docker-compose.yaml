@@ -13,17 +13,21 @@
 {% do c1.environment.add_env("CONTINUWUITY_DATABASE_PATH", values.consts.database_path) %}
 {% do c1.environment.add_env("CONTINUWUITY_SERVER_NAME", values.continuwuity.server_name) %}
 {% do c1.environment.add_env("CONTINUWUITY_ALLOW_REGISTRATION", values.continuwuity.allow_registration) %}
-{% do c1.environment.add_env("CONTINUWUITY_REGISTRATION_TOKEN", values.continuwuity.registration_token) %}
-
-{% set trusted_servers = namespace(x=[]) %}
-{% for srv in values.continuwuity.trusted_servers %}
-  {% set parsed = tpl.funcs.url_to_dict(srv) %}
-  {% set host = "%s:%d"|format(parsed.host, parsed.port) if parsed.port else parsed.host %}
-  {% do trusted_servers.x.append(host) %}
-{% endfor %}
-
 {% do c1.environment.add_env("CONTINUWUITY_ALLOW_FEDERATION", values.continuwuity.allow_federation) %}
-{% do c1.environment.add_env("CONTINUWUITY_TRUSTED_SERVERS", trusted_servers.x|tojson) %}
+{% if values.continuwuity.allow_registration %}
+  {% do c1.environment.add_env("CONTINUWUITY_REGISTRATION_TOKEN", values.continuwuity.registration_token) %}
+{% endif %}
+
+{% if values.continuwuity.allow_federation and values.continuwuity.trusted_servers %}
+  {% set trusted_servers = namespace(x=[]) %}
+  {% for srv in values.continuwuity.trusted_servers %}
+    {% set parsed = tpl.funcs.url_to_dict(srv) %}
+    {% set host = "%s:%d"|format(parsed.host, parsed.port) if parsed.port else parsed.host %}
+    {% do trusted_servers.x.append(host) %}
+  {% endfor %}
+
+  {% do c1.environment.add_env("CONTINUWUITY_TRUSTED_SERVERS", trusted_servers.x|tojson) %}
+{% endif %}
 
 {% do c1.environment.add_user_envs(values.continuwuity.additional_envs) %}
 
