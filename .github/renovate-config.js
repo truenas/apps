@@ -324,7 +324,7 @@ module.exports = {
     ),
     customVersioning(
       // 10.0.160-mongo8
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-mongo8$",
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/goofball222/unifi"],
     ),
     customVersioning(
