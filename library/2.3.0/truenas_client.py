@@ -57,20 +57,25 @@ class TNClient:
     #
     def validate_ip_port_combos(self, combos: list[PortCombo]) -> None:
         if not can_update(self.current_version, COMBINED_VALIDATION_ENDPOINT_INTRODUCED_IN):
-            return self.new_validation_ip_port_combos(combos)
+            return self._validation_ip_port_combos(combos)
         else:
             for combo in combos:
-                self.validate_ip_port_combo(combo.ip, combo.port)
+                self._validate_ip_port_combo(combo.ip, combo.port)
 
-    def new_validation_ip_port_combos(self, combos: list[PortCombo]) -> None:
+    def _validation_ip_port_combos(self, combos: list[PortCombo]) -> None:
         try:
             result = self.client.call(
                 "port.new_validation_ports", f"render.{self._app_name}.schema", combos, None, True
             )
+
             lines = []
             for conflict in result:
-                # TODO: Parse used_by, and filter out the any conflicts that are related to the current app.
-                lines.append(f'- "Combination {conflict["ip"]}:{conflict["port"]}" used by {conflict["used_by"]}\n')
+                for used_by in conflict["used_by"]:
+                    # FIXME: We need to find the actual string or dict that will be returned.
+                    if f"Applications ('{self._app_name}' application)" in used_by:
+                        # During upgrade, we want to ignore the error if it is related to the current app
+                        continue
+                    lines.append(f'- "Combination {conflict["ip"]}:{conflict["port"]}" used by {conflict["used_by"]}\n')
 
             if lines:
                 # If there are conflicts, raise an error
@@ -80,7 +85,7 @@ class TNClient:
         except Exception:
             pass
 
-    def validate_ip_port_combo(self, ip: str, port: int) -> None:
+    def _validate_ip_port_combo(self, ip: str, port: int) -> None:
         # Example of an error messages:
         # The port is being used by following services: 1) "0.0.0.0:80" used by WebUI Service
         # The port is being used by following services: 1) "0.0.0.0:9998" used by Applications ('$app_name' application)
