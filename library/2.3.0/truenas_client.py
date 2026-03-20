@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -14,6 +15,7 @@ except ImportError:
 # Import based on system detection
 if is_truenas_system():
     from truenas_api_client import Client as TrueNASClient
+    from middlewared.plugins.update_.utils import can_update
 
     try:
         # 25.04 and later
@@ -31,12 +33,52 @@ else:
         def __init__(self, errors):
             self.errors = errors
 
+    def can_update():
+        return False
+
+
+# FIXME: We need to add the actual version number here
+COMBINED_VALIDATION_ENDPOINT_INTRODUCED_IN = "26.10.2.2"
+
+
+@dataclass
+class PortCombo:
+    ip: str
+    port: int
+
 
 class TNClient:
     def __init__(self, render_instance: "Render"):
         self.client = TrueNASClient()
         self._render_instance = render_instance
         self._app_name: str = self._render_instance.values.get("ix_context", {}).get("app_name", "") or "unknown"
+        self.current_version = self._render_instance.values.get("ix_context", {}).get("scale_version", "") or "unknown"
+
+    #
+    def validate_ip_port_combos(self, combos: list[PortCombo]) -> None:
+        if not can_update(self.current_version, COMBINED_VALIDATION_ENDPOINT_INTRODUCED_IN):
+            return self.new_validation_ip_port_combos(combos)
+        else:
+            for combo in combos:
+                self.validate_ip_port_combo(combo.ip, combo.port)
+
+    def new_validation_ip_port_combos(self, combos: list[PortCombo]) -> None:
+        try:
+            result = self.client.call(
+                "port.new_validation_ports", f"render.{self._app_name}.schema", combos, None, True
+            )
+            lines = []
+            for conflict in result:
+                # TODO: Parse used_by, and filter out the any conflicts that are related to the current app.
+                lines.append(f'- "Combination {conflict["ip"]}:{conflict["port"]}" used by {conflict["used_by"]}\n')
+
+            if lines:
+                # If there are conflicts, raise an error
+                msg = "The following IP:port combinations are already in use:\n" + "".join(lines)
+                raise RenderError(msg) from None
+
+        except Exception:
+            pass
 
     def validate_ip_port_combo(self, ip: str, port: int) -> None:
         # Example of an error messages:
