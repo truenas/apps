@@ -1,0 +1,32 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.stdapi_ai_container_name, "image") %}
+
+{% do c1.set_user(65532, 65532) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.api_port.port_number, "path": "/health"}) %}
+
+{% do c1.environment.add_env("AWS_ACCESS_KEY_ID", values.stdapi_ai.aws_access_key_id) %}
+{% do c1.environment.add_env("AWS_SECRET_ACCESS_KEY", values.stdapi_ai.aws_secret_access_key) %}
+
+{% if values.stdapi_ai.aws_bedrock_regions %}
+  {% do c1.environment.add_env("AWS_BEDROCK_REGIONS", values.stdapi_ai.aws_bedrock_regions) %}
+{% endif %}
+
+{% if values.stdapi_ai.enable_docs %}
+  {% do c1.environment.add_env("ENABLE_DOCS", "true") %}
+  {% do c1.environment.add_env("ENABLE_REDOC", "true") %}
+{% endif %}
+
+{% do c1.environment.add_env("GRANIAN_PORT", values.network.api_port.port_number) %}
+
+{% do c1.environment.add_user_envs(values.stdapi_ai.additional_envs) %}
+
+{% do c1.add_port(values.network.api_port) %}
+
+{% do tpl.portals.add(values.network.api_port, {"name": "API"}) %}
+
+{% if values.stdapi_ai.enable_docs %}
+  {% do tpl.portals.add(values.network.api_port, {"name": "API Docs", "path": "/docs"}) %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
