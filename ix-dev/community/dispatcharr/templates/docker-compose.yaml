@@ -44,9 +44,6 @@
   {% do c.environment.add_env("REDIS_PORT", redis.get_port()) %}
   {% do c.environment.add_env("REDIS_PASSWORD", values.dispatcharr.redis_password) %}
 
-  {# Web uses this to bind the port, and celery uses this to know where the web is listening #}
-  {% do c.environment.add_env("DISPATCHARR_PORT", values.network.web_port.port_number) %}
-
   {% do c.environment.add_user_envs(values.dispatcharr.additional_envs) %}
 
   {% do c.add_storage("/data", values.storage.data) %}
@@ -55,12 +52,14 @@
   {% endfor %}
 {% endfor %}
 
-{% do celery.healthcheck.set_custom_test(["CMD", "celery", "-A", "dispatcharr", "inspect", "ping"]) %}
 {% do web.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/core/version/"}) %}
+{% do web.environment.add_env("DISPATCHARR_PORT", values.network.web_port.port_number) %}
 
+{% do celery.healthcheck.set_custom_test(["CMD", "celery", "-A", "dispatcharr", "inspect", "ping"]) %}
 {% do celery.depends.add_dependency(values.consts.dispatcharr_container_name, "service_healthy") %}
 {% do celery.environment.add_env("PYTHONUNBUFFERED", 1) %}
 {% do celery.environment.add_env("DJANGO_SETTINGS_MODULE", "dispatcharr.settings") %}
+  {% do celery.environment.add_env("DISPATCHARR_INTERNAL_API_BASE", "http://%s:%s"|format(values.consts.dispatcharr_container_name, values.network.web_port.port_number)) %}
 {% do celery.set_entrypoint(["/app/docker/entrypoint.celery.sh"]) %}
 {% do celery.add_extra_host("host.docker.internal", "host-gateway") %}
 
