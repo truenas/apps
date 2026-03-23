@@ -56,6 +56,8 @@ class TNClient:
                 # that does not have the combined validation endpoint
                 for combo in combos:
                     self._validate_ip_port_combo(combo.bindip, combo.port)
+            # In any other case, we want to silently ignore the error and not block the user from deploying their app
+            pass
 
     def _format_err(self, lines: list[str]) -> str:
         return "The following IP:port combinations are already in use:\n" + "".join(lines)
@@ -64,14 +66,14 @@ class TNClient:
         # Example of each conflict: [schema, err_msg, errno]
         lines: list[str] = []
         for conflict in conflicts:
-            # This should't happen, but lets not crash if it does
+            # This shouldn't happen, but let's not crash if it does
             if len(conflict) != 3:
                 continue
 
             # The port is being used by following services:
             # 1) "$bindip:$port" used by Applications ('$app_name' application)
             # 2) "$bindip:$port" used by WebUI Service
-            errs = conflict[1].lstrip("The port is being used by following services:\n").split("\n")
+            errs = conflict[1].removeprefix("The port is being used by following services:\n").split("\n")
 
             # Reformat the error lines to be more readable
             # Example of each err:
@@ -90,9 +92,12 @@ class TNClient:
         try:
             # Convert PortCombo objects to dicts for JSON serialization
             combo_dicts = [asdict(combo) for combo in combos]
-            result: list[tuple[str, str]] = self.client.call(
+            result: list[tuple[str, str]] | None = self.client.call(
                 "port.validate_ports", f"render.{self._app_name}.schema", combo_dicts, None, False
             )
+
+            if not result:
+                return
 
             lines = self._get_err_lines(result)
             if lines:
