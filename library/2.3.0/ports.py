@@ -121,7 +121,7 @@ class Ports:
         key = self._gen_port_key(host_port, host_ip, proto, ip.version)
         self._ports[key] = port_config
 
-        self._combos_to_validate.append(PortCombo(ip=host_ip, port=host_port))
+        self._combos_to_validate.append(PortCombo(bindip=host_ip, port=host_port))
 
     def has_ports(self):
         return len(self._ports) > 0

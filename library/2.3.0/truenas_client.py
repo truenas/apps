@@ -15,7 +15,6 @@ except ImportError:
 # Import based on system detection
 if is_truenas_system():
     from truenas_api_client import Client as TrueNASClient
-    from middlewared.plugins.update_.utils import can_update
 
     try:
         # 25.04 and later
@@ -33,9 +32,6 @@ else:
         def __init__(self, errors):
             self.errors = errors
 
-    def can_update():
-        return False
-
 
 # FIXME: We need to add the actual version number here
 COMBINED_VALIDATION_ENDPOINT_INTRODUCED_IN = "26.10.2.2"
@@ -43,7 +39,7 @@ COMBINED_VALIDATION_ENDPOINT_INTRODUCED_IN = "26.10.2.2"
 
 @dataclass
 class PortCombo:
-    ip: str
+    bindip: str
     port: int
 
 
@@ -54,29 +50,44 @@ class TNClient:
         self._app_name: str = self._render_instance.values.get("ix_context", {}).get("app_name", "") or "unknown"
         self.current_version = self._render_instance.values.get("ix_context", {}).get("scale_version", "") or "unknown"
 
-    #
     def validate_ip_port_combos(self, combos: list[PortCombo]) -> None:
-        if not can_update(self.current_version, COMBINED_VALIDATION_ENDPOINT_INTRODUCED_IN):
-            return self._validation_ip_port_combos(combos)
-        else:
-            for combo in combos:
-                self._validate_ip_port_combo(combo.ip, combo.port)
+        try:
+            return self.client.call("port.validate_ports", f"render.{self._app_name}.schema", combos, None, True)
+        except Exception as e:
+            if "Method does not exist" in str(e):
+                # If the method does not exist, it means we are on an older version of TrueNAS
+                # that does not have the combined validation endpoint
+                for combo in combos:
+                    self._validate_ip_port_combo(combo.bindip, combo.port)
+                return self._validation_ip_port_combos(combos)
+
+    def _get_err_lines(self, conflicts: list[tuple[str, str, int]]) -> list[str]:
+        # Example of each conflict: [schema, err_msg, errno]
+        lines: list[str] = []
+        for conflict in conflicts:
+            # This should't happen, but lets not crash if it does
+            if len(conflict) != 3:
+                continue
+
+            # The port is being used by following services:
+            # 1) "$bindip:$port" used by Applications ('$app_name' application)
+            # 2) "$bindip:$port" used by WebUI Service
+            errs = conflict[1].lstrip("The port is being used by following services:\n").split("\n")
+            for err_line in errs:
+                if f"Applications ('{self._app_name}' application)" in err_line:
+                    # During upgrade, we want to ignore the error if it is related to the current app
+                    continue
+                lines.append(f'- "{err_line}"\n')
+
+        return lines
 
     def _validation_ip_port_combos(self, combos: list[PortCombo]) -> None:
         try:
-            result = self.client.call(
-                "port.new_validation_ports", f"render.{self._app_name}.schema", combos, None, True
+            result: list[tuple[str, str]] = self.client.call(
+                "port.new_validation_ports", f"render.{self._app_name}.schema", combos, None, False
             )
 
-            lines = []
-            for conflict in result:
-                for used_by in conflict["used_by"]:
-                    # FIXME: We need to find the actual string or dict that will be returned.
-                    if f"Applications ('{self._app_name}' application)" in used_by:
-                        # During upgrade, we want to ignore the error if it is related to the current app
-                        continue
-                    lines.append(f'- "Combination {conflict["ip"]}:{conflict["port"]}" used by {conflict["used_by"]}\n')
-
+            lines = self._get_err_lines(result)
             if lines:
                 # If there are conflicts, raise an error
                 msg = "The following IP:port combinations are already in use:\n" + "".join(lines)
@@ -86,27 +97,17 @@ class TNClient:
             pass
 
     def _validate_ip_port_combo(self, ip: str, port: int) -> None:
-        # Example of an error messages:
-        # The port is being used by following services: 1) "0.0.0.0:80" used by WebUI Service
-        # The port is being used by following services: 1) "0.0.0.0:9998" used by Applications ('$app_name' application)
+        schema = f"render.{self._app_name}.schema"
         try:
             self.client.call("port.validate_port", f"render.{self._app_name}.schema", port, ip, None, True)
         except ValidationErrors as e:
             err_str = str(e)
-            # If the IP:port combo appears more than once in the error message,
-            # means that the port is used by more than one service/app.
-            # This shouldn't happen in a well-configured system.
-            # Notice that the ip portion is not included check,
-            # because input might be a specific IP, but another service or app
-            # might be using the same port on a wildcard IP
-            if err_str.count(f':{port}" used by') > 1:
-                raise RenderError(err_str) from None
-
-            # If the error complains about the current app, we ignore it
-            # This is to handle cases where the app is being updated or edited
-            if f"Applications ('{self._app_name}' application)" in err_str:
-                # During upgrade, we want to ignore the error if it is related to the current app
-                return
+            conflict = [schema, err_str, 22]  # Errno 22 is EINVAL, which is what TrueNAS returns for port conflicts
+            lines = self._get_err_lines([conflict])
+            if lines:
+                # If there are conflicts, raise an error
+                msg = "The following IP:port combination is already in use:\n" + "".join(lines)
+                raise RenderError(msg) from None
 
             raise RenderError(err_str) from None
         except Exception:
