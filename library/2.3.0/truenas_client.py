@@ -48,18 +48,21 @@ class TNClient:
         self.client = TrueNASClient()
         self._render_instance = render_instance
         self._app_name: str = self._render_instance.values.get("ix_context", {}).get("app_name", "") or "unknown"
-        self.current_version = self._render_instance.values.get("ix_context", {}).get("scale_version", "") or "unknown"
 
     def validate_ip_port_combos(self, combos: list[PortCombo]) -> None:
         try:
-            return self.client.call("port.validate_ports", f"render.{self._app_name}.schema", combos, None, True)
+            return self._validation_ip_port_combos(combos)
+        except RenderError:
+            raise
         except Exception as e:
             if "Method does not exist" in str(e):
                 # If the method does not exist, it means we are on an older version of TrueNAS
                 # that does not have the combined validation endpoint
                 for combo in combos:
                     self._validate_ip_port_combo(combo.bindip, combo.port)
-                return self._validation_ip_port_combos(combos)
+
+    def _format_err(self, lines: list[str]) -> str:
+        return "The following IP:port combinations are already in use:\n" + "".join(lines)
 
     def _get_err_lines(self, conflicts: list[tuple[str, str, int]]) -> list[str]:
         # Example of each conflict: [schema, err_msg, errno]
@@ -84,15 +87,16 @@ class TNClient:
     def _validation_ip_port_combos(self, combos: list[PortCombo]) -> None:
         try:
             result: list[tuple[str, str]] = self.client.call(
-                "port.new_validation_ports", f"render.{self._app_name}.schema", combos, None, False
+                "port.validate_ports", f"render.{self._app_name}.schema", combos, None, False
             )
 
             lines = self._get_err_lines(result)
             if lines:
                 # If there are conflicts, raise an error
-                msg = "The following IP:port combinations are already in use:\n" + "".join(lines)
-                raise RenderError(msg) from None
+                raise RenderError(self._format_err(lines)) from None
 
+        except RenderError:
+            raise
         except Exception:
             pass
 
@@ -106,9 +110,6 @@ class TNClient:
             lines = self._get_err_lines([conflict])
             if lines:
                 # If there are conflicts, raise an error
-                msg = "The following IP:port combination is already in use:\n" + "".join(lines)
-                raise RenderError(msg) from None
-
-            raise RenderError(err_str) from None
+                raise RenderError(self._format_err(lines)) from None
         except Exception:
             pass
