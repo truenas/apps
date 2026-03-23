@@ -3,6 +3,8 @@ groups:
     description: Configure stdapi.ai
   - name: Network Configuration
     description: Configure Network for stdapi.ai
+  - name: Storage Configuration
+    description: Configure Storage for stdapi.ai
   - name: Labels Configuration
     description: Configure Labels for stdapi.ai
   - name: Resources Configuration
@@ -27,7 +29,7 @@ questions:
       attrs:
         - variable: aws_access_key_id
           label: AWS Access Key ID
-          description: See <a href="https://stdapi.ai/operations_configuration/#iam-permissions" target="_blank">IAM Permissions</a> for required AWS permissions.
+          description: See https://stdapi.ai/operations_configuration/#iam-permissions for required AWS permissions.
           schema:
             type: string
             default: ""
@@ -35,7 +37,7 @@ questions:
             private: true
         - variable: aws_secret_access_key
           label: AWS Secret Access Key
-          description: See <a href="https://stdapi.ai/operations_configuration/#iam-permissions" target="_blank">IAM Permissions</a> for required AWS permissions.
+          description: See https://stdapi.ai/operations_configuration/#iam-permissions for required AWS permissions.
           schema:
             type: string
             default: ""
@@ -47,8 +49,14 @@ questions:
             Comma-separated list of AWS regions for Bedrock (e.g., us-east-1,us-west-2).</br>
             The first region is the primary region. Leave empty to auto-detect from AWS credentials.
           schema:
-            type: string
-            default: "us-east-1,us-west-2"
+            type: list
+            default: ["us-east-1", "us-west-2"]
+            items:
+              - variable: region
+                label: AWS Region
+                schema:
+                  type: string
+                  required: true
         - variable: enable_docs
           label: Enable API Documentation
           description: |
@@ -59,7 +67,9 @@ questions:
             default: false
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Additional environment variables for advanced configuration. See the <a href="https://stdapi.ai/operations_configuration/" target="_blank">Configuration Guide</a> for all available options.
+          description: |
+            Additional environment variables. </br>
+            See the https://stdapi.ai/operations_configuration for all available options.
           schema:
             type: list
             default: []
@@ -145,7 +155,6 @@ questions:
           description: The docker networks to join
           schema:
             type: list
-            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -217,7 +226,181 @@ questions:
                                         description: The IPv6 address to use for this network interface.
                                         schema:
                                           type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
 
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -254,7 +437,6 @@ questions:
                         enum:
                           - value: stdapi-ai
                             description: stdapi-ai
-
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -278,5 +460,5 @@ questions:
                 description: Memory limit for stdapi.ai.
                 schema:
                   type: int
-                  default: 512
+                  default: 4096
                   required: true
