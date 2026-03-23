@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -88,8 +88,10 @@ class TNClient:
 
     def _validation_ip_port_combos(self, combos: list[PortCombo]) -> None:
         try:
+            # Convert PortCombo objects to dicts for JSON serialization
+            combo_dicts = [asdict(combo) for combo in combos]
             result: list[tuple[str, str]] = self.client.call(
-                "port.validate_ports", f"render.{self._app_name}.schema", combos, None, False
+                "port.validate_ports", f"render.{self._app_name}.schema", combo_dicts, None, False
             )
 
             lines = self._get_err_lines(result)

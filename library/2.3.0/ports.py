@@ -128,7 +128,7 @@ class Ports:
 
     def render(self):
         # Lets now validate the ports with the TrueNAS API
-        self._render_instance.client._validation_ip_port_combos(self._combos_to_validate)
+        self._render_instance.client.validate_ip_port_combos(self._combos_to_validate)
 
         specific_ports = []
         wildcard_ports = {}
