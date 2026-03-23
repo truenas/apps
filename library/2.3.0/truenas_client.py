@@ -33,10 +33,6 @@ else:
             self.errors = errors
 
 
-# FIXME: We need to add the actual version number here
-COMBINED_VALIDATION_ENDPOINT_INTRODUCED_IN = "26.10.2.2"
-
-
 @dataclass
 class PortCombo:
     bindip: str
@@ -76,6 +72,12 @@ class TNClient:
             # 1) "$bindip:$port" used by Applications ('$app_name' application)
             # 2) "$bindip:$port" used by WebUI Service
             errs = conflict[1].lstrip("The port is being used by following services:\n").split("\n")
+
+            # Reformat the error lines to be more readable
+            # Example of each err:
+            # - "$bindip:$port" used by Applications ('$app_name' application)
+            # - "$bindip:$port" used by WebUI Service
+            errs = [err.split(") ", 1)[-1] for err in errs if ") " in err]
             for err_line in errs:
                 if f"Applications ('{self._app_name}' application)" in err_line:
                     # During upgrade, we want to ignore the error if it is related to the current app
@@ -97,7 +99,10 @@ class TNClient:
 
         except RenderError:
             raise
-        except Exception:
+        except Exception as e:
+            # Re-raise "Method does not exist" so the fallback can catch it
+            if "Method does not exist" in str(e):
+                raise
             pass
 
     def _validate_ip_port_combo(self, ip: str, port: int) -> None:
