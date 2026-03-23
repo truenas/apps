@@ -59,40 +59,11 @@ class TNClient:
             # In any other case, we want to silently ignore the error and not block the user from deploying their app
             pass
 
-    def _format_err(self, lines: list[str]) -> str:
-        return "The following IP:port combinations are already in use:\n" + "".join(lines)
-
-    def _get_err_lines(self, conflicts: list[tuple[str, str, int]]) -> list[str]:
-        # Example of each conflict: [schema, err_msg, errno]
-        lines: list[str] = []
-        for conflict in conflicts:
-            # This shouldn't happen, but let's not crash if it does
-            if len(conflict) != 3:
-                continue
-
-            # The port is being used by following services:
-            # 1) "$bindip:$port" used by Applications ('$app_name' application)
-            # 2) "$bindip:$port" used by WebUI Service
-            errs = conflict[1].removeprefix("The port is being used by following services:\n").split("\n")
-
-            # Reformat the error lines to be more readable
-            # Example of each err:
-            # - "$bindip:$port" used by Applications ('$app_name' application)
-            # - "$bindip:$port" used by WebUI Service
-            errs = [err.split(") ", 1)[-1] for err in errs if ") " in err]
-            for err_line in errs:
-                if f"Applications ('{self._app_name}' application)" in err_line:
-                    # During upgrade, we want to ignore the error if it is related to the current app
-                    continue
-                lines.append(f'- "{err_line}"\n')
-
-        return lines
-
     def _validation_ip_port_combos(self, combos: list[PortCombo]) -> None:
         try:
             # Convert PortCombo objects to dicts for JSON serialization
             combo_dicts = [asdict(combo) for combo in combos]
-            result: list[tuple[str, str]] | None = self.client.call(
+            result: list[tuple[str, str, int]] | None = self.client.call(
                 "port.validate_ports", f"render.{self._app_name}.schema", combo_dicts, None, False
             )
 
@@ -125,3 +96,32 @@ class TNClient:
                 raise RenderError(self._format_err(lines)) from None
         except Exception:
             pass
+
+    def _format_err(self, lines: list[str]) -> str:
+        return "The following conflicts have been detected:\n" + "".join(lines)
+
+    def _get_err_lines(self, conflicts: list[tuple[str, str, int]]) -> list[str]:
+        # Example of each conflict: [schema, err_msg, errno]
+        lines: list[str] = []
+        for conflict in conflicts:
+            # This shouldn't happen, but let's not crash if it does
+            if len(conflict) != 3:
+                continue
+
+            # The port is being used by following services:
+            # 1) "$bindip:$port" used by Applications ('$app_name' application)
+            # 2) "$bindip:$port" used by WebUI Service
+            errs = conflict[1].removeprefix("The port is being used by following services:\n").split("\n")
+
+            # Reformat the error lines to be more readable
+            # Example of each err:
+            # - "$bindip:$port" used by Applications ('$app_name' application)
+            # - "$bindip:$port" used by WebUI Service
+            errs = [err.split(") ", 1)[-1] for err in errs if ") " in err]
+            for err_line in errs:
+                if f"Applications ('{self._app_name}' application)" in err_line:
+                    # During upgrade, we want to ignore the error if it is related to the current app
+                    continue
+                lines.append(f"- {err_line}\n")
+
+        return lines
