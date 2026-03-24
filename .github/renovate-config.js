@@ -219,7 +219,7 @@ module.exports = {
     ),
     customVersioning(
       // tshock-1.4.4.9-5.2.0-3
-      "^tshock-1\\.4\\.4\\.9-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
+      "^tshock-\\d+\\.\\d+\\.\\d+\\.\\d+-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
       ["ryshe/terraria"],
     ),
     customVersioning(
