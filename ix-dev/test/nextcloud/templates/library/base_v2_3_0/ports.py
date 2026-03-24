@@ -6,6 +6,7 @@ if TYPE_CHECKING:
 
 try:
     from .error import RenderError
+    from .truenas_client import PortCombo
     from .validations import (
         valid_ip_or_raise,
         valid_port_mode_or_raise,
@@ -14,6 +15,7 @@ try:
     )
 except ImportError:
     from error import RenderError
+    from truenas_client import PortCombo
     from validations import (
         valid_ip_or_raise,
         valid_port_mode_or_raise,
@@ -26,6 +28,8 @@ class Ports:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
         self._ports: dict[str, dict] = {}
+
+        self._combos_to_validate: list[PortCombo] = []
 
     def _gen_port_key(self, host_port: int, host_ip: str, proto: str, ip_family: int) -> str:
         return f"{host_port}_{host_ip}_{proto}_{ip_family}"
@@ -55,7 +59,7 @@ class Ports:
                 return True
         return False
 
-    def _check_port_conflicts(self, port_config: dict, ip_family: int) -> None:
+    def _check_port_conflicts_in_this_app(self, port_config: dict, ip_family: int) -> None:
         host_port = port_config["published"]
         host_ip = port_config["host_ip"]
         proto = port_config["protocol"]
@@ -111,17 +115,21 @@ class Ports:
             "mode": mode,
             "host_ip": host_ip,
         }
-        self._check_port_conflicts(port_config, ip.version)
+
+        self._check_port_conflicts_in_this_app(port_config, ip.version)
 
         key = self._gen_port_key(host_port, host_ip, proto, ip.version)
         self._ports[key] = port_config
-        # After all the local validations, lets validate the port with the TrueNAS API
-        self._render_instance.client.validate_ip_port_combo(host_ip, host_port)
+
+        self._combos_to_validate.append(PortCombo(bindip=host_ip, port=host_port))
 
     def has_ports(self):
         return len(self._ports) > 0
 
     def render(self):
+        # Lets now validate the ports with the TrueNAS API
+        self._render_instance.client.validate_ip_port_combos(self._combos_to_validate)
+
         specific_ports = []
         wildcard_ports = {}
 

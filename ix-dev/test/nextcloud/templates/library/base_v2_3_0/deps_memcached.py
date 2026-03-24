@@ -60,7 +60,7 @@ class MemcachedContainer:
         if not repo:
             raise RenderError("Could not determine repo")
         if repo not in SUPPORTED_REPOS:
-            raise RenderError(f"Unsupported repo [{repo}] for tika. Supported repos: {', '.join(SUPPORTED_REPOS)}")
+            raise RenderError(f"Unsupported repo [{repo}] for memcached. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
 
     def get_port(self):
