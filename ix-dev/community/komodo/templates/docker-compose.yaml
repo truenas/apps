@@ -25,6 +25,7 @@
 {% do mongo.container.labels.add_label("komodo.skip", "true") %}
 
 {# Periphery #}
+{% do periphery.set_init(true) %}
 {% do periphery.healthcheck.disable() %}
 
 {% do periphery.environment.add_env("PERIPHERY_PASSKEYS", ([values.komodo.passkey] + values.komodo.additional_passkeys)|unique|list|join(",")) %}
@@ -39,17 +40,18 @@
 {% set periphery_host_path = tpl.funcs.get_host_path(values.storage.periphery_root) %}
 {% if " " in periphery_host_path %}{% do tpl.funcs.fail("The host path for the periphery root directory contains spaces. This is not supported.") %}{% endif %}
 
+{% do periphery.add_storage("/config/keys", values.storage.config_keys) %}
 {% do periphery.add_storage(periphery_host_path, values.storage.periphery_root) %}
 {% do periphery.environment.add_env("PERIPHERY_ROOT_DIRECTORY", periphery_host_path) %}
 
 {# Core #}
+{% do core.set_init(true) %}
 {% do core.healthcheck.set_test("curl", {
   "port": values.network.web_port.port_number,
-  "path": "/auth/GetLoginOptions", "method": "POST",
+  "path": "/auth/login/GetLoginOptions", "method": "POST",
   "data": {}, "headers": [("Content-Type", "application/json")],
 }) %}
 {% do core.depends.add_dependency(values.consts.mongo_container_name, "service_healthy") %}
-
 {% do core.environment.add_env("KOMODO_PASSKEY", values.komodo.passkey) %}
 {% do core.environment.add_env("KOMODO_LOCAL_AUTH", values.komodo.local_auth) %}
 {% do core.environment.add_env("KOMODO_DISABLE_USER_REGISTRATION", not values.komodo.allow_registration) %}
@@ -67,6 +69,7 @@
 {% do core.add_port(values.network.web_port) %}
 
 {% do core.add_storage("/backups", values.storage.backups) %}
+{% do core.add_storage("/config/keys", values.storage.config_keys) %}
 {% do core.add_storage(values.consts.syncs_directory, values.storage.syncs) %}
 
 {% for store in values.storage.additional_storage %}
