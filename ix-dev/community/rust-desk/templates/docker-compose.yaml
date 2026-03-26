@@ -2,12 +2,16 @@
 
 {% set rust_desk_net = tpl.networks.create_internal("rust-desk-net") %}
 
-{% set server = tpl.add_container(values.consts.rust_desk_container_name, values.rust_desk.image_selector) %}
-{% do server.add_network(rust_desk_net) %}
-{% set relay = tpl.add_container(values.consts.rust_desk_relay_container_name, values.rust_desk.image_selector) %}
-{% do relay.add_network(rust_desk_net) %}
-
 {% set is_pro = values.rust_desk.image_selector == "pro_image" %}
+
+{% set server = tpl.add_container(values.consts.rust_desk_container_name, values.rust_desk.image_selector) %}
+{% set relay = tpl.add_container(values.consts.rust_desk_relay_container_name, values.rust_desk.image_selector) %}
+
+{% if not values.network.host_network %}
+  {% do server.add_network(rust_desk_net) %}
+  {% do relay.add_network(rust_desk_net) %}
+{% endif %}
+
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
