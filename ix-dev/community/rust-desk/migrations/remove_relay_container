@@ -1,0 +1,38 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    msg = " ".join(
+        [
+            "Relay Container is moved to a dedicated app.",
+            "If you want to use a self-hosted relay, please deploy the new dedicated Rust Desk Relay app,",
+            "configure it via Additional Relay Servers",
+            "In either case, disable the relay on this app by setting both",
+            "Relay Port and Relay Web Clients Port bind mode to None.",
+        ]
+    )
+
+    if values["network"].get("relay_port", False):
+        if values["network"]["relay_port"]["bind_mode"]:
+            raise Exception(msg)
+    if values["network"].get("relay_web_clients_port", False):
+        if values["network"]["relay_web_clients_port"]["bind_mode"]:
+            raise Exception(msg)
+
+    values["network"].pop("relay_port", None)
+    values["network"].pop("relay_web_clients_port", None)
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
