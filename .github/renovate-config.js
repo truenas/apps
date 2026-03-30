@@ -218,8 +218,8 @@ module.exports = {
       ["nzbgetcom/nzbget"],
     ),
     customVersioning(
-      // tshock-1.4.4.9-5.2.0-3
-      "^tshock-\\d+\\.\\d+\\.\\d+\\.\\d+-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
+      // vanilla-1.4.4.9
+      "^vanilla-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)(-\\d+)?$",
       ["ryshe/terraria"],
     ),
     customVersioning(
