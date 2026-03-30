@@ -5,6 +5,7 @@ if TYPE_CHECKING:
 
 try:
     from .deps_elastic import ElasticSearchContainer, ElasticConfig
+    from .deps_guacd import GuacdContainer, GuacdConfig
     from .deps_mariadb import MariadbContainer, MariadbConfig
     from .deps_meilisearch import MeilisearchContainer, MeiliConfig
     from .deps_memcached import MemcachedContainer, MemcachedConfig
@@ -16,6 +17,7 @@ try:
     from .deps_tika import TikaContainer, TikaConfig
 except ImportError:
     from deps_elastic import ElasticSearchContainer, ElasticConfig
+    from deps_guacd import GuacdContainer, GuacdConfig
     from deps_mariadb import MariadbContainer, MariadbConfig
     from deps_meilisearch import MeilisearchContainer, MeiliConfig
     from deps_memcached import MemcachedContainer, MemcachedConfig
@@ -60,3 +62,6 @@ class Deps:
 
     def memcached(self, name: str, image: str, config: MemcachedConfig):
         return MemcachedContainer(self._render_instance, name, image, config)
+
+    def guacd(self, name: str, image: str, config: GuacdConfig):
+        return GuacdContainer(self._render_instance, name, image, config)
