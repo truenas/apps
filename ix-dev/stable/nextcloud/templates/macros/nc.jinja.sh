@@ -75,3 +75,29 @@ set_list "trusted_domains" "${NEXTCLOUD_TRUSTED_DOMAINS}" || { echo "Failed to u
 echo '## Configuring Imaginary...'
 occ config:system:set preview_imaginary_url --value={{ "http://%s:%d"|format(host, port) }}
 {%- endmacro -%}
+
+{% macro harp_daemon_register(values, nc_url, docker_network) -%}
+#!/bin/bash
+echo '## Configuring HaRP (AppAPI)...'
+
+echo 'Installing and enabling app_api...'
+occ app:install app_api 2>/dev/null || true
+occ app:enable app_api 2>/dev/null || true
+
+echo 'Registering HaRP deploy daemon...'
+occ app_api:daemon:register \
+  harp \
+  "HaRP (TrueNAS)" \
+  "docker-install" \
+  "http" \
+  "{{ values.consts.harp_container_name }}:{{ values.consts.harp_port }}" \
+  "{{ nc_url }}" \
+  --net "{{ docker_network }}" \
+  --harp \
+  --harp_frp_address "{{ values.consts.harp_container_name }}:8782" \
+  --harp_shared_key "{{ values.nextcloud.harp.shared_key }}" \
+  --set-default \
+  || echo 'Daemon already registered or registration failed. You can register manually via Nextcloud Admin > AppAPI.'
+
+echo 'HaRP daemon registration complete.'
+{%- endmacro -%}
