@@ -10,6 +10,11 @@
   {% do c1.healthcheck.disable() %}
 {% endif %}
 
+{# We set those variables to empty explicitly, to force the app to use the -world flag #}
+{% do c1.environment.add_env("WORLDPATH", "") %}
+{% do c1.environment.add_env("WORLD_FILENAME", "") %}
+{% do c1.environment.add_env("CONFIGPATH", values.consts.config_path) %}
+{% do c1.environment.add_env("CONFIG_FILENAME", "serverconfig.txt") %}
 {% do c1.environment.add_user_envs(values.terraria.additional_envs) %}
 
 {#
@@ -23,7 +28,7 @@
 #}
 
 {% set cmd = namespace(x=[
-  "-world", "/worlds/%s.wld" | format(values.terraria.world_file_name.replace(".wld", "")),
+  "-world", "%s/%s.wld" | format(values.consts.world_path, values.terraria.world_file_name.removesuffix(".wld")),
   "-autocreate", values.terraria.world_size,
   "-difficulty", values.terraria.world_difficulty,
   "-worldevil", values.terraria.world_evil,
@@ -35,23 +40,16 @@
   {% do cmd.x.extend(["-seed", values.terraria.world_seed]) %}
 {% endif %}
 
+{% if values.terraria.password %}
+  {% do cmd.x.extend(["-password", values.terraria.password]) %}
+{% endif %}
+
 {% if values.terraria.secure %}
   {% do cmd.x.append("-secure") %}
 {% endif %}
 
 {% if values.terraria.force_update %}
   {% do cmd.x.append("-forceupdate") %}
-{% endif %}
-
-{% if values.terraria.password %}
-  {% do cmd.x.extend(["-password", values.terraria.password]) %}
-{% endif %}
-
-{% if values.network.api_port.bind_mode %}
-  {% do cmd.x.extend([
-    "-rest-enabled", true,
-    "-rest-port", values.network.api_port.port_number,
-  ]) %}
 {% endif %}
 
 {% for item in values.terraria.additional_args %}
@@ -70,11 +68,9 @@
 {% do c1.set_command(cmd.x) %}
 
 {% do c1.add_port(values.network.server_port) %}
-{% do c1.add_port(values.network.api_port) %}
 
-{% do c1.add_storage("/worlds", values.storage.world) %}
-{% do c1.add_storage("/tshock", values.storage.config) %}
-{% do c1.add_storage("/plugins", values.storage.plugins) %}
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% do c1.add_storage(values.consts.world_path, values.storage.world) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
