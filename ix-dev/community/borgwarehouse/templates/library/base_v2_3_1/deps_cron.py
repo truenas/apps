@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, TypedDict, NotRequired
+from typing import TYPE_CHECKING, TypedDict
 
 
 if TYPE_CHECKING:
@@ -75,11 +75,5 @@ class CronContainer:
         if not repo:
             raise RenderError("Could not determine repo")
         if repo not in SUPPORTED_REPOS:
-            raise RenderError(f"Unsupported repo [{repo}] for tika. Supported repos: {', '.join(SUPPORTED_REPOS)}")
+            raise RenderError(f"Unsupported repo [{repo}] for cron. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
-
-    def get_port(self):
-        return self._config.get("port") or 9998
-
-    def get_url(self):
-        return f"http://{self._name}:{self.get_port()}"
