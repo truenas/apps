@@ -4,6 +4,11 @@
   {% do tpl.notes.add_deprecation("Postgres 17 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %} #}
 
+{% set allowed_hosts = values.recipes.allowed_hosts or ["*"] %}
+{% if "*" in allowed_hosts %}
+  {% do tpl.notes.add_warning("The '*' host is not recommended. Please specify specific host(s).") %}
+{% endif %}
+
 {% set recipes_net = tpl.networks.create_internal("recipes-net") %}
 
 {% set c1 = tpl.add_container(values.consts.recipes_container_name, "image") %}
@@ -34,6 +39,7 @@
 {% do c1.environment.add_env("POSTGRES_HOST", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("POSTGRES_PORT", postgres.get_port()) %}
 {% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
+{% do c1.environment.add_env("ALLOWED_HOSTS", allowed_hosts|join(",")) %}
 {% do c1.environment.add_user_envs(values.recipes.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
