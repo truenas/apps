@@ -8,7 +8,11 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set variant = values.playwright.image_selector | replace("_image", "") %}
-{% set version = values.images[values.playwright.image_selector].tag | replace(variant, "") | trim("v") | trim("-") %}
+{% set image = values.images[values.playwright.image_selector] %}
+{% if variant not in image.tag %}
+  {% do tpl.funcs.fail("Image tag does not match the expected variant") %}
+{% endif %}
+{% set version = image.tag | replace(variant, "") | trim("v") | trim("-") %}
 
 {% set health_path = "/" %}
 {% set base_cmd = "cd %s && npx -y playwright@%s" | format(values.consts.pwuser_home_path, version) %}
