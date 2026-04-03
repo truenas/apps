@@ -40,26 +40,30 @@ def set_added_date(data: dict, app_yaml: str):
     return data, True
 
 
-for train in os.listdir("ix-dev"):
-    # if its not dir skip
-    if not os.path.isdir(os.path.join("ix-dev", train)):
-        continue
-    for app in os.listdir(os.path.join("ix-dev", train)):
+CURRENT_LIB_VERSION = "2.3.1"
+
+
+def update_app_yaml():
+    for train in os.listdir("ix-dev"):
         # if its not dir skip
-        if not os.path.isdir(os.path.join("ix-dev", train, app)):
+        if not os.path.isdir(os.path.join("ix-dev", train)):
             continue
-        file = os.path.join("ix-dev", train, app, "app.yaml")
+        for app in os.listdir(os.path.join("ix-dev", train)):
+            # if its not dir skip
+            if not os.path.isdir(os.path.join("ix-dev", train, app)):
+                continue
+            file = os.path.join("ix-dev", train, app, "app.yaml")
 
-        data = get_yaml_data(file)
-        if not data:
-            print("no app.yaml", train, app)
-            continue
-        # if not data["lib_version"] == "2.1.65":
-        #     print("wrong lib_version", train, app, data["lib_version"])
-        #     continue
+            data = get_yaml_data(file)
+            if not data:
+                print("no app.yaml", train, app)
+                continue
 
-        data, changed = set_added_date(data, file)
-        if changed or data["lib_version"] == "2.2.2":
-            data = bump_version(data, "patch")
-        with open(file, "w") as f:
-            yaml.safe_dump(data, f)
+            data, changed = set_added_date(data, file)
+            if changed or data["lib_version"] == CURRENT_LIB_VERSION:
+                data = bump_version(data, "patch")
+            with open(file, "w") as f:
+                yaml.safe_dump(data, f)
+
+
+update_app_yaml()
