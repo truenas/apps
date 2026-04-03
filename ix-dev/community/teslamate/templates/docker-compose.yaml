@@ -1,3 +1,4 @@
+{% from "macros/grafana_import.sh" import grafana_import %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set tm_net = tpl.networks.create_internal("teslamate-net") %}
@@ -52,22 +53,15 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{# Grafana (always enabled, uses teslamate/grafana with pre-loaded dashboards) #}
-{% set grafana = tpl.add_container(values.consts.grafana_container_name, "grafana_image") %}
-{% do grafana.add_network(tm_net) %}
-{% do grafana.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
-{% do grafana.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do grafana.healthcheck.set_test("curl", {"port": values.consts.internal_grafana_port, "path": "/api/health"}) %}
-{% do grafana.add_port(values.network.grafana_port, {"container_port": values.consts.internal_grafana_port}) %}
-
-{% do grafana.environment.add_env("DATABASE_USER", values.consts.db_user) %}
-{% do grafana.environment.add_env("DATABASE_PASS", values.teslamate.db_password) %}
-{% do grafana.environment.add_env("DATABASE_NAME", values.consts.db_name) %}
-{% do grafana.environment.add_env("DATABASE_HOST", values.consts.postgres_container_name) %}
-{% do grafana.environment.add_env("DATABASE_PORT", postgres.get_port()) %}
-
-{% do grafana.add_storage("/var/lib/grafana", values.storage.grafana_data) %}
-{% do perm_container.add_or_skip_action("grafana_data", values.storage.grafana_data, perms_config) %}
+{# Grafana Dashboard Importer (optional — imports dashboards into an existing Grafana instance) #}
+{% if values.grafana.import_dashboards %}
+  {% set grafana_init = tpl.add_container(values.consts.grafana_init_container_name, "grafana_init_image") %}
+  {% do grafana_init.setup_as_helper(disable_network=false) %}
+  {% do grafana_init.set_entrypoint(["/bin/sh", "/scripts/grafana-import.sh"]) %}
+  {% do grafana_init.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+  {% do grafana_init.configs.add("grafana-import.sh", grafana_import(values), "/scripts/grafana-import.sh", "0755") %}
+  {% do tpl.notes.add_warning("TeslaMate dashboards require the following Grafana plugins to render correctly: pr0ps-trackmap-panel, natel-discrete-panel, grafana-piechart-panel, panodata-map-panel. Install these in your Grafana instance before or after importing.") %}
+{% endif %}
 
 {# TeslaMateAPI (optional) #}
 {% set api = namespace(x=None) %}
@@ -113,7 +107,6 @@
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do tm.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do grafana.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% if values.teslamate.enable_api %}
     {% do api.x.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
@@ -122,7 +115,6 @@
 
 {# Portals #}
 {% do tpl.portals.add(values.network.web_port) %}
-{% do tpl.portals.add(values.network.grafana_port, {"name": "Grafana"}) %}
 {% if values.teslamate.enable_api %}
   {% do tpl.portals.add(values.network.api_port, {"name": "API"}) %}
 {% endif %}

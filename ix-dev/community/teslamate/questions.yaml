@@ -123,6 +123,89 @@ questions:
             private: true
             show_if: [["enable_api", "=", true]]
 
+  - variable: grafana
+    label: ""
+    group: TeslaMate Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: import_dashboards
+          label: Import TeslaMate Dashboards to External Grafana
+          description: |
+            When enabled, a one-time init container runs on app start to import all TeslaMate
+            dashboards and configure the TeslaMate datasource in your existing Grafana instance.</br>
+            </br>
+            Before enabling, create a Grafana Service Account with Editor role:</br>
+            1. In Grafana, go to Administration → Service Accounts</br>
+            2. Click "Add service account", set Role to "Editor", click "Create"</br>
+            3. Open the new account, click "Add service account token" and copy the token</br>
+            </br>
+            Your Grafana instance must be able to reach the TeslaMate PostgreSQL database.</br>
+            On TrueNAS, add the TeslaMate app network to your Grafana app via its Networks configuration,
+            then set the Database Host below to the internal postgres container name.</br>
+            </br>
+            The following Grafana plugins must be installed in your Grafana instance:</br>
+            pr0ps-trackmap-panel, natel-discrete-panel, grafana-piechart-panel, panodata-map-panel.</br>
+            See the README for full setup instructions.
+          schema:
+            type: boolean
+            default: false
+        - variable: url
+          label: Grafana URL
+          description: The full URL of your Grafana instance (e.g. http://192.168.1.100:3000).
+          schema:
+            type: string
+            show_if: [["import_dashboards", "=", true]]
+            required: true
+            default: ""
+        - variable: api_token
+          label: Grafana Service Account Token
+          description: |
+            Service account token with Editor role.</br>
+            Used to create the datasource, folder, and import dashboards via the Grafana HTTP API.
+          schema:
+            type: string
+            show_if: [["import_dashboards", "=", true]]
+            required: true
+            default: ""
+            private: true
+        - variable: db_host
+          label: Database Host (for Grafana datasource)
+          description: |
+            The hostname or IP address your Grafana instance uses to reach the TeslaMate database.</br>
+            Leave empty to use the internal postgres container name (works when Grafana is on the same
+            Docker network as TeslaMate).</br>
+            Override with a host IP or DNS name if Grafana is on a different network.
+          schema:
+            type: string
+            show_if: [["import_dashboards", "=", true]]
+            default: ""
+        - variable: db_port
+          label: Database Port (for Grafana datasource)
+          description: The PostgreSQL port Grafana uses to reach the TeslaMate database.
+          schema:
+            type: int
+            show_if: [["import_dashboards", "=", true]]
+            default: 5432
+            min: 1
+            max: 65535
+        - variable: db_ssl_mode
+          label: Database SSL Mode
+          description: SSL mode for the Grafana to PostgreSQL connection.
+          schema:
+            type: string
+            show_if: [["import_dashboards", "=", true]]
+            default: "disable"
+            enum:
+              - value: "disable"
+                description: Disable SSL
+              - value: "require"
+                description: Require SSL
+              - value: "verify-ca"
+                description: Verify CA
+              - value: "verify-full"
+                description: Verify Full
+
   - variable: network
     label: ""
     group: Network Configuration
@@ -159,54 +242,6 @@ questions:
                   type: int
                   show_if: [["bind_mode", "=", "published"]]
                   default: 30408
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: grafana_port
-          label: Grafana Port
-          schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 30409
                   min: 1
                   max: 65535
                   required: true
@@ -313,8 +348,6 @@ questions:
                                     enum:
                                       - value: teslamate
                                         description: teslamate
-                                      - value: grafana
-                                        description: grafana
                                       - value: teslamate-api
                                         description: teslamate-api
                                       - value: postgres
@@ -451,90 +484,6 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: grafana_data
-          label: Grafana Data Storage
-          description: The path to store Grafana data (dashboards, settings).
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "grafana_data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
         - variable: postgres_data
           label: Postgres Data Storage
           description: The path to store Postgres data.
@@ -815,8 +764,6 @@ questions:
                         enum:
                           - value: teslamate
                             description: teslamate
-                          - value: grafana
-                            description: grafana
                           - value: teslamate-api
                             description: teslamate-api
                           - value: postgres
