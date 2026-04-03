@@ -38,8 +38,14 @@
   "%s gateway.controlUi.allowedOrigins '%s'" | format(base, allowed_origins.x | tojson),
 ] %}
 
+{% if values.openclaw.trusted_proxies %}
+  {% do cmds.append("%s gateway.trustedProxies '%s'" | format(base, values.openclaw.trusted_proxies | tojson)) %}
+{% endif %}
+
 {% if values.openclaw.auth_mode == "trusted-proxy" %}
-  {% do cmds.append("%s gateway.trustedProxies '%s'" | format(base, values.openclaw.proxy_trusted_proxies | tojson)) %}
+  {% if not values.openclaw.trusted_proxies %}
+    {% do tpl.funcs.fail("Trusted proxy authentication mode requires at least one trusted proxy.") %}
+  {% endif %}
   {% do cmds.append("%s gateway.auth.trustedProxy.userHeader %s" | format(base, values.openclaw.proxy_user_header)) %}
   {% do cmds.append("%s gateway.auth.trustedProxy.requiredHeaders '%s'" | format(base, values.openclaw.proxy_required_headers | tojson)) %}
   {% do cmds.append("%s gateway.auth.trustedProxy.allowUsers '%s'" | format(base, values.openclaw.proxy_allow_users | tojson)) %}
