@@ -33,6 +33,7 @@
 {% set base = "node dist/index.js config set" %}
 
 {% set cmds = [
+  "%s gateway.auth.mode %s" | format(base, values.openclaw.auth_mode),
   "%s gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback %s" | format(base, "false" if allowed_origins.x | length > 0 else "true"),
   "%s gateway.controlUi.allowedOrigins '%s'" | format(base, allowed_origins.x | tojson),
 ] %}
@@ -53,7 +54,12 @@
   "--port", values.network.gateway_port.port_number,
 ]) %}
 
-{% do c1.environment.add_env("OPENCLAW_GATEWAY_TOKEN", values.openclaw.gateway_token) %}
+{% if values.openclaw.auth_mode == "token" %}
+  {% do c1.environment.add_env("OPENCLAW_GATEWAY_TOKEN", values.openclaw.gateway_token) %}
+{% elif values.openclaw.auth_mode == "password" %}
+  {% do c1.environment.add_env("OPENCLAW_GATEWAY_PASSWORD", values.openclaw.gateway_password) %}
+{% endif %}
+
 {% do c1.environment.add_user_envs(values.openclaw.additional_envs) %}
 
 {% do c1.add_port(values.network.gateway_port) %}
