@@ -19,13 +19,86 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: trusted_proxies
+          label: Proxy Trusted Proxies
+          description: List of proxy IP addresses to trust. Requests from other IPs are
+            rejected.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: ip
+                label: IP Address
+                schema:
+                  type: string
+                  required: true
+        - variable: auth_mode
+          label: Authentication Mode
+          description: The authentication mode for OpenClaw Gateway. See
+            https://docs.openclaw.ai/gateway/security/index#0-5-lock-down-the-gateway-websocket-local-auth
+          schema:
+            type: string
+            required: true
+            default: token
+            enum:
+              - value: token
+                description: Shared bearer token (recommended for most setups).
+              - value: password
+                description: Password auth
+              - value: trusted-proxy
+                description: Trust an identity-aware reverse proxy to authenticate users and
+                  pass identity via headers
         - variable: gateway_token
           label: Gateway Token
           schema:
             type: string
+            show_if: [["auth_mode", "=", "token"]]
             default: ""
             private: true
             required: true
+        - variable: gateway_password
+          label: Gateway Password
+          schema:
+            type: string
+            show_if: [["auth_mode", "=", "password"]]
+            default: ""
+            private: true
+            required: true
+        - variable: proxy_user_header
+          label: Proxy User Header
+          description: Header name containing the authenticated user identity
+          schema:
+            type: string
+            show_if: [["auth_mode", "=", "trusted-proxy"]]
+            default: "x-forwarded-user"
+            required: true
+        - variable: proxy_required_headers
+          label: Proxy Required Headers
+          description: Additional headers that must be present for the request to be trusted
+          schema:
+            type: list
+            show_if: [["auth_mode", "=", "trusted-proxy"]]
+            default: []
+            items:
+              - variable: header
+                label: Header
+                schema:
+                  type: string
+                  required: true
+        - variable: proxy_allow_users
+          label: Proxy Allow Users
+          description: Allowlist of user identities. Empty means allow all authenticated
+            users.
+          schema:
+            type: list
+            show_if: [["auth_mode", "=", "trusted-proxy"]]
+            default: []
+            items:
+              - variable: username
+                label: Username
+                schema:
+                  type: string
+                  required: true
         - variable: allowed_origins
           label: Allowed Origins
           schema:
@@ -216,7 +289,8 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service's containers
+                                          to its networks.
                                         schema:
                                           type: int
                                           "null": true
