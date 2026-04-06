@@ -101,9 +101,9 @@ def test_notes_with_warnings(mock_values):
     output = render.render()
     assert (
         output["x-notes"]
-        == """# Test App
+        == """# Test App ⚠️
 
-## Warnings
+## Warnings ⚠️
 
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
@@ -142,9 +142,9 @@ def test_notes_with_deprecations(mock_values):
     output = render.render()
     assert (
         output["x-notes"]
-        == """# Test App
+        == """# Test App ⚠️
 
-## Deprecations
+## Deprecations ⚠️
 
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
@@ -270,16 +270,16 @@ some other info.
     output = render.render()
     assert (
         output["x-notes"]
-        == """# Test App
+        == """# Test App ⚠️
 
-## Warnings
+## Warnings ⚠️
 
 - Container [test_container] is running with a TTY, Logs do not appear correctly in the UI due to an [upstream bug](https://github.com/docker/docker-py/issues/1394)
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
 - Container [test_container] has a grace period of [61] seconds. TrueNAS waits a maximum of 60 seconds for docker engine to stop during system reboot/shutdown. If the container needs the full configured grace period, manually stop it before reboot/shutdown to ensure the full wait time is honored.
 
-## Deprecations
+## Deprecations ⚠️
 
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
