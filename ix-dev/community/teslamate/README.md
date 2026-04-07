@@ -7,15 +7,11 @@ and supports rich visualizations via Grafana.
 
 ## Grafana Dashboards
 
-TeslaMate does not bundle a Grafana instance. To use the official TeslaMate dashboards,
-enable the **Import TeslaMate Dashboards to External Grafana** option during installation.
-When enabled, a one-time init container runs on each app start to:
+TeslaMate does not bundle a Grafana instance. To use the official TeslaMate dashboards you need
+to install Grafana separately (e.g. the Grafana app from the TrueNAS app catalog) and set it up
+manually.
 
-1. Create or update a `TeslaMate` PostgreSQL datasource in your Grafana instance
-2. Create a `TeslaMate` folder in Grafana
-3. Download and import all official dashboards from the TeslaMate GitHub repository
-
-### Required Grafana plugins
+### 1. Install required Grafana plugins
 
 The following community plugins must be installed in your Grafana instance before dashboards
 will render correctly. Install them via **Administration → Plugins** or by setting the
@@ -26,31 +22,33 @@ will render correctly. Install them via **Administration → Plugins** or by set
 - `grafana-piechart-panel`
 - `panodata-map-panel`
 
-### Creating a Grafana Service Account
-
-The importer uses the Grafana HTTP API authenticated with a Service Account token:
-
-1. In your Grafana instance, go to **Administration → Service Accounts**
-2. Click **Add service account**, give it a name (e.g. `teslamate-importer`), set Role to **Editor**, click **Create**
-3. Open the new service account, click **Add service account token**, copy the generated token
-4. Paste the token into the **Grafana Service Account Token** field during TeslaMate installation
-
-### Connecting Grafana to the TeslaMate database
+### 2. Connect Grafana to the TeslaMate database
 
 Grafana queries the TeslaMate PostgreSQL database directly. For this to work, your Grafana
-instance must be able to reach the postgres container.
+instance must be able to reach the `postgres` container.
 
 **On TrueNAS SCALE (recommended):**
 
 1. In your Grafana app settings, go to **Network Configuration → Networks**
 2. Add the TeslaMate app network (typically `ix-teslamate`) to the Grafana containers
-3. Leave the **Database Host** field empty in TeslaMate settings — it defaults to the
-   internal `postgres` container name, which is reachable once networks are joined
+3. In Grafana, create a new **PostgreSQL** datasource with:
+   - **Host**: `postgres:5432` (the internal container name, reachable once networks are joined)
+   - **Database**: `teslamate`
+   - **User**: `teslamate`
+   - **Password**: the database password you set in TeslaMate
+   - **SSL Mode**: `disable`
 
 **External Grafana (different host):**
 
-Set the **Database Host** field to the IP address or hostname of your TrueNAS system and
-expose the postgres port via **Network Configuration** in the TeslaMate app.
+Expose the PostgreSQL port via **Network Configuration** in the TeslaMate app, then configure
+the datasource using your TrueNAS host IP and the exposed port.
+
+### 3. Import the dashboards
+
+1. Download the official TeslaMate dashboards from the
+   [TeslaMate GitHub repository](https://github.com/teslamate-org/teslamate/tree/master/grafana/dashboards)
+2. In Grafana, go to **Dashboards → Import** and upload each dashboard JSON file
+3. Select the `TeslaMate` PostgreSQL datasource when prompted
 
 ## TeslaMateAPI
 
