@@ -15,6 +15,10 @@
   {% do c.environment.add_env("NODE_ENV", "production") %}
 
   {% do c.add_storage(values.consts.home_dir, values.storage.config) %}
+
+  {% for store in values.storage.additional_storage %}
+    {% do c.add_storage(store.mount_path, store) %}
+  {% endfor %}
 {% endfor %}
 
 {% do config.setup_as_helper(disable_network=false) %}
@@ -29,9 +33,23 @@
 {% set base = "node dist/index.js config set" %}
 
 {% set cmds = [
+  "%s gateway.auth.mode %s" | format(base, values.openclaw.auth_mode),
   "%s gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback %s" | format(base, "false" if allowed_origins.x | length > 0 else "true"),
   "%s gateway.controlUi.allowedOrigins '%s'" | format(base, allowed_origins.x | tojson),
 ] %}
+
+{% if values.openclaw.trusted_proxies %}
+  {% do cmds.append("%s gateway.trustedProxies '%s'" | format(base, values.openclaw.trusted_proxies | tojson)) %}
+{% endif %}
+
+{% if values.openclaw.auth_mode == "trusted-proxy" %}
+  {% if not values.openclaw.trusted_proxies %}
+    {% do tpl.funcs.fail("Trusted proxy authentication mode requires at least one trusted proxy.") %}
+  {% endif %}
+  {% do cmds.append("%s gateway.auth.trustedProxy.userHeader %s" | format(base, values.openclaw.proxy_user_header)) %}
+  {% do cmds.append("%s gateway.auth.trustedProxy.requiredHeaders '%s'" | format(base, values.openclaw.proxy_required_headers | tojson)) %}
+  {% do cmds.append("%s gateway.auth.trustedProxy.allowUsers '%s'" | format(base, values.openclaw.proxy_allow_users | tojson)) %}
+{% endif %}
 
 {% if not allowed_origins.x %}
   {% do tpl.notes.add_warning("No allowed origins specified. Falling back to dangerouslyAllowHostHeaderOriginFallback=true.") %}
@@ -49,12 +67,21 @@
   "--port", values.network.gateway_port.port_number,
 ]) %}
 
-{% do c1.environment.add_env("OPENCLAW_GATEWAY_TOKEN", values.openclaw.gateway_token) %}
+{% if values.openclaw.auth_mode == "token" %}
+  {% do c1.environment.add_env("OPENCLAW_GATEWAY_TOKEN", values.openclaw.gateway_token) %}
+{% elif values.openclaw.auth_mode == "password" %}
+  {% do c1.environment.add_env("OPENCLAW_GATEWAY_PASSWORD", values.openclaw.gateway_password) %}
+{% endif %}
+
 {% do c1.environment.add_user_envs(values.openclaw.additional_envs) %}
 
 {% do c1.add_port(values.network.gateway_port) %}
 
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
