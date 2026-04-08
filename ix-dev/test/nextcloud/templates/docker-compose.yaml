@@ -143,6 +143,20 @@
   {% do nc_container.environment.add_env("IX_CLAMAV_STREAM_MAX_LENGTH", values.nextcloud.clamav.stream_max_length) %}
 {% endif %}
 
+{% do nc_container.environment.add_env("IX_HARP", values.nextcloud.harp.enabled) %}
+{% if values.nextcloud.harp.enabled %}
+  {% set nc_scheme = "https" if values.network.certificate_id else "http" %}
+  {% set ext_port = values.nextcloud.urls.external_port or values.network.web_port.port_number %}
+  {% set nc_url = "%s://%s:%d" | format(nc_scheme, values.nextcloud.urls.host, ext_port) %}
+  {% set app_name = values.get("ix_context", {}).get("app_name", "") or "nextcloud" %}
+  {% set docker_network = "%s_%s" | format(app_name, nc_net) %}
+  {% do nc_container.environment.add_env("IX_HARP_URL", "http://%s:%d" | format(values.consts.harp_container_name, values.consts.harp_port)) %}
+  {% do nc_container.environment.add_env("IX_HARP_FRP_ADDRESS", "%s:%d" | format(values.consts.harp_container_name, values.consts.harp_frp_port)) %}
+  {% do nc_container.environment.add_env("IX_HARP_SHARED_KEY", values.nextcloud.harp.shared_key) %}
+  {% do nc_container.environment.add_env("IX_HARP_NC_URL", nc_url) %}
+  {% do nc_container.environment.add_env("IX_HARP_NETWORK", docker_network) %}
+{% endif %}
+
 {% do nc_container.environment.add_env("IX_ONLYOFFICE", values.nextcloud.onlyoffice.enabled) %}
 {% if values.nextcloud.onlyoffice.enabled %}
   {% do nc_container.environment.add_env("IX_ONLYOFFICE_URL", values.nextcloud.onlyoffice.url) %}
@@ -212,6 +226,23 @@
       "-return-size",
   ])%}
   {% do nc_container.environment.add_env("IX_IMAGINARY_URL", "http://%s:%s" | format(values.consts.imaginary_container_name, values.consts.internal_imaginary_port)) %}
+{% endif %}
+
+{# -- HaRP (AppAPI) -- #}
+{% if values.nextcloud.harp.enabled %}
+  {% do tpl.notes.add_warning("HaRP requires access to /var/run/docker.sock, which grants it full control over the Docker daemon. Enable only if you understand the security implications.") %}
+  {% set harp_container = tpl.add_container(values.consts.harp_container_name, "harp_image") %}
+  {% do harp_container.add_network(nc_net) %}
+  {% do harp_container.set_user(0, 0) %}
+  {% do harp_container.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "NET_BIND_SERVICE"]) %}
+  {% do harp_container.healthcheck.disable() %}
+  {% do harp_container.add_docker_socket(read_only=false) %}
+  {% set nc_scheme = "https" if values.network.certificate_id else "http" %}
+  {% set ext_port = values.nextcloud.urls.external_port or values.network.web_port.port_number %}
+  {% set nc_url = "%s://%s:%d" | format(nc_scheme, values.nextcloud.urls.host, ext_port) %}
+  {% do harp_container.environment.add_env("HP_SHARED_KEY", values.nextcloud.harp.shared_key) %}
+  {% do harp_container.environment.add_env("NC_INSTANCE_URL", nc_url) %}
+  {% do harp_container.add_port(values.nextcloud.harp.port) %}
 {% endif %}
 
 {# -- Notify Push -- #}
