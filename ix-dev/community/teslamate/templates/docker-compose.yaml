@@ -3,7 +3,7 @@
 {% set tm_net = tpl.networks.create_internal("teslamate-net") %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {# PostgreSQL #}
 {% set pg_config = {
@@ -12,13 +12,13 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.teslamate.postgres_image_selector, pg_config, perm_container) %}
 {% do postgres.container.add_network(tm_net) %}
 
 {# TeslaMate #}
 {% set tm = tpl.add_container(values.consts.teslamate_container_name, "image") %}
 {% do tm.add_network(tm_net) %}
-{% do tm.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do tm.set_user(values.run_as.user, values.run_as.group) %}
 {% do tm.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do tm.healthcheck.set_test("http", {"port": values.consts.internal_web_port, "path": "/sign_in"}) %}
 {% do tm.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
@@ -57,7 +57,7 @@
 {% if values.teslamate.enable_api %}
   {% set api.x = tpl.add_container(values.consts.api_container_name, "api_image") %}
   {% do api.x.add_network(tm_net) %}
-  {% do api.x.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+  {% do api.x.set_user(values.run_as.user, values.run_as.group) %}
   {% do api.x.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
   {% do api.x.depends.add_dependency(values.consts.teslamate_container_name, "service_healthy") %}
   {% do api.x.healthcheck.set_test("wget", {"port": values.consts.internal_api_port, "path": "/api/ping"}) %}

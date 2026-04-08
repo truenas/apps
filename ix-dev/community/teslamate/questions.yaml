@@ -1,6 +1,8 @@
 groups:
   - name: TeslaMate Configuration
     description: Configure TeslaMate
+  - name: User and Group Configuration
+    description: Configure User and Group for TeslaMate
   - name: Network Configuration
     description: Configure Network for TeslaMate
   - name: Storage Configuration
@@ -27,6 +29,22 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
+          schema:
+            type: string
+            default: postgres_18_image
+            required: true
+            enum:
+              - value: postgres_18_image
+                description: Postgres 18
         - variable: encryption_key
           label: Encryption Key
           description: |
@@ -47,14 +65,20 @@ questions:
             default: ""
             required: true
             private: true
+            min_length: 1
+        - variable: disable_mqtt
+          label: Disable MQTT
+          description: Disable MQTT publishing entirely.
+          schema:
+            type: boolean
+            default: false
         - variable: mqtt_host
           label: MQTT Host
-          description: |
-            The hostname or IP of your MQTT broker (e.g. eclipse-mosquitto app).</br>
-            Leave empty and enable "Disable MQTT" to run without MQTT.
+          description: The hostname or IP of your MQTT broker (e.g. eclipse-mosquitto app).
           schema:
             type: string
             default: ""
+            show_if: [["disable_mqtt", "=", false]]
         - variable: mqtt_port
           label: MQTT Port
           description: The port of your MQTT broker.
@@ -63,12 +87,14 @@ questions:
             default: 1883
             min: 1
             max: 65535
+            show_if: [["disable_mqtt", "=", false]]
         - variable: mqtt_username
           label: MQTT Username
           description: The username for the MQTT broker (leave empty if no auth).
           schema:
             type: string
             default: ""
+            show_if: [["disable_mqtt", "=", false]]
         - variable: mqtt_password
           label: MQTT Password
           description: The password for the MQTT broker (leave empty if no auth).
@@ -76,12 +102,7 @@ questions:
             type: string
             default: ""
             private: true
-        - variable: disable_mqtt
-          label: Disable MQTT
-          description: Disable MQTT publishing entirely.
-          schema:
-            type: boolean
-            default: false
+            show_if: [["disable_mqtt", "=", false]]
         - variable: additional_envs
           label: Additional Environment Variables
           description: Additional environment variables for TeslaMate.
@@ -121,7 +142,31 @@ questions:
             type: string
             default: ""
             private: true
+            min_length: 32
             show_if: [["enable_api", "=", true]]
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that TeslaMate files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that TeslaMate files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
