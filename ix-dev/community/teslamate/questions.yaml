@@ -45,6 +45,14 @@ questions:
             enum:
               - value: postgres_18_image
                 description: Postgres 18
+        - variable: db_password
+          label: Database Password
+          description: The password for the TeslaMate database.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
         - variable: encryption_key
           label: Encryption Key
           description: |
@@ -56,16 +64,26 @@ questions:
             default: ""
             required: true
             private: true
-            min_length: 1
-        - variable: db_password
-          label: Database Password
-          description: The password for the TeslaMate database.
+        - variable: enable_api
+          label: Enable TeslaMateAPI
+          description: |
+            Enable the TeslaMateAPI container.</br>
+            Provides a REST API for TeslaMate data.</br>
+            See https://github.com/tobiasehlert/teslamateapi
+          schema:
+            type: boolean
+            default: false
+        - variable: api_token
+          label: API Token
+          description: |
+            Authentication token for TeslaMateAPI (min 32 characters).</br>
+            Leave empty to disable API authentication.
           schema:
             type: string
             default: ""
-            required: true
             private: true
-            min_length: 1
+            min_length: 32
+            show_if: [["enable_api", "=", true]]
         - variable: disable_mqtt
           label: Disable MQTT
           description: Disable MQTT publishing entirely.
@@ -105,7 +123,6 @@ questions:
             show_if: [["disable_mqtt", "=", false]]
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Additional environment variables for TeslaMate.
           schema:
             type: list
             default: []
@@ -124,26 +141,6 @@ questions:
                       label: Value
                       schema:
                         type: string
-        - variable: enable_api
-          label: Enable TeslaMateAPI
-          description: |
-            Enable the TeslaMateAPI container.</br>
-            Provides a REST API for TeslaMate data.</br>
-            See https://github.com/tobiasehlert/teslamateapi
-          schema:
-            type: boolean
-            default: false
-        - variable: api_token
-          label: API Token
-          description: |
-            Authentication token for TeslaMateAPI (min 32 characters).</br>
-            Leave empty to disable API authentication.
-          schema:
-            type: string
-            default: ""
-            private: true
-            min_length: 32
-            show_if: [["enable_api", "=", true]]
 
   - variable: run_as
     label: ""
@@ -175,7 +172,7 @@ questions:
       type: dict
       attrs:
         - variable: web_port
-          label: TeslaMate WebUI Port
+          label: WebUI Port
           schema:
             type: dict
             attrs:
@@ -202,7 +199,6 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
                   default: 30411
                   min: 1
                   max: 65535
@@ -223,7 +219,7 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: api_port
-          label: TeslaMateAPI Port
+          label: API Port
           schema:
             type: dict
             attrs:
@@ -310,8 +306,8 @@ questions:
                                     enum:
                                       - value: teslamate
                                         description: teslamate
-                                      - value: teslamate-api
-                                        description: teslamate-api
+                                      - value: api
+                                        description: api
                                       - value: postgres
                                         description: postgres
                                 - variable: config
@@ -371,8 +367,7 @@ questions:
       type: dict
       attrs:
         - variable: import_data
-          label: TeslaMate Import Data Storage
-          description: The path for TeslaFi data imports.
+          label: Import Data Storage
           schema:
             type: dict
             attrs:
@@ -448,7 +443,6 @@ questions:
                         required: true
         - variable: postgres_data
           label: Postgres Data Storage
-          description: The path to store Postgres data.
           schema:
             type: dict
             attrs:
@@ -540,7 +534,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -726,8 +720,8 @@ questions:
                         enum:
                           - value: teslamate
                             description: teslamate
-                          - value: teslamate-api
-                            description: teslamate-api
+                          - value: api
+                            description: api
                           - value: postgres
                             description: postgres
 
