@@ -162,18 +162,6 @@
     "/docker-entrypoint-hooks.d/before-starting/ix-imaginary-url.sh", "0755",
   ) %}
 {% endif %}
-{% if values.nextcloud.harp.enabled %}
-  {% set nc_scheme = "https" if values.network.certificate_id else "http" %}
-  {% set nc_url = "%s://%s"|format(nc_scheme, host.x) if host.x else "%s://localhost:%d"|format(nc_scheme, values.network.web_port.port_number) %}
-  {% set app_name = values.get("ix_context", {}).get("app_name", "") or "nextcloud" %}
-  {% set docker_network = "%s_%s"|format(app_name, nc_net) %}
-  {% do nc_container.environment.add_env("IX_HARP", "true") %}
-  {% do nc_container.environment.add_env("IX_HARP_INTERNAL_URL", "http://%s:%d"|format(values.consts.harp_container_name, values.consts.harp_port)) %}
-  {% do nc_container.environment.add_env("IX_HARP_NC_INTERNAL_URL", nc_url) %}
-  {% do nc_container.environment.add_env("IX_HARP_NETWORK", docker_network) %}
-  {% do nc_container.environment.add_env("IX_HARP_FRP_ADDRESS", "%s:8782"|format(values.consts.harp_container_name)) %}
-  {% do nc_container.environment.add_env("IX_HARP_SHARED_KEY", values.nextcloud.harp.shared_key) %}
-{% endif %}
 
 {% do nc_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
 
@@ -209,25 +197,6 @@
   {% do imaginary_container.add_caps(["SYS_NICE"]) %}
   {% do imaginary_container.set_user(568, 568) %}
   {% do imaginary_container.healthcheck.set_test("wget", {"port": 9000, "path": "/health"}) %}
-{% endif %}
-
-{% if values.nextcloud.harp.enabled %}
-  {% do tpl.notes.add_warning("HaRP requires access to /var/run/docker.sock, which gives it full control over the Docker daemon. Enable only if you trust the implications.") %}
-  {% set nc_scheme = "https" if values.network.certificate_id else "http" %}
-  {% set nc_url = "%s://%s"|format(nc_scheme, host.x) if host.x else "%s://localhost:%d"|format(nc_scheme, values.network.web_port.port_number) %}
-
-  {% set harp_container = tpl.add_container(values.consts.harp_container_name, "harp_image") %}
-  {% do harp_container.add_network(nc_net) %}
-  {% do harp_container.set_user(0, 0) %}
-  {% do harp_container.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "NET_BIND_SERVICE"]) %}
-  {% do harp_container.healthcheck.disable() %}
-  {% do harp_container.add_docker_socket(read_only=true) %}
-  {% do harp_container.environment.add_env("HP_SHARED_KEY", values.nextcloud.harp.shared_key) %}
-  {% do harp_container.environment.add_env("NC_INSTANCE_URL", nc_url) %}
-  {% do harp_container.add_port(values.nextcloud.harp.port) %}
-  {% if not values.network.certificate_id %}
-    {% do tpl.notes.add_info("HaRP is enabled but nginx is not. You must configure your external reverse proxy to route /exapps/* to HaRP on port %d."|format(values.nextcloud.harp.port.port_number)) %}
-  {% endif %}
 {% endif %}
 
 {% if values.network.certificate_id %}
