@@ -1,4 +1,4 @@
-{% from "macros/nc.jinja.sh" import occ, hosts_update, trusted_domains_update, imaginary_url, harp_daemon_register %}
+{% from "macros/nc.jinja.sh" import occ, hosts_update, trusted_domains_update, imaginary_url %}
 {% from "macros/nc.jinja.conf" import opcache, php, limit_request_body, use_x_real_ip_in_logs, nginx_conf %}
 
 {% set tpl = ix_lib.base.render.Render(values) %}
@@ -167,11 +167,12 @@
   {% set nc_url = "%s://%s"|format(nc_scheme, host.x) if host.x else "%s://localhost:%d"|format(nc_scheme, values.network.web_port.port_number) %}
   {% set app_name = values.get("ix_context", {}).get("app_name", "") or "nextcloud" %}
   {% set docker_network = "%s_%s"|format(app_name, nc_net) %}
-  {% do nc_container.configs.add(
-    "ix-harp-daemon.sh",
-    harp_daemon_register(values, nc_url, docker_network),
-    "/docker-entrypoint-hooks.d/before-starting/ix-harp-daemon.sh", "0755",
-  ) %}
+  {% do nc_container.environment.add_env("IX_HARP", "true") %}
+  {% do nc_container.environment.add_env("IX_HARP_INTERNAL_URL", "http://%s:%d"|format(values.consts.harp_container_name, values.consts.harp_port)) %}
+  {% do nc_container.environment.add_env("IX_HARP_NC_INTERNAL_URL", nc_url) %}
+  {% do nc_container.environment.add_env("IX_HARP_NETWORK", docker_network) %}
+  {% do nc_container.environment.add_env("IX_HARP_FRP_ADDRESS", "%s:8782"|format(values.consts.harp_container_name)) %}
+  {% do nc_container.environment.add_env("IX_HARP_SHARED_KEY", values.nextcloud.harp.shared_key) %}
 {% endif %}
 
 {% do nc_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
