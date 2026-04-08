@@ -33,6 +33,7 @@ questions:
         - variable: mac_address
           label: MAC Address
           description: |
+            This is not required if you enable Host Network.</br>
             For licensing purposes, Rust Desk needs the MAC Address to tie the license to your server.</br>
             Format: XX:XX:XX:XX:XX:XX
           schema:
@@ -41,7 +42,6 @@ questions:
             min_length: 17
             max_length: 17
             show_if: [["image_selector", "=", "pro_image"]]
-            required: true
         - variable: allow_only_encrypted_connections
           label: Allow Only Encrypted Connections
           description: |
@@ -54,7 +54,7 @@ questions:
           label: Additional Relay Servers
           description: |
             Configure additional relay servers for Rust Desk.</br>
-            The internal relay server will be added automatically. </br>
+            If you don't specify any additional relay servers, Rust Desk will use the public relay servers provided by Rust Desk.</br>
             Format: </br> host:port
           schema:
             type: list
@@ -119,7 +119,8 @@ questions:
         - variable: host_network
           label: Host Network
           description: |
-            Bind to the host network. It's recommended to keep this disabled.
+            Bind to the host network. It's recommended to keep this disabled.</br>
+            This might be required if you use the PRO image.
           schema:
             type: boolean
             default: false
@@ -280,58 +281,6 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: relay_port
-          label: Relay Port
-          description: |
-            The port to use for relay.</br>
-            Internal port will always be 21117
-          schema:
-            type: dict
-            show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 21117
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
         - variable: server_web_clients_port
           label: Server Web Clients Port
           description: |
@@ -384,58 +333,95 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: relay_web_clients_port
-          label: Relay Web Clients Port
-          description: |
-            The port to use for relay web clients.</br>
-            Internal port will always be 21119
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
           schema:
-            type: dict
+            type: list
             show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
+            default: []
+            items:
+              - variable: network
+                label: Network
                 schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 21119
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
                       schema:
                         type: string
+                        default: ""
                         required: true
-                        $ref:
-                          - definitions/node_bind_ip
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: rust-desk
+                                        description: rust-desk
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -443,8 +429,8 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Rust Desk Data Storage
-          description: The path to store Rust Desk Data.
+          label: Data Storage
+          description: If you have a relay also deployed in the same machine, this usually points to the same storage.
           schema:
             type: dict
             attrs:
@@ -524,7 +510,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -710,8 +696,6 @@ questions:
                         enum:
                           - value: rust-desk
                             description: rust-desk
-                          - value: rust-desk-relay
-                            description: rust-desk-relay
   - variable: resources
     label: ""
     group: Resources Configuration

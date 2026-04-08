@@ -1,6 +1,13 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{# {% if values.nocodb.postgres_image_selector == "postgres_17_image" %}
+  {% do tpl.notes.add_deprecation("Postgres 17 is deprecated and will be removed in the near future. Please upgrade.") %}
+{% endif %} #}
+
+{% set nocodb_net = tpl.networks.create_internal("nocodb-net") %}
+
 {% set c1 = tpl.add_container(values.consts.nocodb_container_name, "image") %}
+{% do c1.add_network(nocodb_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
@@ -10,17 +17,15 @@
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(
-  values.consts.postgres_container_name,
-  values.nocodb.postgres_image_selector,
-  pg_config, perm_container
-) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.nocodb.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(nocodb_net) %}
 
 {% set redis_config = {
   "password": values.nocodb.redis_password,
   "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(nocodb_net) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/v1/health"}) %}
@@ -39,6 +44,8 @@
 {% if values.nocodb.admin_email %}{% do c1.environment.add_env("NC_ADMIN_EMAIL", values.nocodb.admin_email) %}{% endif %}
 {% if values.nocodb.admin_password %}{% do c1.environment.add_env("NC_ADMIN_PASSWORD", values.nocodb.admin_password) %}{% endif %}
 {% if values.nocodb.public_url %}{% do c1.environment.add_env("NC_PUBLIC_URL", values.nocodb.public_url) %}{% endif %}
+
+{% do c1.environment.add_user_envs(values.nocodb.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
 

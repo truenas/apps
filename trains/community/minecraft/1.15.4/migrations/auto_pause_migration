@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    auto_pause = False
+    new_env = []
+    for env in values.get("additional_envs", []):
+        if env["name"] == "ENABLE_AUTOPAUSE":
+            auto_pause = env["value"].lower() in ["true", "1", "on", "yes"]
+        else:
+            new_env.append(env)
+    values["minecraft"]["enable_auto_pause"] = auto_pause
+    values["additional_envs"] = new_env
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
