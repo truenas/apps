@@ -28,13 +28,15 @@ def test_add_internal_network(mock_values):
     c2.add_network(net1)
     output = render.render()
     assert output["networks"] == {
-        "ix-internal-test_network1": {
+        "ix-internal-app-name-test_network1": {
+            "name": "ix-internal-app-name-test_network1",
             "external": False,
             # "enable_ipv4": True,
             "enable_ipv6": False,
             "labels": {"tn.network.internal": "true"},
         },
-        "ix-internal-test_network2": {
+        "ix-internal-app-name-test_network2": {
+            "name": "ix-internal-app-name-test_network2",
             "external": False,
             # "enable_ipv4": True,
             "enable_ipv6": False,
@@ -42,11 +44,11 @@ def test_add_internal_network(mock_values):
         },
     }
     assert output["services"]["test_container"]["networks"] == {
-        "ix-internal-test_network1": {},
-        "ix-internal-test_network2": {},
+        "ix-internal-app-name-test_network1": {},
+        "ix-internal-app-name-test_network2": {},
     }
     assert output["services"]["test_container2"]["networks"] == {
-        "ix-internal-test_network1": {},
+        "ix-internal-app-name-test_network1": {},
     }
 
 
@@ -94,7 +96,8 @@ def test_add_both_internal_and_external_network(mock_values):
     c2.add_network(net1)
     output = render.render()
     assert output["networks"] == {
-        "ix-internal-test_network1": {
+        "ix-internal-app-name-test_network1": {
+            "name": "ix-internal-app-name-test_network1",
             "external": False,
             # "enable_ipv4": True,
             "enable_ipv6": False,
@@ -103,11 +106,11 @@ def test_add_both_internal_and_external_network(mock_values):
         "test_network2": {"external": True},
     }
     assert output["services"]["test_container"]["networks"] == {
-        "ix-internal-test_network1": {},
+        "ix-internal-app-name-test_network1": {},
         "test_network2": {},
     }
     assert output["services"]["test_container2"]["networks"] == {
-        "ix-internal-test_network1": {},
+        "ix-internal-app-name-test_network1": {},
     }
 
 
@@ -143,7 +146,7 @@ def test_add_network_with_config(mock_values):
 
     output = render.render()
     assert output["services"]["test_container"]["networks"] == {
-        "ix-internal-test_network1": {
+        "ix-internal-app-name-test_network1": {
             "interface_name": "eth0",
             "ipv4_address": "192.168.1.10",
             "mac_address": "00:11:22:33:44:55",
@@ -200,7 +203,8 @@ def test_auto_add_networks(mock_values):
 
     output = render.render()
     assert output["networks"] == {
-        "ix-internal-test_network1": {
+        "ix-internal-app-name-test_network1": {
+            "name": "ix-internal-app-name-test_network1",
             "external": False,
             # "enable_ipv4": True,
             "enable_ipv6": False,
@@ -210,7 +214,7 @@ def test_auto_add_networks(mock_values):
         "test_network1": {"external": True},
     }
     assert output["services"]["test_container"]["networks"] == {
-        "ix-internal-test_network1": {},
+        "ix-internal-app-name-test_network1": {},
         "test_network2": {
             "interface_name": "eth1",
             "aliases": ["alias1"],
@@ -220,7 +224,7 @@ def test_auto_add_networks(mock_values):
         },
     }
     assert output["services"]["test_container2"]["networks"] == {
-        "ix-internal-test_network1": {},
+        "ix-internal-app-name-test_network1": {},
         "test_network1": {
             "interface_name": "eth0",
         },
@@ -313,7 +317,7 @@ def test_add_duplicate_internal_external_network(mock_values):
     c1.healthcheck.disable()
     render.networks.create_internal("test_network1")
     with pytest.raises(Exception):
-        render.networks.register("ix-internal-test_network1")
+        render.networks.register("ix-internal-app-name-test_network1")
 
 
 def test_add_network_with_duplicate_aliases(mock_values):
