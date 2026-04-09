@@ -17,16 +17,26 @@ except ImportError:
 class Networks:
     def __init__(self, render_instance: "Render"):
         self._render_instance = render_instance
+        self._app_name: str = ""
         self._networks: dict[str, Network] = {}
+
+        self._auto_set_app_name()
+
+    def _auto_set_app_name(self):
+        app_name = self._render_instance.values.get("ix_context", {}).get("app_metadata", {}).get("title", "")
+        app_name = app_name or "app_name"
+        app_name = app_name.lower().replace(" ", "-").replace("_", "-").replace(".", "-").replace("/", "-")
+        self._app_name = app_name
 
     def create_internal(self, name: str) -> str:
         """Creates an internal network. Only used for internal communication between containers."""
-        name = "ix-internal-" + name
+        name = f"ix-internal-{self._app_name}-{name}"
 
         if self.exists(name):
             raise RenderError(f"Network [{name}] already exists.")
 
         net_config = {
+            "name": name,
             "external": False,
             "enable_ipv4": True,
             # We disable IPv6 for internal networks, because there is an upstream bug,

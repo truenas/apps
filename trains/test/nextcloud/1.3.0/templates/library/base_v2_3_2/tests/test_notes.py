@@ -316,8 +316,8 @@ some other info.
 
 #### Joined networks
 
-- ix-internal-test_network1
-- ix-internal-test_network2
+- ix-internal-test-app-test_network1
+- ix-internal-test-app-test_network2
 
 #### Running user/group(s)
 
