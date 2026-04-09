@@ -85,9 +85,13 @@ class RedisContainer:
         addr = f"{self._name}:{self.get_port()}"
         password = urllib.parse.quote_plus(self._config["password"])
 
-        match variant:
-            case "redis":
-                return f"redis://default:{password}@{addr}"
+        urls = {
+            "redis": f"redis://default:{password}@{addr}",
+        }
+
+        if variant not in urls:
+            raise RenderError(f"Expected [variant] to be one of [{', '.join(urls.keys())}], got [{variant}]")
+        return urls[variant]
 
     @property
     def container(self):
