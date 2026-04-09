@@ -218,7 +218,6 @@
 {% do nc_container.environment.add_env("IX_HARP", values.nextcloud.harp.enabled) %}
 {% if values.nextcloud.harp.enabled %}
   {% set harp_container = tpl.add_container(values.consts.harp_container_name, "harp_image") %}
-  {% do harp_container.set_user(values.run_as.user, values.run_as.group) %}
   {# {% do harp_container.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "NET_BIND_SERVICE"]) %} #}
   {% do harp_container.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
   {% do harp_container.add_docker_socket(read_only=false) %}
@@ -234,6 +233,7 @@
   {% do harp_container.add_network(harp_net) %}
   {% do nc_container.add_network(harp_net) %}
 
+  {% do nc_container.depends.add_dependency(values.consts.harp_container_name, "service_healthy") %}
   {% do nc_container.environment.add_env("IX_HARP_NETWORK", harp_net) %}
   {% do nc_container.environment.add_env("IX_HARP_SHARED_KEY", values.nextcloud.harp.shared_key) %}
   {% do nc_container.environment.add_env("IX_HARP_INTERNAL_URL", "http://%s:%d" | format(values.consts.harp_container_name, values.consts.internal_harp_port)) %}
