@@ -1,0 +1,42 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.provider_container_name, "image") %}
+
+{% do c1.set_user(65534, 65534) %}
+{% do c1.set_read_only(true) %}
+{% do c1.set_network_mode("host") %}
+{% do c1.healthcheck.disable() %}
+
+{# Omni connection #}
+{% do c1.environment.add_env("OMNI_ENDPOINT", values.omni_provider.omni_endpoint) %}
+{% do c1.environment.add_env("OMNI_SERVICE_ACCOUNT_KEY", values.omni_provider.omni_service_account_key) %}
+{% do c1.environment.add_env("OMNI_INSECURE_SKIP_VERIFY", values.omni_provider.omni_insecure_skip_verify | string | lower) %}
+
+{# Provider identity #}
+{% do c1.environment.add_env("PROVIDER_ID", values.omni_provider.provider_id) %}
+{% do c1.environment.add_env("PROVIDER_NAME", values.omni_provider.provider_name | default("TrueNAS")) %}
+{% do c1.environment.add_env("PROVIDER_DESCRIPTION", values.omni_provider.provider_description | default("TrueNAS SCALE infrastructure provider")) %}
+
+{# VM defaults #}
+{% do c1.environment.add_env("DEFAULT_POOL", values.vm_defaults.default_pool) %}
+{% if values.vm_defaults.default_network_interface %}
+  {% do c1.environment.add_env("DEFAULT_NETWORK_INTERFACE", values.vm_defaults.default_network_interface) %}
+{% endif %}
+{% do c1.environment.add_env("DEFAULT_BOOT_METHOD", values.vm_defaults.default_boot_method | default("UEFI")) %}
+{% do c1.environment.add_env("GRACEFUL_SHUTDOWN_TIMEOUT", values.vm_defaults.graceful_shutdown_timeout | default(30)) %}
+
+{# Advanced #}
+{% do c1.environment.add_env("CONCURRENCY", values.advanced.concurrency | default(4)) %}
+{% do c1.environment.add_env("LOG_LEVEL", values.advanced.log_level | default("info")) %}
+{% do c1.environment.add_env("MAX_ERROR_RECOVERIES", values.advanced.max_error_recoveries | default(5)) %}
+
+{# User-defined extra env vars #}
+{% do c1.environment.add_user_envs(values.omni_provider.additional_envs) %}
+
+{# Mount the TrueNAS middleware Unix socket for zero-auth API access #}
+{% do c1.add_storage("/var/run/middleware", {"type": "host_path", "host_path_config": {"path": "/var/run/middleware", "acl_enable": false}}) %}
+
+{% do tpl.notes.add_info("The provider connects to TrueNAS via the middleware Unix socket (zero-auth). No API key needed.") %}
+{% do tpl.notes.add_info("Configure MachineClasses in Omni to start provisioning VMs.") %}
+
+{{ tpl.render() | tojson }}

@@ -1,0 +1,188 @@
+groups:
+  - name: Omni Connection
+    description: Configure the connection to Sidero Omni
+  - name: VM Defaults
+    description: Default settings for provisioned VMs
+  - name: Advanced
+    description: Advanced provider settings
+  - name: Resources Configuration
+    description: Configure Resources for Omni TrueNAS Provider
+
+questions:
+  - variable: omni_provider
+    label: ""
+    group: Omni Connection
+    schema:
+      type: dict
+      attrs:
+        - variable: omni_endpoint
+          label: Omni Endpoint
+          description: |
+            Full URL of your Omni instance (e.g., https://omni.example.com).
+          schema:
+            type: string
+            required: true
+        - variable: omni_service_account_key
+          label: Omni Service Account Key
+          description: |
+            Base64-encoded service account key.</br>
+            Create with: <code>omnictl serviceaccount create --role=InfraProvider infra-provider:truenas</code>
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: omni_insecure_skip_verify
+          label: Skip Omni TLS Verification
+          description: Disable TLS certificate verification for the Omni endpoint.
+          schema:
+            type: boolean
+            default: false
+        - variable: provider_id
+          label: Provider ID
+          description: |
+            Unique provider identifier registered in Omni.</br>
+            Change only if running multiple providers on different TrueNAS hosts.
+          schema:
+            type: string
+            default: "truenas"
+            required: true
+        - variable: provider_name
+          label: Provider Display Name
+          description: How this provider appears in the Omni UI.
+          schema:
+            type: string
+            default: "TrueNAS"
+        - variable: provider_description
+          label: Provider Description
+          schema:
+            type: string
+            default: "TrueNAS SCALE infrastructure provider"
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: Configure additional environment variables for the provider.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: vm_defaults
+    label: ""
+    group: VM Defaults
+    schema:
+      type: dict
+      attrs:
+        - variable: default_pool
+          label: Default ZFS Pool
+          description: |
+            ZFS pool used for VM zvols and cached ISO images.</br>
+            Run <code>zpool list</code> to see available pools.
+          schema:
+            type: string
+            default: "default"
+            required: true
+        - variable: default_network_interface
+          label: Default Network Interface
+          description: |
+            Host network interface for VM NICs.</br>
+            Can be a bridge (br0), VLAN interface (vlan100), or physical interface (enp5s0).</br>
+            Run <code>midclt call vm.device.nic_attach_choices</code> to see available options.
+          schema:
+            type: string
+            default: ""
+        - variable: default_boot_method
+          label: Default Boot Method
+          schema:
+            type: string
+            default: "UEFI"
+            enum:
+              - value: "UEFI"
+                description: UEFI boot (recommended)
+              - value: "BIOS"
+                description: Legacy BIOS boot
+        - variable: graceful_shutdown_timeout
+          label: Graceful Shutdown Timeout (seconds)
+          description: Seconds to wait for ACPI shutdown before force-stop on deprovision.
+          schema:
+            type: int
+            default: 30
+            min: 0
+            max: 300
+
+  - variable: advanced
+    label: ""
+    group: Advanced
+    schema:
+      type: dict
+      attrs:
+        - variable: concurrency
+          label: Concurrency
+          description: Maximum number of parallel provision/deprovision operations.
+          schema:
+            type: int
+            default: 4
+            min: 1
+            max: 16
+        - variable: log_level
+          label: Log Level
+          schema:
+            type: string
+            default: "info"
+            enum:
+              - value: "debug"
+                description: Debug
+              - value: "info"
+                description: Info
+              - value: "warn"
+                description: Warning
+              - value: "error"
+                description: Error
+        - variable: max_error_recoveries
+          label: Max Error Recoveries
+          description: |
+            Max consecutive ERROR state recoveries before auto-replacing a VM.</br>
+            Set to -1 to disable the circuit breaker.
+          schema:
+            type: int
+            default: 5
+            min: -1
+            max: 100
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for the provider container.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for the provider container.
+                schema:
+                  type: int
+                  default: 512
+                  required: true
