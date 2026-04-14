@@ -308,11 +308,6 @@ module.exports = {
       ["ghcr.io/coollabsio/coolify"],
     ),
     customVersioning(
-      // some-app-1.0.2
-      "^.+-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["opencloudeu/web-extensions"],
-    ),
-    customVersioning(
       // appname-1.2.3
       "^(?<compatibility>arcade|calculator|cast|draw-io|external-sites|importer|json-viewer|maps|pastebin|progress-bars|unzip)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["opencloudeu/web-extensions"],
