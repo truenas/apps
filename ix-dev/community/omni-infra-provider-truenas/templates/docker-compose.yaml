@@ -12,6 +12,11 @@
 {% do c1.environment.add_env("OMNI_SERVICE_ACCOUNT_KEY", values.omni_provider.omni_service_account_key) %}
 {% do c1.environment.add_env("OMNI_INSECURE_SKIP_VERIFY", values.omni_provider.omni_insecure_skip_verify | string | lower) %}
 
+{# TrueNAS connection — WebSocket with API key #}
+{% do c1.environment.add_env("TRUENAS_HOST", values.truenas.host | default("localhost")) %}
+{% do c1.environment.add_env("TRUENAS_API_KEY", values.truenas.api_key) %}
+{% do c1.environment.add_env("TRUENAS_INSECURE_SKIP_VERIFY", values.truenas.insecure_skip_verify | default(true) | string | lower) %}
+
 {# Provider identity #}
 {% do c1.environment.add_env("PROVIDER_ID", values.omni_provider.provider_id) %}
 {% do c1.environment.add_env("PROVIDER_NAME", values.omni_provider.provider_name | default("TrueNAS")) %}
@@ -33,10 +38,7 @@
 {# User-defined extra env vars #}
 {% do c1.environment.add_user_envs(values.omni_provider.additional_envs) %}
 
-{# Mount the TrueNAS middleware Unix socket for zero-auth API access #}
-{% do c1.add_storage("/var/run/middleware", {"type": "host_path", "host_path_config": {"path": "/var/run/middleware", "acl_enable": false}}) %}
-
-{% do tpl.notes.add_info("The provider connects to TrueNAS via the middleware Unix socket (zero-auth). No API key needed.") %}
+{% do tpl.notes.add_info("The provider connects to TrueNAS via JSON-RPC 2.0 over WebSocket. Create an API key at Credentials > Local Users > root > API Keys.") %}
 {% do tpl.notes.add_info("Configure MachineClasses in Omni to start provisioning VMs.") %}
 
 {{ tpl.render() | tojson }}
