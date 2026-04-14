@@ -314,7 +314,7 @@ module.exports = {
     ),
     customVersioning(
       // appname-1.2.3
-      "^(?<compatibility>draw-io|progress-bars|json-viewer|external-sites|unzip|cast|importer|arcade|maps)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "^(?<compatibility>arcade|calculator|cast|draw-io|external-sites|importer|json-viewer|maps|pastebin|progress-bars|unzip)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["opencloudeu/web-extensions"],
     ),
     customVersioning(
