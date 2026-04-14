@@ -2,26 +2,24 @@
 
 {% set c1 = tpl.add_container(values.consts.qdrant_container_name, values.qdrant.image_selector) %}
 
-{% set is_gpu = values.qdrant.image_selector != "image" %}
-
-{% do c1.set_user(0, 0) %}
-{% do c1.add_caps(["SETUID", "SETGID", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("http", {"port": values.network.http_port.port_number, "path": "/healthz"}) %}
 
-{% do c1.environment.add_env("QDRANT__LOG_LEVEL", values.qdrant.log_level) %}
+{% do c1.environment.add_env("QDRANT__STORAGE__STORAGE_PATH", values.consts.storage_path) %}
+{% do c1.environment.add_env("QDRANT__STORAGE__SNAPSHOT_PATH", values.consts.snapshots_path) %}
 {% do c1.environment.add_env("QDRANT__SERVICE__HTTP_PORT", values.network.http_port.port_number) %}
 {% do c1.environment.add_env("QDRANT__SERVICE__GRPC_PORT", values.network.grpc_port.port_number) %}
 {% do c1.environment.add_env("QDRANT__SERVICE__ENABLE_CORS", values.qdrant.enable_cors) %}
 
 {# GPU configuration #}
-{% if is_gpu %}
+{% if values.qdrant.image_selector != "image" %}
   {% do c1.environment.add_env("QDRANT__GPU__INDEXING", values.qdrant.gpu_indexing) %}
   {% do c1.environment.add_env("QDRANT__GPU__FORCE_HALF_PRECISION", values.qdrant.gpu_force_half_precision) %}
   {% do c1.environment.add_env("QDRANT__GPU__GROUPS_COUNT", values.qdrant.gpu_groups_count) %}
   {% do c1.environment.add_env("QDRANT__GPU__PARALLEL_INDEXES", values.qdrant.gpu_parallel_indexes) %}
   {% do c1.environment.add_env("QDRANT__GPU__ALLOW_INTEGRATED", values.qdrant.gpu_allow_integrated) %}
   {% if values.qdrant.gpu_device_filter %}
-    {% do c1.environment.add_env("QDRANT__GPU__DEVICE_FILTER", values.qdrant.gpu_device_filter) %}
+    {% do c1.environment.add_env("QDRANT__GPU__DEVICE_FILTER", values.qdrant.gpu_device_filter | join(",")) %}
   {% endif %}
 {% endif %}
 
@@ -29,7 +27,7 @@
   {% do c1.environment.add_env("QDRANT__SERVICE__API_KEY", values.qdrant.api_key) %}
 {% endif %}
 
-{% if values.qdrant.api_key and values.qdrant.read_only_api_key %}
+{% if values.qdrant.read_only_api_key %}
   {% do c1.environment.add_env("QDRANT__SERVICE__READ_ONLY_API_KEY", values.qdrant.read_only_api_key) %}
 {% endif %}
 
@@ -38,15 +36,13 @@
 {% do c1.add_port(values.network.http_port) %}
 {% do c1.add_port(values.network.grpc_port) %}
 
-{% do c1.add_storage("/qdrant/storage", values.storage.storage) %}
-
-{% do c1.add_storage("/qdrant/snapshots", values.storage.snapshots) %}
+{% do c1.add_storage(values.consts.storage_path, values.storage.storage) %}
+{% do c1.add_storage(values.consts.snapshots_path, values.storage.snapshots) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% do tpl.portals.add(values.network.http_port, {"name": "Web UI", "path": "/dashboard"}) %}
-{% do tpl.notes.set_body(values.consts.notes_body) %}
+{% do tpl.portals.add(values.network.http_port, {"path": "/dashboard"}) %}
 
 {{ tpl.render() | tojson }}
