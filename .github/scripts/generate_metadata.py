@@ -962,7 +962,9 @@ class AppMetadataUpdater:
         # Check for multiple categories
         categories = app_config.get("categories", [])
         if len(categories) > 1:
-            raise ValueError(f"{app_manifest.name}: app.yaml must have exactly 1 category, found {len(categories)}: {categories}")
+            raise ValueError(
+                f"{app_manifest.name}: app.yaml must have exactly 1 category, found {len(categories)}: {categories}"
+            )
 
         # Check for missing fields
         if "date_added" not in app_config:
