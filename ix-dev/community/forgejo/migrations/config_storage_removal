@@ -1,0 +1,32 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    cfg_store = values["storage"]["config"]
+    if cfg_store["type"] == "host_path":
+        hp_cfg = cfg_store["host_path_config"]
+        if not hp_cfg["acl"] and hp_cfg["path"] == "/tmp/remove_me":
+            values["storage"].pop("config")
+            return values
+
+    raise Exception(
+        "Config storage is no longer needed. See "
+        "https://forgejo.org/2026-04-release-v15-0/#docker-rootless-config-file-location for more details. "
+        "In order to allow the upgrade to proceed, please move your config file (if any) to the new location "
+        "as described in the link above. Then, set the config storage type to "
+        "'Host Path' and the path to '/tmp/remove_me' with ACL disabled. "
+        "This will allow the migration to remove the config storage from your configuration."
+    )
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
