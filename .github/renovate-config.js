@@ -213,9 +213,14 @@ module.exports = {
       ["ghcr.io/koush/scrypted"],
     ),
     customVersioning(
-      // 24.7
+      // v24.7
       "^v(?<major>\\d+)\\.(?<minor>\\d+)$",
-      ["nzbgetcom/nzbget", "bbernhard/signal-cli-rest-api"],
+      ["nzbgetcom/nzbget"],
+    ),
+    customVersioning(
+      // 0.96
+      "^(?<major>\\d+)\\.(?<minor>\\d+)$",
+      ["bbernhard/signal-cli-rest-api"],
     ),
     customVersioning(
       // vanilla-1.4.4.9
