@@ -25,7 +25,7 @@ module.exports = {
       fileMatch: ["^ix-dev/.*/ix_values\\.yaml$"],
       // Matches the repository name and the tag of each image
       matchStrings: [
-        '\\s{4}repository: (?<depName>[^\\s]+)\\n\\s{4}tag: "?(?<currentValue>[^\\s"]+)"?',
+        '\\s{4}repository: (?<depName>[^\\s]+)\\n\\s{4}tag: ["\']?(?<currentValue>[^\\s"\']+)["\']?',
       ],
       // Use the docker datasource on matched images
       datasourceTemplate: "docker",
