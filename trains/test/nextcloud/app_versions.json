@@ -1,23 +1,34 @@
 {
-    "1.2.16": {
+    "1.3.1": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/test/nextcloud/1.2.16",
-        "last_update": "2026-04-03 14:41:09",
+        "location": "/__w/apps/apps/trains/test/nextcloud/1.3.1",
+        "last_update": "2026-04-14 10:34:51",
         "required_features": [],
-        "human_version": "33.0.2-fpm-c538f4a8_1.2.16",
-        "version": "1.2.16",
+        "human_version": "33.0.2-fpm-75d7b070_1.3.1",
+        "version": "1.3.1",
         "app_metadata": {
-            "app_version": "33.0.2-fpm-c538f4a8",
-            "capabilities": [],
+            "app_version": "33.0.2-fpm-75d7b070",
+            "capabilities": [
+                {
+                    "description": "Harp is able to bypass read/execute permission checks",
+                    "name": "DAC_READ_SEARCH"
+                }
+            ],
             "categories": [
                 "productivity"
             ],
+            "changelog_url": "https://nextcloud.com/changelog/",
             "date_added": "2025-03-05",
             "description": "A file sharing server that puts the control and security of your own data back into your hands.",
             "home": "https://nextcloud.com/",
-            "host_mounts": [],
+            "host_mounts": [
+                {
+                    "description": "Required for HaRP (AppAPI) to manage Docker containers when enabled.",
+                    "host_path": "/var/run/docker.sock"
+                }
+            ],
             "icon": "https://media.sys.truenas.net/apps/nextcloud/icons/icon.svg",
             "keywords": [
                 "nextcloud",
@@ -27,8 +38,8 @@
                 "web",
                 "php"
             ],
-            "lib_version": "2.3.1",
-            "lib_version_hash": "561017357f22eafbedca2a97f747325cb83149fe1b5f765a2fbda71ab77d96ed",
+            "lib_version": "2.3.2",
+            "lib_version_hash": "b6a043c5dc3d4ba71901b9833713b4352b031f3bf39a1b3908e2cf17f1129d8d",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -44,6 +55,13 @@
                     "group_name": "Host group is [apps]",
                     "uid": 568,
                     "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [harp] runs as root user and group.",
+                    "gid": 0,
+                    "group_name": "Host group is [root]",
+                    "uid": 0,
+                    "user_name": "Host user is [root]"
                 },
                 {
                     "description": "Container [imaginary] can run as any non-root user and group.",
@@ -102,7 +120,7 @@
             ],
             "title": "Nextcloud",
             "train": "test",
-            "version": "1.2.16"
+            "version": "1.3.1"
         },
         "schema": {
             "groups": [
@@ -741,6 +759,73 @@
                                 }
                             },
                             {
+                                "variable": "harp",
+                                "label": "HaRP (AppAPI)",
+                                "description": "HaRP (HAProxy Reverse Proxy) enables Nextcloud AppAPI for External Apps (ExApps).</br>\nEnabling or Disabling this will trigger actions on each startup to ensure\nthe configuration is either present or absent.</br>\nRequires Docker socket access (/var/run/docker.sock).</br>\nSee https://github.com/nextcloud/HaRP for more information.\n",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "enabled",
+                                            "label": "Enabled",
+                                            "description": "Enable HaRP for Nextcloud AppAPI",
+                                            "schema": {
+                                                "type": "boolean",
+                                                "default": false
+                                            }
+                                        },
+                                        {
+                                            "variable": "shared_key",
+                                            "label": "Shared Key",
+                                            "description": "Secret key shared between HaRP and Nextcloud AppAPI.</br>\nSet the same value in Nextcloud Admin > AppAPI > Deploy Daemons.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "private": true,
+                                                "required": true,
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ]
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "compute_device",
+                                            "label": "Compute Device",
+                                            "description": "GPU device to expose to the daemon",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "cpu",
+                                                "required": true,
+                                                "show_if": [
+                                                    [
+                                                        "enabled",
+                                                        "=",
+                                                        true
+                                                    ]
+                                                ],
+                                                "enum": [
+                                                    {
+                                                        "value": "cpu",
+                                                        "description": "CPU"
+                                                    },
+                                                    {
+                                                        "value": "cuda",
+                                                        "description": "CUDA compatible GPU"
+                                                    },
+                                                    {
+                                                        "value": "rocm",
+                                                        "description": "ROCm compatible GPU"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
                                 "variable": "collabora",
                                 "label": "Collabora",
                                 "description": "Collabora settings for Nextcloud.</br>\nEnabling or Disabling this will trigger actions on each startup to ensure\nthe configuration is either present or absent.</br>\nActions like, update configuration, add/remove nextcloud app.\n",
@@ -1311,6 +1396,10 @@
                                                                                         {
                                                                                             "value": "redis",
                                                                                             "description": "redis"
+                                                                                        },
+                                                                                        {
+                                                                                            "value": "harp",
+                                                                                            "description": "harp"
                                                                                         }
                                                                                     ]
                                                                                 }
@@ -2214,6 +2303,10 @@
                                                                 {
                                                                     "value": "redis",
                                                                     "description": "redis"
+                                                                },
+                                                                {
+                                                                    "value": "harp",
+                                                                    "description": "harp"
                                                                 }
                                                             ]
                                                         }
@@ -2283,15 +2376,26 @@
         "readme": "<h1>Nextcloud</h1> <p><a href=\"https://nextcloud.com/\">Nextcloud</a> is a file sharing server that puts the control and security of your own data back into your hands.</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "33.0.2-fpm-c538f4a8",
-            "capabilities": [],
+            "app_version": "33.0.2-fpm-75d7b070",
+            "capabilities": [
+                {
+                    "description": "Harp is able to bypass read/execute permission checks",
+                    "name": "DAC_READ_SEARCH"
+                }
+            ],
             "categories": [
                 "productivity"
             ],
+            "changelog_url": "https://nextcloud.com/changelog/",
             "date_added": "2025-03-05",
             "description": "A file sharing server that puts the control and security of your own data back into your hands.",
             "home": "https://nextcloud.com/",
-            "host_mounts": [],
+            "host_mounts": [
+                {
+                    "description": "Required for HaRP (AppAPI) to manage Docker containers when enabled.",
+                    "host_path": "/var/run/docker.sock"
+                }
+            ],
             "icon": "https://media.sys.truenas.net/apps/nextcloud/icons/icon.svg",
             "keywords": [
                 "nextcloud",
@@ -2301,8 +2405,8 @@
                 "web",
                 "php"
             ],
-            "lib_version": "2.3.1",
-            "lib_version_hash": "561017357f22eafbedca2a97f747325cb83149fe1b5f765a2fbda71ab77d96ed",
+            "lib_version": "2.3.2",
+            "lib_version_hash": "b6a043c5dc3d4ba71901b9833713b4352b031f3bf39a1b3908e2cf17f1129d8d",
             "maintainers": [
                 {
                     "email": "dev@truenas.com",
@@ -2318,6 +2422,13 @@
                     "group_name": "Host group is [apps]",
                     "uid": 568,
                     "user_name": "Host user is [apps]"
+                },
+                {
+                    "description": "Container [harp] runs as root user and group.",
+                    "gid": 0,
+                    "group_name": "Host group is [root]",
+                    "uid": 0,
+                    "user_name": "Host user is [root]"
                 },
                 {
                     "description": "Container [imaginary] can run as any non-root user and group.",
@@ -2376,7 +2487,7 @@
             ],
             "title": "Nextcloud",
             "train": "test",
-            "version": "1.2.16"
+            "version": "1.3.1"
         }
     }
 }
