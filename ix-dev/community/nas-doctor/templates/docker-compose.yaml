@@ -7,6 +7,11 @@
 {# NAS Doctor requires root for smartctl access #}
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["SYS_RAWIO"]) %}
+
+{# PID=host is required for Top Processes to see all host processes
+   and match them to Docker containers via cgroup inspection #}
+{% do c1.set_pid_mode("host") %}
+
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/v1/health"}) %}
 
 {# Environment variables #}
@@ -37,6 +42,16 @@
 {# Storage: host mnt access (for disk space monitoring) #}
 {% if values.nas_doctor.mount_host_mnt %}
   {% do c1.add_storage("/host/mnt", {"type": "host_path", "host_path_config": {"path": "/mnt"}, "read_only": true}) %}
+{% endif %}
+
+{# Storage: /dev for SMART device access and GPU device nodes #}
+{% if values.nas_doctor.mount_dev %}
+  {% do c1.add_storage("/dev", {"type": "host_path", "host_path_config": {"path": "/dev"}, "read_only": true}) %}
+{% endif %}
+
+{# Storage: /sys for GPU telemetry and drive mapping #}
+{% if values.nas_doctor.mount_sys %}
+  {% do c1.add_storage("/sys", {"type": "host_path", "host_path_config": {"path": "/sys"}, "read_only": true}) %}
 {% endif %}
 
 {# Additional storage mounts #}
