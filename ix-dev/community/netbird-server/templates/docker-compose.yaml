@@ -9,17 +9,9 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% set mgmt_addr = tpl.funcs.url_to_dict(values.netbird.mgmt_address) %}
-{% set mgmt_addr_port = "%s://%s:%d"|format(mgmt_addr.scheme, mgmt_addr.host, mgmt_addr.port) %}
-{% set mgmt_addr_port = mgmt_addr_port.lstrip(":443").lstrip(":80") %}
-
-{% set dash_addr = namespace(x=mgmt_addr_port) %}
-{% if values.netbird.dashboard_address %}
-  {% set dash_addr.x = tpl.funcs.url_to_dict(values.netbird.dashboard_address) %}
-  {% set dash_addr.x = "%s://%s:%d"|format(dash_addr.x.scheme, dash_addr.x.host, dash_addr.x.port) %}
-  {% set dash_addr.x = dash_addr.x.lstrip(":443").lstrip(":80") %}
-{% endif %}
-{% set dash_addr = dash_addr.x %}
+{% set netbird_addr = tpl.funcs.url_to_dict(values.netbird.netbird_address.rstrip("/")) %}
+{% set netbird_address = "%s://%s:%d"|format(netbird_addr.scheme, netbird_addr.host, netbird_addr.port) %}
+{% set netbird_address = netbird_address.removesuffix(":443").removesuffix(":80") %}
 
 {% if values.netbird.auth_secret.endswith("=") %}{% do tpl.funcs.fail("Auth secret must not end with '='.") %}{% endif %}
 
@@ -30,14 +22,14 @@
   {"server.stunPorts": [values.network.stun_port.port_number]},
   {"server.listenAddress": ":%d"|format(values.network.mgmt_port.port_number)},
 
-  {"server.exposedAddress": mgmt_addr_port},
+  {"server.exposedAddress": netbird_address},
   {"server.store.encryptionKey": values.netbird.store_encryption_key},
   {"server.authSecret": values.netbird.auth_secret},
-  {"server.auth.issuer": "%s/oauth2"|format(mgmt_addr_port)},
+  {"server.auth.issuer": "%s/oauth2"|format(netbird_address)},
   {"server.auth.cliRedirectURIs[0]": "http://localhost:53000/"},
   {"server.auth.signKeyRefreshEnabled": true},
-  {"server.auth.dashboardRedirectURIs[0]": "%s/nb-auth"|format(dash_addr)},
-  {"server.auth.dashboardRedirectURIs[1]": "%s/nb-silent-auth"|format(dash_addr)},
+  {"server.auth.dashboardRedirectURIs[0]": "%s/nb-auth"|format(netbird_address)},
+  {"server.auth.dashboardRedirectURIs[1]": "%s/nb-silent-auth"|format(netbird_address)},
 ] %}
 
 {% do cfg.set_user(values.run_as.user, values.run_as.group) %}
@@ -58,9 +50,9 @@
 {% do dashboard.add_caps(["NET_BIND_SERVICE", "CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
 {% do dashboard.depends.add_dependency(values.consts.netbird_container_name, "service_healthy") %}
 {% do dashboard.healthcheck.set_test("http", {"port": 80, "path": "/"}) %}
-{% do dashboard.environment.add_env("NETBIRD_MGMT_API_ENDPOINT", mgmt_addr_port) %}
-{% do dashboard.environment.add_env("NETBIRD_MGMT_GRPC_API_ENDPOINT", mgmt_addr_port) %}
-{% do dashboard.environment.add_env("AUTH_AUTHORITY", "%s/oauth2"|format(mgmt_addr_port)) %}
+{% do dashboard.environment.add_env("NETBIRD_MGMT_API_ENDPOINT", netbird_address) %}
+{% do dashboard.environment.add_env("NETBIRD_MGMT_GRPC_API_ENDPOINT", netbird_address) %}
+{% do dashboard.environment.add_env("AUTH_AUTHORITY", "%s/oauth2"|format(netbird_address)) %}
 {% do dashboard.environment.add_env("AUTH_REDIRECT_URI", "/nb-auth") %}
 {% do dashboard.environment.add_env("AUTH_SILENT_REDIRECT_URI", "/nb-silent-auth") %}
 {% if values.netbird.embedded_idp %}
@@ -72,7 +64,7 @@
 {% do dashboard.environment.add_user_envs(values.netbird.additional_envs) %}
 
 {% do srv.add_port(values.network.mgmt_port) %}
-{% do srv.add_port(values.network.stun_port) %}
+{% do srv.add_port(values.network.stun_port, {"protocol": "udp"}) %}
 
 {% do dashboard.add_port(values.network.web_port, {"container_port": 80}) %}
 
