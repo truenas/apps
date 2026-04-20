@@ -8,21 +8,24 @@
 {% do c1.healthcheck.set_test("pgrep", {"process": "forgejo-runner"}) %}
 {% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
 
-{% set token_file_path = "/data/token-%s"|format(tpl.funcs.secure_string(4)) %}
-{% do c1.configs.add("token", values.forgejo_runner.runner_registration_token, token_file_path) %}
+{% do c1.set_entrypoint(["/bin/bash", "-c", [
+  "set -e",
+  "test -f /data/config.yaml || touch /data/config.yaml",
+  "echo %s > /tmp/runner-token" | format(values.forgejo_runner.runner_registration_token),
+  "forgejo-runner"
+] | join("\n") ]) %}
 
 {% set cmd = namespace(x=[
   "daemon", "--config", "/data/config.yaml",
   "--url", values.forgejo_runner.instance_url,
   "--uuid", values.forgejo_runner.runner_uuid,
-  "--token-url", token_file_path,
+  "--token-url", "file:///tmp/runner-token"
 ]) %}
 
 {% for label in values.forgejo_runner.runner_labels %}
   {% do cmd.x.extend(["--label", label]) %}
 {% endfor %}
 
-{% do c1.set_entrypoint(["/bin/bash", "-c", "(test -f /data/config.yaml || touch /data/config.yaml) && forgejo-runner"]) %}
 {% do c1.set_command(cmd.x) %}
 
 {% do c1.environment.add_user_envs(values.forgejo_runner.additional_envs) %}
