@@ -8,8 +8,23 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("pgrep", {"process": "forgejo-runner"}) %}
 {% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
-{% do c1.configs.add("entrypoint", entrypoint(values), "/ix-entrypoint.sh", "0755") %}
-{% do c1.set_entrypoint(["/bin/sh", "-c", "/ix-entrypoint.sh"]) %}
+
+{% set token_file_path = "/data/token-%s"|format(tpl.funcs.secure_string(4)) %}
+{% do c1.configs.add("token", values.forgejo_runner.runner_token_url, token_file_path) %}
+
+{% set cmd = namespace(x=[
+  "daemon", "--config", "/data/config.yaml",
+  "--url", values.forgejo_runner.instance_url,
+  "--uuid", values.forgejo_runner.runner_uuid,
+  "--token-url", token_file_path,
+]) %}
+
+{% for label in values.forgejo_runner.runner_labels %}
+  {% do cmd.x.extend(["--label", label]) %}
+{% endfor %}
+
+{% do c1.set_entrypoint(["forgejo-runner"]) %}
+{% do c1.set_command(cmd.x) %}
 
 {% do c1.environment.add_user_envs(values.forgejo_runner.additional_envs) %}
 
