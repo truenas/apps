@@ -5,14 +5,18 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.sync_port.port_number, "path": "/health"}) %}
 
 {% for user in values.anki.sync_users %}
   {% do c1.environment.add_env("SYNC_USER%s"|format(loop.index), "%s:%s"|format(user.username, user.password)) %}
 {% endfor %}
-{% do c1.environment.add_env("SYNC_PORT", values.network.web_port.port_number) %}
+
+{% do c1.environment.add_env("SYNC_PORT", values.network.sync_port.port_number) %}
+{% do c1.environment.add_env("DASHBOARD_ENABLED", values.network.web_port.bind_mode != "") %}
+{% do c1.environment.add_env("DASHBOARD_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_user_envs(values.anki.additional_envs) %}
 
+{% do c1.add_port(values.network.sync_port) %}
 {% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/data", values.storage.data) %}
@@ -31,6 +35,8 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% if values.network.web_port.bind_mode %}
+  {% do tpl.portals.add(values.network.web_port) %}
+{% endif %}
 
 {{ tpl.render() | tojson }}
