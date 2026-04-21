@@ -377,7 +377,6 @@ providers_schema: Dict[str, ProviderSchema] = {
 class Config:
     def __init__(self, tpl, values):
         self.fail = tpl.funcs["fail"]
-        self.warn = tpl.notes.add_warning
         self.values = values
 
     def validate_public_ip_providers(
@@ -451,11 +450,6 @@ class Config:
 
             if not item.get("domain", ""):
                 self.fail(f"Expected [domain] to be set for provider [{item['provider']}]")
-
-            if item.get("host", ""):
-                self.warn(
-                    f"Provider [{item['provider']}] has deprecated [host] field set, with value [{item['host']}]."
-                )
 
             if not item.get("ip_version", "") in IPVersions.ALL:
                 self.fail(
