@@ -37,26 +37,6 @@ questions:
             type: string
             default: "Dropgate Server"
             required: true
-        - variable: log_level
-          label: Log Level
-          description: |
-            Controls the verbosity of server logs.</br>
-            Use `DEBUG` only while troubleshooting, then turn it back down.
-          schema:
-            type: string
-            default: "INFO"
-            required: true
-            enum:
-              - value: "NONE"
-                description: None
-              - value: "ERROR"
-                description: Error
-              - value: "WARN"
-                description: Warn
-              - value: "INFO"
-                description: Info
-              - value: "DEBUG"
-                description: Debug
         - variable: enable_web_ui
           label: Enable Web UI
           description: |
@@ -65,29 +45,9 @@ questions:
           schema:
             type: boolean
             default: true
-        - variable: rate_limit_window_ms
-          label: Rate Limit Window (ms)
-          description: |
-            Rate limit window in milliseconds.</br>
-            Set to `0` to disable rate limiting.
-          schema:
-            type: int
-            default: 60000
-            min: 0
-            required: true
-        - variable: rate_limit_max_requests
-          label: Rate Limit Max Requests
-          description: |
-            Maximum number of requests allowed per rate limit window.</br>
-            Set to `0` to disable rate limiting.
-          schema:
-            type: int
-            default: 25
-            min: 0
-            required: true
         - variable: upload
           label: Hosted Uploads (Classic Mode)
-          description: Configure hosted upload behaviour.
+          description: Configure hosted upload behavior.
           schema:
             type: dict
             attrs:
@@ -106,6 +66,7 @@ questions:
                   Encryption keys remain client-side; the server never sees them.
                 schema:
                   type: boolean
+                  show_if: [["enable_upload", "=", true]]
                   default: true
               - variable: preserve_uploads
                 label: Preserve Uploads Across Restarts
@@ -113,6 +74,7 @@ questions:
                   Persist uploads across container restarts using the Uploads storage below.
                 schema:
                   type: boolean
+                  show_if: [["enable_upload", "=", true]]
                   default: false
               - variable: max_file_size_mb
                 label: Max File Size (MB)
@@ -123,6 +85,7 @@ questions:
                   type: int
                   default: 100
                   min: 0
+                  show_if: [["enable_upload", "=", true]]
                   required: true
               - variable: max_storage_gb
                 label: Max Total Storage (GB)
@@ -133,6 +96,7 @@ questions:
                   type: int
                   default: 10
                   min: 0
+                  show_if: [["enable_upload", "=", true]]
                   required: true
               - variable: max_file_lifetime_hours
                 label: Max File Lifetime (Hours)
@@ -143,6 +107,7 @@ questions:
                   type: int
                   default: 24
                   min: 0
+                  show_if: [["enable_upload", "=", true]]
                   required: true
               - variable: max_file_downloads
                 label: Max File Downloads
@@ -153,45 +118,12 @@ questions:
                   type: int
                   default: 1
                   min: 0
+                  show_if: [["enable_upload", "=", true]]
                   required: true
-              - variable: chunk_size_bytes
-                label: Upload Chunk Size (Bytes)
-                description: |
-                  Upload chunk size in bytes (default 5MB).</br>
-                  Minimum is `65536` (64KB). Larger values may require proxy body-size adjustments.
-                schema:
-                  type: int
-                  default: 5242880
-                  min: 65536
-                  required: true
-              - variable: bundle_size_mode
-                label: Bundle Size Mode
-                description: |
-                  How multi-file bundle uploads are size-checked.</br>
-                  - `total`: enforce the limit against the combined size of all files.</br>
-                  - `per-file`: enforce the limit against each file individually.
-                schema:
-                  type: string
-                  default: "total"
-                  required: true
-                  enum:
-                    - value: "total"
-                      description: Total (combined size)
-                    - value: "per-file"
-                      description: Per-File (each file individually)
-              - variable: zombie_cleanup_interval_ms
-                label: Zombie Cleanup Interval (ms)
-                description: |
-                  Cleanup interval for incomplete uploads in milliseconds.</br>
-                  Set to `0` to disable.
-                schema:
-                  type: int
-                  default: 300000
-                  min: 0
-                  required: true
+
         - variable: p2p
           label: Direct Transfer (P2P)
-          description: Configure direct transfer behaviour.
+          description: Configure direct transfer behavior.
           schema:
             type: dict
             attrs:
@@ -204,21 +136,23 @@ questions:
                   default: true
               - variable: stun_servers
                 label: STUN Servers
-                description: |
-                  Comma or space separated STUN servers used for WebRTC negotiation.
+                description: STUN servers used for WebRTC negotiation.
                 schema:
-                  type: string
-                  default: "stun:stun.cloudflare.com:3478"
-                  required: true
-              - variable: peerjs_debug
-                label: PeerJS Debug Logging
-                description: |
-                  Enables verbose PeerJS logs.
-                schema:
-                  type: boolean
-                  default: false
+                  type: list
+                  show_if: [["enable_p2p", "=", true]]
+                  default: ["stun:stun.cloudflare.com:3478"]
+                  items:
+                    - variable: stun_server
+                      label: STUN Server
+                      schema:
+                        type: string
+                        required: true
+
         - variable: additional_envs
           label: Additional Environment Variables
+          description: See
+            https://github.com/diamonddigitaldev/Dropgate/blob/master/server/README.md#%EF%B8%8F-environment-variables
+            for more options.
           schema:
             type: list
             default: []
@@ -352,8 +286,8 @@ questions:
                                     type: string
                                     required: true
                                     enum:
-                                      - value: dropgate-server
-                                        description: dropgate-server
+                                      - value: server
+                                        description: server
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -398,7 +332,8 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service's containers
+                                          to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -410,7 +345,7 @@ questions:
       type: dict
       attrs:
         - variable: uploads
-          label: Dropgate Server Uploads Storage
+          label: Server Uploads Storage
           description: |
             Storage for hosted uploads.</br>
             Only used when "Preserve Uploads Across Restarts" is enabled.
@@ -493,7 +428,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -678,8 +613,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: dropgate-server
-                            description: dropgate-server
+                          - value: server
+                            description: server
 
   - variable: resources
     label: ""
@@ -704,5 +639,5 @@ questions:
                 description: Memory limit for Dropgate Server.
                 schema:
                   type: int
-                  default: 1024
+                  default: 4096
                   required: true

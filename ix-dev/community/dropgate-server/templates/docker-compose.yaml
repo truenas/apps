@@ -8,33 +8,30 @@
 {# The upstream image's entrypoint relies on su-exec and root privileges. #}
 {# Override it so the server runs directly as the configured UID/GID. #}
 {% do c1.set_entrypoint(["node", "server.js"]) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/api/info"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/info"}) %}
 
-{% do c1.environment.add_env("SERVER_PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("SERVER_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("SERVER_NAME", values.dropgate.server_name) %}
 {% do c1.environment.add_env("ENABLE_WEB_UI", values.dropgate.enable_web_ui) %}
-{% do c1.environment.add_env("LOG_LEVEL", values.dropgate.log_level) %}
-{% do c1.environment.add_env("RATE_LIMIT_WINDOW_MS", values.dropgate.rate_limit_window_ms) %}
-{% do c1.environment.add_env("RATE_LIMIT_MAX_REQUESTS", values.dropgate.rate_limit_max_requests) %}
 
 {% do c1.environment.add_env("ENABLE_UPLOAD", values.dropgate.upload.enable_upload) %}
-{% do c1.environment.add_env("UPLOAD_ENABLE_E2EE", values.dropgate.upload.enable_e2ee) %}
-{% do c1.environment.add_env("UPLOAD_PRESERVE_UPLOADS", values.dropgate.upload.preserve_uploads) %}
-{% do c1.environment.add_env("UPLOAD_MAX_FILE_SIZE_MB", values.dropgate.upload.max_file_size_mb) %}
-{% do c1.environment.add_env("UPLOAD_MAX_STORAGE_GB", values.dropgate.upload.max_storage_gb) %}
-{% do c1.environment.add_env("UPLOAD_MAX_FILE_LIFETIME_HOURS", values.dropgate.upload.max_file_lifetime_hours) %}
-{% do c1.environment.add_env("UPLOAD_MAX_FILE_DOWNLOADS", values.dropgate.upload.max_file_downloads) %}
-{% do c1.environment.add_env("UPLOAD_CHUNK_SIZE_BYTES", values.dropgate.upload.chunk_size_bytes) %}
-{% do c1.environment.add_env("UPLOAD_BUNDLE_SIZE_MODE", values.dropgate.upload.bundle_size_mode) %}
-{% do c1.environment.add_env("UPLOAD_ZOMBIE_CLEANUP_INTERVAL_MS", values.dropgate.upload.zombie_cleanup_interval_ms) %}
+{% if values.dropgate.upload.enable_upload %}
+  {% do c1.environment.add_env("UPLOAD_ENABLE_E2EE", values.dropgate.upload.enable_e2ee) %}
+  {% do c1.environment.add_env("UPLOAD_PRESERVE_UPLOADS", values.dropgate.upload.preserve_uploads) %}
+  {% do c1.environment.add_env("UPLOAD_MAX_FILE_SIZE_MB", values.dropgate.upload.max_file_size_mb) %}
+  {% do c1.environment.add_env("UPLOAD_MAX_STORAGE_GB", values.dropgate.upload.max_storage_gb) %}
+  {% do c1.environment.add_env("UPLOAD_MAX_FILE_LIFETIME_HOURS", values.dropgate.upload.max_file_lifetime_hours) %}
+  {% do c1.environment.add_env("UPLOAD_MAX_FILE_DOWNLOADS", values.dropgate.upload.max_file_downloads) %}
+{% endif %}
 
 {% do c1.environment.add_env("ENABLE_P2P", values.dropgate.p2p.enable_p2p) %}
-{% do c1.environment.add_env("P2P_STUN_SERVERS", values.dropgate.p2p.stun_servers) %}
-{% do c1.environment.add_env("PEERJS_DEBUG", values.dropgate.p2p.peerjs_debug) %}
+{% if values.dropgate.p2p.enable_p2p %}
+  {% do c1.environment.add_env("P2P_STUN_SERVERS", values.dropgate.p2p.stun_servers | join(",")) %}
+{% endif %}
 
 {% do c1.environment.add_user_envs(values.dropgate.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/usr/src/app/uploads", values.storage.uploads) %}
 {% do perm_container.add_or_skip_action("uploads", values.storage.uploads, perms_config) %}
