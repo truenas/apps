@@ -70,6 +70,12 @@ class Notes:
     def add_deprecation(self, deprecation: str):
         self._deprecations.append(deprecation)
 
+    def has_deprecations(self) -> bool:
+        return len(self._deprecations) > 0
+
+    def has_warnings(self) -> bool:
+        return len(self._warnings) > 0
+
     def set_body(self, body: str):
         self._body = body
 
