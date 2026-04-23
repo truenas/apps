@@ -1,5 +1,6 @@
 {% macro config(values, cfg=[]) -%}
 #!/bin/sh
+set -e
 {%- set cfg_path = values.consts.config_file %}
 if [ ! -f "{{ cfg_path }}" ]; then
   echo "File [{{ cfg_path }}] does not exist. Creating a new config file..."
