@@ -1,32 +1,33 @@
+{% from "macros/config.sh" import config %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.forgejo_runner_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "yq_image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% set cfg = namespace(x=[
+  {"server.connections.truenas.url": values.forgejo_runner.instance_url},
+  {"server.connections.truenas.token": values.forgejo_runner.runner_registration_token},
+  {"server.connections.truenas.uuid": values.forgejo_runner.runner_uuid},
+]) %}
+
+{% if values.forgejo_runner.runner_labels %}
+  {% do cfg.x.append({"runners.runner_labels": values.forgejo_runner.runner_labels|tojson}) %}
+{% endif %}
+
+{% do init.set_user(values.run_as.user, values.run_as.group) %}
+{% do init.setup_as_helper() %}
+{% do init.configs.add("config.sh", config(values=values, cfg=cfg.x), "/setup/config.sh", "0755") %}
+{% do init.set_entrypoint(["/setup/config.sh"]) %}
+
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("pgrep", {"process": "forgejo-runner"}) %}
 {% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
 
-  {% do c1.set_entrypoint(["/bin/bash", "-c", [
-    "set -e",
-    "test -f /data/config.yaml || touch /data/config.yaml",
-    "echo -n '%s' > /tmp/runner-token" | format(values.forgejo_runner.runner_registration_token),
-    'exec forgejo-runner "$@"',
-  ] | join("\n"), "--"]) %}
-
-  {% set cmd = namespace(x=[
-    "daemon", "--config", "/data/config.yaml",
-    "--url", values.forgejo_runner.instance_url,
-    "--uuid", values.forgejo_runner.runner_uuid,
-    "--token-url", "file:///tmp/runner-token"
-  ]) %}
-
-{% for label in values.forgejo_runner.runner_labels %}
-  {% do cmd.x.extend(["--label", label]) %}
-{% endfor %}
-
-{% do c1.set_command(cmd.x) %}
+{% do c1.set_entrypoint(["/bin/forgejo-runner"]) %}
+{% do c1.set_command(["daemon", "--config", values.consts.config_file]) %}
 
 {% do c1.environment.add_user_envs(values.forgejo_runner.additional_envs) %}
 
@@ -37,6 +38,7 @@
 {% do c1.add_docker_socket(read_only=False) %}
 
 {% do c1.add_storage("/data", values.storage.data) %}
+{% do init.add_storage("/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
