@@ -2,16 +2,16 @@
 
 {% set c1 = tpl.add_container(values.consts.omni_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{# Upstream image is pinned to USER 65534 (nobody); perms must match. #}
-{% set perms_config = {"uid": 65534, "gid": 65534, "mode": "check"} %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% do c1.set_user(65534, 65534) %}
-{% do c1.set_read_only(true) %}
+{# FIXME: Use an actual health check once upstream provides one. #}
 {% do c1.healthcheck.disable() %}
+{% do c1.set_read_only(true) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
 {% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
 
-{% do c1.environment.add_env("OMNI_ENDPOINT", values.omni.endpoint) %}
+{% do c1.environment.add_env("OMNI_ENDPOINT", values.omni.endpoint.rstrip("/")) %}
 {% do c1.environment.add_env("OMNI_SERVICE_ACCOUNT_KEY", values.omni.service_account_key) %}
 {% do c1.environment.add_env("OMNI_INSECURE_SKIP_VERIFY", values.omni.insecure_skip_verify) %}
 {% do c1.environment.add_env("PROVIDER_ID", values.omni.provider_id) %}
@@ -28,10 +28,6 @@
 {% endif %}
 {% do c1.environment.add_env("DEFAULT_BOOT_METHOD", values.omni.vm.default_boot_method) %}
 {% do c1.environment.add_env("GRACEFUL_SHUTDOWN_TIMEOUT", values.omni.vm.graceful_shutdown_timeout) %}
-
-{% do c1.environment.add_env("CONCURRENCY", values.omni.advanced.concurrency) %}
-{% do c1.environment.add_env("LOG_LEVEL", values.omni.advanced.log_level) %}
-{% do c1.environment.add_env("MAX_ERROR_RECOVERIES", values.omni.advanced.max_error_recoveries) %}
 
 {% do c1.environment.add_user_envs(values.omni.additional_envs) %}
 
