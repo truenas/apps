@@ -57,9 +57,124 @@ questions:
           schema:
             type: string
             default: "TrueNAS SCALE infrastructure provider"
+
+        - variable: truenas
+          label: ""
+          schema:
+            type: dict
+            attrs:
+              - variable: host
+                label: TrueNAS Host
+                description: |
+                  TrueNAS hostname or IP.</br>
+                  Use <code>host.docker.internal</code> when running as a TrueNAS app on the same system.
+                schema:
+                  type: string
+                  default: "host.docker.internal"
+                  required: true
+              - variable: api_key
+                label: TrueNAS API Key
+                description: |
+                  API key for a dedicated non-root user in the <code>builtin_administrators</code> group, with the password disabled.</br>
+                  Do not use the root user's key.</br>
+                  See the upstream <a href="https://github.com/bearbinary/controller/blob/main/docs/truenas-setup.md" target="_blank">TrueNAS setup guide</a> for the exact steps.
+                schema:
+                  type: string
+                  required: true
+                  private: true
+              - variable: insecure_skip_verify
+                label: Skip TLS Verification
+                description: |
+                  Skip TLS certificate verification. Recommended when using a self-signed certificate.
+                schema:
+                  type: boolean
+                  default: true
+
+        - variable: vm
+          label: ""
+          schema:
+            type: dict
+            attrs:
+              - variable: default_pool
+                label: Default ZFS Pool
+                description: |
+                  Name of an existing ZFS pool used for VM zvols and cached ISO images.</br>
+                  Run <code>zpool list</code> on the TrueNAS host to see available pools.
+                schema:
+                  type: string
+                  required: true
+              - variable: default_network_interface
+                label: Default Network Interface
+                description: |
+                  Host network interface attached to provisioned VM NICs (e.g. <code>br0</code>, <code>vlan100</code>, <code>enp5s0</code>).</br>
+                  Leave empty to let the provider auto-select the first available bridge at provision time.
+                schema:
+                  type: string
+                  default: ""
+              - variable: default_boot_method
+                label: Default Boot Method
+                schema:
+                  type: string
+                  default: "UEFI"
+                  required: true
+                  enum:
+                    - value: "UEFI"
+                      description: UEFI boot (recommended)
+                    - value: "BIOS"
+                      description: Legacy BIOS boot
+              - variable: graceful_shutdown_timeout
+                label: Graceful Shutdown Timeout (seconds)
+                description: Seconds to wait for ACPI shutdown before force-stop on deprovision.
+                schema:
+                  type: int
+                  default: 30
+                  min: 0
+                  max: 300
+                  required: true
+
+        - variable: advanced
+          label: ""
+          schema:
+            type: dict
+            attrs:
+              - variable: concurrency
+                label: Concurrency
+                description: Maximum number of parallel provision/deprovision operations.
+                schema:
+                  type: int
+                  default: 4
+                  min: 1
+                  max: 16
+                  required: true
+              - variable: log_level
+                label: Log Level
+                schema:
+                  type: string
+                  default: "info"
+                  required: true
+                  enum:
+                    - value: "debug"
+                      description: Debug
+                    - value: "info"
+                      description: Info
+                    - value: "warn"
+                      description: Warning
+                    - value: "error"
+                      description: Error
+              - variable: max_error_recoveries
+                label: Max Error Recoveries
+                description: |
+                  Max consecutive ERROR state recoveries before auto-replacing a VM.</br>
+                  Set to -1 to disable the circuit breaker.
+                schema:
+                  type: int
+                  default: 5
+                  min: -1
+                  max: 100
+                  required: true
+
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for the provider.
           schema:
             type: list
             default: []
@@ -78,124 +193,6 @@ questions:
                       label: Value
                       schema:
                         type: string
-
-  - variable: truenas
-    label: ""
-    group: Omni TrueNAS Provider Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: host
-          label: TrueNAS Host
-          description: |
-            TrueNAS hostname or IP.</br>
-            Use <code>host.docker.internal</code> when running as a TrueNAS app on the same system.
-          schema:
-            type: string
-            default: "host.docker.internal"
-            required: true
-        - variable: api_key
-          label: TrueNAS API Key
-          description: |
-            API key for a dedicated non-root user in the <code>builtin_administrators</code> group, with the password disabled.</br>
-            Do not use the root user's key.</br>
-            See the upstream <a href="https://github.com/bearbinary/omni-infra-provider-truenas/blob/main/docs/truenas-setup.md" target="_blank">TrueNAS setup guide</a> for the exact steps.
-          schema:
-            type: string
-            required: true
-            private: true
-        - variable: insecure_skip_verify
-          label: Skip TLS Verification
-          description: |
-            Skip TLS certificate verification. Recommended when using a self-signed certificate.
-          schema:
-            type: boolean
-            default: true
-
-  - variable: vm
-    label: ""
-    group: Omni TrueNAS Provider Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: default_pool
-          label: Default ZFS Pool
-          description: |
-            Name of an existing ZFS pool used for VM zvols and cached ISO images.</br>
-            Run <code>zpool list</code> on the TrueNAS host to see available pools.
-          schema:
-            type: string
-            required: true
-        - variable: default_network_interface
-          label: Default Network Interface
-          description: |
-            Host network interface attached to provisioned VM NICs (e.g. <code>br0</code>, <code>vlan100</code>, <code>enp5s0</code>).</br>
-            Leave empty to let the provider auto-select the first available bridge at provision time.
-          schema:
-            type: string
-            default: ""
-        - variable: default_boot_method
-          label: Default Boot Method
-          schema:
-            type: string
-            default: "UEFI"
-            required: true
-            enum:
-              - value: "UEFI"
-                description: UEFI boot (recommended)
-              - value: "BIOS"
-                description: Legacy BIOS boot
-        - variable: graceful_shutdown_timeout
-          label: Graceful Shutdown Timeout (seconds)
-          description: Seconds to wait for ACPI shutdown before force-stop on deprovision.
-          schema:
-            type: int
-            default: 30
-            min: 0
-            max: 300
-            required: true
-
-  - variable: advanced
-    label: ""
-    group: Omni TrueNAS Provider Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: concurrency
-          label: Concurrency
-          description: Maximum number of parallel provision/deprovision operations.
-          schema:
-            type: int
-            default: 4
-            min: 1
-            max: 16
-            required: true
-        - variable: log_level
-          label: Log Level
-          schema:
-            type: string
-            default: "info"
-            required: true
-            enum:
-              - value: "debug"
-                description: Debug
-              - value: "info"
-                description: Info
-              - value: "warn"
-                description: Warning
-              - value: "error"
-                description: Error
-        - variable: max_error_recoveries
-          label: Max Error Recoveries
-          description: |
-            Max consecutive ERROR state recoveries before auto-replacing a VM.</br>
-            Set to -1 to disable the circuit breaker.
-          schema:
-            type: int
-            default: 5
-            min: -1
-            max: 100
-            required: true
 
   - variable: network
     label: ""
@@ -241,8 +238,8 @@ questions:
                                     type: string
                                     required: true
                                     enum:
-                                      - value: omni-infra-provider-truenas
-                                        description: omni-infra-provider-truenas
+                                      - value: controller
+                                        description: controller
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -287,7 +284,8 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service's containers
+                                          to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -304,7 +302,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -487,8 +485,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: omni-infra-provider-truenas
-                            description: omni-infra-provider-truenas
+                          - value: controller
+                            description: controller
 
   - variable: resources
     label: ""
