@@ -40,7 +40,7 @@ def set_added_date(data: dict, app_yaml: str):
     return data, True
 
 
-CURRENT_LIB_VERSION = "2.3.3"
+CURRENT_LIB_VERSION = "2.3.4"
 
 
 def update_app_yaml():
