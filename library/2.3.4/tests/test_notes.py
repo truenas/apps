@@ -8,11 +8,12 @@ from render import Render
 def mock_values():
     return {
         "ix_context": {
+            "app_name": "My Test App",
             "app_metadata": {
                 "name": "test_app",
                 "title": "Test App",
                 "train": "enterprise",
-            }
+            },
         },
         "images": {
             "test_image": {
@@ -319,8 +320,8 @@ some other info.
 
 #### Joined networks
 
-- ix-internal-test-app-test_network1
-- ix-internal-test-app-test_network2
+- ix-internal-my-test-app-test_network1
+- ix-internal-my-test-app-test_network2
 
 #### Running user/group(s)
 
