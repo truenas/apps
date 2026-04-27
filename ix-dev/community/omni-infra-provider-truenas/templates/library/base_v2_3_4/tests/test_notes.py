@@ -8,11 +8,12 @@ from render import Render
 def mock_values():
     return {
         "ix_context": {
+            "app_name": "My Test App",
             "app_metadata": {
                 "name": "test_app",
                 "title": "Test App",
                 "train": "enterprise",
-            }
+            },
         },
         "images": {
             "test_image": {
@@ -99,6 +100,7 @@ def test_notes_with_warnings(mock_values):
     c1.set_user(568, 568)
     c1.healthcheck.disable()
     output = render.render()
+    assert output["x-action-required"] is True
     assert (
         output["x-notes"]
         == """# Test App ⚠️
@@ -140,6 +142,7 @@ def test_notes_with_deprecations(mock_values):
     c1.set_user(568, 568)
     c1.healthcheck.disable()
     output = render.render()
+    assert output["x-action-required"] is True
     assert (
         output["x-notes"]
         == """# Test App ⚠️
@@ -268,6 +271,7 @@ some other info.
     c3.set_user(568, 568)
 
     output = render.render()
+    assert output["x-action-required"] is True
     assert (
         output["x-notes"]
         == """# Test App ⚠️
@@ -316,8 +320,8 @@ some other info.
 
 #### Joined networks
 
-- ix-internal-test-app-test_network1
-- ix-internal-test-app-test_network2
+- ix-internal-my-test-app-test_network1
+- ix-internal-my-test-app-test_network2
 
 #### Running user/group(s)
 

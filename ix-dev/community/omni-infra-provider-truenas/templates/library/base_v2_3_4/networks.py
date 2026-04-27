@@ -23,7 +23,7 @@ class Networks:
         self._auto_set_app_name()
 
     def _auto_set_app_name(self):
-        app_name = self._render_instance.values.get("ix_context", {}).get("app_metadata", {}).get("title", "")
+        app_name = self._render_instance.values.get("ix_context", {}).get("app_name", "")
         app_name = app_name or "app_name"
         app_name = app_name.lower().replace(" ", "-").replace("_", "-").replace(".", "-").replace("/", "-")
         self._app_name = app_name
