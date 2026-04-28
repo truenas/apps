@@ -6,6 +6,13 @@
 {% set c1 = tpl.add_container(values.consts.calagopus_container_name, "image") %}
 {% do c1.add_network(calagopus_net) %}
 
+{% set wings_init = tpl.add_container(values.consts.wings_init_container_name, "image") %}
+{% do wings_init.setup_as_helper() %}
+{% do wings_init.set_user(0, 0) %}
+{% do wings_init.set_entrypoint(["/bin/sh", "-c"]) %}
+{% do wings_init.set_command(["touch %s" | format(values.consts.wings_config_path)]) %}
+{% do wings_init.add_storage(values.consts.data_path, values.storage.data) %}
+
 {# Permissions init container - prepares storage for postgres and the panel data dir #}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
@@ -37,6 +44,7 @@
 {# Dependencies must come up healthy before the panel starts #}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.wings_init_container_name, "service_completed_successfully") %}
 
 {# Core environment - mirrors the upstream calagopus compose.yml #}
 {% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
@@ -53,7 +61,8 @@
 {% do c1.environment.add_env("APP_USE_INTERNAL_CACHE", values.calagopus.use_internal_cache) %}
 {% do c1.environment.add_env("APP_LOG_DIRECTORY", values.consts.log_path) %}
 
-{# AIO-specific: where the integrated wings reads its configuration from #}
+{# AIO-specific: where the integrated wings reads its bootstrap configuration from.
+   The file is created by the wings-init container before this container starts. #}
 {% do c1.environment.add_env("AIO_BASE_WINGS_CONFIGURATION", values.consts.wings_config_path) %}
 
 {% if values.calagopus.trusted_proxies %}
