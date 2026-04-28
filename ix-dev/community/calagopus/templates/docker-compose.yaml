@@ -1,0 +1,119 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set calagopus_net = tpl.networks.create_internal("calagopus-net") %}
+
+{# Main Calagopus AIO container (Panel + Wings) #}
+{% set c1 = tpl.add_container(values.consts.calagopus_container_name, "image") %}
+{% do c1.add_network(calagopus_net) %}
+
+{# Permissions init container - prepares storage for postgres and the panel data dir #}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{# PostgreSQL dependency #}
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.calagopus.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
+{% do postgres.container.add_network(calagopus_net) %}
+
+{# Redis (Valkey) dependency - used for cache, sessions and rate-limiting #}
+{% set redis_config = {
+  "password": values.calagopus.redis_password,
+  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(calagopus_net) %}
+
+{# AIO image manages sibling containers via the docker socket and therefore needs to run as root #}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETFCAP", "SETGID", "SETPCAP", "SETUID"]) %}
+
+{# Health check on the panel HTTP port #}
+{% do c1.healthcheck.set_test("netcat", {"port": values.consts.internal_web_port}) %}
+
+{# Dependencies must come up healthy before the panel starts #}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+
+{# Core environment - mirrors the upstream calagopus compose.yml #}
+{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("BIND", "0.0.0.0") %}
+{% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
+{% do c1.environment.add_env("DATABASE_MIGRATE", "true") %}
+{% do c1.environment.add_env("REDIS_MODE", "redis") %}
+{% do c1.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
+{% do c1.environment.add_env("APP_ENCRYPTION_KEY", values.calagopus.encryption_key) %}
+{% do c1.environment.add_env("APP_PRIMARY", values.calagopus.app_primary) %}
+{% do c1.environment.add_env("APP_DEBUG", values.calagopus.app_debug) %}
+{% do c1.environment.add_env("APP_ENABLE_WINGS_PROXY", values.calagopus.enable_wings_proxy) %}
+{% do c1.environment.add_env("APP_USE_DECRYPTION_CACHE", values.calagopus.use_decryption_cache) %}
+{% do c1.environment.add_env("APP_USE_INTERNAL_CACHE", values.calagopus.use_internal_cache) %}
+{% do c1.environment.add_env("APP_LOG_DIRECTORY", values.consts.log_path) %}
+
+{# AIO-specific: where the integrated wings reads its configuration from #}
+{% do c1.environment.add_env("AIO_BASE_WINGS_CONFIGURATION", values.consts.wings_config_path) %}
+
+{% if values.calagopus.trusted_proxies %}
+  {% do c1.environment.add_env("APP_TRUSTED_PROXIES", values.calagopus.trusted_proxies | join(",")) %}
+{% endif %}
+
+{% if values.calagopus.server_name %}
+  {% do c1.environment.add_env("SERVER_NAME", values.calagopus.server_name) %}
+{% endif %}
+
+{% if values.calagopus.sentry_url %}
+  {% do c1.environment.add_env("SENTRY_URL", values.calagopus.sentry_url) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.calagopus.additional_envs) %}
+
+{# Ports - panel HTTP and Wings SFTP #}
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+  {% do c1.add_port(values.network.sftp_port, {"container_port": values.consts.internal_sftp_port}) %}
+{% endif %}
+
+{# Panel-managed storage (configurable via questions.yaml) #}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do c1.add_storage(values.consts.log_path, values.storage.logs) %}
+
+{# Docker socket - required for Wings to manage game server containers #}
+{% do c1.add_docker_socket(read_only=False) %}
+
+{# Wings host bind mounts. These paths MUST be identical on host and container because
+   Wings spawns sibling containers (via the docker socket) that reference these host
+   paths directly. They are intentionally not exposed in questions.yaml. #}
+{% set wings_host_paths = [
+  (values.consts.wings_etc_path, values.consts.wings_etc_path, false),
+  (values.consts.wings_data_path, values.consts.wings_data_path, false),
+  (values.consts.wings_tmp_path, values.consts.wings_tmp_path, false),
+  (values.consts.docker_containers_path, values.consts.docker_containers_path, false),
+] %}
+{% for host_path, container_path, read_only in wings_host_paths %}
+  {% do c1.add_storage(container_path, {
+    "type": "host_path",
+    "read_only": read_only,
+    "host_path_config": {"path": host_path, "create_host_path": true},
+  }) %}
+{% endfor %}
+
+{# User-defined extra storage #}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{# Web UI portal in the TrueNAS apps view #}
+{% do tpl.portals.add(values.network.web_port) %}
+
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
