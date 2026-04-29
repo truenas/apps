@@ -1,6 +1,6 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set c1 = tpl.add_container(values.consts.vane_container_name, values.vane.image_selector) %}
+{% set c1 = tpl.add_container(values.consts.vane_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
@@ -11,7 +11,7 @@
 {% do c1.environment.add_env("HOSTNAME", "0.0.0.0") %}
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% if values.vane.image_selector == "slim_image" %}
-  {% do c1.environment.add_env("SEARXNG_API_URL", values.vane.searxng_api_url) %}
+  {% do c1.environment.add_env("SEARXNG_API_URL", values.vane.searxng_api_url.rstrip("/")) %}
 {% endif %}
 {% do c1.environment.add_user_envs(values.vane.additional_envs) %}
 
@@ -30,12 +30,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"port": 3000 if values.network.host_network else None}) %}
-
-{% if values.vane.image_selector == "image" %}
-  {% do tpl.notes.add_info("Vane includes a bundled SearXNG instance. Configure your AI provider settings (API keys, models) in the Vane UI at the setup screen.") %}
-{% else %}
-  {% do tpl.notes.add_info("Vane is running in slim mode. You must provide a SearxNG API URL. Configure your AI provider settings in the Vane UI setup screen.") %}
-{% endif %}
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
