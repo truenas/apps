@@ -5,37 +5,33 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": 3000, "path": "/"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/providers"}) %}
 
-{# Environment variables #}
+{# NextJS picks up this var by default, and it ends up listening on the container's hostname. Making localhost calls fail #}
+{% do c1.environment.add_env("HOSTNAME", "0.0.0.0") %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% if values.vane.image_selector == "slim_image" %}
   {% do c1.environment.add_env("SEARXNG_API_URL", values.vane.searxng_api_url) %}
 {% endif %}
 {% do c1.environment.add_user_envs(values.vane.additional_envs) %}
 
-{# Ports #}
-{% if not values.network.host_network %}
-  {% do c1.add_port(values.network.web_port, {"container_port": 3000}) %}
-{% endif %}
+{% do c1.add_port(values.network.web_port) %}
 
-{# Storage #}
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{# Permissions #}
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{# Portal #}
 {% do tpl.portals.add(values.network.web_port, {"port": 3000 if values.network.host_network else None}) %}
 
-{# Notes #}
 {% if values.vane.image_selector == "image" %}
   {% do tpl.notes.add_info("Vane includes a bundled SearXNG instance. Configure your AI provider settings (API keys, models) in the Vane UI at the setup screen.") %}
 {% else %}
