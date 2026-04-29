@@ -25,7 +25,7 @@ module.exports = {
       fileMatch: ["^ix-dev/.*/ix_values\\.yaml$"],
       // Matches the repository name and the tag of each image
       matchStrings: [
-        '\\s{4}repository: (?<depName>[^\\s]+)\\n\\s{4}tag: ["\']?(?<currentValue>[^\\s"\']+)["\']?',
+        "\\s{4}repository: (?<depName>[^\\s]+)\\n\\s{4}tag: [\"']?(?<currentValue>[^\\s\"']+)[\"']?",
       ],
       // Use the docker datasource on matched images
       datasourceTemplate: "docker",
@@ -341,6 +341,11 @@ module.exports = {
       // release-1.11.0
       "^release-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/lukegus/termix"],
+    ),
+    customVersioning(
+      // slim-v1.12.2
+      "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["itzcrazykns1337/vane"],
     ),
   ],
 };
