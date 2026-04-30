@@ -5,12 +5,18 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.set_ipc_mode("host") %}
+{% if values.vllm.image_selector != "cpu_image" %}
+  {% do c1.set_ipc_mode("host") %}
+{% endif %}
 
 {% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do c1.healthcheck.set_start_period(120) %}
 
-{% do c1.set_command(["--model", values.vllm.model_name]) %}
+{% set cmd = ["--model", values.vllm.model_name] %}
+{% if values.vllm.max_model_len %}
+  {% do cmd.extend(["--max-model-len", values.vllm.max_model_len|string]) %}
+{% endif %}
+{% do c1.set_command(cmd) %}
 
 {% do c1.environment.add_env("USER", "vllm") %}
 {% do c1.environment.add_env("HOME", "/data") %}
