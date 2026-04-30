@@ -347,6 +347,11 @@ module.exports = {
       "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["itzcrazykns1337/vane"],
     ),
+    customVersioning(
+      // v0.20.0
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["vllm/vllm-openai", "vllm/vllm-openai-rocm", "vllm/vllm-openai-cpu"],
+    ),
   ],
 };
 
