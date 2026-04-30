@@ -175,6 +175,8 @@ def test_funcs(mock_values):
         },
         {"func": "has_amd_gpu", "values": [], "expected": True},
         {"func": "has_nvidia_gpu", "values": [], "expected": True},
+        {"func": "has_intel_gpu", "values": [], "expected": True},
+        {"func": "has_any_gpu", "values": [], "expected": True},
     ]
 
     for test in tests:
