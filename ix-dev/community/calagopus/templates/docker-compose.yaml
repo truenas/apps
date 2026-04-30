@@ -1,6 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set calagopus_net = tpl.networks.create_internal("calagopus-net") %}
+{% set wings_host_path = tpl.funcs.get_host_path(values.storage.wings_data) %}
 
 {# Main Calagopus AIO container (Panel + Wings) #}
 {% set c1 = tpl.add_container(values.consts.calagopus_container_name, "image") %}
@@ -8,12 +9,23 @@
 
 {% set wings_init = tpl.add_container(values.consts.wings_init_container_name, "image") %}
 {% do wings_init.setup_as_helper() %}
-{% do wings_init.set_user(0, 0) %}
 {% do wings_init.set_entrypoint(["/bin/sh", "-c"]) %}
-{% do wings_init.set_command(["[ -s %s ] || echo '{}' > %s" | format(values.consts.wings_config_path, values.consts.wings_config_path)]) %}
+{% set wings_seed_yaml -%}
+system:
+  root_directory: {{ wings_host_path }}
+  log_directory: {{ wings_host_path }}/logs
+  data_directory: {{ wings_host_path }}/volumes
+  vmount_directory: {{ wings_host_path }}/vmounts
+  archive_directory: {{ wings_host_path }}/archives
+  backup_directory: {{ wings_host_path }}/backups
+  tmp_directory: {{ wings_host_path }}/tmp
+{%- endset %}
+{% do wings_init.set_command([
+  "[ -s " ~ values.consts.wings_config_path ~ " ] || cat > " ~ values.consts.wings_config_path ~ " <<'EOF'\n" ~ wings_seed_yaml ~ "\nEOF"
+]) %}
 {% do wings_init.add_storage(values.consts.data_path, values.storage.data) %}
 
-{# Permissions init container - prepares storage for postgres and the panel data dir #}
+{# Permissions init container - prepares storage for postgres and the redis temp volume #}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {# PostgreSQL dependency #}
@@ -34,12 +46,8 @@
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 {% do redis.container.add_network(calagopus_net) %}
 
-{# AIO image manages sibling containers via the docker socket and therefore needs to run as root #}
-{% do c1.set_user(0, 0) %}
-{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETFCAP", "SETGID", "SETPCAP", "SETUID"]) %}
-
 {# Health check on the panel HTTP port #}
-{% do c1.healthcheck.set_test("netcat", {"port": values.consts.internal_web_port}) %}
+{% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port.port_number}) %}
 
 {# Dependencies must come up healthy before the panel starts #}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -47,18 +55,18 @@
 {% do c1.depends.add_dependency(values.consts.wings_init_container_name, "service_completed_successfully") %}
 
 {# Core environment - mirrors the upstream calagopus compose.yml #}
-{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("BIND", "0.0.0.0") %}
 {% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
 {% do c1.environment.add_env("DATABASE_MIGRATE", "true") %}
 {% do c1.environment.add_env("REDIS_MODE", "redis") %}
 {% do c1.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
 {% do c1.environment.add_env("APP_ENCRYPTION_KEY", values.calagopus.encryption_key) %}
-{% do c1.environment.add_env("APP_PRIMARY", values.calagopus.app_primary) %}
-{% do c1.environment.add_env("APP_DEBUG", values.calagopus.app_debug) %}
+{% do c1.environment.add_env("APP_PRIMARY", "true") %}
+{% do c1.environment.add_env("APP_DEBUG", "false") %}
 {% do c1.environment.add_env("APP_ENABLE_WINGS_PROXY", values.calagopus.enable_wings_proxy) %}
-{% do c1.environment.add_env("APP_USE_DECRYPTION_CACHE", values.calagopus.use_decryption_cache) %}
-{% do c1.environment.add_env("APP_USE_INTERNAL_CACHE", values.calagopus.use_internal_cache) %}
+{% do c1.environment.add_env("APP_USE_DECRYPTION_CACHE", "true") %}
+{% do c1.environment.add_env("APP_USE_INTERNAL_CACHE", "true") %}
 {% do c1.environment.add_env("APP_LOG_DIRECTORY", values.consts.log_path) %}
 
 {# AIO-specific: where the integrated wings reads its bootstrap configuration from.
@@ -69,44 +77,22 @@
   {% do c1.environment.add_env("APP_TRUSTED_PROXIES", values.calagopus.trusted_proxies | join(",")) %}
 {% endif %}
 
-{% if values.calagopus.server_name %}
-  {% do c1.environment.add_env("SERVER_NAME", values.calagopus.server_name) %}
-{% endif %}
-
-{% if values.calagopus.sentry_url %}
-  {% do c1.environment.add_env("SENTRY_URL", values.calagopus.sentry_url) %}
-{% endif %}
-
 {% do c1.environment.add_user_envs(values.calagopus.additional_envs) %}
 
 {# Ports - panel HTTP and Wings SFTP #}
-{% if not values.network.host_network %}
-  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-  {% do c1.add_port(values.network.sftp_port, {"container_port": values.consts.internal_sftp_port}) %}
-{% endif %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_port(values.network.sftp_port, {"container_port": values.consts.internal_sftp_port}) %}
 
 {# Panel-managed storage (configurable via questions.yaml) #}
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do c1.add_storage(values.consts.log_path, values.storage.logs) %}
 
+{# Wings data: same host path inside the container as on the host so sibling containers
+   spawned via the docker socket can bind-mount paths under it. #}
+{% do c1.add_storage(wings_host_path, values.storage.wings_data) %}
+
 {# Docker socket - required for Wings to manage game server containers #}
 {% do c1.add_docker_socket(read_only=False) %}
-
-{# Wings host bind mounts. These paths MUST be identical on host and container because
-   Wings spawns sibling containers (via the docker socket) that reference these host
-   paths directly. They are intentionally not exposed in questions.yaml. #}
-{% set wings_host_paths = [
-  (values.consts.wings_etc_path, values.consts.wings_etc_path, false),
-  (values.consts.wings_data_path, values.consts.wings_data_path, false),
-  (values.consts.wings_tmp_path, values.consts.wings_tmp_path, false),
-] %}
-{% for host_path, container_path, read_only in wings_host_paths %}
-  {% do c1.add_storage(container_path, {
-    "type": "host_path",
-    "read_only": read_only,
-    "host_path_config": {"path": host_path, "create_host_path": true},
-  }) %}
-{% endfor %}
 
 {# User-defined extra storage #}
 {% for store in values.storage.additional_storage %}

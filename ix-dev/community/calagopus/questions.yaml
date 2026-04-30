@@ -56,23 +56,6 @@ questions:
             default: ""
             required: true
             private: true
-        - variable: app_primary
-          label: Primary Instance
-          description: |
-            Designates whether this Panel instance is the primary one in a clustered environment.</br>
-            The primary instance is responsible for running background tasks (e.g. cleanup jobs).</br>
-            Leave this enabled unless you are running multiple Panel instances against the same database.
-          schema:
-            type: boolean
-            default: true
-        - variable: app_debug
-          label: Enable Debug Mode
-          description: |
-            When enabled, the Panel produces more verbose logs and detailed error pages.</br>
-            Useful for troubleshooting but should be disabled in production as it can expose sensitive information.
-          schema:
-            type: boolean
-            default: false
         - variable: enable_wings_proxy
           label: Enable Wings Proxy
           description: |
@@ -82,40 +65,6 @@ questions:
           schema:
             type: boolean
             default: true
-        - variable: use_decryption_cache
-          label: Use Decryption Cache
-          description: |
-            Caches decrypted values in memory and Redis for improved performance.</br>
-            This is slightly less secure since decrypted data is held in the cache.
-          schema:
-            type: boolean
-            default: true
-        - variable: use_internal_cache
-          label: Use Internal Cache
-          description: |
-            Caches short-lived values in app memory in addition to Redis.</br>
-            Improves performance at the cost of slightly higher memory usage.
-          schema:
-            type: boolean
-            default: true
-        - variable: server_name
-          label: Server Name
-          description: |
-            Optional name used to identify this Panel instance in logs and Sentry error reports.</br>
-            Useful when running multiple Panel instances against the same database.
-          schema:
-            type: string
-            default: ""
-        - variable: sentry_url
-          label: Sentry DSN
-          description: |
-            Optional Sentry DSN for error reporting.</br>
-            Format: https://&lt;public_key&gt;@sentry.io/&lt;project_id&gt;</br>
-            Leave empty to disable Sentry integration.
-          schema:
-            type: string
-            default: ""
-            private: true
         - variable: trusted_proxies
           label: Trusted Proxies
           description: |
@@ -251,15 +200,6 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network.</br>
-            This will give the container direct access to the host's network interfaces.</br>
-            Required for some Wings allocations setups where game servers must be reachable on a wide range of host ports.
-          schema:
-            type: boolean
-            default: false
 
   - variable: storage
     label: ""
@@ -389,6 +329,93 @@ questions:
                         required: true
                         hidden: true
                         default: "logs"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+
+        - variable: wings_data
+          label: Wings Data Storage
+          description: |
+            Stores all data managed by the integrated Wings instance: game server volumes,
+            backups, archives, runtime mounts, working files and logs.</br>
+            </br>
+            This dataset is mounted into the Calagopus container at the same path it has
+            on the host. This is required because Wings spawns sibling containers via the
+            Docker socket, and those sibling containers bind-mount paths under this dataset
+            directly from the host - so the host path and the container path must match.</br>
+            </br>
+            Pick a dataset on the pool where you want game server data to live. Server
+            volumes can grow large, so plan accordingly.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "wings_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
