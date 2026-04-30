@@ -14,7 +14,7 @@
 system:
   root_directory: {{ wings_host_path }}
   log_directory: {{ wings_host_path }}/logs
-  data_directory: {{ wings_host_path }}/volumes
+  data: {{ wings_host_path }}/volumes
   vmount_directory: {{ wings_host_path }}/vmounts
   archive_directory: {{ wings_host_path }}/archives
   backup_directory: {{ wings_host_path }}/backups
@@ -45,6 +45,9 @@ system:
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 {% do redis.container.add_network(calagopus_net) %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETFCAP", "SETGID", "SETPCAP", "SETUID"]) %}
 
 {# Health check on the panel HTTP port #}
 {% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port.port_number}) %}
