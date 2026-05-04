@@ -3,7 +3,20 @@
 {% set c1 = tpl.add_container(values.consts.steam_headless_container_name, "image") %}
 
 {% do c1.set_ipc_mode("host") %}
+{# 13 — input class (joysticks/evdev) #}
 {% do c1.add_device_cgroup_rule("c 13:* rwm") %}
+
+{% if tpl.funcs.has_any_gpu() %}
+  {# 226 — DRM subsystem (/dev/dri/card*, /dev/dri/renderD*) #}
+  {% do c1.add_device_cgroup_rule("c 226:* rwm") %}
+  {% do c1.devices.add_dri_device() %}
+{% endif %}
+
+{% if tpl.funcs.has_nvidia_gpu() %}
+  {# 195 — Nvidia char devices (/dev/nvidia0, /dev/nvidiactl, /dev/nvidia-uvm, /dev/nvidia-modeset) #}
+  {% do c1.add_device_cgroup_rule("c 195:* rwm") %}
+{% endif %}
+
 {% do c1.remove_security_opt("no-new-privileges") %}
 {% do c1.add_security_opt("seccomp", "unconfined") %}
 {% do c1.add_security_opt("apparmor", "unconfined") %}
