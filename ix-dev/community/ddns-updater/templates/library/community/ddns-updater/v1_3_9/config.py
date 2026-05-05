@@ -219,6 +219,10 @@ providers_schema: Dict[str, ProviderSchema] = {
         ],
         optional=[ProviderField("ttl", "hetzner_ttl", FieldType.INTEGER)],
     ),
+    "hetznercloud": ProviderSchema(
+        required=[ProviderField("token", "hetznercloud_token")],
+        optional=[ProviderField("ttl", "hetznercloud_ttl", FieldType.INTEGER)],
+    ),
     "infomaniak": ProviderSchema(
         required=[
             ProviderField("username", "infomaniak_username"),
@@ -233,6 +237,9 @@ providers_schema: Dict[str, ProviderSchema] = {
     ),
     "ionos": ProviderSchema(
         required=[ProviderField("api_key", "ionos_api_key")],
+    ),
+    "ipv64": ProviderSchema(
+        required=[ProviderField("key", "ipv64_key")],
     ),
     "linode": ProviderSchema(
         required=[ProviderField("token", "linode_token")],
@@ -328,6 +335,10 @@ providers_schema: Dict[str, ProviderSchema] = {
         ],
         optional=[ProviderField("ttl", "route53_ttl", FieldType.INTEGER)],
     ),
+    "scaleway": ProviderSchema(
+        required=[ProviderField("secret_key", "scaleway_secret_key")],
+        optional=[ProviderField("ttl", "scaleway_ttl", FieldType.INTEGER)],
+    ),
     "selfhost.de": ProviderSchema(
         required=[
             ProviderField("username", "selfhostde_username"),
@@ -340,6 +351,13 @@ providers_schema: Dict[str, ProviderSchema] = {
             ProviderField("password", "servercow_password"),
             ProviderField("ttl", "servercow_ttl", FieldType.INTEGER),
         ],
+    ),
+    "spaceship": ProviderSchema(
+        required=[
+            ProviderField("api_key", "spaceship_api_key"),
+            ProviderField("api_secret", "spaceship_api_secret"),
+        ],
+        optional=[ProviderField("ttl", "spaceship_ttl", FieldType.INTEGER)],
     ),
     "spdyn": ProviderSchema(
         combos=[
@@ -361,6 +379,13 @@ providers_schema: Dict[str, ProviderSchema] = {
             ProviderField("email", "variomedia_email"),
         ],
     ),
+    "vercel": ProviderSchema(
+        required=[ProviderField("token", "vercel_token")],
+        optional=[
+            ProviderField("team_id", "vercel_team_id"),
+            ProviderField("ttl", "vercel_ttl", FieldType.INTEGER),
+        ],
+    ),
     "vultr": ProviderSchema(
         required=[ProviderField("apikey", "vultr_api_key")],
         optional=[ProviderField("ttl", "vultr_ttl", FieldType.INTEGER)],
@@ -376,6 +401,7 @@ providers_schema: Dict[str, ProviderSchema] = {
 
 class Config:
     def __init__(self, tpl, values):
+        self.notes = tpl.notes
         self.fail = tpl.funcs["fail"]
         self.values = values
 
@@ -442,6 +468,12 @@ class Config:
         items = items or []
         result = []
 
+        if any(item["provider"] == "hetzner" for item in items):
+            self.notes.add_deprecation(
+                "The [Hetzner] provider uses the legacy Hetzner DNS API which is going to be shutdown soon. "
+                "Please migrate to the [Hetzner Cloud] provider."
+            )
+
         for item in items:
             if item["provider"] not in providers_schema.keys():
                 self.fail(
@@ -461,6 +493,7 @@ class Config:
                     "provider": item["provider"],
                     "domain": item["domain"],
                     "ip_version": item.get("ip_version", ""),
+                    "ipv6_suffix": item.get("ipv6_suffix", ""),
                     **self.get_provider_config(item),
                 }
             )
