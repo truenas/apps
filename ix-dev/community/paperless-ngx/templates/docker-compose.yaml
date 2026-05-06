@@ -31,8 +31,7 @@
 {% do paperless.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
 {% do paperless.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
 
-{% do paperless.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do paperless.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do paperless.add_port(values.network.web_port) %}
 
 {% do paperless.environment.add_env("PAPERLESS_TIME_ZONE", values.TZ) %}
 {% do paperless.environment.add_env("PAPERLESS_BIND_ADDR", "0.0.0.0") %}
@@ -57,7 +56,8 @@
 
 {% do paperless.environment.add_user_envs(values.paperless.additional_envs | selectattr("container", "equalto", "paperless") | list) %}
 
-{% do paperless.add_port(values.network.web_port) %}
+{% do paperless.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do paperless.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% do paperless.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
@@ -77,6 +77,13 @@
   {% do paperless.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do paperless.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
 
 {% if values.paperless.enable_tika_gotenberg %}
   {% set tika = tpl.deps.tika(values.consts.tika_container_name, "tika_image", {"port": values.consts.tika_port}) %}
@@ -98,13 +105,6 @@
 
   {% do paperless.depends.add_dependency(values.consts.tika_container_name, "service_healthy") %}
   {% do paperless.depends.add_dependency(values.consts.gotenberg_container_name, "service_healthy") %}
-{% endif %}
-
-{% if perm_container.has_actions() %}
-  {% do perm_container.activate() %}
-  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do paperless.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
