@@ -7,9 +7,6 @@
 {% set c1 = tpl.add_container(values.consts.calagopus_container_name, "image") %}
 {% do c1.add_network(calagopus_net) %}
 
-{% set wings_init = tpl.add_container(values.consts.wings_init_container_name, "image") %}
-{% do wings_init.setup_as_helper() %}
-{% do wings_init.set_entrypoint(["/bin/sh", "-c"]) %}
 {% set wings_seed_yaml -%}
 system:
   root_directory: {{ wings_host_path }}
@@ -20,10 +17,6 @@ system:
   backup_directory: {{ wings_host_path }}/backups
   tmp_directory: {{ wings_host_path }}/tmp
 {%- endset %}
-{% do wings_init.set_command([
-  "[ -s " ~ values.consts.wings_config_path ~ " ] || cat > " ~ values.consts.wings_config_path ~ " <<'EOF'\n" ~ wings_seed_yaml ~ "\nEOF"
-]) %}
-{% do wings_init.add_storage(values.consts.data_path, values.storage.data) %}
 
 {# Permissions init container - prepares storage for postgres and the redis temp volume #}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
@@ -55,7 +48,6 @@ system:
 {# Dependencies must come up healthy before the panel starts #}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do c1.depends.add_dependency(values.consts.wings_init_container_name, "service_completed_successfully") %}
 
 {# Core environment - mirrors the upstream calagopus compose.yml #}
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
@@ -72,8 +64,7 @@ system:
 {% do c1.environment.add_env("APP_USE_INTERNAL_CACHE", "true") %}
 {% do c1.environment.add_env("APP_LOG_DIRECTORY", values.consts.log_path) %}
 
-{# AIO-specific: where the integrated wings reads its bootstrap configuration from.
-   The file is created by the wings-init container before this container starts. #}
+{# AIO-specific: where the integrated wings reads its bootstrap configuration from. #}
 {% do c1.environment.add_env("AIO_BASE_WINGS_CONFIGURATION", values.consts.wings_config_path) %}
 
 {% if values.calagopus.trusted_proxies %}
@@ -85,6 +76,9 @@ system:
 {# Ports - panel HTTP and Wings SFTP #}
 {% do c1.add_port(values.network.web_port, {"container_port": values.network.web_port.port_number}) %}
 {% do c1.add_port(values.network.sftp_port, {"container_port": values.consts.internal_sftp_port}) %}
+
+{# Wings seed config - always regenerated from current values on each deploy #}
+{% do c1.configs.add("wings_seed", wings_seed_yaml, values.consts.wings_config_path) %}
 
 {# Panel-managed storage (configurable via questions.yaml) #}
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
