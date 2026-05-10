@@ -41,17 +41,27 @@
 {% do pg_precheck.add_storage("/data", values.storage.data) %}
 {% do pg_precheck.configs.add("immich-pg-upgrade-precheck.sh", precheck(values), "/upgrade-precheck.sh", "0755") %}
 
-{# Dump: starts a temporary PG15 server against the legacy data dir and pg_dumps the database.
-   Image is the vectorchord-15 build (same extension surface as the legacy cluster) so
-   `pg_dump` succeeds even when the legacy `vectors` extension is still loaded. #}
-{% set pg_dump = tpl.add_container(values.consts.pg_dump_container_name, "vectorchord_15_image") %}
-{% do pg_dump.set_user(999, 999) %}
-{% do pg_dump.setup_as_helper(profile="low") %}
-{% do pg_dump.set_entrypoint(["/bin/bash", "/upgrade-dump.sh"]) %}
-{% do pg_dump.add_storage("/var/lib/postgresql", values.storage.postgres_data) %}
-{% do pg_dump.environment.add_env("POSTGRES_PASSWORD", values.immich.db_password) %}
-{% do pg_dump.configs.add("immich-pg-upgrade-dump.sh", dump_script(values), "/upgrade-dump.sh", "0755") %}
-{% do pg_dump.depends.add_dependency(values.consts.pg_precheck_container_name, "service_completed_successfully") %}
+{# Dump: one init container per supported old PG major (`consts.dump_source_versions`).
+   Each runs the same script with `OLD_VERSION` set to its own major; only the container
+   whose `OLD_VERSION` matches the on-disk PG_VERSION does any work. Containers are chained
+   sequentially (rather than in parallel) so they don't race on the shared volume.
+   Adding a new old version in the future is just registering a `vectorchord_<v>_image`
+   above and appending `<v>` to `dump_source_versions`. #}
+{% set last_dump_name = namespace(x=values.consts.pg_precheck_container_name) %}
+{% for v in values.consts.dump_source_versions %}
+  {% set dump_name = "%s-%s"|format(values.consts.pg_dump_container_name_prefix, v) %}
+  {% set pg_dump = tpl.add_container(dump_name, "vectorchord_%s_image"|format(v)) %}
+  {% do pg_dump.set_user(999, 999) %}
+  {% do pg_dump.setup_as_helper(profile="low") %}
+  {% do pg_dump.set_entrypoint(["/bin/bash", "/upgrade-dump.sh"]) %}
+  {% do pg_dump.add_storage("/var/lib/postgresql", values.storage.postgres_data) %}
+  {% do pg_dump.environment.add_env("OLD_VERSION", v) %}
+  {% do pg_dump.environment.add_env("TARGET_VERSION", values.consts.target_pg_major) %}
+  {% do pg_dump.environment.add_env("POSTGRES_PASSWORD", values.immich.db_password) %}
+  {% do pg_dump.configs.add("immich-pg-upgrade-dump.sh", dump_script(values), "/upgrade-dump.sh", "0755") %}
+  {% do pg_dump.depends.add_dependency(last_dump_name.x, "service_completed_successfully") %}
+  {% set last_dump_name.x = dump_name %}
+{% endfor %}
 
 {# Main Postgres 18 container. Built manually (not via `tpl.deps.postgres()`) to avoid
    the upstream `_upgrade` sidecar. Mirrors the lib's defaults (uid 999, shm 256MB,
@@ -71,7 +81,9 @@
 {% do postgres.environment.add_env("PGPORT", 5432) %}
 {% do postgres.environment.add_env("PGDATA", "/var/lib/postgresql/%s/docker"|format(values.consts.target_pg_major)) %}
 {% do postgres.environment.add_env("DB_STORAGE_TYPE", values.immich.db_storage_type) %}
-{% do postgres.depends.add_dependency(values.consts.pg_dump_container_name, "service_completed_successfully") %}
+{# Depends on whichever container is last in the precheck → dump-* chain. With no
+   dump_source_versions configured, that is the precheck container directly. #}
+{% do postgres.depends.add_dependency(last_dump_name.x, "service_completed_successfully") %}
 {% do perm_container.add_or_skip_action("pgvecto_postgres_data", values.storage.postgres_data, pg_perms_config) %}
 
 {# Restore: runs after PG18 is healthy. Idempotent — exits 0 if no dump is present

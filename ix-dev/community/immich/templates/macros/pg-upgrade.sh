@@ -1,12 +1,14 @@
 {% macro precheck(values) %}
 #!/usr/bin/env bash
-# Pre-upgrade safety checks. Runs before the dump container.
+# Pre-upgrade safety checks. Runs before any dump containers.
 # Exits 0 if safe to proceed (including no-op fresh-install / same-version cases).
 # Exits non-zero with a message if the cluster on disk is in a state we cannot upgrade.
 set -euo pipefail
 
 base=/var/lib/postgresql
 target="{{ values.consts.target_pg_major }}"
+# Space-separated list of old majors we have a dump path for.
+supported_old_versions="{% for v in values.consts.dump_source_versions %}{{ v }} {% endfor %}"
 
 # Detect on-disk PG version, if any.
 on_disk=""
@@ -30,6 +32,21 @@ fi
 if [ "${on_disk}" -gt "${target}" ]; then
   echo "Precheck FAILED: on-disk Postgres version is ${on_disk}, target is ${target}." >&2
   echo "Downgrades are not supported. Restore from backup or roll back the application version." >&2
+  exit 2
+fi
+
+# Refuse if we have no dump path for the on-disk version.
+match=0
+for v in ${supported_old_versions}; do
+  if [ "${v}" = "${on_disk}" ]; then
+    match=1
+    break
+  fi
+done
+if [ "${match}" -ne 1 ]; then
+  echo "Precheck FAILED: no automated upgrade path from PG${on_disk} to PG${target}." >&2
+  echo "Supported source versions: ${supported_old_versions}" >&2
+  echo "Restore from backup, or upgrade in stages via an Immich version that bridges to a supported source." >&2
   exit 2
 fi
 
@@ -71,38 +88,36 @@ echo "Precheck OK: PG${on_disk} → PG${target}; src=${src_gib} GiB, free=${avai
 
 {% macro dump_script(values) %}
 #!/usr/bin/env bash
-# Runs in a temporary PG15 container alongside the legacy data dir.
-# Starts the old server on a private socket, dumps the database, then moves the
-# legacy data dir aside so the main PG18 container initialises a fresh cluster.
-# Idempotent: if a completed dump already exists this exits 0 immediately.
+# Runs inside a temporary PG${OLD_VERSION} container alongside the legacy data dir.
+# Only the dump container whose `OLD_VERSION` matches what's on disk does any work;
+# the others exit 0 cleanly. The first to run a successful dump writes the marker
+# `_upgrade_workdir/dump.complete`, which subsequent containers in the chain honour.
 set -euo pipefail
 
 base=/var/lib/postgresql
 work="${base}/_upgrade_workdir"
+old="${OLD_VERSION:?OLD_VERSION must be set}"
+target="${TARGET_VERSION:?TARGET_VERSION must be set}"
+
 mkdir -p "${work}"
 chmod 0700 "${work}"
 
-# Idempotency: if we already produced a complete dump and moved the old dir aside, nothing to do.
 if [ -f "${work}/dump.complete" ]; then
-  echo "Dump: marker present at ${work}/dump.complete — skipping."
+  echo "Dump-${old}: marker present at ${work}/dump.complete — skipping."
   exit 0
 fi
 
-# Detect on-disk version. If only the target dir exists, this is a fresh install or an
-# already-upgraded cluster — nothing to do.
-on_disk=""
-for v in 17 16 15 14 13; do
-  if [ -f "${base}/${v}/docker/PG_VERSION" ]; then
-    on_disk="${v}"
-    break
-  fi
-done
-if [ -z "${on_disk}" ]; then
-  echo "Dump: no pre-target Postgres cluster on disk; nothing to dump."
+if [ "${old}" = "${target}" ]; then
+  echo "Dump-${old}: skipping — old equals target." >&2
   exit 0
 fi
 
-old_dir="${base}/${on_disk}/docker"
+if [ ! -f "${base}/${old}/docker/PG_VERSION" ]; then
+  echo "Dump-${old}: no PG${old} cluster on disk; skipping."
+  exit 0
+fi
+
+old_dir="${base}/${old}/docker"
 sock=/tmp/pg-dump-sock
 mkdir -p "${sock}"
 chown 999:999 "${sock}"
@@ -119,9 +134,9 @@ PGDATA="${old_dir}" pg_ctl -D "${old_dir}" \
 
 trap 'PGDATA="${old_dir}" pg_ctl -D "${old_dir}" -m fast stop || true' EXIT
 
-# Sanitise legacy state that breaks downstream restore on PG18.
+# Sanitise legacy state that breaks downstream restore on PG${target}.
 # - The legacy pgvecto.rs `vectors` extension/schema is unavailable in the new image (#3882).
-# - The reserved-prefix GUC `vchordrq.prewarm_dim` produces warnings on PG18 (#4667).
+# - The reserved-prefix GUC `vchordrq.prewarm_dim` produces warnings on the new server (#4667).
 psql -h "${sock}" -U "{{ values.consts.db_user }}" -d "{{ values.consts.db_name }}" \
   -v ON_ERROR_STOP=1 \
   -c "DROP EXTENSION IF EXISTS vectors CASCADE;" \
@@ -139,29 +154,30 @@ chmod 0600 "${work}/dump.dat"
 PGDATA="${old_dir}" pg_ctl -D "${old_dir}" -m fast stop
 trap - EXIT
 
-# Mark the dump complete BEFORE moving the legacy data dir aside. Order matters: if the
-# subsequent `mv` fails (or the container is killed between the two steps) we must err on
-# the side of "dump exists; trust the dump" rather than "dump never completed; re-dump from
-# the legacy dir" — because once we're past this point a re-dump may no longer be possible
-# (the source could be gone or the new PG18 cluster could already have started initdb).
+# Mark the dump complete BEFORE moving the legacy data dir aside. Order matters: if
+# the subsequent `mv` fails (or the container is killed between the two steps) we err
+# on the side of "dump exists; trust the dump" rather than "dump never completed; re-dump
+# from the legacy dir" — because once we're past this point a re-dump may no longer be
+# possible (the source could be gone or the new PG cluster could already have started initdb).
 touch "${work}/dump.complete"
 
-# Move the legacy data dir to a non-numeric sibling so the main PG18 container's entrypoint
-# initialises a fresh cluster at /var/lib/postgresql/{{ values.consts.target_pg_major }}/docker.
-# A non-numeric prefix also avoids any future re-introduction of the upstream upgrade.sh
-# from misidentifying it as a candidate cluster (it walks ${base}/*/docker).
+# Move the legacy data dir to a non-numeric sibling so the main PG container's entrypoint
+# initialises a fresh cluster at /var/lib/postgresql/${target}/docker. A non-numeric prefix
+# also avoids any future re-introduction of the upstream upgrade.sh from misidentifying it
+# as a candidate cluster (it walks ${base}/*/docker).
 ts=$(date +%s)
-mv "${base}/${on_disk}" "${base}/_legacy_pg${on_disk}_${ts}"
+mv "${base}/${old}" "${base}/_legacy_pg${old}_${ts}"
 
 size=$(du -h "${work}/dump.dat" | awk '{print $1}')
-echo "Dump complete: ${work}/dump.dat (${size}); legacy data moved to ${base}/_legacy_pg${on_disk}_${ts}."
+echo "Dump-${old} complete: ${work}/dump.dat (${size}); legacy data moved to ${base}/_legacy_pg${old}_${ts}."
 {% endmacro %}
 
 
 {% macro restore_script(values) %}
 #!/usr/bin/env bash
-# Runs after the main PG18 container is healthy. Restores the dump produced by the
-# dump container (if any), then runs post-restore sanitisation.
+# Runs after the main Postgres container is healthy. Restores the dump produced by
+# whichever dump container matched the on-disk version (if any), then runs
+# post-restore sanitisation.
 # Idempotent: if no dump is present, or restore already completed, exits 0.
 set -euo pipefail
 
@@ -201,7 +217,7 @@ psql -h "${host}" -U "${user}" -d "${db}" -v ON_ERROR_STOP=1 \
   -c "ALTER DATABASE \"${db}\" RESET vchordrq.prewarm_dim;"
 
 # Sanity check: at least one immich row visible. Table is `asset` (singular) on Immich.
-# Quoting the count separately so we don't trip ON_ERROR_STOP on an empty new install.
+# Only runs when dump.complete was set, so the table must exist.
 count=$(psql -h "${host}" -U "${user}" -d "${db}" -At -v ON_ERROR_STOP=1 \
   -c "SELECT count(*) FROM asset;")
 echo "Restore: post-restore asset row count = ${count}."
