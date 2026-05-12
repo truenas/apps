@@ -945,6 +945,13 @@ class AppMetadataUpdater:
             app_config["maintainers"] = new_maintainers
             needs_version_bump = True
 
+        app_source = f"https://apps.truenas.com/catalog/{app_manifest.name}_{app_manifest.train}/"
+        curr_sources = set(app_config.get("sources", []))
+        curr_sources.add(app_source)
+        if set(app_config.get("sources", [])) != curr_sources:
+            app_config["sources"] = sorted(curr_sources)
+            needs_version_bump = True
+
         # Bump version if needed
         if needs_version_bump and should_bump_version:
             old_version = app_config["version"]
