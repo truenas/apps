@@ -3,11 +3,13 @@
 {% set borg_net = tpl.networks.create_internal("borg-net") %}
 {% set cronjob_key = tpl.funcs.secure_string(32) %}
 
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
 {% set c1 = tpl.add_container(values.consts.borgwarehouse_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "SETGID", "SETUID", "DAC_OVERRIDE"]) %}
 
 {% do c1.add_network(borg_net) %}
-{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
 {% set cron_config = {
  "tasks": [
@@ -21,7 +23,6 @@
 {% do cron.container.depends.add_dependency(values.consts.borgwarehouse_container_name, "service_healthy") %}
 {% do cron.container.environment.add_env("CRONJOB_KEY", cronjob_key) %}
 
-{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/v1/version"}) %}
 {% do c1.environment.add_env("NEXTAUTH_SECRET", values.borg.nextauth_secret) %}
 {% do c1.environment.add_env("CRONJOB_KEY", cronjob_key) %}
