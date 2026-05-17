@@ -41,8 +41,11 @@
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_CCNET_DB_NAME", "ccnet_db") %}
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME", "seafile_db") %}
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_SEAHUB_DB_NAME", "seahub_db") %}
-{% do seafile.environment.add_env("SEAFILE_SERVER_HOSTNAME", values.seafile.server_hostname) %}
 {% set seafile_proto = "https" if values.network.certificate_id else "http" %}
+{% set seafile_port = values.network.https_port.port_number if values.network.certificate_id else values.network.web_port.port_number %}
+{% set default_port = 443 if values.network.certificate_id else 80 %}
+{% set seafile_hostname = values.seafile.server_hostname ~ (":" ~ seafile_port if seafile_port != default_port else "") %}
+{% do seafile.environment.add_env("SEAFILE_SERVER_HOSTNAME", seafile_hostname) %}
 {% do seafile.environment.add_env("SEAFILE_SERVER_PROTOCOL", seafile_proto) %}
 {% do seafile.environment.add_env("INIT_SEAFILE_ADMIN_EMAIL", values.seafile.admin_email) %}
 {% do seafile.environment.add_env("INIT_SEAFILE_ADMIN_PASSWORD", values.seafile.admin_password) %}
@@ -56,7 +59,7 @@
 
 {% if values.seafile.enable_seadoc %}
   {% do seafile.environment.add_env("ENABLE_SEADOC", "true") %}
-  {% set seadoc_url = values.seadoc.seadoc_server_url or seafile_proto + "://" + values.seafile.server_hostname + "/sdoc-server" %}
+  {% set seadoc_url = values.seadoc.seadoc_server_url or seafile_proto + "://" + seafile_hostname + "/sdoc-server" %}
   {% do seafile.environment.add_env("SEADOC_SERVER_URL", seadoc_url) %}
 {% endif %}
 
@@ -88,9 +91,9 @@
   {% do seadoc.environment.add_env("TIME_ZONE", values.TZ) %}
   {% do seadoc.environment.add_env("JWT_PRIVATE_KEY", values.seafile.jwt_private_key) %}
   {% do seadoc.environment.add_env("SEAHUB_SERVICE_URL", "http://" + values.consts.seafile_container_name) %}
-  {% do seadoc.add_extra_host(values.seafile.server_hostname.split(":")[0], "host-gateway") %}
+  {% do seadoc.add_extra_host(values.seafile.server_hostname, "host-gateway") %}
   {% do seadoc.environment.add_env("NON_ROOT", "false") %}
-  {% do seadoc.healthcheck.disable() %}
+  {% do seadoc.healthcheck.set_test("tcp", {"port": 80}) %}
   {% do seadoc.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
   {% do perm_container.add_or_skip_action("seadoc_data", values.storage.seadoc_data, {"uid": 0, "gid": 0, "mode": "check"}) %}
 {% endif %}
