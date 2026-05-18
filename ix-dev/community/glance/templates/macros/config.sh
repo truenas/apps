@@ -3,7 +3,7 @@
 {%- set cfg_path = "%s/glance.yml"|format(values.consts.config_path) %}
 if [ ! -f "{{ cfg_path }}" ]; then
   echo "File [{{ cfg_path }}] does not exist. Creating a default config..."
-  cp /default.yml "{{ cfg_path }}"
+  cat /default.yml > "{{ cfg_path }}"
 else
   echo "File [{{ cfg_path }}] exists!"
 fi
