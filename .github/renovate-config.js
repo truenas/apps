@@ -93,7 +93,7 @@ module.exports = {
     ),
     customVersioning(
       // YYYY-MM-DD-rN
-      "^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})-(?<build>r\\d+)$",
+      "^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})-r(?<build>\\d+)$",
       ["ghcr.io/zoeyvid/npmplus"],
     ),
     customVersioning(
