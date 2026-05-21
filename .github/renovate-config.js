@@ -347,6 +347,11 @@ module.exports = {
       "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["itzcrazykns1337/vane"],
     ),
+    customVersioning(
+      // 0.9.0(.x)?
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
+      ["jvmilazz0/kavita"],
+    ),
   ],
 };
 
