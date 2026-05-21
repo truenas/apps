@@ -27,9 +27,12 @@
 
 
 {% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
-{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
-{% do perms.add_or_skip_action("data", values.storage.data, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
