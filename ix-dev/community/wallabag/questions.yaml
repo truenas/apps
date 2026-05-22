@@ -1,12 +1,10 @@
 groups:
   - name: wallabag Configuration
     description: Configure wallabag
-  - name: User and Group Configuration
-    description: Configure User and Group for the container
   - name: Network Configuration
-    description: Configure Network for the container
+    description: Configure Network for wallabag
   - name: Storage Configuration
-    description: Configure Storage for the container
+    description: Configure Storage for wallabag
   - name: Labels Configuration
     description: Configure Labels for wallabag
   - name: Resources Configuration
@@ -28,70 +26,79 @@ questions:
             type: string
             default: "http://localhost:30430"
             required: true
-
-# Run As Configuration
-  - variable: run_as
-    label: ""
-    group: User and Group Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: user
-          label: User ID
-          description: The User ID that the container will run as
+        - variable: additional_envs
+          label: Additional Environment Variables
           schema:
-            type: int
-            default: 568
-            required: true
-        - variable: group
-          label: Group ID
-          description: The Group ID that the container will run as
-          schema:
-            type: int
-            default: 568
-            required: true
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
 
-# Network Configuration
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: host_network
-          label: Host Network
-          description: Enable Host Network
-          schema:
-            type: boolean
-            default: false
-            required: true
-            show_if: [["never", "=", "true"]]
         - variable: web_port
           label: wallabag Web Port
           description: Port to access the wallabag web interface
           schema:
             type: dict
             attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  Publish port on the host for external access.
+                  Expose port for inter-container communication.
+                  None - No external access.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
               - variable: port_number
                 label: Port Number
-                description: The port number to expose
                 schema:
                   type: int
                   default: 30430
+                  min: 1
+                  max: 65535
                   required: true
-              - variable: bind_mode
-                label: Bind Mode
-                description: How the port should be bound
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
                 schema:
-                  type: string
-                  default: published
-                  enum:
-                    - value: published
-                      description: Published
-                  required: true
-                  show_if: [["never", "=", "true"]]
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
 
-# Storage Configuration
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -106,39 +113,73 @@ questions:
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  Host Path (Path that already exists on the system).
+                  ixVolume (Dataset created automatically by the system).
                 schema:
                   type: string
                   required: true
                   default: "ix_volume"
                   enum:
                     - value: "host_path"
-                      description: Host Path
+                      description: Host Path (Path that already exists on the system)
                     - value: "ix_volume"
-                      description: ixVolume
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
                     - "normalize/ix_volume"
                   attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
+                        hidden: true
                         default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
                   type: dict
                   show_if: [["type", "=", "host_path"]]
                   attrs:
-                    - variable: host_path
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
+                        show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: images
           label: Images Storage
@@ -148,42 +189,74 @@ questions:
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  Host Path (Path that already exists on the system).
+                  ixVolume (Dataset created automatically by the system).
                 schema:
                   type: string
                   required: true
                   default: "ix_volume"
                   enum:
                     - value: "host_path"
-                      description: Host Path
+                      description: Host Path (Path that already exists on the system)
                     - value: "ix_volume"
-                      description: ixVolume
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
                     - "normalize/ix_volume"
                   attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
+                        hidden: true
                         default: "images"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
                   type: dict
                   show_if: [["type", "=", "host_path"]]
                   attrs:
-                    - variable: host_path
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
+                        show_if: [["acl_enable", "=", false]]
                         required: true
-
-
 
   - variable: labels
     label: ""
@@ -207,6 +280,20 @@ questions:
                 schema:
                   type: string
                   required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: wallabag
+                            description: wallabag
 
   - variable: resources
     label: ""
