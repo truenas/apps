@@ -318,8 +318,8 @@ module.exports = {
       ["opencloudeu/web-extensions"],
     ),
     customVersioning(
-      // 1.0.0-alpha.67
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-alpha\\.(?<build>\\d+))?$",
+      // 1.0.0-beta.4
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-beta\\.(?<build>\\d+))?$",
       ["rustfs/rustfs"],
     ),
     customVersioning(
