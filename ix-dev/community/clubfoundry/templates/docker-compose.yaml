@@ -1,0 +1,60 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{# ────────────────────────────────────────────────────────────────────
+   ClubFoundry catalog compose template.
+
+   Rendered by the TrueNAS Apps install wizard with the operator's
+   answers from questions.yaml. The rendered output is what the host runs.
+
+   Hard invariants (do not change without updating
+   docs/project/TRUENAS_CATALOG_SUBMISSION.md):
+
+   1. CLM_UPDATE_MODE=truenas_apps   — disables sidecar self-update;
+                                       TrueNAS Apps owns docker pull+up.
+   2. NO clubfoundry-updater service — the standalone sidecar updater is
+                                       OMITTED; TrueNAS handles updates.
+   3. /app/data bind mount           — SQLite + diagnostics survive recreate.
+
+   ──────────────────────────────────────────────────────────────────── #}
+
+{% set app = tpl.add_container("clubfoundry", "clubfoundry_image") %}
+
+{# User / group #}
+{% do app.set_user(values.run_as.user, values.run_as.group) %}
+
+{# Network — single web port, follows the bind-mode question #}
+{% do app.add_port(values.network.web_port, {"container_port": values.network.web_port.port_number}) %}
+
+{# Environment — catalog-managed marker + admin/connection/branding #}
+{% do app.environment.add_env("CLM_UPDATE_MODE", "truenas_apps") %}
+{% do app.environment.add_env("CLM_ADMIN_EMAIL", values.clubfoundry.admin_email) %}
+{% do app.environment.add_env("CLM_ADMIN_PASSWORD", values.clubfoundry.admin_password) %}
+{% do app.environment.add_env("CLM_TRUENAS_API_KEY", values.clubfoundry.truenas_api_key) %}
+{% do app.environment.add_env("CLM_TRUENAS_HOST", values.clubfoundry.truenas_host) %}
+{% do app.environment.add_env("CLM_PORTAL_NAME", values.clubfoundry.portal_name) %}
+{% do app.environment.add_env("CLM_THEME_DEFAULT", values.clubfoundry.theme) %}
+{% do app.environment.add_env("CLM_PORT", values.network.web_port.port_number) %}
+
+{# Storage — SQLite + uploads + diagnostics #}
+{% do app.add_storage("/app/data", values.storage.data) %}
+
+{# Healthcheck — IPv4 loopback (TrueNAS hosts often have broken IPv6 upstream) #}
+{% do app.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+
+{# Resources — CPU + memory limits #}
+{% do app.resources.set_profile("low") %}
+{% do app.resources.set_cpus(values.resources.limits.cpus) %}
+{% do app.resources.set_memory(values.resources.limits.memory) %}
+
+{# Permissions init container — fixes data dir ownership when uid/gid changed #}
+{% set perms = tpl.deps.perms("perms") %}
+{% do perms.add_or_skip_action("data", values.storage.data, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do app.depends.add_dependency("perms", "service_completed_successfully") %}
+{% endif %}
+
+{# Portal entry — what TrueNAS Apps UI links to as "Open Web Portal" #}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "http", "path": "/"}) %}
+
+{{ tpl.render() | tojson }}

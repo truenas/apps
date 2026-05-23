@@ -1,0 +1,219 @@
+# ClubFoundry questions.yaml — config form schema rendered by TrueNAS Apps
+# install wizard. Groups follow the upstream convention (My App / User and
+# Group / Network / Storage / Resources) so the wizard looks like every
+# other community-train app.
+
+groups:
+  - name: ClubFoundry Configuration
+    description: Admin credentials, TrueNAS middleware connection, and branding.
+  - name: User and Group Configuration
+    description: User/group ClubFoundry runs as inside the container.
+  - name: Network Configuration
+    description: Listen port for the admin BO and customer portal.
+  - name: Storage Configuration
+    description: Where SQLite database + diagnostics live on the host.
+  - name: Resources Configuration
+    description: CPU / memory limits.
+
+questions:
+  # ─── ClubFoundry Configuration ────────────────────────────────────────
+  - variable: clubfoundry
+    label: ""
+    group: ClubFoundry Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: admin_email
+          label: Administrator Email
+          description: Email address for the first admin account. Used for sign-in.
+          schema:
+            type: string
+            required: true
+
+        - variable: admin_password
+          label: Administrator Password
+          description: First-boot only. Hashed by the container before storage.
+          schema:
+            type: string
+            required: true
+            private: true
+            min_length: 12
+
+        - variable: truenas_api_key
+          label: TrueNAS API Key
+          description: Generate at Credentials → API Keys → Add (full middleware access).
+          schema:
+            type: string
+            required: true
+            private: true
+
+        - variable: truenas_host
+          label: TrueNAS Host URL
+          description: Usually https://127.0.0.1. Override only for multi-host setups.
+          schema:
+            type: string
+            required: true
+            default: https://127.0.0.1
+
+        - variable: portal_name
+          label: Portal Name
+          description: Shown in the browser tab and at the top of the admin BO.
+          schema:
+            type: string
+            default: ClubFoundry
+
+        - variable: theme
+          label: Default Theme
+          description: Per-user themes still selectable in the admin BO.
+          schema:
+            type: string
+            default: soft
+            enum:
+              - value: soft
+                description: Soft
+              - value: light
+                description: Light
+              - value: dark
+                description: Dark
+
+  # ─── User and Group Configuration ─────────────────────────────────────
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: Container UID. Default 0 (root) — see app.yaml note about non-root drop tracking.
+          schema:
+            type: int
+            min: 0
+            default: 0
+            required: true
+        - variable: group
+          label: Group ID
+          description: Container GID. Must match the user above for file permissions.
+          schema:
+            type: int
+            min: 0
+            default: 0
+            required: true
+
+  # ─── Network Configuration ────────────────────────────────────────────
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: Web Port
+          description: HTTP port for the admin BO and customer-facing portal.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: Host networking is required for iSCSI client traffic.
+                schema:
+                  type: string
+                  default: published
+                  enum:
+                    - value: published
+                      description: Publish port on the host
+                    - value: host
+                      description: Use host networking
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 3000
+                  min: 1024
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs the port binds to. Leave empty for all.
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+
+  # ─── Storage Configuration ────────────────────────────────────────────
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: ClubFoundry Data Directory
+          description: SQLite database + uploads + diagnostics. Survives container recreate.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: host_path
+                      description: Host Path (Path that already exists on the system)
+                    - value: ix_volume
+                      description: ix-volume (Dataset created automatically)
+              - variable: ix_volume_config
+                label: ix-volume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  attrs:
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        default: data
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        required: true
+
+  # ─── Resources Configuration ──────────────────────────────────────────
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPU limit. Default 2 cores is plenty for typical workloads.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                schema:
+                  type: int
+                  default: 2048
+                  required: true
