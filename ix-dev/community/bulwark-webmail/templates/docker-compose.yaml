@@ -5,26 +5,22 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
 
+{% set urls = namespace(x=[]) %}
+{% for url in values.bulwark.jmap_server_urls %}
+  {% do urls.x.append(url.rstrip("/")) %}
+{% endfor %}
 
-{% if values.bulwark.jmap_server_url %}
-  {% do c1.environment.add_env("JMAP_SERVER_URL", values.bulwark.jmap_server_url) %}
-{% endif %}
-
-{% if values.bulwark.app_name %}
-  {% do c1.environment.add_env("APP_NAME", values.bulwark.app_name) %}
-{% endif %}
-
-{% if values.bulwark.session_secret %}
-  {% do c1.environment.add_env("SESSION_SECRET", values.bulwark.session_secret) %}
-{% endif %}
-
-{% do c1.environment.add_env("BULWARK_TELEMETRY", values.bulwark.telemetry) %}
-
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("JMAP_SERVER_URLS", urls.x | join(",")) %}
+{% do c1.environment.add_env("SESSION_SECRET", values.bulwark.session_secret) %}
+{% do c1.environment.add_env("SETTINGS_DATA_DIR", "%s/settings"|format(values.consts.data_path)) %}
+{% do c1.environment.add_env("ADMIN_CONFIG_DIR", "%s/admin"|format(values.consts.data_path)) %}
+{% do c1.environment.add_env("ADMIN_STATE_DIR", "%s/admin-state"|format(values.consts.data_path)) %}
 {% do c1.environment.add_user_envs(values.bulwark.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
