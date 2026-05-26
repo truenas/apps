@@ -1,18 +1,20 @@
 groups:
-  - name: AdventureLog Configuration
-    description: Configure AdventureLog
+  - name: PeerTube Configuration
+    description: Configure PeerTube
+  - name: SMTP Configuration
+    description: Configure SMTP for PeerTube email notifications
   - name: Network Configuration
-    description: Configure Network for AdventureLog
+    description: Configure Network for PeerTube
   - name: Storage Configuration
-    description: Configure Storage for AdventureLog
+    description: Configure Storage for PeerTube
   - name: Labels Configuration
-    description: Configure Labels for AdventureLog
+    description: Configure Labels for PeerTube
   - name: Resources Configuration
-    description: Configure Resources for AdventureLog
+    description: Configure Resources for PeerTube
 
 questions:
   - variable: TZ
-    group: AdventureLog Configuration
+    group: PeerTube Configuration
     label: Timezone
     schema:
       type: string
@@ -20,9 +22,9 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: adventurelog
+  - variable: peertube
     label: ""
-    group: AdventureLog Configuration
+    group: PeerTube Configuration
     schema:
       type: dict
       attrs:
@@ -31,76 +33,98 @@ questions:
           description: |
             If you are changing this after the postgres directory has been initialized,</br>
             STOP! and make sure you have a backup of your data.</br>
-            Changing this will trigger an one way database upgrade.</br>
+            Changing this will trigger a one way database upgrade.</br>
             You can only select newer versions of postgres.</br>
             Selecting an older version will refuse to start.</br>
             If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: postgis_18_image
+            default: postgres_17_image
             required: true
             enum:
-              - value: postgis_17_image
+              - value: postgres_17_image
                 description: Postgres 17
-              - value: postgis_18_image
+              - value: postgres_18_image
                 description: Postgres 18
         - variable: db_password
           label: Database Password
-          description: The password for AdventureLog.
+          description: The password for the PeerTube database.
           schema:
             type: string
             default: ""
             required: true
             private: true
-        - variable: secret_key
-          label: Secret Key
+        - variable: redis_password
+          label: Redis Password
+          description: The password for the Redis cache.
           schema:
             type: string
             default: ""
             required: true
             private: true
-        - variable: admin_username
-          label: Initial Admin Username
-          schema:
-            type: string
-            default: ""
-            required: true
-            immutable: true
-        - variable: admin_password
-          label: Initial Admin Password
+        - variable: secret
+          label: PeerTube Secret
+          description: |
+            A long random string used as the application secret.</br>
+            Used for signing tokens and encrypting data.</br>
+            Generate with: openssl rand -hex 32
           schema:
             type: string
             default: ""
             required: true
             private: true
-            immutable: true
         - variable: admin_email
-          label: Initial Admin Email
+          label: Admin Email
+          description: |
+            The email address for the initial admin account.</br>
+            This cannot be changed after the first startup.
           schema:
             type: string
             default: ""
             required: true
             immutable: true
-        - variable: frontend_url
-          label: Frontend URL
+        - variable: initial_root_password
+          label: Initial Root Password
           description: |
-            The URL for the AdventureLog frontend.</br>
-            Used when generating email etc. </br>
-            This should point on the frontend port
+            The password for the initial root account.</br>
+            This cannot be changed after the first startup.
           schema:
-            type: uri
+            type: string
             default: ""
             required: true
-        - variable: backend_url
-          label: Backend URL
+            private: true
+            immutable: true
+        - variable: webserver_hostname
+          label: Webserver Hostname
           description: |
-            The URL for the AdventureLog backend.</br>
-            Used when generating image urls etc. </br>
-            This should point on the backend port
+            The domain name where PeerTube will be accessible.</br>
+            Do not include http:// or https://.</br>
+            Example: peertube.example.com</br>
+            WARNING: This cannot be changed after PeerTube is initialized.
           schema:
-            type: uri
+            type: string
             default: ""
             required: true
+            immutable: true
+        - variable: webserver_port
+          label: Webserver Port
+          description: |
+            The public port where PeerTube is accessible.</br>
+            If behind a reverse proxy on port 443, set to 443.
+          schema:
+            type: int
+            default: 443
+            required: true
+            min: 1
+            max: 65535
+        - variable: webserver_https
+          label: Webserver HTTPS
+          description: |
+            Set to true if PeerTube is served over HTTPS.</br>
+            This affects how links and embeds are generated.
+          schema:
+            type: boolean
+            default: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -122,14 +146,73 @@ questions:
                       schema:
                         type: string
 
+  - variable: smtp
+    label: ""
+    group: SMTP Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enabled
+          label: Enable SMTP
+          description: Enable email notifications via an external SMTP server.
+          schema:
+            type: boolean
+            default: false
+        - variable: hostname
+          label: SMTP Hostname
+          description: The hostname or IP address of the SMTP server.
+          schema:
+            type: string
+            default: ""
+            show_if: [["enabled", "=", true]]
+        - variable: port
+          label: SMTP Port
+          description: The port of the SMTP server.
+          schema:
+            type: int
+            default: 465
+            min: 1
+            max: 65535
+            show_if: [["enabled", "=", true]]
+        - variable: username
+          label: SMTP Username
+          description: The username for SMTP authentication.
+          schema:
+            type: string
+            default: ""
+            show_if: [["enabled", "=", true]]
+        - variable: password
+          label: SMTP Password
+          description: The password for SMTP authentication.
+          schema:
+            type: string
+            default: ""
+            private: true
+            show_if: [["enabled", "=", true]]
+        - variable: tls
+          label: Enable TLS
+          description: Use TLS when connecting to the SMTP server.
+          schema:
+            type: boolean
+            default: true
+            show_if: [["enabled", "=", true]]
+        - variable: from_address
+          label: From Address
+          description: The email address used as the sender for outgoing emails.
+          schema:
+            type: string
+            default: ""
+            show_if: [["enabled", "=", true]]
+
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: backend_port
-          label: Backend Port
+        - variable: web_port
+          label: Web UI Port
+          description: The port to expose the PeerTube web interface on the host.
           schema:
             type: dict
             attrs:
@@ -156,7 +239,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30250
+                  default: 9000
                   show_if: [["bind_mode", "=", "published"]]
                   min: 1
                   max: 65535
@@ -176,10 +259,20 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: frontend_port
-          label: Frontend Port
+        - variable: rtmp_enabled
+          label: Enable RTMP Live Streaming
+          description: |
+            Enable the RTMP port (1935) for live streaming ingest.</br>
+            Only needed if you plan to use live streaming features.
+          schema:
+            type: boolean
+            default: false
+        - variable: rtmp_port
+          label: RTMP Port
+          description: The port to expose for RTMP live streaming ingest.
           schema:
             type: dict
+            show_if: [["rtmp_enabled", "=", true]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -204,7 +297,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30251
+                  default: 1935
                   show_if: [["bind_mode", "=", "published"]]
                   min: 1
                   max: 65535
@@ -262,12 +355,12 @@ questions:
                                     type: string
                                     required: true
                                     enum:
-                                      - value: backend
-                                        description: backend
-                                      - value: frontend
-                                        description: frontend
-                                      - value: postgis
-                                        description: postgis
+                                      - value: peertube
+                                        description: peertube
+                                      - value: postgres
+                                        description: postgres
+                                      - value: redis
+                                        description: redis
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -316,14 +409,16 @@ questions:
                                         schema:
                                           type: int
                                           "null": true
+
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: media
-          label: Media Storage
+        - variable: data
+          label: PeerTube Data Storage
+          description: Stores videos, thumbnails, previews, and uploaded files.
           schema:
             type: dict
             attrs:
@@ -363,7 +458,83 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "media"
+                        default: "peertube_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: config
+          label: PeerTube Config Storage
+          description: Stores the PeerTube production.yaml configuration file.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "peertube_config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -439,7 +610,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "pg_data"
+                        default: "peertube_pg_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -641,6 +812,7 @@ questions:
                             schema:
                               type: string
                               required: true
+
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -675,12 +847,13 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: backend
-                            description: backend
-                          - value: frontend
-                            description: frontend
-                          - value: postgis
-                            description: postgis
+                          - value: peertube
+                            description: peertube
+                          - value: postgres
+                            description: postgres
+                          - value: redis
+                            description: redis
+
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -694,14 +867,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for AdventureLog.
+                description: CPUs limit for PeerTube.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for AdventureLog.
+                description: Memory limit for PeerTube.
                 schema:
                   type: int
                   default: 4096
