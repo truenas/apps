@@ -93,7 +93,7 @@ module.exports = {
     ),
     customVersioning(
       // YYYY-MM-DD-rN
-      "^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})-(?<build>r\\d+)$",
+      "^(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})-r(?<build>\\d+)$",
       ["ghcr.io/zoeyvid/npmplus"],
     ),
     customVersioning(
@@ -318,8 +318,8 @@ module.exports = {
       ["opencloudeu/web-extensions"],
     ),
     customVersioning(
-      // 1.0.0-alpha.67
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-alpha\\.(?<build>\\d+))?$",
+      // 1.0.0-beta.4
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-beta\\.(?<build>\\d+))?$",
       ["rustfs/rustfs"],
     ),
     customVersioning(
@@ -346,6 +346,11 @@ module.exports = {
       // slim-v1.12.2
       "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["itzcrazykns1337/vane"],
+    ),
+    customVersioning(
+      // 0.9.0(.x)?
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
+      ["jvmilazz0/kavita"],
     ),
   ],
 };
