@@ -7,11 +7,11 @@ if TYPE_CHECKING:
 try:
     from .error import RenderError
     from .formatter import escape_dollar
-    from .validations import valid_http_path_or_raise
+    from .validations import valid_http_path_or_raise, valid_portal_scheme_or_raise
 except ImportError:
     from error import RenderError
     from formatter import escape_dollar
-    from validations import valid_http_path_or_raise
+    from validations import valid_http_path_or_raise, valid_portal_scheme_or_raise
 
 
 class Healthcheck:
@@ -101,6 +101,7 @@ def test_mapping(variant: str, config: dict | None = None) -> list[str]:
         "mongodb": mongodb_test,
         "pidof": pidof_test,
         "pgrep": pgrep_test,
+        "node": node_test,
     }
 
     if variant not in tests:
@@ -295,3 +296,25 @@ def pgrep_test(config: dict) -> list[str]:
 
     # -f - Match against full process name
     return ["CMD", "pgrep", "-f", process]
+
+
+def node_test(config: dict) -> list[str]:
+    config = config or {}
+    binary = get_key(config, "binary", "node", False)
+    scheme = get_key(config, "scheme", "http", False)
+    host = get_key(config, "host", "127.0.0.1", False)
+    port = get_key(config, "port", None, True)
+    path = valid_http_path_or_raise(get_key(config, "path", "/", False))
+    scheme = valid_portal_scheme_or_raise(get_key(config, "scheme", "http", False))
+
+    opts = {"host": host, "port": port, "path": path}
+    if scheme == "https":
+        opts["rejectUnauthorized"] = False
+
+    script = (
+        f"require('{scheme}').get({json.dumps(opts)}, "
+        "r => process.exit(r.statusCode === 200 ? 0 : 1))"
+        ".on('error', () => process.exit(1));"
+    )
+
+    return ["CMD", binary, "-e", script]
