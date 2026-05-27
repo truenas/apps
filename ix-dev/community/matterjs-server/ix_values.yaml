@@ -1,0 +1,98 @@
+images:
+  image:
+    repository: ghcr.io/matter-js/matterjs-server
+    tag: 0.7.1
+  container_utils_image:
+    repository: ixsystems/container-utils
+    tag: 1.0.2
+
+consts:
+  matterjs_container_name: matterjs-server
+  perms_container_name: permissions
+  data_path: /data
+  ota_path: /ota
+  notes_body: |
+    **Matter.js Server** exposes a WebSocket API at `/ws` and a web dashboard at `/`
+    on the configured port (default `5580`).
+
+    ## Network setup
+
+    Matter device and Thread Border Router discovery uses **mDNS** on UDP `5353`.
+    Pick **one** of the two approaches below — both work, with different
+    trade-offs. Plain bridge networking will break Matter device discovery and
+    is not supported.
+
+    ### Option A — Host networking + Avahi tweak (simplest)
+
+    With *Host Network* enabled (the default), Matter.js shares the host's
+    network namespace. TrueNAS's `avahi-daemon` already owns UDP `5353` with
+    `disallow-other-stacks=yes`, so on first start the app crashes with
+    `Cannot bind 0.0.0.0:5353 because port is already in use`. Fix once:
+
+    1. SSH to the TrueNAS host and run:
+       ```
+       sudo sed -i 's/disallow-other-stacks=yes/disallow-other-stacks=no/' /etc/avahi/avahi-daemon.conf
+       sudo systemctl restart avahi-daemon.service
+       ```
+    2. Persist across TrueNAS upgrades: *System Settings → Advanced → Init/Shutdown Scripts → Add*,
+       Type `Command`, When `Post Init`, Command:
+       ```
+       sed -i "/disallow-other-stacks=yes/c\disallow-other-stacks=no" /etc/avahi/avahi-daemon.conf && systemctl restart avahi-daemon.service
+       ```
+    3. Restart this app.
+
+    Both daemons then coexist via `SO_REUSEADDR`. TrueNAS's own mDNS
+    announcements (SMB/Bonjour) keep working unchanged.
+
+    ### Option B — Macvlan network (no host changes)
+
+    Give the container its own LAN IP and its own port `5353`, fully separate
+    from TrueNAS's avahi.
+
+    1. SSH and create the network (replace `eno1` with your NIC, plus your
+       subnet and gateway):
+       ```
+       docker network create -d macvlan \
+         -o parent=eno1 \
+         --subnet=192.168.1.0/24 --gateway=192.168.1.1 \
+         matter_lan
+       ```
+       For Thread Matter devices (which require IPv6 end-to-end), add IPv6:
+       ```
+       docker network create -d macvlan -o parent=eno1 \
+         --subnet=192.168.1.0/24 --gateway=192.168.1.1 \
+         --ipv6 --subnet=fd00:abcd::/64 --gateway=fd00:abcd::1 \
+         matter_lan
+       ```
+    2. In the app form: turn **Host Network** off, then under *Networks* add
+       `matter_lan` with container `matterjs-server` and an IPv4 address
+       outside your DHCP range (e.g. `192.168.1.200`).
+    3. Install/restart the app. Access the dashboard at the macvlan IP, e.g.
+       `http://192.168.1.200:5580/`.
+
+    Caveats:
+    - The TrueNAS host cannot reach the macvlan container by default. If you
+      run Home Assistant as a separate TrueNAS app on the same box, it won't
+      see this server without a shim macvlan interface on the host.
+    - Pick a static IP outside the DHCP range; compose macvlan doesn't do DHCP.
+    - IPv4-only macvlan works for Wi-Fi Matter commissioning, but Thread
+      device communication will be unreliable without the IPv6 subnet.
+
+    ## BLE commissioning on TrueNAS
+
+    TrueNAS SCALE does not ship Bluetooth drivers, so the `BLUETOOTH_ADAPTER`
+    option (host HCI) generally will not work even if you have a USB BT dongle
+    plugged in.
+
+    **Recommended setup:** enable **BLE Proxy Endpoint** in the app settings,
+    then run Home Assistant somewhere on your network (this can be the TrueNAS
+    Home Assistant app, a separate box, or HA OS). Add one or more ESP32-based
+    [ESPHome Bluetooth Proxy](https://esphome.io/components/bluetooth_proxy/)
+    devices. Once HA's Matter integration is pointed at this server, it
+    automatically forwards BLE traffic from the ESPHome proxies to the
+    `/ble` endpoint here — no extra config needed on this app.
+
+    If you do have a working host BT adapter and want to use it directly, set
+    `BLUETOOTH_ADAPTER` and change User/Group to `0` (root). This effectively
+    disables container isolation, so prefer the ESPHome proxy path when
+    possible.
