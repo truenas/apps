@@ -352,6 +352,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["jvmilazz0/kavita"],
     ),
+    customVersioning(
+      // 1.0(.0)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$",
+      ["ghcr.io/retropex/bitcoin-truenas"],
+    ),
   ],
 };
 
