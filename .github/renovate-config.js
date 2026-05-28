@@ -318,8 +318,8 @@ module.exports = {
       ["opencloudeu/web-extensions"],
     ),
     customVersioning(
-      // 1.0.0-alpha.67
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-alpha\\.(?<build>\\d+))?$",
+      // 1.0.0-beta.4
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-beta\\.(?<build>\\d+))?$",
       ["rustfs/rustfs"],
     ),
     customVersioning(
@@ -351,6 +351,11 @@ module.exports = {
       // 0.9.0(.x)?
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["jvmilazz0/kavita"],
+    ),
+    customVersioning(
+      // 1.0(.0)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$",
+      ["ghcr.io/retropex/bitcoin-truenas"],
     ),
   ],
 };
