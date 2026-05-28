@@ -4,7 +4,14 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
-{% do c1.healthcheck.disable() %}
+
+{% if values.hermes_agent.enable_dashboard == true %}
+  {% do c1.healthcheck.set_test("curl", {"port": values.network.dashboard_port.port_number, "path": "/health"}) %}
+{% elif values.hermes_agent.enable_gateway == true %}
+  {% do c1.healthcheck.set_test("curl", {"port": values.network.gateway_port.port_number, "path": "/health"}) %}
+{% else %}
+  {% do c1.healthcheck.disable() %}
+{% endif %}
 
 {% do c1.set_command([
   "gateway", "run"
@@ -13,18 +20,25 @@
 
 {% if values.hermes_agent.enable_dashboard == true %}
   {% do c1.environment.add_env("HERMES_DASHBOARD", "1") %}
-{% elif values.hermes_agent.enable_dashboard == false %}
-  {% do c1.environment.add_env("HERMES_DASHBOARD", "0") %}
+  {% do c1.environment.add_env("HERMES_DASHBOARD_PORT", values.network.dashboard_port.port_number) %}
 {% endif %}
-{% do c1.environment.add_env("HERMES_DASHBOARD_PORT", values.network.dashboard_port.port_number) %}
-{% do c1.environment.add_env("API_SERVER_PORT", values.network.gateway_port.port_number) %}
 
+{% if values.hermes_agent.enable_gateway == true %}
+  {% do c1.environment.add_env("API_SERVER_ENABLED", values.hermes_agent.enable_gateway) %}
+  {% do c1.environment.add_env("API_SERVER_PORT", values.network.gateway_port.port_number) %}
+  {% do c1.environment.add_env("API_SERVER_KEY", values.hermes_agent.gateway_key) %}
+{% endif %}
 
 {% do c1.environment.add_user_envs(values.hermes_agent.additional_envs) %}
 
 
-{% do c1.add_port(values.network.gateway_port) %}
-{% do c1.add_port(values.network.dashboard_port) %}
+{% if values.hermes_agent.enable_gateway == true %}
+  {% do c1.add_port(values.network.gateway_port) %}
+{% endif %}
+
+{% if values.hermes_agent.enable_dashboard == true %}
+  {% do c1.add_port(values.network.dashboard_port) %}
+{% endif %}
 
 
 {% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
@@ -41,7 +55,10 @@
 {% endif %}
 
 
-{% do tpl.portals.add(values.network.dashboard_port) %}
+{% if values.hermes_agent.enable_dashboard == true %}
+  {% do tpl.portals.add(values.network.dashboard_port) %}
+{% endif %}
+
 
 {% do c1.add_caps(["CHOWN", "SETUID", "SETGID"]) %}
 
