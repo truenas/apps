@@ -357,6 +357,11 @@ module.exports = {
       "^v(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$",
       ["ghcr.io/retropex/bitcoin-truenas"],
     ),
+    customVersioning(
+      // v2026.5.29(.2)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
+      ["nousresearch/hermes-agent"],
+    ),
   ],
 };
 
