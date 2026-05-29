@@ -1,8 +1,6 @@
 groups:
   - name: Hermes-Agent Configuration
     description: Configure Hermes-Agent
-  - name: User and Group Configuration
-    description: Configure User and Group for Hermes-Agent
   - name: Network Configuration
     description: Configure Network for Hermes-Agent
   - name: Storage Configuration
@@ -19,37 +17,10 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: enable_dashboard
-          label: Enable Dashboard
-          description: |
-            Enable the dashboard for Hermes-Agent.</br>
-            This will provide a web interface for managing and monitoring Hermes-Agent.
-          schema:
-            type: boolean
-            default: false
-        - variable: enable_insecure_dashboard_access
-          label: Enable Insecure Dashboard Access
-          description: |
-            Allow accessing the dashboard without authentication. <br>
-            This is only recommended for testing purposes or trusted networks. <br>
-            If no authentication method is set up and this option is disabled, the dashboard will not start.
-          schema:
-            type: boolean
-            show_if: [["enable_dashboard", "=", "true"]]
-            default: false
-        - variable: enable_gateway
-          label: Enable Gateway
-          description: |
-            Enable the gateway for Hermes-Agent.</br>
-            This will allow other applications to communicate with Hermes-Agent via API.
-          schema:
-            type: boolean
-            default: false
         - variable: gateway_key
           label: Gateway API Key
           schema:
             type: string
-            show_if: [["enable_gateway", "=", "true"]]
             default: ""
             private: true
             required: true
@@ -61,7 +32,15 @@ questions:
             If no allowlist is set up and this option is disabled, the gateway will not accept any connections.
           schema:
             type: boolean
-            show_if: [["enable_gateway", "=", "true"]]
+            default: false
+        - variable: enable_insecure_dashboard_access
+          label: Enable Insecure Dashboard Access
+          description: |
+            Allow accessing the dashboard without authentication. <br>
+            This is only recommended for testing purposes or trusted networks. <br>
+            If no authentication method is set up and this option is disabled, the dashboard will not start.
+          schema:
+            type: boolean
             default: false
         - variable: additional_envs
           label: Additional Environment Variables
@@ -100,7 +79,9 @@ questions:
                   The port bind mode.</br>
                   - Publish: The port will be published on the host for external access.</br>
                   - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: "published"
@@ -111,19 +92,58 @@ questions:
                       description: Expose port for inter-container communication
                     - value: ""
                       description: None
-              - variable: gateway_port
-                label: Gateway Port
+              - variable: port_number
+                label: Port Number
                 schema:
                   type: int
-                  default: 30432
+                  default: 30089
                   min: 1
                   max: 65535
                   required: true
-              - variable: dashboard_port
-                label: Dashboard Port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: dashboard_port
+          label: Dashboard Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
                 schema:
                   type: int
-                  default: 30433
+                  default: 30089
                   min: 1
                   max: 65535
                   required: true
@@ -147,6 +167,7 @@ questions:
           description: The docker networks to join
           schema:
             type: list
+            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -226,8 +247,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers
-                                          to its networks.
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -286,7 +306,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "config"
+                        default: "data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -510,8 +530,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: hermes-agent
-                            description: hermes-agent
+                          - value: headscale
+                            description: headscale
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -525,14 +545,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Hermes-Agent.
+                description: CPUs limit for Headscale.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Hermes-Agent.
+                description: Memory limit for Headscale.
                 schema:
                   type: int
                   default: 4096
