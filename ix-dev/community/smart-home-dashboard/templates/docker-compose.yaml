@@ -2,7 +2,7 @@
 
 {% set c1 = tpl.add_container(values.consts.smart_home_dashboard_container_name, "image") %}
 
-{% do c1.set_user(0, 0) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
 {% do c1.add_storage("/app/data", values.storage.data) %}
 
@@ -16,6 +16,15 @@
 {% do c1.environment.add_env("DATA_DIR", "/app/data") %}
 
 {% do c1.environment.add_user_envs(values.smart_home_dashboard.additional_envs) %}
+
+{# Setup permissions container for storage initialization #}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% do perms.add_or_skip_action("data", values.storage.data, {"uid": 568, "gid": 568, "mode": "check"}) %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
 
