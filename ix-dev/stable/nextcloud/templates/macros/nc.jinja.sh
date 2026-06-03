@@ -36,8 +36,13 @@ set_list() {
   list_name="${1:?"list_name is unset"}"
   space_delimited_values="${2:?"space_delimited_values is unset"}"
 
-  # Get current list
-  current_list="$(occ config:system:get "$list_name")"
+  # Get current list. If occ errors it emits a PHP stack trace (frame lines like
+  # "#0 /var/www/html/...", "#1 {main}") and exits non-zero. Fail fast here so we
+  # never merge that trace in and write it back into config.php as domains (#5079).
+  if ! current_list="$(occ config:system:get "$list_name")"; then
+    echo "Failed to read current ${list_name}. Exiting..."
+    return 1
+  fi
   # Convert newline separated values to space separated
   current_list="$(echo "$current_list" | tr '\n' ' ')"
   # Merge current list with new values
