@@ -21,7 +21,6 @@ run_as "$@"
 
 {% macro hosts_update(values) -%}
 #!/bin/bash
-set -e
 config_file="/var/www/html/config/config.php"
 {# Reason for sed: https://github.com/nextcloud/server/issues/44924 #}
 echo "Updating database and redis host in config.php"
