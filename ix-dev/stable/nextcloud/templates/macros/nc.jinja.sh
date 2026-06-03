@@ -21,6 +21,7 @@ run_as "$@"
 
 {% macro hosts_update(values) -%}
 #!/bin/bash
+set -e
 config_file="/var/www/html/config/config.php"
 {# Reason for sed: https://github.com/nextcloud/server/issues/44924 #}
 echo "Updating database and redis host in config.php"
@@ -30,6 +31,7 @@ occ config:system:set redis host --value="{{ values.consts.redis_container_name 
 
 {% macro trusted_domains_update() -%}
 #!/bin/bash
+set -e
 set_list() {
   list_name="${1:?"list_name is unset"}"
   space_delimited_values="${2:?"space_delimited_values is unset"}"
@@ -72,6 +74,7 @@ set_list "trusted_domains" "${NEXTCLOUD_TRUSTED_DOMAINS}" || { echo "Failed to u
 
 {% macro imaginary_url(host, port) -%}
 #!/bin/bash
+set -e
 echo '## Configuring Imaginary...'
 occ config:system:set preview_imaginary_url --value={{ "http://%s:%d"|format(host, port) }}
 {%- endmacro -%}
