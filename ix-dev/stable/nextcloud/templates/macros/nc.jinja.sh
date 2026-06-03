@@ -31,7 +31,6 @@ occ config:system:set redis host --value="{{ values.consts.redis_container_name 
 
 {% macro trusted_domains_update() -%}
 #!/bin/bash
-set -e
 set_list() {
   list_name="${1:?"list_name is unset"}"
   space_delimited_values="${2:?"space_delimited_values is unset"}"
@@ -52,7 +51,10 @@ set_list() {
 
   if [ -n "${merged_list}" ]; then
     # Remove current list, so we can replace it with the new one
-    occ config:system:delete "$list_name" || return
+    if ! occ config:system:delete "$list_name"; then
+      echo "Failed to delete current ${list_name}. Exiting..."
+      return 1
+    fi
 
     IDX=0
     # Replace spaces with newlines so the input can have
@@ -63,7 +65,7 @@ set_list() {
           continue
         fi
 
-        occ config:system:set "$list_name" $IDX --value="$value"
+        occ config:system:set "$list_name" $IDX --value="$value" || echo "Failed to set ${list_name} index ${IDX} to ${value}. Skipping..."
 
         IDX=$((IDX+1))
     done
@@ -79,7 +81,6 @@ set_list "trusted_domains" "${NEXTCLOUD_TRUSTED_DOMAINS}" || { echo "Failed to u
 
 {% macro imaginary_url(host, port) -%}
 #!/bin/bash
-set -e
 echo '## Configuring Imaginary...'
 occ config:system:set preview_imaginary_url --value={{ "http://%s:%d"|format(host, port) }}
 {%- endmacro -%}
