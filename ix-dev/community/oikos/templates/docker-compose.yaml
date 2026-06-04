@@ -4,14 +4,13 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% set port = values.network.web_port.port_number %}
-
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_custom_test("node -e \"require('http').get('http://127.0.0.1:%d/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" | format(port)) %}
+{% do c1.healthcheck.set_test("node", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 
 {% do c1.environment.add_env("NODE_ENV", "production") %}
-{% do c1.environment.add_env("PORT", port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("DB_PATH", "/data/oikos.db") %}
+{% do c1.environment.add_env("DATA_DIR", "/data") %}
 {% do c1.environment.add_env("BACKUP_DIR", "/backups") %}
 {% do c1.environment.add_env("SESSION_SECRET", values.oikos.session_secret) %}
 {% if values.oikos.db_encryption_key %}
@@ -37,6 +36,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"scheme": "http"}) %}
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
