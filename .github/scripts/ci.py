@@ -9,9 +9,11 @@
 
 import subprocess
 import argparse
+import platform
 import pathlib
 import secrets
 import shutil
+import copy
 import json
 import yaml
 import sys
@@ -19,6 +21,7 @@ import os
 
 CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 PLATFORM = "linux/amd64"
+CHANGE_PLATFORM_FOR_IMAGES = ["valkey/valkey", "redis", "ghcr.io/euro-office/documentserver"]
 
 
 # Used to print mostly structured data, like yaml or json
@@ -98,6 +101,21 @@ def command_exists(command):
     return shutil.which(command) is not None
 
 
+def replace_platform_in_service(svc):
+    if sys.platform != "darwin" or platform.machine() != "arm64":
+        return svc
+
+    svc_copy = copy.deepcopy(svc)
+    image = svc.get("image", "")
+    if not image:
+        print_stderr("No image found in service definition. Skipping platform replacement.")
+        sys.exit(1)
+    repo = image.split(":")[0]
+    if repo in CHANGE_PLATFORM_FOR_IMAGES:
+        svc_copy["platform"] = "linux/arm64"
+    return svc_copy
+
+
 def check_required_commands():
     required_commands = ["docker", "jq", "openssl"]
     for command in required_commands:
@@ -175,6 +193,14 @@ def render_compose():
     with open(template_file, "r") as f:
         try:
             out = yaml.safe_load(f)
+            # Replace platform on some known images that refuse to work on
+            # arm64 when platform is set to linux/amd64.
+            for svc_name, svc in out.get("services", {}).items():
+                new_svc = replace_platform_in_service(svc)
+                out["services"][svc_name] = new_svc
+            with open(template_file, "w") as f2:
+                yaml.dump(out, f2)
+
         except yaml.YAMLError as e:
             print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
             with open(template_file, "r") as f:
