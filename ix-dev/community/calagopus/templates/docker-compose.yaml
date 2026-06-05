@@ -7,11 +7,19 @@
 {% set init = tpl.add_container(values.consts.init_container_name, "yq_image") %}
 {% set c1 = tpl.add_container(values.consts.calagopus_container_name, "image") %}
 
+{# https://calagopus.com/docs/wings/configuration #}
 {% set cfg = namespace(x=[
   {"app_name": values.calagopus.server_name},
   {"system.sftp.enabled": values.network.sftp_port.bind_mode != ""},
   {"system.sftp.bind_address": "0.0.0.0"},
   {"system.sftp.bind_port": values.network.sftp_port.port_number},
+  {"docker.socket": "/var/run/docker.sock"},
+  {"system.root_directory": values.consts.wings_base_path},
+  {"system.vmount_directory": "%s/vmounts"|format(values.consts.wings_base_path)},
+  {"system.data": "%s/volumes"|format(values.consts.wings_base_path)},
+  {"system.archive_directory": "%s/archives"|format(values.consts.wings_base_path)},
+  {"system.backup_directory": "%s/backups"|format(values.consts.wings_base_path)},
+  {"system.tmp_directory": values.consts.wings_tmd_dir},
 ]) %}
 
 {% do init.set_user(0, 0) %}
@@ -66,7 +74,10 @@
 
 {# Panel Data Storage #}
 {% do c1.add_storage("/var/lib/calagopus", values.storage.data) %}
-{% do init.add_storage("/var/lib/calagopus", values.storage.data) %}
+{# Wings Data Storage #}
+{% do c1.add_storage(values.consts.wings_base_path, values.storage.wings_data) %}
+{% do init.add_storage(values.consts.wings_base_path, values.storage.wings_data) %}
+{% do c1.add_storage(values.consts.wings_tmp_dir, {"type": "tmpfs", "tmpfs_config": {"size": 50}}) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}

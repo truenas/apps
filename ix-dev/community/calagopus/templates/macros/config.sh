@@ -1,7 +1,7 @@
 {% macro config(values, cfg=[]) -%}
 #!/bin/sh
 set -e
-{%- set cfg_path = values.consts.wings_config_path %}
+{%- set cfg_path = "%s/%s"|format(values.consts.wings_base_path, values.consts.wings_config_file) %}
 if [ ! -f "{{ cfg_path }}" ]; then
   echo "File [{{ cfg_path }}] does not exist. Creating a new config file..."
   touch "{{ cfg_path }}"
