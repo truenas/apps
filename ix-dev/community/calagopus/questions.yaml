@@ -27,6 +27,37 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
+          schema:
+            type: string
+            default: postgres_18_image
+            required: true
+            enum:
+              - value: postgres_18_image
+                description: Postgres 18
+        - variable: db_password
+          label: Database Password
+          description: The password for Calagopus.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: redis_password
+          label: Redis Password
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
         - variable: encryption_key
           label: App Encryption Key
           description: |
@@ -40,31 +71,6 @@ questions:
             min_length: 16
             required: true
             private: true
-        - variable: db_password
-          label: Database Password
-          description: Password used by the Panel to authenticate with PostgreSQL.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-        - variable: redis_password
-          label: Redis (Valkey) Password
-          description: Password used by the Panel to authenticate with the Redis-compatible cache.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-        - variable: enable_wings_proxy
-          label: Enable Wings Proxy
-          description: |
-            When enabled, the Panel proxies user requests to Wings nodes.</br>
-            This simplifies homelab/single-host setups but is not recommended for many nodes or high-traffic environments.</br>
-            Recommended for AIO single-node deployments.
-          schema:
-            type: boolean
-            default: true
         - variable: trusted_proxies
           label: Trusted Proxies
           description: |
@@ -136,8 +142,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30419
-                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30169
                   min: 1
                   max: 65535
                   required: true
@@ -167,21 +172,25 @@ questions:
                 description: |
                   The port bind mode.</br>
                   - Publish: The port will be published on the host for external access.</br>
-                  - None: The port will not be exposed or published (SFTP will be unavailable).
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: "published"
                   enum:
                     - value: "published"
                       description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
                     - value: ""
                       description: None
               - variable: port_number
                 label: Port Number
                 schema:
                   type: int
-                  default: 30420
-                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30169
                   min: 1
                   max: 65535
                   required: true
@@ -208,9 +217,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Calagopus Data Storage
-          description: |
-            Stores the Panel's persistent data (mounted at /var/lib/calagopus inside the container).
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -284,89 +291,8 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-
-        - variable: logs
-          label: Calagopus Logs Storage
-          description: |
-            Stores the Panel's log files (mounted at /var/log/calagopus inside the container).
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "logs"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-
         - variable: postgres_data
-          label: PostgreSQL Data Storage
-          description: |
-            Stores the PostgreSQL database files.
+          label: Postgres Data Storage
           schema:
             type: dict
             attrs:
@@ -406,7 +332,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "postgres_data"
+                        default: "pg_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -440,14 +366,25 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -655,12 +592,12 @@ questions:
                 description: CPUs limit for Calagopus.
                 schema:
                   type: int
-                  default: 4
+                  default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
                 description: Memory limit for Calagopus.
                 schema:
                   type: int
-                  default: 8192
+                  default: 4096
                   required: true
