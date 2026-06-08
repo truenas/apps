@@ -362,6 +362,11 @@ module.exports = {
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["nousresearch/hermes-agent"],
     ),
+    customVersioning(
+      // 1.0.8-aio
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-aio$",
+      ["ghcr.io/calagopus/panel"],
+    ),
   ],
 };
 
