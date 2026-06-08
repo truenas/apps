@@ -22,7 +22,7 @@ if [ -z "$(ls -A '{{ games_dir }}/{{ values.luanti.map_name }}')" ]; then
         echo "Failed to download {{ values.luanti.map_name }} from {{ download_url.x }}"; exit 1
     }
     echo "Unzipping {{ values.luanti.map_name }} to {{ games_dir }}"
-    unzip -q "/tmp/{{ values.luanti.map_name }}.zip" -d "{{ games_dir }}" && touch "{{ games_dir }}/{{ values.luanti.map_name }}/.keep" || {
+    unzip -q "/tmp/{{ values.luanti.map_name }}.zip" -d "{{ games_dir }}" || {
         echo "Downloaded file is not a valid zip archive."; exit 1
     }
 else
