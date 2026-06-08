@@ -56,28 +56,16 @@ http {
       proxy_set_header Host $host;
       # proxy_set_header Referer "{{ nginx_url }}";
     }
-    # main websocket
-    location ~ ^/cool/(.*)/ws$ {
+    # Main websocket, download, presentation (legacy svg) and image upload.
+    # Single ^~ prefix block per upstream docs so it captures every /cool path
+    # (including /cool/ws?WOPISrc=... and /cool/adminws) with the websocket
+    # upgrade headers. https://sdk.collaboraonline.com/docs/installation/Proxy_settings.html
+    location ^~ /cool/ {
       proxy_pass http://{{ values.consts.collabora_container_name }}:9980;
       proxy_set_header Host $host;
       proxy_set_header Upgrade $http_upgrade;
       proxy_set_header Connection "Upgrade";
-      # proxy_set_header Referer "{{ nginx_url }}";
-      proxy_read_timeout 36000s;
-    }
-    # download, presentation and image upload
-    location ~ ^/(c|l)ool {
-      proxy_pass http://{{ values.consts.collabora_container_name }}:9980;
-      proxy_set_header Host $host;
-      proxy_set_header Referer "{{ nginx_url }}";
-    }
-    # Admin Console websocket
-    location ^~ /cool/adminws {
-      proxy_pass http://{{ values.consts.collabora_container_name }}:9980;
-      proxy_set_header Host $host;
-      proxy_set_header Upgrade $http_upgrade;
-      proxy_set_header Connection "Upgrade";
-      # proxy_set_header Referer "{{ nginx_url }}";
+      proxy_http_version 1.1;
       proxy_read_timeout 36000s;
     }
   }
