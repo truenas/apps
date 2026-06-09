@@ -13,8 +13,8 @@ echo "Updating [{{ cfg_path }}] file..."
 {%- for key, value in c.items() %}
 echo ''
 echo "Updating [{{ key }}] key..."
-yq -i '.{{ key }} = {{ value|tojson }}' "{{ cfg_path }}"
-echo "New value for [{{ key }}]: $(yq '.{{ key }}' "{{ cfg_path }}")"
+yq -i '.{{ key }} = {{ (value|default(None))|tojson }}' "{{ cfg_path }}"
+echo "New value for [{{ key }}]: $(yq '.{{ key }}' \"{{ cfg_path }}\")"
 {%- endfor %}
 {%- endfor %}
 
