@@ -25,6 +25,10 @@ if [ -z "$(ls -A '{{ games_dir }}/{{ values.luanti.map_name }}')" ]; then
     unzip -q "/tmp/{{ values.luanti.map_name }}.zip" -d "{{ games_dir }}" || {
         echo "Downloaded file is not a valid zip archive."; exit 1
     }
+    # Some games unzip into a folder whose name differs from map_name (e.g.
+    # Wuzzy/mineclone2 extracts as voxelibre), leaving games_dir/map_name empty.
+    # Touch a marker so the empty-check above doesn't re-download/re-unzip on restart.
+    touch "{{ games_dir }}/{{ values.luanti.map_name }}/.keep"
 else
     echo "Directory {{ games_dir }}/{{ values.luanti.map_name }} is not empty, assuming game is already installed."
 fi
