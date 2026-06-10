@@ -1,60 +1,56 @@
 groups:
-  - name: Copyparty Configuration
-    description: Configure Copyparty
-  - name: User and Group Configuration
-    description: Configure User and Group for Copyparty
+  - name: Hermes-Agent Configuration
+    description: Configure Hermes-Agent
   - name: Network Configuration
-    description: Configure Network for Copyparty
+    description: Configure Network for Hermes-Agent
   - name: Storage Configuration
-    description: Configure Storage for Copyparty
+    description: Configure Storage for Hermes-Agent
   - name: Labels Configuration
-    description: Configure Labels for Copyparty
+    description: Configure Labels for Hermes-Agent
   - name: Resources Configuration
-    description: Configure Resources for Copyparty
+    description: Configure Resources for Hermes-Agent
 
 questions:
-  - variable: copyparty
+  - variable: hermes_agent
     label: ""
-    group: Copyparty Configuration
+    group: Hermes-Agent Configuration
     schema:
       type: dict
       attrs:
-        - variable: image_selector
-          label: Image Selector
-          description: The image to use for the container
+        - variable: gateway_key
+          label: Gateway API Key
           schema:
             type: string
-            default: image
+            default: ""
+            private: true
             required: true
-            enum:
-              - value: min_image
-                description: min - is just copyparty itself
-              - value: im_image
-                description: im - can thumbnail images with pillow, parse media files with mutagen
-              - value: image
-                description: ac - is im plus ffmpeg for video/audio thumbs + audio transcoding + better tags
-              - value: iv_image
-                description: iv - is ac plus vips for faster heif / avic / jxl thumbnails
-              - value: dj_image
-                description: dj - is iv plus beatroot/keyfinder to detect musical keys and bpm
-        - variable: additional_args
-          label: Additional Arguments
+        - variable: allow_all_users_access
+          label: Allow All Users Access the Gateway
           description: |
-            Additional arguments to pass to the copyparty command</br>
-            Example: `--flag=value`</br>
-            For example for "sharing" a mounted volume, you would add:</br>
-            `-v=/container/path:/webui/path:r` - This will share the container path [/container/path] as [/webui/path] in the webui in read-only mode.</br>
-            For more information, see the copyparty documentation.</br>
-            https://github.com/9001/copyparty/blob/hovudstraum/docs/example.conf
+            Allow all users to access the gateway. <br>
+            This is only recommended for testing purposes or trusted networks. <br>
+            If no allowlist is set up and this option is disabled, the gateway will not accept any connections.
           schema:
-            type: list
-            default: []
-            items:
-              - variable: arg
-                label: Argument
-                schema:
-                  type: string
-                  required: true
+            type: boolean
+            default: false
+        - variable: enable_insecure_dashboard_access
+          label: Enable Insecure Dashboard Access
+          description: |
+            Allow accessing the dashboard without authentication. <br>
+            This is only recommended for testing purposes or trusted networks. <br>
+            If no authentication method is set up and this option is disabled, the dashboard will not start.</br>
+            Ignored when dashboard port is not enabled.
+          schema:
+            type: boolean
+            default: false
+        - variable: shm_size_mb
+          label: Shared Memory Size (in MiB)
+          description: The size of the shared memory to use for Hermes-Agent.
+          schema:
+            type: int
+            default: 64
+            min: 30
+            required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -75,38 +71,14 @@ questions:
                       label: Value
                       schema:
                         type: string
-
-  - variable: run_as
-    label: ""
-    group: User and Group Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: user
-          label: User ID
-          description: The user id that Copyparty files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
-        - variable: group
-          label: Group ID
-          description: The group id that Copyparty files will be owned by.
-          schema:
-            type: int
-            min: 568
-            default: 568
-            required: true
-
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
+        - variable: gateway_port
+          label: Gateway Port
           schema:
             type: dict
             attrs:
@@ -133,7 +105,54 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30266
+                  default: 30432
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: dashboard_port
+          label: Dashboard Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30433
                   min: 1
                   max: 65535
                   required: true
@@ -191,8 +210,8 @@ questions:
                                     type: string
                                     required: true
                                     enum:
-                                      - value: copyparty
-                                        description: copyparty
+                                      - value: hermes-agent
+                                        description: hermes-agent
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -248,14 +267,6 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: certificate_id
-          label: Certificate
-          description: The certificate to use for Copyparty.
-          schema:
-            type: int
-            "null": true
-            $ref:
-              - "definitions/certificate"
 
   - variable: storage
     label: ""
@@ -263,8 +274,8 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: config
-          label: Config Storage
+        - variable: data
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -344,7 +355,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -528,8 +539,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: copyparty
-                            description: copyparty
+                          - value: hermes-agent
+                            description: hermes-agent
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -543,14 +554,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Copyparty.
+                description: CPUs limit for Headscale.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Copyparty.
+                description: Memory limit for Headscale.
                 schema:
                   type: int
                   default: 4096
