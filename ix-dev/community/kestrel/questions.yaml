@@ -1,0 +1,323 @@
+groups:
+  - name: Kestrel Configuration
+    description: Configure Kestrel Purchase Planner
+  - name: User and Group Configuration
+    description: Configure User and Group for Kestrel
+  - name: Network Configuration
+    description: Configure Network for Kestrel
+  - name: Storage Configuration
+    description: Configure Storage for Kestrel
+  - name: Extractor Configuration
+    description: Configure URL price extraction method
+  - name: Labels Configuration
+    description: Configure Labels for Kestrel
+  - name: Resources Configuration
+    description: Configure Resources for Kestrel
+
+questions:
+  - variable: TZ
+    group: Kestrel Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: kestrel
+    label: ""
+    group: Kestrel Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: budget_mode
+          label: Budget Mode
+          description: |
+            How the budget is calculated per cycle.<br>
+            - Per Payday: fixed amount each cycle<br>
+            - Flexible: base per cycle + one-off bonus entries<br>
+            - Total Pool: plan everything within a total budget
+          schema:
+            type: string
+            default: per_payday
+            required: true
+            enum:
+              - value: per_payday
+                description: Per Payday (fixed amount each cycle)
+              - value: flexible
+                description: Flexible (base + bonuses)
+              - value: total
+                description: Total Pool (plan within a total budget)
+        - variable: budget_amount
+          label: Budget Amount
+          description: The amount of budget per payday (or total for total pool mode).
+          schema:
+            type: int
+            default: 0
+            required: true
+        - variable: purchase_mode
+          label: Purchase Mode
+          description: |
+            - As Many As Possible: fill the budget with as many items as possible<br>
+            - One At A Time: schedule one item per cycle
+          schema:
+            type: string
+            default: as_many_as_possible
+            required: true
+            enum:
+              - value: as_many_as_possible
+                description: As Many As Possible
+              - value: one
+                description: One At A Time
+        - variable: sort_criteria
+          label: Sort Criteria
+          description: How items should be sorted when scheduling purchases.
+          schema:
+            type: string
+            default: price_asc
+            required: true
+            enum:
+              - value: price_asc
+                description: Cheapest First
+              - value: price_desc
+                description: Most Expensive First
+              - value: priority
+                description: Priority (high first)
+              - value: date_added
+                description: Date Added (oldest first)
+              - value: desired_date
+                description: Desired Date (earliest first)
+        - variable: currency
+          label: Currency
+          description: Default currency code (USD, EUR, GBP, etc.)
+          schema:
+            type: string
+            default: USD
+            required: true
+
+  - variable: extractor
+    label: ""
+    group: Extractor Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: mode
+          label: Extractor Mode
+          description: |
+            - HTTP: lightweight, no JavaScript support<br>
+            - Playwright: full browser, handles JS-heavy sites (enables scraper container)<br>
+            - External: connect to an external scraping service by URL
+          schema:
+            type: string
+            default: http
+            required: true
+            enum:
+              - value: http
+                description: HTTP Scraper (lightweight)
+              - value: playwright
+                description: Playwright (full browser)
+              - value: external
+                description: External Scraper API
+        - variable: scraper_url
+          label: External Scraper URL
+          description: URL of an external scraping service when using External mode.
+          schema:
+            type: string
+            show_if: [["mode", "=", "external"]]
+            default: ""
+            required: false
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 8000
+                  min: 1
+                  max: 65535
+                  required: true
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Kestrel Data Storage
+          description: Stores the SQLite database and configuration.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path
+                    - value: "ix_volume"
+                      description: TrueNAS Dataset
+              - variable: ix_volume_config
+                label: Dataset Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path
+                          - value: "ix_volume"
+                            description: ixVolume
+                          - value: "cifs"
+                            description: SMB/CIFS Share
+                          - value: "nfs"
+                            description: NFS Share
+                    - variable: mount_path
+                      label: Mount Path
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: path
+                            label: Host Path
+                            schema:
+                              type: hostpath
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        attrs:
+                          - variable: dataset_name
+                            label: Dataset Name
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPU limit for Kestrel.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for Kestrel.
+                schema:
+                  type: int
+                  default: 1024
+                  required: true
