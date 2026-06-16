@@ -7,6 +7,7 @@
 {% set init = tpl.add_container(values.consts.init_container_name, "yq_image") %}
 {% set c1 = tpl.add_container(values.consts.calagopus_container_name, "image") %}
 
+{% set wings_temp_path = tpl.funcs.get_host_path(values.storage.wings_temp) %}
 {% set wings_host_path = tpl.funcs.get_host_path(values.storage.wings_data) %}
 {% set wings_config_path = "%s/%s"|format(wings_host_path, values.consts.wings_config_file) %}
 
@@ -22,7 +23,7 @@
   {"system.data": "%s/volumes"|format(wings_host_path)},
   {"system.archive_directory": "%s/archives"|format(wings_host_path)},
   {"system.backup_directory": "%s/backups"|format(wings_host_path)},
-  {"system.tmp_directory": values.consts.wings_tmp_dir},
+  {"system.tmp_directory": wings_temp_path},
 ]) %}
 
 {% do init.set_user(0, 0) %}
@@ -78,9 +79,9 @@
 {# Panel Data Storage #}
 {% do c1.add_storage("/var/lib/calagopus", values.storage.data) %}
 {# Wings Data Storage #}
+{% do c1.add_storage(wings_temp_path, values.storage.wings_temp) %}
 {% do c1.add_storage(wings_host_path, values.storage.wings_data) %}
 {% do init.add_storage(wings_host_path, values.storage.wings_data) %}
-{% do c1.add_storage(values.consts.wings_tmp_dir, values.storage.wings_temp) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
