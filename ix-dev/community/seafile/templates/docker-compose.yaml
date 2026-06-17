@@ -1,3 +1,4 @@
+{% from "macros/nginx.conf" import nginx_config %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% if not values.seafile.server_hostname %}
@@ -57,12 +58,13 @@
 {% do seafile.environment.add_env("ENABLE_GO_FILESERVER", "true") %}
 {% do seafile.environment.add_env("JWT_PRIVATE_KEY", values.seafile.jwt_private_key) %}
 
+{% do seafile.environment.add_env("ENABLE_SEADOC", "true" if values.seafile.enable_seadoc else "false") %}
 {% if values.seafile.enable_seadoc %}
-  {% do seafile.environment.add_env("ENABLE_SEADOC", "true") %}
   {% do seafile.environment.add_env("SEADOC_SERVER_URL", seafile_proto + "://" + seafile_hostname + "/sdoc-server") %}
 {% endif %}
 
 {% do seafile.environment.add_user_envs(values.seafile.additional_envs) %}
+{% do seafile.add_extra_host(values.seafile.server_hostname, "host-gateway") %}
 
 {% do seafile.add_storage("/shared", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
@@ -97,51 +99,26 @@
   {% do perm_container.add_or_skip_action("seadoc_data", values.storage.seadoc_data, {"uid": 0, "gid": 0, "mode": "check"}) %}
 {% endif %}
 
-{% set caddyfile_lines = [] %}
-{% if values.network.certificate_id %}
-  {% do caddyfile_lines.append(":80 {") %}
-  {% do caddyfile_lines.append("    redir https://{host}" ~ (":" ~ values.network.https_port.port_number if values.network.https_port.port_number != 443 else "") ~ "{uri}") %}
-  {% do caddyfile_lines.append("}") %}
-  {% do caddyfile_lines.append(":443 {") %}
-  {% do caddyfile_lines.append("    tls " ~ values.consts.ssl_cert_path ~ " " ~ values.consts.ssl_key_path) %}
-{% else %}
-  {% do caddyfile_lines.append(":80 {") %}
-{% endif %}
-{% if values.seafile.enable_seadoc %}
-  {% do caddyfile_lines.append("    handle /socket.io/* {") %}
-  {% do caddyfile_lines.append("        reverse_proxy " ~ values.consts.seadoc_container_name ~ ":80") %}
-  {% do caddyfile_lines.append("    }") %}
-  {% do caddyfile_lines.append("    handle_path /sdoc-server/* {") %}
-  {% do caddyfile_lines.append("        reverse_proxy " ~ values.consts.seadoc_container_name ~ ":80") %}
-  {% do caddyfile_lines.append("    }") %}
-{% endif %}
-{% do caddyfile_lines.append("    reverse_proxy " ~ values.consts.seafile_container_name ~ ":80") %}
-{% do caddyfile_lines.append("}") %}
-{% set caddyfile_content = caddyfile_lines | join("\n") %}
-
-{% set caddy = tpl.add_container(values.consts.caddy_container_name, "caddy_image") %}
-{% do caddy.add_network(seafile_net) %}
-{% do caddy.set_user(values.run_as.user, values.run_as.group) %}
-{% do caddy.add_caps(["NET_BIND_SERVICE"]) %}
-{% do caddy.add_port(values.network.web_port, {"container_port": 80}) %}
+{% set nginx = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
+{% do nginx.add_network(seafile_net) %}
+{% do nginx.set_user(values.run_as.user, values.run_as.group) %}
+{% do nginx.add_port(values.network.web_port) %}
+{% do nginx.configs.add("nginx.conf", nginx_config(values, values.seafile.enable_seadoc), "/etc/nginx/conf.d/default.conf") %}
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do caddy.add_port(values.network.https_port, {"container_port": 443}) %}
-  {% do caddy.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
-  {% do caddy.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+  {% do nginx.add_port(values.network.https_port) %}
+  {% do nginx.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do nginx.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
-{% do caddy.configs.add("caddyfile", caddyfile_content, "/etc/caddy/Caddyfile") %}
-{% do caddy.add_storage("/data", values.storage.caddy_data) %}
-{% do caddy.healthcheck.set_test("curl", {"port": 80, "path": "/"}) %}
-{% do caddy.depends.add_dependency(values.consts.seafile_container_name, "service_healthy") %}
-{% do perm_container.add_or_skip_action("caddy_data", values.storage.caddy_data, perms_config) %}
+{% do nginx.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+{% do nginx.depends.add_dependency(values.consts.seafile_container_name, "service_healthy") %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do seafile.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do mariadb_container.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% do caddy.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do nginx.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% if seadoc %}
     {% do seadoc.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% endif %}
