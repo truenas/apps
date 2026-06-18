@@ -2,7 +2,7 @@
 {%- set ver = values.consts.cli_version %}
 {%- set asset = "stalwart-cli-x86_64-unknown-linux-musl" %}
 {%- set base = "https://github.com/stalwartlabs/cli/releases/download/%s"|format(ver) %}
-{%- set bin = "%s/stalwart-cli"|format(values.consts.cli_dir) %}
+{%- set bin = "%s/stalwart-cli"|format(values.consts.cli_dir) -%}
 #!/bin/sh
 set -eu
 
@@ -26,7 +26,7 @@ echo "stalwart-cli installed:"
 {%- endmacro %}
 
 {% macro seed(values) -%}
-{%- set cli = "%s/stalwart-cli"|format(values.consts.cli_dir) %}
+{%- set cli = "%s/stalwart-cli"|format(values.consts.cli_dir) -%}
 #!/bin/bash
 set -euo pipefail
 
