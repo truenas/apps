@@ -5,7 +5,7 @@
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set init = tpl.add_container(values.consts.init_container_name, "yq_image") %}
-{% set c1 = tpl.add_container(values.consts.calagopus_container_name, "image") %}
+{% set c1 = tpl.add_container(values.consts.calagopus_container_name, values.calagopus.image_selector) %}
 
 {% set wings_temp_path = tpl.funcs.get_host_path(values.storage.wings_temp) %}
 {% set wings_host_path = tpl.funcs.get_host_path(values.storage.wings_data) %}
@@ -52,7 +52,7 @@
 {% do c1.add_docker_socket(read_only=False) %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETFCAP", "SETGID", "SETPCAP", "SETUID"]) %}
 
-{% do c1.healthcheck.set_test("netcat", {"port": values.network.web_port.port_number}) %}
+{% do c1.healthcheck.set_test("tcp" if values.calagopus.image_selector == "heavy_image" else "netcat", {"port": values.network.web_port.port_number}) %}
 
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
@@ -82,6 +82,13 @@
 {% do c1.add_storage(wings_temp_path, values.storage.wings_temp) %}
 {% do c1.add_storage(wings_host_path, values.storage.wings_data) %}
 {% do init.add_storage(wings_host_path, values.storage.wings_data) %}
+
+{% if values.calagopus.image_selector == "heavy_image" %}
+  {% do c1.add_storage("/app/binaries", values.storage.binaries) %}
+  {% do c1.add_storage("/app/translations", values.storage.translations) %}
+  {% do c1.add_storage("/app/extensions", values.storage.extensions) %}
+  {% do c1.add_storage("/app/repo/database/extension-migrations", values.storage.extension_migrations) %}
+{% endif %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
