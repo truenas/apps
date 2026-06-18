@@ -13,9 +13,9 @@ fi
 
 echo "Downloading stalwart-cli {{ ver }}..."
 cd /tmp
-wget -q "{{ base }}/{{ asset }}.tar.xz"
-wget -q "{{ base }}/{{ asset }}.tar.xz.sha256"
-sha256sum -c "{{ asset }}.tar.xz.sha256"
+wget -qO "{{ asset }}.tar.xz" "{{ base }}/{{ asset }}.tar.xz"
+wget -qO "{{ asset }}.tar.xz.sha256" "{{ base }}/{{ asset }}.tar.xz.sha256"
+grep -F "{{ asset }}.tar.xz" "{{ asset }}.tar.xz.sha256" | sha256sum -c -
 
 echo "Extracting stalwart-cli to {{ values.consts.cli_dir }}..."
 tar -xJf "{{ asset }}.tar.xz" -C "{{ values.consts.cli_dir }}" --strip-components=1 "{{ asset }}/stalwart-cli"
