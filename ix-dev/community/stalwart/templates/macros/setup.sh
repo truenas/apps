@@ -30,6 +30,10 @@ echo "stalwart-cli installed:"
 #!/bin/bash
 set -euo pipefail
 
+# stalwart-cli stores session state under $HOME; give it a writable one (the
+# run-as user has no home directory in the image).
+export HOME=/tmp
+
 recovery_pass="$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 24)"
 export STALWART_RECOVERY_MODE=1
 export STALWART_RECOVERY_ADMIN="admin:${recovery_pass}"
