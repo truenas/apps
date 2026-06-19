@@ -21,7 +21,7 @@ import os
 
 CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 PLATFORM = "linux/amd64"
-CHANGE_PLATFORM_FOR_IMAGES = ["valkey/valkey", "redis"]
+CHANGE_PLATFORM_FOR_IMAGES = ["valkey/valkey", "redis", "ghcr.io/euro-office/documentserver"]
 
 
 # Used to print mostly structured data, like yaml or json
