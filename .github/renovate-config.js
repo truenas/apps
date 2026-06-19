@@ -308,11 +308,6 @@ module.exports = {
       ["kimai/kimai2"],
     ),
     customVersioning(
-      // 4.0.0-beta.434
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
-      ["ghcr.io/coollabsio/coolify"],
-    ),
-    customVersioning(
       // appname-1.2.3
       "^(?<compatibility>arcade|calculator|cast|draw-io|external-sites|importer|json-viewer|maps|pastebin|progress-bars|unzip)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["opencloudeu/web-extensions"],
