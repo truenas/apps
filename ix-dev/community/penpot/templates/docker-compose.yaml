@@ -68,9 +68,12 @@
 {% do frontend.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
 {% do frontend.environment.add_env("PENPOT_BACKEND_URI", "http://%s:%d"|format(values.consts.penpot_backend_container_name, values.consts.backend_port)) %}
 {% do frontend.environment.add_env("PENPOT_EXPORTER_URI", "http://%s:%d"|format(values.consts.penpot_exporter_container_name, values.consts.exporter_port)) %}
-{# Looks like port is added statically #}
-{# https://github.com/penpot/penpot/blob/884b125cf5de0e3cec39da0fecdc813ec20c3c49/docker/images/files/nginx.conf.template#L150 #}
-{% do frontend.environment.add_env("PENPOT_MCP_URI", "http://%s"|format(values.consts.penpot_mcp_container_name)) %}
+{# The frontend nginx proxies /mcp/stream and /mcp/sse to $PENPOT_MCP_URI (which must be host:port,
+   the path is appended in the template) and /mcp/ws to $PENPOT_MCP_URI_WS. The image defaults these to
+   http://penpot-mcp:4401 / :4402 (see entrypoint.sh), so $PENPOT_MCP_URI MUST include the server port —
+   without it nginx proxies to :80 and /mcp/stream returns 502. Set both explicitly from our port consts. #}
+{% do frontend.environment.add_env("PENPOT_MCP_URI", "http://%s:%d"|format(values.consts.penpot_mcp_container_name, values.consts.mcp_server_port)) %}
+{% do frontend.environment.add_env("PENPOT_MCP_URI_WS", "http://%s:%d"|format(values.consts.penpot_mcp_container_name, values.consts.mcp_ws_port)) %}
 
 {% do mcp.healthcheck.set_test("curl", {"port": values.consts.mcp_repl_port}) %}
 {% do mcp.environment.add_env("PENPOT_MCP_SERVER_PORT", values.consts.mcp_server_port) %}
