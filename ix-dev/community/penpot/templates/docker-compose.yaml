@@ -57,7 +57,12 @@
 
 {% do exporter.healthcheck.set_test("curl", {"port": values.consts.exporter_port, "path": "/readyz"}) %}
 {% do exporter.depends.add_dependency(values.consts.penpot_backend_container_name, "service_healthy") %}
-{% do exporter.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
+{# The exporter is a headless browser that navigates to $PENPOT_PUBLIC_URI/render.html to render exports
+   (exporter/src/app/renderer/bitmap.cljs uses its own cf/get :public-uri). It runs on the internal app
+   network with no access to external DNS or the reverse proxy, so pointing it at the user-facing public
+   URI breaks PNG/PDF export (ERR_NAME_NOT_RESOLVED / unreachable proxy). Point it at the internal frontend
+   instead, which serves render.html and same-origin /api. Backend/frontend keep the public URI for users. #}
+{% do exporter.environment.add_env("PENPOT_PUBLIC_URI", "http://%s:%d"|format(values.consts.penpot_frontend_container_name, values.consts.frontend_port)) %}
 {% do exporter.environment.add_env("PENPOT_REDIS_URI", redis_uri) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_PORT", values.consts.exporter_port) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_HOST", "0.0.0.0") %}
