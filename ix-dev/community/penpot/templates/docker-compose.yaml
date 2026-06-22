@@ -57,11 +57,8 @@
 
 {% do exporter.healthcheck.set_test("curl", {"port": values.consts.exporter_port, "path": "/readyz"}) %}
 {% do exporter.depends.add_dependency(values.consts.penpot_backend_container_name, "service_healthy") %}
-{# The exporter is a headless browser that navigates to $PENPOT_PUBLIC_URI/render.html to render exports
-   (exporter/src/app/renderer/bitmap.cljs uses its own cf/get :public-uri). It runs on the internal app
-   network with no access to external DNS or the reverse proxy, so pointing it at the user-facing public
-   URI breaks PNG/PDF export (ERR_NAME_NOT_RESOLVED / unreachable proxy). Point it at the internal frontend
-   instead, which serves render.html and same-origin /api. Backend/frontend keep the public URI for users. #}
+{# The exporter is a headless browser that navigates to $PENPOT_PUBLIC_URI/render.html to render exports.
+  It runs on the internal app network with no access to external DNS or the reverse proxy.#}
 {% do exporter.environment.add_env("PENPOT_PUBLIC_URI", "http://%s:%d"|format(values.consts.penpot_frontend_container_name, values.consts.frontend_port)) %}
 {% do exporter.environment.add_env("PENPOT_REDIS_URI", redis_uri) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_PORT", values.consts.exporter_port) %}
@@ -73,10 +70,6 @@
 {% do frontend.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
 {% do frontend.environment.add_env("PENPOT_BACKEND_URI", "http://%s:%d"|format(values.consts.penpot_backend_container_name, values.consts.backend_port)) %}
 {% do frontend.environment.add_env("PENPOT_EXPORTER_URI", "http://%s:%d"|format(values.consts.penpot_exporter_container_name, values.consts.exporter_port)) %}
-{# The frontend nginx proxies /mcp/stream and /mcp/sse to $PENPOT_MCP_URI (which must be host:port,
-   the path is appended in the template) and /mcp/ws to $PENPOT_MCP_URI_WS. The image defaults these to
-   http://penpot-mcp:4401 / :4402 (see entrypoint.sh), so $PENPOT_MCP_URI MUST include the server port —
-   without it nginx proxies to :80 and /mcp/stream returns 502. Set both explicitly from our port consts. #}
 {% do frontend.environment.add_env("PENPOT_MCP_URI", "http://%s:%d"|format(values.consts.penpot_mcp_container_name, values.consts.mcp_server_port)) %}
 {% do frontend.environment.add_env("PENPOT_MCP_URI_WS", "http://%s:%d"|format(values.consts.penpot_mcp_container_name, values.consts.mcp_ws_port)) %}
 
