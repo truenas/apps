@@ -57,7 +57,9 @@
 
 {% do exporter.healthcheck.set_test("curl", {"port": values.consts.exporter_port, "path": "/readyz"}) %}
 {% do exporter.depends.add_dependency(values.consts.penpot_backend_container_name, "service_healthy") %}
-{% do exporter.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
+{# The exporter is a headless browser that navigates to $PENPOT_PUBLIC_URI/render.html to render exports.
+  It runs on the internal app network with no access to external DNS or the reverse proxy.#}
+{% do exporter.environment.add_env("PENPOT_PUBLIC_URI", "http://%s:%d"|format(values.consts.penpot_frontend_container_name, values.consts.frontend_port)) %}
 {% do exporter.environment.add_env("PENPOT_REDIS_URI", redis_uri) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_PORT", values.consts.exporter_port) %}
 {% do exporter.environment.add_env("PENPOT_HTTP_SERVER_HOST", "0.0.0.0") %}
@@ -68,9 +70,8 @@
 {% do frontend.environment.add_env("PENPOT_PUBLIC_URI", values.penpot.public_uri) %}
 {% do frontend.environment.add_env("PENPOT_BACKEND_URI", "http://%s:%d"|format(values.consts.penpot_backend_container_name, values.consts.backend_port)) %}
 {% do frontend.environment.add_env("PENPOT_EXPORTER_URI", "http://%s:%d"|format(values.consts.penpot_exporter_container_name, values.consts.exporter_port)) %}
-{# Looks like port is added statically #}
-{# https://github.com/penpot/penpot/blob/884b125cf5de0e3cec39da0fecdc813ec20c3c49/docker/images/files/nginx.conf.template#L150 #}
-{% do frontend.environment.add_env("PENPOT_MCP_URI", "http://%s"|format(values.consts.penpot_mcp_container_name)) %}
+{% do frontend.environment.add_env("PENPOT_MCP_URI", "http://%s:%d"|format(values.consts.penpot_mcp_container_name, values.consts.mcp_server_port)) %}
+{% do frontend.environment.add_env("PENPOT_MCP_URI_WS", "http://%s:%d"|format(values.consts.penpot_mcp_container_name, values.consts.mcp_ws_port)) %}
 
 {% do mcp.healthcheck.set_test("curl", {"port": values.consts.mcp_repl_port}) %}
 {% do mcp.environment.add_env("PENPOT_MCP_SERVER_PORT", values.consts.mcp_server_port) %}
