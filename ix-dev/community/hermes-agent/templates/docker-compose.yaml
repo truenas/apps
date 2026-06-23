@@ -21,10 +21,18 @@
   {% do tpl.portals.add(values.network.dashboard_port) %}
 {% endif %}
 
+{% do c1.environment.add_env("WEBHOOK_ENABLED", values.network.webhook_port.bind_mode != "") %}
+{% if values.network.webhook_port.bind_mode %}
+  {# The webhook adapter binds to 0.0.0.0 by default, so no host env is needed. #}
+  {# The HMAC secret and routes are application-level config (hermes gateway setup / config.yaml), not exposed here. #}
+  {% do c1.environment.add_env("WEBHOOK_PORT", values.network.webhook_port.port_number) %}
+{% endif %}
+
 {% do c1.environment.add_user_envs(values.hermes_agent.additional_envs) %}
 
 {% do c1.add_port(values.network.gateway_port) %}
 {% do c1.add_port(values.network.dashboard_port) %}
+{% do c1.add_port(values.network.webhook_port) %}
 
 {% do c1.add_storage("/opt/data", values.storage.data) %}
 {% for store in values.storage.additional_storage %}
