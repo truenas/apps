@@ -343,6 +343,11 @@ module.exports = {
       ["itzcrazykns1337/vane"],
     ),
     customVersioning(
+      // web-v2.9.2
+      "^web-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["registry.gitlab.com/storyteller-platform/storyteller"],
+    ),
+    customVersioning(
       // 0.9.0(.x)?
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["jvmilazz0/kavita"],
