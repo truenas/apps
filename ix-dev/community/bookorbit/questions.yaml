@@ -1,20 +1,20 @@
 groups:
-  - name: Vaultwarden Configuration
-    description: Configure Vaultwarden
+  - name: BookOrbit Configuration
+    description: Configure BookOrbit
   - name: User and Group Configuration
-    description: Configure User and Group for Vaultwarden
+    description: Configure User and Group for BookOrbit
   - name: Network Configuration
-    description: Configure Network for Vaultwarden
+    description: Configure Network for BookOrbit
   - name: Storage Configuration
-    description: Configure Storage for Vaultwarden
+    description: Configure Storage for BookOrbit
   - name: Labels Configuration
-    description: Configure Labels for Vaultwarden
+    description: Configure Labels for BookOrbit
   - name: Resources Configuration
-    description: Configure Resources for Vaultwarden
+    description: Configure Resources for BookOrbit
 
 questions:
   - variable: TZ
-    group: Vaultwarden Configuration
+    group: BookOrbit Configuration
     label: Timezone
     schema:
       type: string
@@ -23,9 +23,9 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: vaultwarden
+  - variable: bookorbit
     label: ""
-    group: Vaultwarden Configuration
+    group: BookOrbit Configuration
     schema:
       type: dict
       attrs:
@@ -43,31 +43,32 @@ questions:
             default: postgres_18_image
             required: true
             enum:
-              - value: postgres_17_image
-                description: Postgres 17
               - value: postgres_18_image
                 description: Postgres 18
         - variable: db_password
           label: Database Password
-          description: The password for Vaultwarden.
+          description: The password for BookOrbit.
           schema:
             type: string
             default: ""
             required: true
             private: true
-        - variable: admin_token
-          label: Admin Token
-          description: Setting this, will enable the admin portal
+        - variable: jwt_secret
+          label: JWT Secret
+          description: The JWT secret for BookOrbit.
           schema:
             type: string
             default: ""
             private: true
-        - variable: enable_websocket
-          label: Enable Websocket
-          description: Enable Websocket for Vaultwarden.
+            required: true
+        - variable: bootstrap_token
+          label: Bootstrap Token
+          description: The bootstrap token for BookOrbit.
           schema:
-            type: boolean
-            default: true
+            type: string
+            default: ""
+            private: true
+            required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -96,7 +97,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Vaultwarden files will be owned by.
+          description: The user id that BookOrbit files will be owned by.
           schema:
             type: int
             min: 568
@@ -104,7 +105,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Vaultwarden files will be owned by.
+          description: The group id that BookOrbit files will be owned by.
           schema:
             type: int
             min: 568
@@ -145,7 +146,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30032
+                  default: 30441
                   min: 1
                   max: 65535
                   required: true
@@ -164,25 +165,6 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: certificate_id
-          label: Certificate ID
-          description: |
-            The certificate to use for Vaultwarden </br>
-            Using the Rocket method for TLS setup is NOT recommended </br>
-            Prefer a reverse proxy with a valid certificate
-          schema:
-            type: int
-            "null": true
-            $ref:
-              - definitions/certificate
-        - variable: domain
-          label: Domain
-          description: |
-            The domain to use for Vaultwarden </br>
-            Format is: https://sub.domain.tld:port
-          schema:
-            type: uri
-            default: ""
         - variable: networks
           label: Networks
           description: The docker networks to join
@@ -221,8 +203,8 @@ questions:
                                     type: string
                                     required: true
                                     enum:
-                                      - value: vaultwarden
-                                        description: vaultwarden
+                                      - value: bookorbit
+                                        description: bookorbit
                                       - value: postgres
                                         description: postgres
                                 - variable: config
@@ -280,8 +262,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Vaultwarden Data Storage
-          description: The path to store Vaultwarden Data.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -355,9 +336,83 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: books
+          label: Books Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "books"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: postgres_data
-          label: Vaultwarden Postgres Data Storage
-          description: The path to store Vaultwarden Postgres Data.
+          label: Postgres Data Storage
           schema:
             type: dict
             attrs:
@@ -449,7 +504,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -634,8 +689,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: vaultwarden
-                            description: vaultwarden
+                          - value: bookorbit
+                            description: bookorbit
                           - value: postgres
                             description: postgres
 
@@ -652,14 +707,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Vaultwarden.
+                description: CPUs limit for BookOrbit.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Vaultwarden.
+                description: Memory limit for BookOrbit.
                 schema:
                   type: int
                   default: 4096
