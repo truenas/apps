@@ -1,0 +1,80 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set ae_netscope_net = tpl.networks.create_internal("ae-netscope-net") %}
+
+{% set c1 = tpl.add_container(values.consts.ae_netscope_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.ae_netscope.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.ae_netscope.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(ae_netscope_net) %}
+
+{% set redis_config = {
+  "password": values.ae_netscope.redis_password,
+  "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(ae_netscope_net) %}
+
+{% set app_url = values.ae_netscope.app_url.rstrip("/") %}
+{% if not app_url %}
+  {% set app_url = "http://127.0.0.1:%d"|format(values.network.web_port.port_number) %}
+{% endif %}
+
+{% do c1.add_network(ae_netscope_net) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("http", {"port": values.consts.internal_web_port, "path": "/api/health/live"}) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do c1.environment.add_env("APP_ENV", "production") %}
+{% do c1.environment.add_env("APP_NAME", "AE NetScope") %}
+{% do c1.environment.add_env("APP_URL", app_url) %}
+{% do c1.environment.add_env("APP_WEB_DIST_DIR", "/app/web") %}
+{% do c1.environment.add_env("API_CORS_ORIGINS", app_url) %}
+{% do c1.environment.add_env("POSTGRES_HOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("POSTGRES_PORT", postgres.get_port()) %}
+{% do c1.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+{% do c1.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
+{% do c1.environment.add_env("POSTGRES_PASSWORD", values.ae_netscope.db_password) %}
+{% do c1.environment.add_env("REDIS_HOST", values.consts.redis_container_name) %}
+{% do c1.environment.add_env("REDIS_PORT", 6379) %}
+{% do c1.environment.add_env("REDIS_DB", 0) %}
+{% do c1.environment.add_env("REDIS_PASSWORD", values.ae_netscope.redis_password) %}
+{% do c1.environment.add_env("REDIS_RATE_LIMIT_FAIL_OPEN", values.ae_netscope.redis_rate_limit_fail_open) %}
+{% do c1.environment.add_env("SESSION_SECRET", values.ae_netscope.session_secret) %}
+{% do c1.environment.add_env("SESSION_COOKIE_NAME", "ae_netscope_session") %}
+{% do c1.environment.add_env("SESSION_COOKIE_SECURE", values.ae_netscope.session_cookie_secure) %}
+{% do c1.environment.add_env("SESSION_COOKIE_SAMESITE", "strict") %}
+{% do c1.environment.add_env("SESSION_TTL_SECONDS", values.ae_netscope.session_ttl_seconds) %}
+{% do c1.environment.add_env("SECURITY_HEADERS_ENABLED", true) %}
+{% do c1.environment.add_env("SECURITY_HSTS_ENABLED", values.ae_netscope.security_hsts_enabled) %}
+{% do c1.environment.add_env("SECURITY_HSTS_MAX_AGE", 31536000) %}
+{% do c1.environment.add_env("MAX_IMPORT_JSON_BYTES", values.ae_netscope.max_import_json_bytes) %}
+{% do c1.environment.add_env("PASSWORD_HASH_ALGORITHM", "argon2id") %}
+{% do c1.environment.add_env("AUTH_RATE_LIMIT_PER_MINUTE", values.ae_netscope.auth_rate_limit_per_minute) %}
+{% do c1.environment.add_env("AUTH_FAILED_LOGIN_LIMIT", values.ae_netscope.auth_failed_login_limit) %}
+{% do c1.environment.add_env("AUTH_LOCKOUT_MINUTES", values.ae_netscope.auth_lockout_minutes) %}
+{% do c1.environment.add_env("CRYPTO_POLICY_VERSION", 1) %}
+{% do c1.environment.add_env("PQC_READINESS_MODE", "crypto-agile") %}
+{% do c1.environment.add_env("AE_NETSCOPE_RUN_MIGRATIONS", true) %}
+{% do c1.environment.add_env("AE_NETSCOPE_MIGRATION_ATTEMPTS", 30) %}
+{% do c1.environment.add_env("AE_NETSCOPE_MIGRATION_RETRY_SECONDS", 2) %}
+{% do c1.environment.add_user_envs(values.ae_netscope.additional_envs) %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
