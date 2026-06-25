@@ -43,7 +43,7 @@ class ChromaContainer:
             group = run_as["group"] or group  # Avoids running as root
 
         c.set_user(user, group)
-        c.healthcheck.set_test("curl", {"port": self.get_port(), "path": "/api/v2/healthcheck"})
+        c.healthcheck.set_test("http", {"port": self.get_port(), "path": "/api/v2/healthcheck"})
         c.remove_devices()
         c.set_grace_period(60)
         c.add_storage(self._data_dir, config["volume"])
