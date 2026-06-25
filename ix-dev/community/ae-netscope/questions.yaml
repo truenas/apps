@@ -1,18 +1,18 @@
 groups:
-  - name: AE NetScope Configuration
+  - name: Application Configuration
     description: Configure AE NetScope
   - name: Network Configuration
     description: Configure network settings for AE NetScope
   - name: Storage Configuration
     description: Configure storage for AE NetScope
-  - name: Labels Configuration
-    description: Configure labels for AE NetScope containers
+  - name: Advanced Configuration
+    description: Optional advanced AE NetScope settings
   - name: Resources Configuration
     description: Configure resource limits for AE NetScope
 
 questions:
   - variable: TZ
-    group: AE NetScope Configuration
+    group: Application Configuration
     label: Timezone
     schema:
       type: string
@@ -23,27 +23,13 @@ questions:
 
   - variable: ae_netscope
     label: ""
-    group: AE NetScope Configuration
+    group: Application Configuration
     schema:
       type: dict
       attrs:
-        - variable: postgres_image_selector
-          label: Postgres Image (CAUTION)
-          description: |
-            If you are changing this after the PostgreSQL directory has been initialized,</br>
-            make sure you have a backup of your data.</br>
-            Changing this can trigger a one way database upgrade.</br>
-            Selecting an older PostgreSQL version can prevent the app from starting.
-          schema:
-            type: string
-            default: postgres_18_image
-            required: true
-            enum:
-              - value: postgres_18_image
-                description: Postgres 18
         - variable: db_password
           label: Database Password
-          description: Password for the AE NetScope PostgreSQL database user.
+          description: Password for the internal PostgreSQL database used by AE NetScope.
           schema:
             type: string
             default: ""
@@ -51,7 +37,7 @@ questions:
             private: true
         - variable: redis_password
           label: Redis Password
-          description: Password for the internal AE NetScope Redis service.
+          description: Password for the internal Redis service used by AE NetScope.
           schema:
             type: string
             default: ""
@@ -59,7 +45,7 @@ questions:
             private: true
         - variable: session_secret
           label: Session Secret
-          description: Random secret used to sign AE NetScope sessions. Use at least 32 random characters.
+          description: Random secret used to sign browser sessions. Use at least 32 random characters and do not change it after install unless all sessions should be invalidated.
           schema:
             type: string
             min_length: 32
@@ -67,37 +53,53 @@ questions:
             required: true
             private: true
         - variable: app_url
-          label: App URL
+          label: Public App URL
           description: |
-            Public base URL for AE NetScope.</br>
+            Optional public base URL for AE NetScope.</br>
+            Leave empty for normal TrueNAS Web UI access.</br>
             Examples:</br>
             https://netscope.example.com</br>
             http://192.168.1.50:30080
           schema:
             type: uri
             default: ""
-        - variable: session_cookie_secure
-          label: Secure Session Cookie
-          description: Enable this when AE NetScope is served over HTTPS.
+        - variable: https_mode
+          label: HTTPS Mode
+          description: Enable only when AE NetScope is accessed through HTTPS, usually behind a reverse proxy.
           schema:
             type: boolean
             default: false
-        - variable: security_hsts_enabled
-          label: Enable HSTS
-          description: Enable only when AE NetScope is served over HTTPS.
+        - variable: advanced_settings
+          label: Show Advanced Settings
+          description: Exposes image, rate limit, session, import and extra environment settings.
           schema:
             type: boolean
             default: false
+        - variable: postgres_image_selector
+          label: Postgres Image
+          description: |
+            Advanced setting. Changing this after PostgreSQL has initialized can trigger a one-way database upgrade.</br>
+            Make sure you have a backup before changing it.
+          schema:
+            type: string
+            show_if: [["advanced_settings", "=", true]]
+            default: postgres_18_image
+            required: true
+            enum:
+              - value: postgres_18_image
+                description: Postgres 18
         - variable: redis_rate_limit_fail_open
           label: Allow Requests If Redis Rate Limit Fails
-          description: If enabled, rate-limited endpoints remain available when Redis is temporarily unavailable.
+          description: Advanced setting. If enabled, rate-limited endpoints remain available when Redis is temporarily unavailable.
           schema:
             type: boolean
+            show_if: [["advanced_settings", "=", true]]
             default: false
         - variable: max_import_json_bytes
           label: Max Import JSON Size
           schema:
             type: int
+            show_if: [["advanced_settings", "=", true]]
             default: 2000000
             min: 1
             max: 20000000
@@ -106,6 +108,7 @@ questions:
           label: Session TTL Seconds
           schema:
             type: int
+            show_if: [["advanced_settings", "=", true]]
             default: 28800
             min: 300
             max: 2592000
@@ -114,6 +117,7 @@ questions:
           label: Auth Rate Limit Per Minute
           schema:
             type: int
+            show_if: [["advanced_settings", "=", true]]
             default: 5
             min: 1
             max: 120
@@ -122,6 +126,7 @@ questions:
           label: Failed Login Lockout Limit
           schema:
             type: int
+            show_if: [["advanced_settings", "=", true]]
             default: 10
             min: 1
             max: 100
@@ -130,14 +135,17 @@ questions:
           label: Failed Login Lockout Minutes
           schema:
             type: int
+            show_if: [["advanced_settings", "=", true]]
             default: 15
             min: 1
             max: 1440
             required: true
         - variable: additional_envs
           label: Additional Environment Variables
+          description: Advanced setting. Only use this if you need an AE NetScope option that is not exposed by the app form.
           schema:
             type: list
+            show_if: [["advanced_settings", "=", true]]
             default: []
             items:
               - variable: env
@@ -377,8 +385,8 @@ questions:
                         required: true
 
   - variable: labels
-    label: ""
-    group: Labels Configuration
+    label: Additional Labels
+    group: Advanced Configuration
     schema:
       type: list
       default: []
