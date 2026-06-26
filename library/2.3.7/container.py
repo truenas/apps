@@ -332,6 +332,14 @@ class Container:
     def add_udev(self, read_only: bool = True, mount_path: str = "/run/udev"):
         self._storage._add_udev(read_only, mount_path)
 
+    def add_truenas_mnt(self, read_only: bool = True, mount_path: str = "/mnt"):
+        self._storage._add_truenas_mnt(read_only, mount_path)
+
+    def add_truenas_middleware_socket(
+        self, read_only: bool = False, mount_path: str = "/var/run/middleware/middlewared.sock"
+    ):
+        self._storage._add_truenas_middleware_socket(read_only, mount_path)
+
     def add_tun_device(self):
         self.devices._add_tun_device()
 

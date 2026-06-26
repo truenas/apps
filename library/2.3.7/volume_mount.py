@@ -8,12 +8,28 @@ try:
     from .error import RenderError
     from .formatter import merge_dicts_no_overwrite
     from .volume_mount_types import BindMountType, VolumeMountType
-    from .volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
+    from .volume_sources import (
+        HostPathSource,
+        IxVolumeSource,
+        CifsSource,
+        NfsSource,
+        TrueNASMntSource,
+        TrueNASMiddlewareSocketSource,
+        VolumeSource,
+    )
 except ImportError:
     from error import RenderError
     from formatter import merge_dicts_no_overwrite
     from volume_mount_types import BindMountType, VolumeMountType
-    from volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
+    from volume_sources import (
+        HostPathSource,
+        IxVolumeSource,
+        CifsSource,
+        NfsSource,
+        TrueNASMntSource,
+        TrueNASMiddlewareSocketSource,
+        VolumeSource,
+    )
 
 
 class VolumeMount:
@@ -33,6 +49,17 @@ class VolumeMount:
                     raise RenderError("Expected [host_path_config] to be set for [host_path] type.")
                 mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
                 source = HostPathSource(self._render_instance, mount_config).get()
+            case "truenas_mnt":
+                spec_type = "bind"
+                mount_config = {"create_host_path": False, "propagation": "rslave"}
+                mount_config.update(config.get("host_path_config") or {})
+                mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
+                source = TrueNASMntSource(self._render_instance).get()
+            case "truenas_middleware_socket":
+                spec_type = "bind"
+                mount_config = config.get("host_path_config") or {}
+                mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
+                source = TrueNASMiddlewareSocketSource(self._render_instance).get()
             case "ix_volume":
                 spec_type = "bind"
                 mount_config = config.get("ix_volume_config")
