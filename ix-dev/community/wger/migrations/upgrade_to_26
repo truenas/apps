@@ -5,9 +5,24 @@ import yaml
 
 
 def migrate(values):
-    # wger 2.6: SYNC_INGREDIENTS_CELERY was removed from the server entrypoint.
-    # The template no longer injects it, so no structural changes to user values
-    # are needed for this release.
+    # wger 2.6: SIGNING_KEY was replaced by JWT_PRIVATE_KEY and JWT_PUBLIC_KEY.
+    # Rename the stored signing_key → jwt_private_key so the user's old value is
+    # preserved. jwt_public_key cannot be derived from signing_key, so it is set
+    # to an empty string — TrueNAS will prompt the user to fill in the required
+    # field after the upgrade.
+    wger = values.get("wger", {})
+    if isinstance(wger, dict) and "signing_key" in wger:
+        wger["jwt_private_key"] = wger.pop("signing_key")
+        wger.setdefault("jwt_public_key", "")
+        values["wger"] = wger
+
+    # wger 2.6: SITE_URL and REFRESH_TOKEN_LIFETIME are new required/recommended
+    # fields. Set safe empty defaults so existing users are prompted to fill them in.
+    if isinstance(wger, dict):
+        wger.setdefault("site_url", "")
+        wger.setdefault("refresh_token_lifetime", 3000)
+        values["wger"] = wger
+
     return values
 
 
