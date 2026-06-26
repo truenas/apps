@@ -1,6 +1,6 @@
 # AE NetScope
 
-AE NetScope is a source-available LAN inventory and sysadmin network documentation web app.
+AE NetScope is an open source LAN inventory and sysadmin network documentation web app.
 
 It helps keep track of devices, IP and MAC records, subnets, VLANs, services, hardware notes, backups, users, audit history and operational health from a single web interface.
 
