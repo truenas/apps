@@ -4,7 +4,7 @@ AE NetScope is an open source LAN inventory and sysadmin network documentation w
 
 It helps keep track of devices, IP and MAC records, subnets, VLANs, services, hardware notes, backups, users, audit history and operational health from a single web interface.
 
-This TrueNAS app package runs AE NetScope with PostgreSQL and Redis.
+This TrueNAS app package runs AE NetScope with PostgreSQL and Valkey. Valkey is used as the Redis-compatible backend for session and rate-limit support.
 
 ## Install Notes
 
@@ -18,9 +18,9 @@ Required values:
 
 Optional values:
 
-- Public App URL can be left empty for normal TrueNAS Web UI access.
+- Public App URL must match the URL used to access AE NetScope.
 - HTTPS Mode should stay disabled for plain HTTP access. Enable it only when AE NetScope is served through HTTPS, such as behind a reverse proxy.
-- Advanced Settings exposes rate limits, session lifetime, import size and additional environment variables for unusual deployments.
+- Additional Environment Variables can be used for AE NetScope options that are not exposed directly by the app form.
 
 ## Early Preview Notice
 
