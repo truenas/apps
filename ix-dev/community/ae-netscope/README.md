@@ -24,4 +24,4 @@ Optional values:
 
 ## Early Preview Notice
 
-This app package targets AE NetScope `v0.1.4-alpha`. It is an early public preview and should be tested carefully before use with important production data.
+This app package targets AE NetScope `v0.1.5-alpha`. It is an early public preview and should be tested carefully before use with important production data.
