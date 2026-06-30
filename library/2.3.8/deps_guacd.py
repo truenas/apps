@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, TypedDict, NotRequired
 
-
 if TYPE_CHECKING:
     from render import Render
 
@@ -33,6 +32,7 @@ class GuacdContainer:
             group = run_as["group"] or group  # Avoids running as root
 
         c.set_user(user, group)
+        c.environment.add_env("HOME", "/tmp")
         c.healthcheck.set_test("netcat", {"port": self.get_port()})
         c.remove_devices()
         c.set_grace_period(60)
