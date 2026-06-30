@@ -1,0 +1,80 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.app_name, "image") %}
+{% do c1.restart.set_policy("unless-stopped") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.set_network_mode("host") %}
+
+{# Capabilities required for SCSI tape hardware and FUSE mount #}
+{% do c1.add_caps(["SYS_ADMIN", "SYS_RAWIO", "CHOWN", "DAC_OVERRIDE"]) %}
+
+{# SCSI tape devices — device major 21 for sg, 9 for nst #}
+{% do c1.devices.add_device("/dev/fuse", "/dev/fuse") %}
+{% do c1.devices.add_device(values.drive.sg_device, values.drive.sg_device) %}
+{% do c1.devices.add_device(values.drive.nst_device, values.drive.nst_device) %}
+
+{# cgroup rules: sg (21:*) and nst (9:*) device access #}
+{% do c1.add_device_cgroup_rule("c 21:* rwm") %}
+{% do c1.add_device_cgroup_rule("c 9:* rwm") %}
+
+{# DBus socket — lets systemctl inside the container talk to the host systemd.
+   This is the same pattern used by steam-headless in this catalog.
+   Without pid:host, this is the correct way to control host services. #}
+{% do c1.add_storage("/var/run/dbus", {
+  "type": "host_path",
+  "read_only": false,
+  "host_path_config": {"path": "/var/run/dbus"}
+}) %}
+
+{# Pre-tape buffer — required: deployment fails if host_path is not set #}
+{% do c1.add_storage(values.buffer.host_path, {
+  "type": "host_path",
+  "host_path_config": {"path": values.buffer.host_path, "propagation": "rshared"}
+}) %}
+
+{# LTFS mount point — rshared so the container sees the FUSE mount made by the host #}
+{% do c1.add_storage(values.ltfs.mount_point, {
+  "type": "host_path",
+  "host_path_config": {"path": values.ltfs.mount_point, "propagation": "rshared"}
+}) %}
+
+{# Environment — secrets come from questions.yaml (private:true), never from the image #}
+{% do c1.environment.add_env("LTFS_DEVICE", values.drive.sg_device) %}
+{% do c1.environment.add_env("LTFS_TAPE_DEVICE", values.drive.nst_device) %}
+{% do c1.environment.add_env("DRIVE_ID", values.drive.drive_id) %}
+{% do c1.environment.add_env("LTFS_MOUNT_POINT", values.ltfs.mount_point) %}
+{% do c1.environment.add_env("LTFS_SERVICE", values.ltfs.service_name) %}
+{% do c1.environment.add_env("BUFFER_PATH", values.buffer.host_path) %}
+{% do c1.environment.add_env("BUFFER_MIN_FREE_GIB", values.buffer.min_free_gib) %}
+{% do c1.environment.add_env("BUFFER_GATE_PCT", values.buffer.gate_pct) %}
+{% do c1.environment.add_env("BUFFER_KILL_PCT", values.buffer.kill_pct) %}
+{% do c1.environment.add_env("AUTO_MOUNT_ON_INSERT", values.ltfs.auto_mount_on_insert) %}
+{% do c1.environment.add_env("AUTO_EJECT_ON_BUTTON", values.ltfs.auto_eject_on_button) %}
+{% do c1.environment.add_env("LTFS_USAGE_WINDOW_START", values.ltfs.usage_window_start) %}
+{% do c1.environment.add_env("LTFS_USAGE_WINDOW_END", values.ltfs.usage_window_end) %}
+{% do c1.environment.add_env("ORCHESTRATOR_PORT", values.network.orchestrator_port) %}
+{% do c1.environment.add_env("EXPORTER_PORT", values.network.exporter_port) %}
+{% do c1.environment.add_env("TELEGRAM_BOT_TOKEN", values.notifications.telegram_bot_token) %}
+{% do c1.environment.add_env("TELEGRAM_CHAT_ID", values.notifications.telegram_chat_id) %}
+{% do c1.environment.add_env("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/run/dbus/system_bus_socket") %}
+
+{# Resources #}
+{% do c1.resources.set_profile(values.resources) %}
+
+{# Healthcheck on orchestrator API #}
+{% do c1.healthcheck.set_custom_test([
+  "CMD", "curl", "-fsS",
+  "http://localhost:%d/health" | format(values.network.orchestrator_port)
+]) %}
+
+{# Portal #}
+{% do tpl.portals.add_portal({
+  "port": values.network.orchestrator_port,
+  "scheme": "http",
+  "name": "Orchestrator API"
+}) %}
+
+{% do tpl.notes.add_info("Pre-tape buffer is a required prerequisite. Deployment will fail if the buffer path is missing or below the minimum free space threshold.") %}
+{% do tpl.notes.add_warning("The host LTFS systemd service (ltfs-lto6.service) must be installed on the TrueNAS host before using mount/eject features. See the README for installation instructions.") %}
+
+{{ tpl.render() | tojson }}

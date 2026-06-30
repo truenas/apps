@@ -1,0 +1,201 @@
+groups:
+  - name: Drive Configuration
+    description: LTO tape drive SCSI devices
+  - name: Pre-Tape Buffer
+    description: Mandatory staging area before writing to tape
+  - name: LTFS Service
+    description: Host systemd service and mount point (managed via DBus)
+  - name: Notifications
+    description: Optional Telegram alerts for mount/eject/recovery events
+  - name: Network Configuration
+    description: Ports for the Orchestrator API and Prometheus exporter
+  - name: Resources Configuration
+    description: CPU and memory limits
+
+questions:
+  # ── Drive ────────────────────────────────────────────────────────────
+  - variable: drive
+    label: ""
+    group: Drive Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: sg_device
+          label: SCSI Generic Device
+          description: Host device path for the tape drive (e.g. /dev/sg4). Use `lsscsi -g` on the host.
+          schema:
+            type: string
+            required: true
+            default: /dev/sg4
+        - variable: nst_device
+          label: No-rewind Tape Device
+          description: Host device path for no-rewind tape access (e.g. /dev/nst1).
+          schema:
+            type: string
+            required: true
+            default: /dev/nst1
+        - variable: drive_id
+          label: Drive identifier
+          description: Logical name used in metrics labels and log messages.
+          schema:
+            type: string
+            default: lto6
+            enum:
+              - value: lto6
+                description: "LTO-6 primary (sg4 / nst1)"
+              - value: lto6b
+                description: "LTO-6 secondary (sg2 / nst0)"
+
+  # ── Buffer pré-tape (OBRIGATÓRIO) ────────────────────────────────────
+  - variable: buffer
+    label: ""
+    group: Pre-Tape Buffer
+    schema:
+      type: dict
+      attrs:
+        - variable: host_path
+          label: Pre-tape buffer dataset
+          description: |
+            Host path of the staging dataset (e.g. /mnt/tank/pretape/lto6-cache).
+            Required — deployment fails if this path does not exist or is below the
+            minimum free space threshold.
+          schema:
+            type: hostpath
+            required: true
+        - variable: min_free_gib
+          label: Minimum free space (GiB)
+          description: Mounts are blocked if the buffer falls below this threshold.
+          schema:
+            type: int
+            required: true
+            default: 30
+            min: 10
+        - variable: gate_pct
+          label: Gate usage (%)
+          description: New drain jobs are blocked above this usage percentage.
+          schema:
+            type: int
+            default: 80
+            min: 50
+            max: 95
+        - variable: kill_pct
+          label: Abort usage (%)
+          description: Active writes are aborted above this usage percentage.
+          schema:
+            type: int
+            default: 88
+            min: 60
+            max: 99
+
+  # ── LTFS Service ─────────────────────────────────────────────────────
+  - variable: ltfs
+    label: ""
+    group: LTFS Service
+    schema:
+      type: dict
+      attrs:
+        - variable: mount_point
+          label: LTFS mount point on host
+          description: >-
+            Host path where the LTFS filesystem is mounted. The corresponding
+            systemd service (ltfs-lto6.service) must already be installed on
+            the host. See README for prerequisite installation.
+          schema:
+            type: hostpath
+            required: true
+            default: /mnt/tape/lto6
+        - variable: service_name
+          label: Systemd service name
+          description: Name of the host systemd service that mounts LTFS.
+          schema:
+            type: string
+            default: ltfs-lto6.service
+        - variable: auto_mount_on_insert
+          label: Auto-mount on tape insertion
+          description: Automatically mount LTFS when a tape is detected in the drive.
+          schema:
+            type: boolean
+            default: true
+        - variable: auto_eject_on_button
+          label: Auto-eject on physical button press
+          description: Safely unmount and eject when the drive's physical button is pressed.
+          schema:
+            type: boolean
+            default: true
+        - variable: usage_window_start
+          label: Usage window start (HH:MM)
+          schema:
+            type: string
+            default: "02:00"
+        - variable: usage_window_end
+          label: Usage window end (HH:MM)
+          schema:
+            type: string
+            default: "04:00"
+
+  # ── Notificações ─────────────────────────────────────────────────────
+  - variable: notifications
+    label: ""
+    group: Notifications
+    schema:
+      type: dict
+      attrs:
+        - variable: telegram_bot_token
+          label: Telegram Bot Token
+          description: Optional. Stored as a secret — never logged or versioned.
+          schema:
+            type: string
+            default: ""
+            private: true
+        - variable: telegram_chat_id
+          label: Telegram Chat ID
+          schema:
+            type: string
+            default: ""
+
+  # ── Rede ─────────────────────────────────────────────────────────────
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: orchestrator_port
+          label: Orchestrator API port
+          schema:
+            type: int
+            default: 9877
+            min: 1024
+            max: 65535
+        - variable: exporter_port
+          label: Prometheus exporter port
+          schema:
+            type: int
+            default: 9125
+            min: 1024
+            max: 65535
+
+  # ── Recursos ─────────────────────────────────────────────────────────
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                schema:
+                  type: int
+                  default: 2
+                  min: 1
+              - variable: memory
+                label: Memory (MB)
+                schema:
+                  type: int
+                  default: 1024
+                  min: 256
