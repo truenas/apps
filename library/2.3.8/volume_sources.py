@@ -38,6 +38,24 @@ class HostPathSource:
         return self.source
 
 
+class TrueNASMntSource:
+    def __init__(self, render_instance: "Render"):
+        self._render_instance = render_instance
+        self.source = valid_fs_path_or_raise("/mnt")
+
+    def get(self):
+        return self.source
+
+
+class TrueNASMiddlewareSocketSource:
+    def __init__(self, render_instance: "Render"):
+        self._render_instance = render_instance
+        self.source = valid_fs_path_or_raise("/var/run/middleware/middlewared.sock")
+
+    def get(self):
+        return self.source
+
+
 class IxVolumeSource:
     def __init__(self, render_instance: "Render", config: "IxStorageIxVolumeConfig"):
         self._render_instance = render_instance

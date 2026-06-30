@@ -70,7 +70,9 @@ IxStorageLikeConfigs = Union[IxStorageBindLikeConfigs, IxStorageVolumeLikeConfig
 
 
 class IxStorage(TypedDict):
-    type: Literal["ix_volume", "host_path", "tmpfs", "volume", "anonymous", "temporary"]
+    type: Literal[
+        "ix_volume", "host_path", "tmpfs", "volume", "anonymous", "temporary", "truenas_mnt", "truenas_middleware_socket"
+    ]
     read_only: NotRequired[bool]
 
     ix_volume_config: NotRequired[IxStorageIxVolumeConfig]
@@ -115,6 +117,26 @@ class Storage:
             "type": "host_path",
             "read_only": read_only,
             "host_path_config": {"path": "/run/udev", "create_host_path": False},
+        }
+        self.add(mount_path, cfg)
+
+    def _add_truenas_mnt(self, read_only: bool = True, mount_path: str = "/mnt"):
+        mount_path = valid_fs_path_or_raise(mount_path)
+        cfg: "IxStorage" = {
+            "type": "truenas_mnt",
+            "read_only": read_only,
+            "host_path_config": {"create_host_path": False, "propagation": "rslave"},
+        }
+        self.add(mount_path, cfg)
+
+    def _add_truenas_middleware_socket(
+        self, read_only: bool = False, mount_path: str = "/var/run/middleware/middlewared.sock"
+    ):
+        mount_path = valid_fs_path_or_raise(mount_path)
+        cfg: "IxStorage" = {
+            "type": "truenas_middleware_socket",
+            "read_only": read_only,
+            "host_path_config": {"create_host_path": False},
         }
         self.add(mount_path, cfg)
 

@@ -205,6 +205,46 @@ def test_add_docker_socket(mock_values):
     ]
 
 
+def test_add_truenas_mnt(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_truenas_mnt()
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/mnt",
+            "target": "/mnt",
+            "read_only": True,
+            "bind": {
+                "propagation": "rslave",
+                "create_host_path": False,
+            },
+        }
+    ]
+
+
+def test_add_truenas_middleware_socket(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_truenas_middleware_socket()
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/var/run/middleware/middlewared.sock",
+            "target": "/var/run/middleware/middlewared.sock",
+            "read_only": False,
+            "bind": {
+                "propagation": "rprivate",
+                "create_host_path": False,
+            },
+        }
+    ]
+
+
 def test_snd_device(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

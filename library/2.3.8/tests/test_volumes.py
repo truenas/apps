@@ -744,3 +744,40 @@ def test_host_path_without_disallowed_path(mock_values):
             "bind": {"create_host_path": False, "propagation": "rprivate"},
         }
     ]
+
+
+def test_truenas_mnt_volume_mount(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage("/mnt", {"type": "truenas_mnt", "host_path_config": {"create_host_path": False}, "read_only": True})
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/mnt",
+            "target": "/mnt",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rslave"},
+        }
+    ]
+
+
+def test_truenas_middleware_socket_volume_mount(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage(
+        "/var/run/middleware/middlewared.sock",
+        {"type": "truenas_middleware_socket", "host_path_config": {"create_host_path": False}},
+    )
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/var/run/middleware/middlewared.sock",
+            "target": "/var/run/middleware/middlewared.sock",
+            "read_only": False,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
