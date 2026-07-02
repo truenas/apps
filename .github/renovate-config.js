@@ -303,6 +303,11 @@ module.exports = {
       ["mbentley/omada-controller"],
     ),
     customVersioning(
+      // 0.7.6-nbxyz4
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-nbxyz(?<build>\\d+)$",
+      ["ghcr.io/netbootxyz/netbootxyz"],
+    ),
+    customVersioning(
       // apache-2.37.0
       "^apache-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["kimai/kimai2"],
