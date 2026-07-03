@@ -78,9 +78,7 @@
   {% do c.environment.add_env("DJANGO_CACHE_CLIENT_CLASS", "django_redis.client.DefaultClient") %}
   {% do c.environment.add_env("DJANGO_COLLECTSTATIC_ON_STARTUP", "True") %}
   {% do c.environment.add_env("CSRF_TRUSTED_ORIGINS", origins.x|join(",")) %}
-  {% if values.wger.powersync.enabled %}
-    {% do c.environment.add_env("POWERSYNC_URL_PATH", values.wger.powersync.ps_url_path) %}
-  {% endif %}
+  {% do c.environment.add_env("POWERSYNC_URL_PATH", values.wger.powersync.ps_url_path) %}
   {% do c.environment.add_user_envs(values.wger.additional_envs) %}
 {% endfor %}
 
@@ -118,55 +116,53 @@
 {% do beat.depends.add_dependency(values.consts.worker_container_name, "service_healthy") %}
 {% do beat.add_storage("/home/wger/beat", values.storage.beat) %}
 
-{# -- PowerSync (optional) -- #}
-{% if values.wger.powersync.enabled %}
-  {% set powersync = tpl.add_container(values.consts.powersync_container_name, "powersync_image") %}
-  {% do powersync.add_network(wger_net) %}
-  {% do powersync.set_command(["start", "-r", "unified"]) %}
+{# -- PowerSync -- #}
+{% set powersync = tpl.add_container(values.consts.powersync_container_name, "powersync_image") %}
+{% do powersync.add_network(wger_net) %}
+{% do powersync.set_command(["start", "-r", "unified"]) %}
 
-  {# PowerSync config: literal values substituted at template time (no !env tags) #}
-  {% set ps_db_uri = postgres.get_url("postgres") %}
-  {% set ps_storage_uri = "postgres://powersync_storage:%s@%s:%s/%s?sslmode=disable" | format(
-      values.wger.powersync.ps_storage_password,
-      values.consts.postgres_container_name,
-      postgres.get_port(),
-      values.consts.db_name
-  ) %}
-  {% set ps_port = values.wger.powersync.ps_port %}
+{# PowerSync config: literal values substituted at template time (no !env tags) #}
+{% set ps_db_uri = postgres.get_url("postgres") %}
+{% set ps_storage_uri = "postgres://powersync_storage:%s@%s:%s/%s?sslmode=disable" | format(
+    values.wger.powersync.ps_storage_password,
+    values.consts.postgres_container_name,
+    postgres.get_port(),
+    values.consts.db_name
+) %}
+{% set ps_port = values.wger.powersync.ps_port %}
 
-  {% set powersync_yaml = powersync_config(
-      ps_db_uri,
-      ps_storage_uri,
-      ps_port,
-      values.consts.server_container_name,
-      values.consts.internal_server_port
-  ) %}
-  {% set sync_rules_yaml = sync_rules_config() %}
+{% set powersync_yaml = powersync_config(
+    ps_db_uri,
+    ps_storage_uri,
+    ps_port,
+    values.consts.server_container_name,
+    values.consts.internal_server_port
+) %}
+{% set sync_rules_yaml = sync_rules_config() %}
 
-  {% do powersync.configs.add("powersync.yaml", powersync_yaml, "/config/powersync.yaml") %}
-  {% do powersync.configs.add("sync_rules.yaml", sync_rules_yaml, "/config/sync_rules.yaml") %}
-  {% do powersync.environment.add_env("POWERSYNC_CONFIG_PATH", "/config/powersync.yaml") %}
-  {% do powersync.healthcheck.set_test("tcp", {"port": ps_port}) %}
-  {% do powersync.healthcheck.set_start_period(120) %}
-  {% do powersync.healthcheck.set_retries(10) %}
+{% do powersync.configs.add("powersync.yaml", powersync_yaml, "/config/powersync.yaml") %}
+{% do powersync.configs.add("sync_rules.yaml", sync_rules_yaml, "/config/sync_rules.yaml") %}
+{% do powersync.environment.add_env("POWERSYNC_CONFIG_PATH", "/config/powersync.yaml") %}
+{% do powersync.healthcheck.set_test("tcp", {"port": ps_port}) %}
+{% do powersync.healthcheck.set_start_period(120) %}
+{% do powersync.healthcheck.set_retries(10) %}
 
-  {# Pre-create the powersync_storage role on fresh postgres installs via an init script.
-     docker-entrypoint-initdb.d runs automatically on the first-ever DB initialization. #}
-  {% set ps_init_sql %}
+{# Pre-create the powersync_storage role on fresh postgres installs via an init script.
+   docker-entrypoint-initdb.d runs automatically on the first-ever DB initialization. #}
+{% set ps_init_sql %}
 -- Create the powersync_storage role used by the PowerSync replication service.
 -- This script runs once on a fresh database via docker-entrypoint-initdb.d.
 CREATE ROLE powersync_storage WITH LOGIN PASSWORD '{{ values.wger.powersync.ps_storage_password }}';
 GRANT CONNECT ON DATABASE {{ values.consts.db_name }} TO powersync_storage;
 GRANT CREATE ON DATABASE {{ values.consts.db_name }} TO powersync_storage;
 GRANT pg_read_all_data TO powersync_storage;
-  {% endset %}
-  {% do postgres.container.configs.add("powersync_init_sql", ps_init_sql, "/docker-entrypoint-initdb.d/10-powersync.sql") %}
+{% endset %}
+{% do postgres.container.configs.add("powersync_init_sql", ps_init_sql, "/docker-entrypoint-initdb.d/10-powersync.sql") %}
 
-  {% do powersync.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-  {% do powersync.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
-  {# nginx must wait for powersync to be healthy before starting -- added here so the container exists #}
-  {% do nginx.depends.add_dependency(values.consts.powersync_container_name, "service_healthy") %}
-{% endif %}
+{% do powersync.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do powersync.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
+{# nginx must wait for powersync to be healthy before starting #}
+{% do nginx.depends.add_dependency(values.consts.powersync_container_name, "service_healthy") %}
 
 {% do perm_container.add_or_skip_action("static", values.storage.static, perms_config) %}
 {% do perm_container.add_or_skip_action("media", values.storage.media, perms_config) %}
@@ -183,9 +179,7 @@ GRANT pg_read_all_data TO powersync_storage;
     {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% endfor %}
 
-  {% if values.wger.powersync.enabled %}
-    {% do powersync.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% endif %}
+  {% do powersync.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
