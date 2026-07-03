@@ -1,4 +1,6 @@
 {% from "macros/nginx.conf" import nginx_config %}
+{% from "macros/powersync.yaml" import powersync_config %}
+{% from "macros/sync_rules.yaml" import sync_rules_config %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {# {% if values.wger.postgres_image_selector == "postgres_17_image" %}
@@ -132,132 +134,14 @@
   ) %}
   {% set ps_port = values.wger.powersync.ps_port %}
 
-  {% set powersync_yaml %}
-telemetry:
-  disable_telemetry_sharing: true
-  prometheus_port: 9090
-
-replication:
-  connections:
-    - type: postgresql
-      uri: {{ ps_db_uri }}
-      sslmode: disable
-
-storage:
-  type: postgresql
-  uri: {{ ps_storage_uri }}
-  sslmode: disable
-
-port: {{ ps_port }}
-
-api:
-  parameters:
-    max_parameter_query_results: 2000
-
-sync_rules:
-  path: sync_rules.yaml
-
-client_auth:
-  allow_local_jwks: true
-  jwks_uri: http://{{ values.consts.server_container_name }}:{{ values.consts.internal_server_port }}/api/v2/powersync-keys
-  audience: ["powersync"]
-  {% endset %}
-
-  {% set sync_rules_yaml %}
-config:
-  edition: 3
-
-streams:
-  core:
-    auto_subscribe: true
-    queries:
-      - SELECT * FROM core_language
-      - SELECT * FROM core_license
-      - SELECT * FROM core_repetitionunit
-      - SELECT * FROM core_weightunit
-      - SELECT * FROM exercises_exercise
-      - SELECT * FROM exercises_translation
-      - SELECT * FROM exercises_alias
-      - SELECT * FROM exercises_exercisecomment
-      - SELECT * FROM exercises_muscle
-      - SELECT * FROM exercises_exercise_muscles
-      - SELECT * FROM exercises_exercise_muscles_secondary
-      - SELECT * FROM exercises_equipment
-      - SELECT * FROM exercises_exercise_equipment
-      - SELECT * FROM exercises_exercisecategory
-      - SELECT * FROM exercises_exerciseimage
-      - SELECT * FROM exercises_exercisevideo
-
-  user_profile:
-    auto_subscribe: true
-    queries:
-      - SELECT * FROM core_userprofile WHERE CAST(user_id AS TEXT) = auth.user_id()
-      - SELECT * FROM gallery_image WHERE CAST(user_id AS TEXT) = auth.user_id()
-
-  user_ingredients:
-    auto_subscribe: true
-    with:
-      user_ingredients: |
-        SELECT DISTINCT nutrition_synced_ingredient.id
-        FROM nutrition_synced_ingredient
-        WHERE nutrition_synced_ingredient.id IN (
-                SELECT nutrition_logitem.ingredient_id FROM nutrition_logitem
-                JOIN nutrition_nutritionplan ON nutrition_logitem.plan_id = nutrition_nutritionplan.id
-                WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id())
-           OR nutrition_synced_ingredient.id IN (
-                SELECT nutrition_mealitem.ingredient_id FROM nutrition_mealitem
-                JOIN nutrition_meal ON nutrition_mealitem.meal_id = nutrition_meal.id
-                JOIN nutrition_nutritionplan ON nutrition_meal.plan_id = nutrition_nutritionplan.id
-                WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id())
-    queries:
-      - SELECT * FROM nutrition_synced_ingredient AS nutrition_ingredient WHERE id IN user_ingredients
-      - |
-        SELECT nutrition_image.* FROM nutrition_image
-        WHERE nutrition_image.ingredient_id IN user_ingredients
-      - |
-        SELECT nutrition_ingredientweightunit.* FROM nutrition_ingredientweightunit
-        WHERE nutrition_ingredientweightunit.ingredient_id IN user_ingredients
-
-  user_planning:
-    auto_subscribe: true
-    queries:
-      - SELECT * FROM manager_routine WHERE CAST(user_id AS TEXT) = auth.user_id() AND is_template = FALSE
-      - SELECT * FROM measurements_category WHERE CAST(user_id AS TEXT) = auth.user_id()
-      - |
-        SELECT measurements_measurement.*
-        FROM measurements_measurement
-        INNER JOIN measurements_category
-          ON measurements_measurement.category_id = measurements_category.id
-        WHERE CAST(measurements_category.user_id AS TEXT) = auth.user_id()
-      - SELECT * FROM nutrition_nutritionplan WHERE CAST(user_id AS TEXT) = auth.user_id()
-      - |
-        SELECT nutrition_meal.*
-        FROM nutrition_meal
-        JOIN nutrition_nutritionplan
-          ON nutrition_meal.plan_id = nutrition_nutritionplan.id
-        WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id()
-      - |
-        SELECT nutrition_mealitem.*
-        FROM nutrition_mealitem
-        JOIN nutrition_meal
-          ON nutrition_mealitem.meal_id = nutrition_meal.id
-        JOIN nutrition_nutritionplan
-          ON nutrition_meal.plan_id = nutrition_nutritionplan.id
-        WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id()
-
-  user_activity:
-    auto_subscribe: true
-    queries:
-      - SELECT uuid AS id, weight, date, user_id FROM weight_weightentry WHERE CAST(user_id AS TEXT) = auth.user_id()
-      - SELECT * FROM manager_workoutsession WHERE CAST(user_id AS TEXT) = auth.user_id()
-      - SELECT * FROM manager_workoutlog WHERE CAST(user_id AS TEXT) = auth.user_id()
-      - |
-        SELECT nutrition_logitem.*
-        FROM nutrition_logitem
-        JOIN nutrition_nutritionplan
-          ON nutrition_logitem.plan_id = nutrition_nutritionplan.id
-        WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id()
-  {% endset %}
+  {% set powersync_yaml = powersync_config(
+      ps_db_uri,
+      ps_storage_uri,
+      ps_port,
+      values.consts.server_container_name,
+      values.consts.internal_server_port
+  ) %}
+  {% set sync_rules_yaml = sync_rules_config() %}
 
   {% do powersync.configs.add("powersync.yaml", powersync_yaml, "/config/powersync.yaml") %}
   {% do powersync.configs.add("sync_rules.yaml", sync_rules_yaml, "/config/sync_rules.yaml") %}

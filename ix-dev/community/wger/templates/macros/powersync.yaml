@@ -1,0 +1,47 @@
+{% macro powersync_config(ps_db_uri, ps_storage_uri, ps_port, server_name, server_port) -%}
+# Settings for telemetry reporting
+# See https://docs.powersync.com/self-hosting/telemetry
+telemetry:
+  disable_telemetry_sharing: true
+
+  # Expose prometheus metrics on this port
+  prometheus_port: 9090
+
+# Settings for source database replication
+replication:
+  # Note: only 1 connection is currently supported
+  connections:
+    - type: postgresql
+      uri: {{ ps_db_uri }}
+      sslmode: disable # 'disable' is OK for private Docker networks
+
+# Connection settings for sync bucket storage
+storage:
+  type: postgresql
+  uri: {{ ps_storage_uri }}
+  sslmode: disable
+
+# The port which the PowerSync API server will listen on
+port: {{ ps_port }}
+
+# Workaround for PSYNC_S2305 bug: PowerSync counts source rows instead of DISTINCT
+# CTE results. Users with large nutrition logs (>1000 log items) can hit the limit
+# even though the number of distinct ingredients is well below it.
+# See https://github.com/powersync-ja/powersync-service/issues/682
+#     https://github.com/wger-project/flutter/issues/1237
+api:
+  parameters:
+    max_parameter_query_results: 2000
+
+# Specify sync rules
+sync_rules:
+  path: sync_rules.yaml
+
+# Client (application end user) authentication settings
+client_auth:
+  allow_local_jwks: true
+  jwks_uri: http://{{ server_name }}:{{ server_port }}/api/v2/powersync-keys
+
+  # JWKS audience
+  audience: ["powersync"]
+{%- endmacro %}
