@@ -102,12 +102,16 @@
 
 {# -- Worker -- #}
 {% do worker.healthcheck.set_custom_test(["CMD", "celery", "-A", "wger", "inspect", "ping"]) %}
+{% do worker.healthcheck.set_timeout(15) %}
+{% do worker.healthcheck.set_start_period(60) %}
 {% do worker.set_command(["/start-worker"]) %}
 {% do worker.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do worker.add_storage("/home/wger/media", values.storage.media) %}
 
 {# -- Beat -- #}
 {% do beat.healthcheck.set_custom_test(["CMD", "celery", "-A", "wger", "inspect", "ping"]) %}
+{% do beat.healthcheck.set_timeout(15) %}
+{% do beat.healthcheck.set_start_period(60) %}
 {% do beat.set_command(["/start-beat"]) %}
 {% do beat.depends.add_dependency(values.consts.worker_container_name, "service_healthy") %}
 {% do beat.add_storage("/home/wger/beat", values.storage.beat) %}
@@ -258,7 +262,28 @@ streams:
   {% do powersync.configs.add("powersync.yaml", powersync_yaml, "/config/powersync.yaml") %}
   {% do powersync.configs.add("sync_rules.yaml", sync_rules_yaml, "/config/sync_rules.yaml") %}
   {% do powersync.environment.add_env("POWERSYNC_CONFIG_PATH", "/config/powersync.yaml") %}
-  {% do powersync.healthcheck.set_test("wget", {"port": ps_port, "spider": false}) %}
+  {% do powersync.healthcheck.set_test("tcp", {"port": ps_port}) %}
+  {% do powersync.healthcheck.set_start_period(120) %}
+  {% do powersync.healthcheck.set_retries(10) %}
+
+  {# Pre-create the powersync_storage role on fresh postgres installs via an init script.
+     docker-entrypoint-initdb.d runs automatically on the first-ever DB initialization. #}
+  {% set ps_init_sql %}
+-- Create the powersync_storage role used by the PowerSync replication service.
+-- This script runs once on a fresh database via docker-entrypoint-initdb.d.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'powersync_storage') THEN
+    EXECUTE format(
+      'CREATE ROLE powersync_storage WITH LOGIN PASSWORD %L',
+      '{{ values.wger.powersync.ps_storage_password }}'
+    );
+  END IF;
+END
+$$;
+  {% endset %}
+  {% do postgres.container.configs.add("powersync_init_sql", ps_init_sql, "/docker-entrypoint-initdb.d/10-powersync.sql") %}
+
   {% do powersync.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
   {% do powersync.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
   {# nginx must wait for powersync to be healthy before starting -- added here so the container exists #}
