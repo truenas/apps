@@ -24,6 +24,7 @@
   "password": values.wger.db_password,
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
+  "additional_options": {"wal_level": "logical"},
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.wger.postgres_image_selector, pg_config, perm_container) %}
 {% do postgres.container.add_network(wger_net) %}
@@ -75,11 +76,17 @@
   {% do c.environment.add_env("DJANGO_CACHE_CLIENT_CLASS", "django_redis.client.DefaultClient") %}
   {% do c.environment.add_env("DJANGO_COLLECTSTATIC_ON_STARTUP", "True") %}
   {% do c.environment.add_env("CSRF_TRUSTED_ORIGINS", origins.x|join(",")) %}
+  {% if values.wger.powersync.enabled %}
+    {% do c.environment.add_env("POWERSYNC_URL_PATH", values.wger.powersync.ps_url_path) %}
+  {% endif %}
   {% do c.environment.add_user_envs(values.wger.additional_envs) %}
 {% endfor %}
 
 {# -- NGINX -- #}
 {% do nginx.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
+{% if values.wger.powersync.enabled %}
+  {% do nginx.depends.add_dependency(values.consts.powersync_container_name, "service_healthy") %}
+{% endif %}
 {% do nginx.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do nginx.configs.add("nginx.conf", nginx_config(values), "/etc/nginx/conf.d/default.conf") %}
 {% do nginx.add_storage("/wger/static", dict(values.storage.static, **{"read_only": True})) %}
@@ -88,6 +95,7 @@
 
 {# -- Server -- #}
 {% do server.healthcheck.set_test("wget", {"port": values.consts.internal_server_port}) %}
+{% do server.healthcheck.set_start_period(120) %}
 {% do server.environment.add_env("WGER_PORT", values.consts.internal_server_port) %}
 {% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do server.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
@@ -106,6 +114,157 @@
 {% do beat.depends.add_dependency(values.consts.worker_container_name, "service_healthy") %}
 {% do beat.add_storage("/home/wger/beat", values.storage.beat) %}
 
+{# -- PowerSync (optional) -- #}
+{% if values.wger.powersync.enabled %}
+  {% set powersync = tpl.add_container(values.consts.powersync_container_name, "powersync_image") %}
+  {% do powersync.add_network(wger_net) %}
+  {% do powersync.set_command(["start", "-r", "unified"]) %}
+
+  {# PowerSync config: literal values substituted at template time (no !env tags) #}
+  {% set ps_db_uri = postgres.get_url("postgres") %}
+  {% set ps_storage_uri = "postgres://powersync_storage:%s@%s:%s/%s?sslmode=disable" | format(
+      values.wger.powersync.ps_storage_password,
+      values.consts.postgres_container_name,
+      postgres.get_port(),
+      values.consts.db_name
+  ) %}
+  {% set ps_port = values.wger.powersync.ps_port %}
+
+  {% set powersync_yaml %}
+telemetry:
+  disable_telemetry_sharing: true
+  prometheus_port: 9090
+
+replication:
+  connections:
+    - type: postgresql
+      uri: {{ ps_db_uri }}
+      sslmode: disable
+
+storage:
+  type: postgresql
+  uri: {{ ps_storage_uri }}
+  sslmode: disable
+
+port: {{ ps_port }}
+
+api:
+  parameters:
+    max_parameter_query_results: 2000
+
+sync_rules:
+  path: sync_rules.yaml
+
+client_auth:
+  allow_local_jwks: true
+  jwks_uri: http://{{ values.consts.server_container_name }}:{{ values.consts.internal_server_port }}/api/v2/powersync-keys
+  audience: ["powersync"]
+  {% endset %}
+
+  {% set sync_rules_yaml %}
+config:
+  edition: 3
+
+streams:
+  core:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM core_language
+      - SELECT * FROM core_license
+      - SELECT * FROM core_repetitionunit
+      - SELECT * FROM core_weightunit
+      - SELECT * FROM exercises_exercise
+      - SELECT * FROM exercises_translation
+      - SELECT * FROM exercises_alias
+      - SELECT * FROM exercises_exercisecomment
+      - SELECT * FROM exercises_muscle
+      - SELECT * FROM exercises_exercise_muscles
+      - SELECT * FROM exercises_exercise_muscles_secondary
+      - SELECT * FROM exercises_equipment
+      - SELECT * FROM exercises_exercise_equipment
+      - SELECT * FROM exercises_exercisecategory
+      - SELECT * FROM exercises_exerciseimage
+      - SELECT * FROM exercises_exercisevideo
+
+  user_profile:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM core_userprofile WHERE CAST(user_id AS TEXT) = auth.user_id()
+      - SELECT * FROM gallery_image WHERE CAST(user_id AS TEXT) = auth.user_id()
+
+  user_ingredients:
+    auto_subscribe: true
+    with:
+      user_ingredients: |
+        SELECT DISTINCT nutrition_synced_ingredient.id
+        FROM nutrition_synced_ingredient
+        WHERE nutrition_synced_ingredient.id IN (
+                SELECT nutrition_logitem.ingredient_id FROM nutrition_logitem
+                JOIN nutrition_nutritionplan ON nutrition_logitem.plan_id = nutrition_nutritionplan.id
+                WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id())
+           OR nutrition_synced_ingredient.id IN (
+                SELECT nutrition_mealitem.ingredient_id FROM nutrition_mealitem
+                JOIN nutrition_meal ON nutrition_mealitem.meal_id = nutrition_meal.id
+                JOIN nutrition_nutritionplan ON nutrition_meal.plan_id = nutrition_nutritionplan.id
+                WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id())
+    queries:
+      - SELECT * FROM nutrition_synced_ingredient AS nutrition_ingredient WHERE id IN user_ingredients
+      - |
+        SELECT nutrition_image.* FROM nutrition_image
+        WHERE nutrition_image.ingredient_id IN user_ingredients
+      - |
+        SELECT nutrition_ingredientweightunit.* FROM nutrition_ingredientweightunit
+        WHERE nutrition_ingredientweightunit.ingredient_id IN user_ingredients
+
+  user_planning:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM manager_routine WHERE CAST(user_id AS TEXT) = auth.user_id() AND is_template = FALSE
+      - SELECT * FROM measurements_category WHERE CAST(user_id AS TEXT) = auth.user_id()
+      - |
+        SELECT measurements_measurement.*
+        FROM measurements_measurement
+        INNER JOIN measurements_category
+          ON measurements_measurement.category_id = measurements_category.id
+        WHERE CAST(measurements_category.user_id AS TEXT) = auth.user_id()
+      - SELECT * FROM nutrition_nutritionplan WHERE CAST(user_id AS TEXT) = auth.user_id()
+      - |
+        SELECT nutrition_meal.*
+        FROM nutrition_meal
+        JOIN nutrition_nutritionplan
+          ON nutrition_meal.plan_id = nutrition_nutritionplan.id
+        WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id()
+      - |
+        SELECT nutrition_mealitem.*
+        FROM nutrition_mealitem
+        JOIN nutrition_meal
+          ON nutrition_mealitem.meal_id = nutrition_meal.id
+        JOIN nutrition_nutritionplan
+          ON nutrition_meal.plan_id = nutrition_nutritionplan.id
+        WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id()
+
+  user_activity:
+    auto_subscribe: true
+    queries:
+      - SELECT uuid AS id, weight, date, user_id FROM weight_weightentry WHERE CAST(user_id AS TEXT) = auth.user_id()
+      - SELECT * FROM manager_workoutsession WHERE CAST(user_id AS TEXT) = auth.user_id()
+      - SELECT * FROM manager_workoutlog WHERE CAST(user_id AS TEXT) = auth.user_id()
+      - |
+        SELECT nutrition_logitem.*
+        FROM nutrition_logitem
+        JOIN nutrition_nutritionplan
+          ON nutrition_logitem.plan_id = nutrition_nutritionplan.id
+        WHERE CAST(nutrition_nutritionplan.user_id AS TEXT) = auth.user_id()
+  {% endset %}
+
+  {% do powersync.configs.add("powersync.yaml", powersync_yaml, "/config/powersync.yaml") %}
+  {% do powersync.configs.add("sync_rules.yaml", sync_rules_yaml, "/config/sync_rules.yaml") %}
+  {% do powersync.environment.add_env("POWERSYNC_CONFIG_PATH", "/config/powersync.yaml") %}
+  {% do powersync.healthcheck.set_test("wget", {"port": ps_port, "spider": false}) %}
+  {% do powersync.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+  {% do powersync.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
+{% endif %}
+
 {% do perm_container.add_or_skip_action("static", values.storage.static, perms_config) %}
 {% do perm_container.add_or_skip_action("media", values.storage.media, perms_config) %}
 {% do perm_container.add_or_skip_action("beat", values.storage.beat, perms_config) %}
@@ -116,9 +275,14 @@
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
 
-  {% for c in containers + [nginx] %}
+  {% set all_containers = containers + [nginx] %}
+  {% for c in all_containers %}
     {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% endfor %}
+
+  {% if values.wger.powersync.enabled %}
+    {% do powersync.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endif %}
 
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
