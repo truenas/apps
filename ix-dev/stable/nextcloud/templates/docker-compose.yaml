@@ -191,6 +191,38 @@
   {% do cron_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
 {% endif %}
 
+{% if values.nextcloud.worker.enabled %}
+  {% set worker_container = tpl.add_container(values.consts.worker_container_name, "image") %}
+  {% do worker_container.add_network(nc_net) %}
+  {% do worker_container.build_image(nc_custom_image.x) %}
+  {% do worker_container.set_user(0,0) %}
+  {% do worker_container.add_caps(nc_caps) %}
+  {% do worker_container.healthcheck.set_test("pidof", {"process": "php"}) %}
+  {% do worker_container.set_entrypoint(["/bin/sh", "-c"]) %}
+  {% set worker_classes = namespace(x="") %}
+  {% for cls in values.nextcloud.worker.job_classes %}
+    {% do tpl.funcs.disallow_chars(cls, ["'", '"', " ", ";", "&", "|", "$", "`"], "worker job_class") %}
+    {% set worker_classes.x = "%s '%s'"|format(worker_classes.x, cls) %}
+  {% endfor %}
+  {% set worker_cmd = [
+    "echo 'Starting %d Nextcloud background job worker process(es)...'"|format(values.nextcloud.worker.processes),
+    "for i in $(seq 1 %d); do occ background-job:worker%s & done"|format(values.nextcloud.worker.processes, worker_classes.x),
+    "wait"
+  ]|join("\n") %}
+  {% do worker_container.set_command([worker_cmd]) %}
+  {% do worker_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
+  {% for c in nc_confs %}
+    {% do worker_container.configs.add(c[0], c[1], c[2], c[3]) %}
+  {% endfor %}
+  {% for e in nc_env.x %}
+    {% do worker_container.environment.add_env(e[0], e[1]) %}
+  {% endfor %}
+  {% for s in nc_storage.x %}
+    {% do worker_container.add_storage(s[0], s[1]) %}
+  {% endfor %}
+  {% do worker_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
+{% endif %}
+
 {% if values.nextcloud.imaginary.enabled %}
   {% set imaginary_container = tpl.add_container(values.consts.imaginary_container_name, "imaginary_image") %}
   {% do imaginary_container.add_network(nc_net) %}
