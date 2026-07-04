@@ -83,3 +83,13 @@ set_list "trusted_domains" "${NEXTCLOUD_TRUSTED_DOMAINS}" || { echo "Failed to u
 echo '## Configuring Imaginary...'
 occ config:system:set preview_imaginary_url --value={{ "http://%s:%d"|format(host, port) }}
 {%- endmacro -%}
+
+{% macro notify_push_setup(url) -%}
+#!/bin/bash
+echo '## Configuring notify_push...'
+if ! occ app:enable notify_push; then
+  echo 'The notify_push app is not installed yet. Installing it from the app store...'
+  occ app:install notify_push || { echo 'Failed to install the notify_push app from the app store. Continuing without it...'; exit 0; }
+fi
+occ config:app:set notify_push base_endpoint --value={{ url }} || { echo 'Failed to set the notify_push base_endpoint. Continuing...'; exit 0; }
+{%- endmacro -%}

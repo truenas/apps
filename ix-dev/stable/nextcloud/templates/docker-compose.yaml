@@ -1,5 +1,5 @@
-{% from "macros/nc.jinja.sh" import occ, hosts_update, trusted_domains_update, imaginary_url %}
-{% from "macros/nc.jinja.conf" import opcache, php, limit_request_body, use_x_real_ip_in_logs, nginx_conf %}
+{% from "macros/nc.jinja.sh" import occ, hosts_update, trusted_domains_update, imaginary_url, notify_push_setup %}
+{% from "macros/nc.jinja.conf" import opcache, php, limit_request_body, use_x_real_ip_in_logs, nginx_conf, notify_push_apache_conf %}
 
 {% set tpl = ix_lib.base.render.Render(values) %}
 
@@ -39,6 +39,14 @@
       {% do nc_custom_image.x.append("RUN apt install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(lang_pack, lang_pack)) %}
     {% endfor %}
   {% endfor %}
+{% endif %}
+
+{% if values.nextcloud.notify_push.enabled %}
+  {% if not values.nextcloud.host %}
+    {% do tpl.funcs.fail("Client Push (notify_push) requires the [Host] field to be set, so that clients can reach the push endpoint.") %}
+  {% endif %}
+  {# Apache proxies [/push] to the notify_push daemon #}
+  {% do nc_custom_image.x.append("RUN a2enmod proxy proxy_http proxy_wstunnel || { echo 'Failed to enable apache proxy modules. Exiting...'; exit 1; }") %}
 {% endif %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
@@ -162,6 +170,19 @@
     "/docker-entrypoint-hooks.d/before-starting/ix-imaginary-url.sh", "0755",
   ) %}
 {% endif %}
+{% if values.nextcloud.notify_push.enabled %}
+  {% set push_url = "%s://%s/push"|format("https" if values.network.certificate_id else "http", host.x) %}
+  {% do nc_container.configs.add(
+    "ix-notify-push-setup.sh",
+    notify_push_setup(push_url),
+    "/docker-entrypoint-hooks.d/before-starting/ix-notify-push-setup.sh", "0755",
+  ) %}
+  {% do nc_container.configs.add(
+    "notify-push.conf",
+    notify_push_apache_conf(values.consts.notifypush_container_name, values.consts.notifypush_port),
+    "/etc/apache2/conf-enabled/notify-push.conf", "",
+  ) %}
+{% endif %}
 
 {% do nc_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
 
@@ -197,6 +218,36 @@
   {% do imaginary_container.add_caps(["SYS_NICE"]) %}
   {% do imaginary_container.set_user(568, 568) %}
   {% do imaginary_container.healthcheck.set_test("wget", {"port": 9000, "path": "/health"}) %}
+{% endif %}
+
+{% if values.nextcloud.notify_push.enabled %}
+  {# Runs the push daemon binary that ships with the notify_push app (installed by the nextcloud container), #}
+  {# so the daemon version always matches the app version #}
+  {% set notifypush_container = tpl.add_container(values.consts.notifypush_container_name, "image") %}
+  {% do notifypush_container.add_network(nc_net) %}
+  {% do notifypush_container.set_user(568, 568) %}
+  {# The daemon has no dedicated health endpoint, check that it accepts TCP connections #}
+  {% do notifypush_container.healthcheck.set_test("tcp", {"port": values.consts.notifypush_port}) %}
+  {% do notifypush_container.set_entrypoint(["/bin/sh", "-c"]) %}
+  {% set notifypush_cmd = [
+    'BIN="/var/www/html/custom_apps/notify_push/bin/$(uname -m)/notify_push"',
+    'echo "Waiting for the notify_push app to be installed (done automatically by the Nextcloud container)..."',
+    'until [ -f "$BIN" ]; do sleep 5; done',
+    'exec "$BIN"',
+  ]|join("\n") %}
+  {% do notifypush_container.set_command([notifypush_cmd]) %}
+  {% do notifypush_container.depends.add_dependency(values.consts.nextcloud_container_name, "service_healthy") %}
+  {% do notifypush_container.environment.add_env("PORT", values.consts.notifypush_port) %}
+  {% do notifypush_container.environment.add_env("BIND", "0.0.0.0") %}
+  {% do notifypush_container.environment.add_env("NEXTCLOUD_URL", "http://%s"|format(values.consts.nextcloud_container_name)) %}
+  {% do notifypush_container.environment.add_env("DATABASE_URL", "postgres://%s:%s@%s/%s"|format(
+    values.nextcloud.db_user|urlencode, values.nextcloud.db_password|urlencode, postgres.get_url("host_port"), values.consts.db_name
+  )) %}
+  {% do notifypush_container.environment.add_env("DATABASE_PREFIX", "oc_") %}
+  {% do notifypush_container.environment.add_env("REDIS_URL", "redis://:%s@%s:6379"|format(
+    values.nextcloud.redis_password|urlencode, values.consts.redis_container_name
+  )) %}
+  {% do notifypush_container.add_storage("/var/www/html", values.storage.html) %}
 {% endif %}
 
 {% if values.network.certificate_id %}
