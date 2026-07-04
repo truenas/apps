@@ -41,6 +41,23 @@
   {% endfor %}
 {% endif %}
 
+{# Custom PHP Extensions #}
+{% set php_ext_allowed_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" %}
+{% for ext in values.nextcloud.php_extensions %}
+  {% for char in ext.name if char not in php_ext_allowed_chars %}
+    {% do tpl.funcs.fail("PHP extension name [%s] contains an invalid character [%s]"|format(ext.name, char)) %}
+  {% endfor %}
+  {# Skip extensions that are already loaded (e.g. apcu, bcmath ship with the image), pecl install fails on them #}
+  {% if ext.installer == "pecl" %}
+    {% do nc_custom_image.x.append("RUN php -m | grep -qix %s || pecl install %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(ext.name, ext.name, ext.name)) %}
+    {% do nc_custom_image.x.append("RUN php -m | grep -qix %s || docker-php-ext-enable %s || { echo 'Failed to enable [%s]. Exiting...'; exit 1; }"|format(ext.name, ext.name, ext.name)) %}
+  {% elif ext.installer == "core" %}
+    {% do nc_custom_image.x.append("RUN php -m | grep -qix %s || docker-php-ext-install -j\"$(nproc)\" %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(ext.name, ext.name, ext.name)) %}
+  {% else %}
+    {% do tpl.funcs.fail("Unknown PHP extension installer [%s]"|format(ext.installer)) %}
+  {% endif %}
+{% endfor %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set nc_container = tpl.add_container(values.consts.nextcloud_container_name, "image") %}
 {% do nc_container.add_network(nc_net) %}
