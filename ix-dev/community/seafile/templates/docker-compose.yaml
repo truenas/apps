@@ -21,7 +21,6 @@
   "volume": values.storage.redis_data,
 } %}
 {% set cache = tpl.deps.redis(values.consts.redis_container_name, "redis_image", cache_config, perm_container) %}
-{% do cache.container.set_command(["--port", "6379", "--requirepass", values.seafile.redis_password, "--stop-writes-on-bgsave-error", "no"]) %}
 {% do cache.container.add_network(seafile_net) %}
 
 {% set seafile = tpl.add_container(values.consts.seafile_container_name, "image") %}
@@ -120,7 +119,11 @@
   {% endif %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% if values.network.certificate_id %}
+  {% do tpl.portals.add(values.network.https_port, {"scheme": "https"}) %}
+{% else %}
+  {% do tpl.portals.add(values.network.web_port) %}
+{% endif %}
 
 {% do tpl.notes.set_body(values.consts.notes_body) %}
 
