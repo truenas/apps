@@ -254,7 +254,7 @@ module.exports = {
     ),
     customVersioning(
       // v1.52.0-jammy
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>(noble|jammy))$",
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>(noble|jammy)))?$",
       ["mcr.microsoft.com/playwright"],
     ),
     customVersioning(
@@ -303,6 +303,11 @@ module.exports = {
       ["mbentley/omada-controller"],
     ),
     customVersioning(
+      // 0.7.6-nbxyz4
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-nbxyz(?<build>\\d+)$",
+      ["ghcr.io/netbootxyz/netbootxyz"],
+    ),
+    customVersioning(
       // apache-2.37.0
       "^apache-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["kimai/kimai2"],
@@ -341,6 +346,11 @@ module.exports = {
       // slim-v1.12.2
       "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["itzcrazykns1337/vane"],
+    ),
+    customVersioning(
+      // web-v2.9.2
+      "^web-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["registry.gitlab.com/storyteller-platform/storyteller"],
     ),
     customVersioning(
       // 0.9.0(.x)?
