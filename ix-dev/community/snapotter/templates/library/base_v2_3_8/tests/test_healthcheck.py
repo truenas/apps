@@ -417,3 +417,71 @@ def test_pgrep(mock_values):
         "-f",
         "some-process",
     ]
+
+
+def test_node_healthcheck(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("node", {"port": 8080})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "node",
+        "-e",
+        'require(\'http\').get({"host": "127.0.0.1", "port": 8080, "path": "/"}, '
+        "r => process.exit(r.statusCode === 200 ? 0 : 1))"
+        ".on('error', () => process.exit(1));",
+    ]
+
+
+def test_node_healthcheck_https(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("node", {"port": 8443, "path": "/health", "scheme": "https"})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "node",
+        "-e",
+        'require(\'https\').get({"host": "127.0.0.1", "port": 8443, "path": "/health", "rejectUnauthorized": false}, '
+        "r => process.exit(r.statusCode === 200 ? 0 : 1))"
+        ".on('error', () => process.exit(1));",
+    ]
+
+
+def test_node_healthcheck_custom_binary_and_host(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test(
+        "node", {"port": 3000, "path": "/status", "host": "0.0.0.0", "binary": "/usr/local/bin/node"}
+    )
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "/usr/local/bin/node",
+        "-e",
+        'require(\'http\').get({"host": "0.0.0.0", "port": 3000, "path": "/status"}, '
+        "r => process.exit(r.statusCode === 200 ? 0 : 1))"
+        ".on('error', () => process.exit(1));",
+    ]
+
+
+def test_node_healthcheck_missing_port(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.healthcheck.set_test("node", {})
+
+
+def test_node_healthcheck_invalid_scheme(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.healthcheck.set_test("node", {"port": 8080, "scheme": "ftp"})
+
+
+def test_node_healthcheck_invalid_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.healthcheck.set_test("node", {"port": 8080, "path": "no-leading-slash"})
