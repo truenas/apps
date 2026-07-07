@@ -37,7 +37,7 @@
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME", "seafile_db") %}
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_SEAHUB_DB_NAME", "seahub_db") %}
 {% set seafile_proto = "https" if values.network.certificate_id else "http" %}
-{% set seafile_port = values.network.https_port.port_number if values.network.certificate_id else values.network.web_port.port_number %}
+{% set seafile_port = values.network.web_port.port_number %}
 {% set seafile_hostname = values.seafile.server_hostname + ":" + seafile_port | string %}
 {% do seafile.environment.add_env("SEAFILE_SERVER_HOSTNAME", seafile_hostname) %}
 {% do seafile.environment.add_env("SEAFILE_SERVER_PROTOCOL", seafile_proto) %}
@@ -98,7 +98,6 @@
 {% do nginx.configs.add("nginx.conf", nginx_config(values, values.seafile.enable_seadoc), "/etc/nginx/conf.d/default.conf") %}
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do nginx.add_port(values.network.https_port) %}
   {% do nginx.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do nginx.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
@@ -119,11 +118,7 @@
   {% endif %}
 {% endif %}
 
-{% if values.network.certificate_id %}
-  {% do tpl.portals.add(values.network.https_port, {"scheme": "https"}) %}
-{% else %}
-  {% do tpl.portals.add(values.network.web_port) %}
-{% endif %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) if values.network.certificate_id else tpl.portals.add(values.network.web_port) %}
 
 {% do tpl.notes.set_body(values.consts.notes_body) %}
 
