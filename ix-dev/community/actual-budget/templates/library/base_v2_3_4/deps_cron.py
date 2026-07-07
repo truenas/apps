@@ -53,6 +53,8 @@ class CronContainer:
             sched = task["schedule"].split(" ")
             if len(sched) != 5:
                 raise RenderError("Invalid cron schedule")
+            if "\n" in task["schedule"] or "\n" in task["command"]:
+                raise RenderError("Cron schedule and command must not contain newline characters")
             crontasks.append(f"{task['schedule']} {task['command']}")
 
         c.configs.add("crontasks", "\n".join(crontasks), "/crontasks")
