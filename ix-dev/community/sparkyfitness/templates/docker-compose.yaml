@@ -6,7 +6,8 @@
 
 {% set sparky_net = tpl.networks.create_internal("sparky-net") %}
 
-{# -- Permissions container -- #}
+{% set frontend = tpl.add_container(values.consts.frontend_container_name, "image") %}
+{% set server = tpl.add_container(values.consts.server_container_name, "server_image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
@@ -14,16 +15,24 @@
 {% set pg_config = {
   "user": values.consts.db_user,
   "password": values.sparkyfitness.db_password,
-  "database": values.consts.db_name,
+  "database": values.consts.db_name, 
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.db_container_name, values.sparkyfitness.postgres_image_selector, pg_config, perm_container) %}
 {% do postgres.container.add_network(sparky_net) %}
 
+{% set containers = [frontend, server] %}
+{% for c in containers %}
+  {% do c.add_network(sparky_net) %}
+  {% do c.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% endfor %}
+{% set celery_password = tpl.funcs.secure_string(32) %}
+{% set origins = namespace(x=[]) %}
+{% for origin in values.wger.trusted_origins %}
+  {% do origins.x.append(origin.rstrip("/")) %}
+{% endfor %}
+
 {# -- Server -- #}
-{% set server = tpl.add_container(values.consts.server_container_name, "server_image") %}
-{% do server.add_network(sparky_net) %}
-{% do server.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do server.healthcheck.set_test("curl", {"port": values.consts.server_port, "path": "/api/health"}) %}
 {% do server.depends.add_dependency(values.consts.db_container_name, "service_healthy") %}
 
@@ -57,9 +66,6 @@
 {% do perm_container.add_or_skip_action("server_uploads", values.storage.server_uploads, perms_config) %}
 
 {# -- Frontend -- #}
-{% set frontend = tpl.add_container(values.consts.frontend_container_name, "image") %}
-{% do frontend.add_network(sparky_net) %}
-{% do frontend.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do frontend.healthcheck.set_test("curl", {"port": values.consts.frontend_port, "path": "/"}) %}
 {% do frontend.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 
