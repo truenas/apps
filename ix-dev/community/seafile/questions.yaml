@@ -28,15 +28,6 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: server_hostname
-          label: Server Hostname
-          description: |
-            The hostname where Seafile will be accessible (do not include the port).</br>
-            Example: seafile.example.com or 192.168.1.100
-          schema:
-            type: string
-            default: ""
-            required: true
         - variable: db_password
           label: Database Password
           description: The database password for Seafile.
@@ -61,6 +52,15 @@ questions:
             default: ""
             required: true
             private: true
+        - variable: server_hostname
+          label: Server Hostname
+          description: |
+            The hostname where Seafile will be accessible (do not include the port).</br>
+            Example: seafile.example.com or 192.168.1.100
+          schema:
+            type: string
+            default: ""
+            required: true
         - variable: admin_email
           label: Admin Email
           description: The email address for the admin account.
@@ -70,15 +70,24 @@ questions:
             required: true
         - variable: admin_password
           label: Admin Password
-          description: |
-            Password for the admin account.</br>
-            Must be at least 8 characters.
+          description: Password for the admin account.
           schema:
             type: string
+            min_length: 8
             default: ""
             private: true
             required: true
-            min_length: 8
+        - variable: jwt_private_key
+          label: JWT Private Key
+          description: |
+            A random string with a length of no less than 32 characters.</br>
+            Required for Seafile authentication.</br>
+            You can generate one with `pwgen -s 40 1``
+          schema:
+            type: string
+            required: true
+            private: true
+            min_length: 32
         - variable: enable_seadoc
           label: Enable SeaDoc
           description: |
@@ -87,17 +96,6 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: jwt_private_key
-          label: JWT Private Key
-          description: |
-            A random string with a length of no less than 32 characters.</br>
-            Required for Seafile authentication.</br>
-            You can generate one with: pwgen -s 40 1
-          schema:
-            type: string
-            required: true
-            private: true
-            min_length: 32
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -193,15 +191,6 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-
-        - variable: certificate_id
-          label: Certificate
-          description: The certificate to use for Seafile.
-          schema:
-            type: int
-            "null": true
-            $ref:
-              - definitions/certificate
         - variable: networks
           label: Networks
           description: The docker networks to join
@@ -242,12 +231,12 @@ questions:
                                     enum:
                                       - value: seafile
                                         description: seafile
-                                      - value: mariadb
-                                        description: mariadb
-                                      - value: nginx
-                                        description: nginx
                                       - value: seadoc
                                         description: seadoc
+                                      - value: nginx
+                                        description: nginx
+                                      - value: mariadb
+                                        description: mariadb
                                       - value: redis
                                         description: redis
                                 - variable: config
@@ -266,6 +255,14 @@ questions:
                                               label: Alias
                                               schema:
                                                 type: string
+        - variable: certificate_id
+          label: Certificate
+          description: The certificate to use for Seafile.
+          schema:
+            type: int
+            "null": true
+            $ref:
+              - definitions/certificate
 
   - variable: storage
     label: ""
@@ -274,7 +271,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Seafile Data Storage
+          label: Data Storage
           description: The path to store Seafile data (files, avatars, etc).
           schema:
             type: dict
@@ -349,161 +346,9 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: db_data
-          label: Database Data Storage
-          description: The path to store MariaDB database files.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "db_data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: redis_data
-          label: Redis Data Storage
-          description: The path to store Redis cache data.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "redis_data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
+
         - variable: seadoc_data
           label: SeaDoc Data Storage
-          description: The path to store SeaDoc server data.
           schema:
             type: dict
             attrs:
@@ -577,13 +422,88 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: mariadb_data
+          label: Database Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "mariadb_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: additional_storage
           label: Additional Storage
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -675,8 +595,6 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
-                              $ref:
-                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -767,16 +685,17 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: seafile
-                            description: seafile
-                          - value: mariadb
-                            description: mariadb
-                          - value: nginx
-                            description: nginx
-                          - value: seadoc
-                            description: seadoc
-                          - value: redis
-                            description: redis
+                          enum:
+                            - value: seafile
+                              description: seafile
+                            - value: seadoc
+                              description: seadoc
+                            - value: nginx
+                              description: nginx
+                            - value: mariadb
+                              description: mariadb
+                            - value: redis
+                              description: redis
   - variable: resources
     label: ""
     group: Resources Configuration
