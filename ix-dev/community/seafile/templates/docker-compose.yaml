@@ -26,6 +26,12 @@
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 {% do redis.container.add_network(seafile_net) %}
 
+{% set seafile = tpl.add_container(values.consts.seafile_container_name, "image") %}
+{% do seafile.add_network(seafile_net) %}
+
+{% set nginx = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
+{% do nginx.add_network(seafile_net) %}
+
 {% set seadoc = none %}
 {% if values.seafile.enable_seadoc %}
   {% set seadoc = tpl.add_container(values.consts.seadoc_container_name, "seadoc_image") %}
@@ -49,8 +55,6 @@
   {% do seadoc.add_storage("/shared", values.storage.seadoc_data) %}
 {% endif %}
 
-{% set nginx = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
-{% do nginx.add_network(seafile_net) %}
 {% do nginx.set_user(values.run_as.user, values.run_as.group) %}
 {% do nginx.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do nginx.configs.add("nginx.conf", nginx_config(values), "/etc/nginx/conf.d/default.conf") %}
@@ -66,8 +70,6 @@
   {% do nginx.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
 
-{% set seafile = tpl.add_container(values.consts.seafile_container_name, "image") %}
-{% do seafile.add_network(seafile_net) %}
 {% do seafile.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
 
 {% do seafile.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
