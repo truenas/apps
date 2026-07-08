@@ -3,8 +3,11 @@
 
 {% set seafile_net = tpl.networks.create_internal("seafile-net") %}
 
-{% set seafile_proto = "https" if values.network.certificate_id else "http" %}
-{% set seafile_hostname = values.seafile.server_hostname.removeprefix("http://").removeprefix("https://").removesuffix(":80").removesuffix(":443") %}
+{% set seafile_proto = values.seafile.server_url.split(":")[0] %}
+{% if values.network.certificate_id and seafile_proto == "http" %}
+  {% do tpl.func.fail("Seafile server protocol must be https when using a certificate") %}
+{% endif %}
+{% set seafile_hostname = values.seafile.server_url.removeprefix("http://").removeprefix("https://").removesuffix(":80").removesuffix(":443") %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
@@ -122,6 +125,6 @@
   {% endif %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"scheme": seafile_proto}) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https" if values.network.certificate_id else "http"}) %}
 
 {{ tpl.render() | tojson }}
