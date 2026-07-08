@@ -16,17 +16,45 @@
 {% set mariadb_container = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", mariadb_config, perm_container) %}
 {% do mariadb_container.container.add_network(seafile_net) %}
 
-{% set cache_config = {
+{% set redis_config = {
   "password": values.seafile.redis_password,
   "volume": values.storage.redis_data,
 } %}
-{% set cache = tpl.deps.redis(values.consts.redis_container_name, "redis_image", cache_config, perm_container) %}
-{% do cache.container.add_network(seafile_net) %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(seafile_net) %}
+
+{% set seafile_proto = "https" if values.network.certificate_id else "http" %}
+{% set seafile_hostname = "%s:%d"|format(values.seafile.server_hostname, values.network.web_port.port_number) %}
 
 {% set seafile = tpl.add_container(values.consts.seafile_container_name, "image") %}
+{% do seafile.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
+{% do seafile.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+
+{% set seadoc = none %}
+{% if values.seafile.enable_seadoc %}
+  {% set seadoc = tpl.add_container(values.consts.seadoc_container_name, "seadoc_image") %}
+  {% do seadoc.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
+  {% do seadoc.add_network(seafile_net) %}
+  {% do seadoc.set_user(0, 0) %}
+  {% do seadoc.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+  {% do seadoc.add_storage("/shared", values.storage.seadoc_data) %}
+  {% do seadoc.environment.add_env("DB_HOST", values.consts.mariadb_container_name) %}
+  {% do seadoc.environment.add_env("DB_PORT", mariadb.get_port()) %}
+  {% do seadoc.environment.add_env("DB_USER", values.consts.db_user) %}
+  {% do seadoc.environment.add_env("DB_PASSWORD", values.seafile.db_password) %}
+  {% do seadoc.environment.add_env("DB_NAME", "seahub_db") %}
+  {% do seadoc.environment.add_env("TIME_ZONE", values.TZ) %}
+  {% do seadoc.environment.add_env("JWT_PRIVATE_KEY", values.seafile.jwt_private_key) %}
+  {% do seadoc.environment.add_env("SEAHUB_SERVICE_URL", "http://%s"|format(values.consts.seafile_container_name)) %}
+  {% do seadoc.add_extra_host(values.seafile.server_hostname, "host-gateway") %}
+  {% do seadoc.environment.add_env("NON_ROOT", "false") %}
+  {% do seadoc.healthcheck.set_test("tcp") %}
+{% endif %}
+
 {% do seafile.add_network(seafile_net) %}
 {% do seafile.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
-{% do seafile.healthcheck.set_test("curl", {"port": 80, "path": "/"}) %}
+
+{% do seafile.healthcheck.set_test("curl", {"port": 80, "path": "/api2/ping/"}) %}
 {% do seafile.healthcheck.set_start_period(120) %}
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_HOST", values.consts.mariadb_container_name) %}
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_PORT", 3306) %}
@@ -36,9 +64,6 @@
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_CCNET_DB_NAME", "ccnet_db") %}
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME", "seafile_db") %}
 {% do seafile.environment.add_env("SEAFILE_MYSQL_DB_SEAHUB_DB_NAME", "seahub_db") %}
-{% set seafile_proto = "https" if values.network.certificate_id else "http" %}
-{% set seafile_port = values.network.web_port.port_number %}
-{% set seafile_hostname = values.seafile.server_hostname + ":" + seafile_port | string %}
 {% do seafile.environment.add_env("SEAFILE_SERVER_HOSTNAME", seafile_hostname) %}
 {% do seafile.environment.add_env("SEAFILE_SERVER_PROTOCOL", seafile_proto) %}
 {% do seafile.environment.add_env("INIT_SEAFILE_ADMIN_EMAIL", values.seafile.admin_email) %}
@@ -46,17 +71,18 @@
 {% do seafile.environment.add_env("TIME_ZONE", values.TZ) %}
 {% do seafile.environment.add_env("CACHE_PROVIDER", "redis") %}
 {% do seafile.environment.add_env("REDIS_HOST", values.consts.redis_container_name) %}
-{% do seafile.environment.add_env("REDIS_PORT", 6379) %}
+{% do seafile.environment.add_env("REDIS_PORT", redis.get_port()) %}
 {% do seafile.environment.add_env("REDIS_PASSWORD", values.seafile.redis_password) %}
 {% do seafile.environment.add_env("ENABLE_GO_FILESERVER", true) %}
 {% do seafile.environment.add_env("JWT_PRIVATE_KEY", values.seafile.jwt_private_key) %}
 
-{% do seafile.environment.add_env("ENABLE_SEADOC", true if values.seafile.enable_seadoc else false) %}
+{% do seafile.environment.add_env("ENABLE_SEADOC", values.seafile.enable_seadoc) %}
 {% if values.seafile.enable_seadoc %}
-  {% do seafile.environment.add_env("SEADOC_SERVER_URL", seafile_proto + "://" + seafile_hostname + "/sdoc-server") %}
+  {% do seafile.environment.add_env("SEADOC_SERVER_URL", "%s://%s/sdoc-server"|format(seafile_proto, seafile_hostname)) %}
 {% endif %}
 
 {% do seafile.environment.add_user_envs(values.seafile.additional_envs) %}
+{# ??? #}
 {% do seafile.add_extra_host(values.seafile.server_hostname, "host-gateway") %}
 
 {% do seafile.add_storage("/shared", values.storage.data) %}
@@ -67,35 +93,11 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{% do seafile.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
-{% do seafile.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-
-{% set seadoc = none %}
-{% if values.seafile.enable_seadoc %}
-  {% set seadoc = tpl.add_container(values.consts.seadoc_container_name, "seadoc_image") %}
-  {% do seadoc.add_network(seafile_net) %}
-  {% do seadoc.set_user(0, 0) %}
-  {% do seadoc.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
-  {% do seadoc.add_storage("/shared", values.storage.seadoc_data) %}
-  {% do seadoc.environment.add_env("DB_HOST", values.consts.mariadb_container_name) %}
-  {% do seadoc.environment.add_env("DB_PORT", 3306) %}
-  {% do seadoc.environment.add_env("DB_USER", values.consts.db_user) %}
-  {% do seadoc.environment.add_env("DB_PASSWORD", values.seafile.db_password) %}
-  {% do seadoc.environment.add_env("DB_NAME", "seahub_db") %}
-  {% do seadoc.environment.add_env("TIME_ZONE", values.TZ) %}
-  {% do seadoc.environment.add_env("JWT_PRIVATE_KEY", values.seafile.jwt_private_key) %}
-  {% do seadoc.environment.add_env("SEAHUB_SERVICE_URL", "http://" + values.consts.seafile_container_name) %}
-  {% do seadoc.add_extra_host(values.seafile.server_hostname, "host-gateway") %}
-  {% do seadoc.environment.add_env("NON_ROOT", "false") %}
-  {% do seadoc.healthcheck.set_test("tcp", {"port": 80}) %}
-  {% do seadoc.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
-{% endif %}
-
 {% set nginx = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
 {% do nginx.add_network(seafile_net) %}
 {% do nginx.set_user(values.run_as.user, values.run_as.group) %}
 {% do nginx.add_port(values.network.web_port) %}
-{% do nginx.configs.add("nginx.conf", nginx_config(values, values.seafile.enable_seadoc), "/etc/nginx/conf.d/default.conf") %}
+{% do nginx.configs.add("nginx.conf", nginx_config(values), "/etc/nginx/conf.d/default.conf") %}
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do nginx.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
@@ -104,7 +106,7 @@
 {% do nginx.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do nginx.depends.add_dependency(values.consts.seafile_container_name, "service_healthy") %}
 {% if values.seafile.enable_seadoc %}
-{% do nginx.depends.add_dependency(values.consts.seadoc_container_name, "service_started") %}
+  {% do nginx.depends.add_dependency(values.consts.seadoc_container_name, "service_started") %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
