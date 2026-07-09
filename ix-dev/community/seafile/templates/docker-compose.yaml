@@ -8,6 +8,7 @@
   {% do tpl.func.fail("Seafile server protocol must be https when using a certificate") %}
 {% endif %}
 {% set seafile_hostname = values.seafile.server_url.removeprefix("http://").removeprefix("https://").removesuffix(":80").removesuffix(":443") %}
+{% set seafile_host_no_port = seafile_hostname.split(":")[0] %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
@@ -55,7 +56,7 @@
   {% do seadoc.environment.add_env("JWT_PRIVATE_KEY", values.seafile.jwt_private_key) %}
   {% do seadoc.environment.add_env("SEAHUB_SERVICE_URL", "http://%s"|format(values.consts.seafile_container_name)) %}
 
-  {% do seadoc.add_extra_host(seafile_hostname.split(":")[0], "host-gateway") %}
+  {% do seadoc.add_extra_host(seafile_host_no_port, "host-gateway") %}
   {% do seadoc.add_storage("/shared", values.storage.seadoc_data) %}
 {% endif %}
 
@@ -75,7 +76,7 @@
 {% endif %}
 
 {% do seafile.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
-{% do seafile.add_extra_host(seafile_hostname.split(":")[0], "host-gateway") %}
+{% do seafile.add_extra_host(seafile_host_no_port, "host-gateway") %}
 
 {% do seafile.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
 {% do seafile.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
