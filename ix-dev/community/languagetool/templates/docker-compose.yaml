@@ -6,21 +6,15 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
-{# Health check setup using the exposed HTTP port #}
-{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_port, "path": "/v2/languages"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_port, "path": "/v2/healthcheck"}) %}
 
-{# Configure Java memory limits & prewarming settings #}
-{% do c1.environment.add_env("Java_Xms", values.languagetool.java_xms) %}
-{% do c1.environment.add_env("Java_Xmx", values.languagetool.java_xmx) %}
-{% do c1.environment.add_env("langtool_pipelinePrewarming", values.languagetool.pipeline_prewarming | string | lower) %}
-
-{# Handle additional environment variables provided by the user #}
+{% do c1.environment.add_env("Java_Xms", "%dm"|format(values.languagetool.java_xms_mb)) %}
+{% do c1.environment.add_env("Java_Xmx", "%dm"|format(values.languagetool.java_xmx_mb)) %}
+{% do c1.environment.add_env("langtool_pipelinePrewarming", values.languagetool.pipeline_prewarming) %}
 {% do c1.environment.add_user_envs(values.languagetool.additional_envs) %}
 
-{# Setup Networking #}
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_port}) %}
 
-{# Setup Storage for N-Grams and Dictionary Data #}
 {% do c1.add_storage("/ngrams", values.storage.ngrams) %}
 {% do perm_container.add_or_skip_action("ngrams", values.storage.ngrams, perms_config) %}
 
@@ -33,8 +27,5 @@
   {% do perm_container.activate() %}
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
-
-{# Add web portal in TrueNAS UI #}
-{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_port if values.network.host_network else None, "path": "/v2/languages"}) %}
 
 {{ tpl.render() | tojson }}
