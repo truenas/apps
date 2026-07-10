@@ -1,3 +1,3 @@
 # Ratelog
 
-[Ratelog](https://github.com/golmenero/ratelog) es una aplicación para ratear y registrar películas y series vistas.
+[Ratelog](https://github.com/golmenero/ratelog) It's an app for rating and logging (tracking) the movies and TV series you've watched.

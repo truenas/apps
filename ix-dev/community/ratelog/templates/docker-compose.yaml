@@ -2,31 +2,10 @@
 
 {% set ratelog_net = tpl.networks.create_internal("ratelog-net") %}
 
-{# Define the main application container #}
 {% set app = tpl.add_container(values.consts.ratelog_container_name, "image") %}
 {% do app.add_network(ratelog_net) %}
-{% do app.set_user(568, 568) %}
-{% do app.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
-{# Configure environment variables #}
-{% do app.environment.add_env("PORT", values.network.web_port.port_number) %}
-{% do app.environment.add_env("TMDB_API_KEY", values.ratelog.tmdb_api_key) %}
-{% do app.environment.add_env("POSTGRES_HOST", values.consts.postgres_container_name) %}
-{% do app.environment.add_env("POSTGRES_PORT", 5432) %}
-{% do app.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
-{% do app.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
-{% do app.environment.add_env("POSTGRES_PASSWORD", values.database.db_password) %}
-{% do app.environment.add_user_envs(values.ratelog.additional_envs) %}
-
-{# Add port mappings #}
-{% if not values.network.host_network %}
-  {% do app.add_port(values.network.web_port) %}
-{% endif %}
-
-{# Setup permissions container for storage initialization #}
-{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
-
-{# Add PostgreSQL database #}
 {% set pg_config = {
   "user": values.consts.db_user,
   "password": values.ratelog.db_password,
@@ -36,17 +15,27 @@
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perms) %}
 {% do postgres.container.add_network(ratelog_net) %}
 
-{# Dependencies #}
-{% do app.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do app.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do app.environment.add_env("TMDB_API_KEY", values.ratelog.tmdb_api_key) %}
+{% do app.environment.add_env("POSTGRES_HOST", values.consts.postgres_container_name) %}
+{% do app.environment.add_env("POSTGRES_PORT", get_port()) %}
+{% do app.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+{% do app.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
+{% do app.environment.add_env("POSTGRES_PASSWORD", values.database.db_password) %}
+{% do app.environment.add_user_envs(values.ratelog.additional_envs) %}
+
+{% do app.add_port(values.network.web_port) %}
+
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% do postgres.container.add_network(ratelog_net) %}
+
 
 {% if perms.has_actions() %}
   {% do perms.activate() %}
-  {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{# Add portal for UI access #}
 {% do tpl.portals.add(values.network.web_port) %}
 
-{# Render the final configuration #}
 {{ tpl.render() | tojson }}
