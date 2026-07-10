@@ -77,19 +77,6 @@
 
 {% do seafile.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
 {% do seafile.add_extra_host(seafile_host_no_port, "host-gateway") %}
-{% set seafile_csrf_origin = values.seafile.server_url.rstrip("/") %}
-{%- set seafile_settings_script -%}
-#!/bin/bash
-TARGET="/shared/seafile/conf/seahub_settings.py"
-if [ -f "$TARGET" ]; then
-  grep -q "CSRF_TRUSTED_ORIGINS" "$TARGET" 2>/dev/null || {
-    printf '\nCSRF_TRUSTED_ORIGINS = [%s]\n\nSECURE_PROXY_SSL_HEADER = (%s)\n' \
-      "'{{ seafile_csrf_origin }}'" \
-      "'HTTP_X_FORWARDED_PROTO', 'https'" >> "$TARGET"
-  }
-fi
-{% endset %}
-{% do seafile.configs.add("seahub-settings", seafile_settings_script, "/etc/my_init.d/90_seahub_settings.sh", "0700") %}
 
 {% do seafile.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
 {% do seafile.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
