@@ -1,0 +1,133 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set pg_config = {
+  "user": values.postgres.user,
+  "password": values.postgres.password,
+  "database": values.postgres.database,
+  "volume": values.storage.postgres_data,
+  "additional_options": {"max_connections": (values.postgres.pool_max + 10) | string},
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.postgres.image_selector, pg_config, perms) %}
+
+{% set app = tpl.add_container(values.consts.savapage_container_name, "image") %}
+{% do app.set_user(0, 0) %}
+{% do app.set_read_only(false) %}
+{% do app.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "NET_BIND_SERVICE", "SETGID", "SETUID"]) %}
+{% do app.healthcheck.set_custom_test(["CMD", "/usr/local/bin/healthcheck-savapage"]) %}
+{% do app.healthcheck.set_start_period(180) %}
+{% do app.healthcheck.set_timeout(15) %}
+{% do app.set_grace_period(60) %}
+{% do app.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{% if values.authentication.enable_pam_authentication %}
+  {% do app.remove_security_opt("no-new-privileges") %}
+  {% do app.add_security_opt("no-new-privileges", false) %}
+  {% do tpl.notes.add_warning("PAM authentication enables a setuid-root helper and disables no-new-privileges for the SavaPage container.") %}
+{% endif %}
+
+{% do app.environment.add_env("LANG", values.general.locale) %}
+{% do app.environment.add_env("SAVAPAGE_DB_HOST", values.consts.postgres_container_name) %}
+{% do app.environment.add_env("SAVAPAGE_DB_PORT", postgres.get_port()) %}
+{% do app.environment.add_env("SAVAPAGE_DB_NAME", values.postgres.database) %}
+{% do app.environment.add_env("SAVAPAGE_DB_USER", values.postgres.user) %}
+{% do app.environment.add_env("SAVAPAGE_DB_PASSWORD", values.postgres.password) %}
+{% do app.environment.add_env("SAVAPAGE_DB_POOL_MAX", values.postgres.pool_max) %}
+{% do app.environment.add_env("SAVAPAGE_SERVER_HOST", values.savapage.server_host) %}
+{% do app.environment.add_env("ENABLE_HTTP", values.network.enable_http | string | lower) %}
+{% do app.environment.add_env("SAVAPAGE_HTTP_PORT", 8631) %}
+{% do app.environment.add_env("SAVAPAGE_HTTPS_PORT", 8632) %}
+{% do app.environment.add_env("SAVAPAGE_LOCAL_HTTPS_PORT", 8633) %}
+{% do app.environment.add_env("REDIRECT_HTTP_TO_HTTPS", values.savapage.redirect_http_to_https | string | lower) %}
+{% do app.environment.add_env("ENABLE_RAW_PRINT", values.network.enable_raw | string | lower) %}
+{% do app.environment.add_env("SAVAPAGE_RAW_PORT", 9100) %}
+{% do app.environment.add_env("ENABLE_CUPS_ADMIN", values.network.enable_cups_admin | string | lower) %}
+{% do app.environment.add_env("CUPS_ADMIN_PASSWORD", values.printing.cups_admin_password) %}
+{% do app.environment.add_env("CUPS_MAX_JOBS", values.printing.cups_max_jobs) %}
+{% do app.environment.add_env("CUPS_PRESERVE_JOB_FILES", "Yes" if values.printing.preserve_job_files else "No") %}
+{% do app.environment.add_env("TRUSTED_LAN_CIDRS", values.network.trusted_lan_cidrs | join(",")) %}
+{% do app.environment.add_env("ENABLE_X_FORWARDED_FOR", values.network.enable_xff | string | lower) %}
+{% do app.environment.add_env("ALLOWED_PROXY_CIDRS", values.network.allowed_proxy_cidrs | join(",")) %}
+{% do app.environment.add_env("ENABLE_PAM_AUTHENTICATION", values.authentication.enable_pam_authentication | string | lower) %}
+{% do app.environment.add_env("NO_NEW_PRIVILEGES", (not values.authentication.enable_pam_authentication) | string | lower) %}
+{% do app.environment.add_env("ENABLE_AIRPRINT", "false") %}
+{% do app.environment.add_env("HOST_NETWORK", "false") %}
+{% do app.environment.add_env("SAVAPAGE_ADDITIONAL_PROPERTIES", values.savapage.additional_properties | join("\n")) %}
+
+{% if values.network.enable_http %}
+  {% do app.add_port(values.network.http_port, {"container_port": 8631}) %}
+{% endif %}
+{% do app.add_port(values.network.https_port, {"container_port": 8632}) %}
+{% do app.add_port(values.network.local_https_port, {"container_port": 8633}) %}
+{% if values.network.enable_raw %}
+  {% do app.add_port(values.network.raw_port, {"container_port": 9100}) %}
+{% endif %}
+{% if values.network.enable_cups_admin %}
+  {% do app.add_port(values.network.cups_admin_port, {"container_port": 631}) %}
+{% endif %}
+
+{% do app.add_storage("/opt/savapage/server/data", values.storage.savapage_data) %}
+{% do app.add_storage("/opt/savapage/server/logs", values.storage.savapage_logs) %}
+{% do app.add_storage("/etc/cups", values.storage.cups_config) %}
+{% do app.add_storage("/var/lib/cups", values.storage.cups_lib) %}
+{% do app.add_storage("/var/cache/cups", values.storage.cups_cache) %}
+{% do app.add_storage("/var/spool/cups", values.storage.cups_spool) %}
+{% set tmp = {"type": "temporary", "volume_config": {"volume_name": "savapage-tmp"}} %}
+{% set run = {"type": "temporary", "volume_config": {"volume_name": "savapage-run"}} %}
+{% do app.add_storage("/tmp", tmp) %}
+{% do app.add_storage("/run", run) %}
+
+{% set sp_perms = {"uid": 1000, "gid": 1000, "mode": "check"} %}
+{% do perms.add_or_skip_action("savapage-data", values.storage.savapage_data, sp_perms) %}
+{% do perms.add_or_skip_action("savapage-logs", values.storage.savapage_logs, sp_perms) %}
+
+{% for device in values.printing.devices %}
+  {% do app.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+{% if values.printing.map_usb_bus %}
+  {% do app.devices.add_device("/dev/bus/usb", "/dev/bus/usb") %}
+{% endif %}
+
+{% if values.airprint.enable %}
+  {% if not values.airprint.use_host_network %}
+    {# Deliberately fail rendering: bridge mDNS is not a supported promise. #}
+    {% do app.set_network_mode("ERROR_AIRPRINT_REQUIRES_HOST_NETWORK") %}
+  {% endif %}
+  {% set avahi = tpl.add_container(values.consts.avahi_container_name, "image") %}
+  {% do avahi.set_user(0, 0) %}
+  {% do avahi.set_network_mode("host") %}
+  {% do avahi.set_entrypoint(["/usr/local/bin/savapage-avahi-entrypoint"]) %}
+  {% do avahi.add_caps(["CHOWN", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+  {% do avahi.healthcheck.set_custom_test(["CMD-SHELL", "avahi-browse --all --terminate 2>/dev/null | grep -q '_ipps._tcp'"]) %}
+  {% do avahi.depends.add_dependency(values.consts.savapage_container_name, "service_healthy") %}
+  {% do avahi.environment.add_env("AIRPRINT_SERVICE_NAME", values.airprint.service_name) %}
+  {% do avahi.environment.add_env("AIRPRINT_HOSTNAME", values.airprint.hostname) %}
+  {% do avahi.environment.add_env("AIRPRINT_ENABLE_HTTP", values.network.enable_http | string | lower) %}
+  {% do avahi.environment.add_env("AIRPRINT_HTTP_PORT", values.network.http_port.port_number) %}
+  {% do avahi.environment.add_env("AIRPRINT_HTTPS_PORT", values.network.https_port.port_number) %}
+  {% do avahi.environment.add_env("AVAHI_ENABLE_IPV4", "yes" if values.airprint.ipv4 else "no") %}
+  {% do avahi.environment.add_env("AVAHI_ENABLE_IPV6", "yes" if values.airprint.ipv6 else "no") %}
+  {% do avahi.add_storage("/run", {"type": "temporary", "volume_config": {"volume_name": "avahi-run"}}) %}
+  {% do tpl.notes.add_warning("AirPrint uses a host-network Avahi sidecar. Check UDP 5353 and port conflicts on TrueNAS; mDNS does not cross VLANs without a reflector.") %}
+{% endif %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% if values.network.enable_xff and not values.network.allowed_proxy_cidrs %}
+  {% do app.set_network_mode("ERROR_XFF_REQUIRES_ALLOWED_PROXY_CIDRS") %}
+{% endif %}
+{% if values.network.enable_cups_admin and (not values.printing.cups_admin_password or not values.network.trusted_lan_cidrs) %}
+  {% do app.set_network_mode("ERROR_CUPS_ADMIN_REQUIRES_PASSWORD_AND_TRUSTED_LAN") %}
+{% endif %}
+{% if values.airprint.enable and not values.airprint.ipv4 and not values.airprint.ipv6 %}
+  {% do app.set_network_mode("ERROR_AIRPRINT_REQUIRES_IPV4_OR_IPV6") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.https_port, {"scheme": "https", "path": "/admin"}) %}
+{% do tpl.notes.add_info("Back up /opt/savapage/server/data/encryption.properties with PostgreSQL and CUPS state. Network printers are preferred over USB.") %}
+
+{{ tpl.render() | tojson }}

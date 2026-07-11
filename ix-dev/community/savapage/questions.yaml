@@ -1,0 +1,437 @@
+groups:
+  - name: General Configuration
+    description: General SavaPage settings
+  - name: SavaPage Configuration
+    description: SavaPage server settings
+  - name: Authentication Configuration
+    description: Authentication settings and security modes
+  - name: PostgreSQL Configuration
+    description: Production PostgreSQL settings
+  - name: Printing Configuration
+    description: CUPS and printer-device settings
+  - name: AirPrint Configuration
+    description: Optional host-network mDNS discovery
+  - name: Network Configuration
+    description: Published ports and trusted networks
+  - name: Storage Configuration
+    description: Persistent application, CUPS, and database storage
+  - name: Labels Configuration
+    description: Configure labels
+  - name: Resources Configuration
+    description: Configure resource limits
+
+questions:
+  - variable: TZ
+    label: Timezone
+    group: General Configuration
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref: [definitions/timezone]
+
+  - variable: general
+    label: ""
+    group: General Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: application_name
+          label: Application Display Name
+          schema: {type: string, default: SavaPage, required: true}
+        - variable: locale
+          label: Locale
+          description: Java/POSIX locale used by the container.
+          schema: {type: string, default: en_US.UTF-8, required: true}
+        - variable: currency
+          label: Currency
+          description: Initial ISO 4217 currency reminder; finish configuration in the Admin UI.
+          schema: {type: string, default: USD, required: true, min_length: 3, max_length: 3}
+        - variable: savapage_version
+          label: SavaPage Version
+          schema:
+            type: string
+            default: 1.6.0-final
+            required: true
+            enum: [{value: 1.6.0-final, description: SavaPage 1.6.0 stable}]
+        - variable: image_tag
+          label: Image Tag
+          schema:
+            type: string
+            default: 1.6.0
+            required: true
+            enum: [{value: 1.6.0, description: Project image 1.6.0}]
+
+  - variable: savapage
+    label: ""
+    group: SavaPage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: server_host
+          label: Server Bind Host
+          description: Leave blank to bind all container interfaces. Set only to intentionally restrict SavaPage.
+          schema: {type: string, default: ""}
+        - variable: redirect_http_to_https
+          label: Redirect HTTP Web Requests to HTTPS
+          schema: {type: boolean, default: false}
+        - variable: default_paper_size
+          label: Default Paper Size
+          schema:
+            type: string
+            default: a4
+            enum:
+              - {value: a4, description: A4}
+              - {value: letter, description: Letter}
+              - {value: legal, description: Legal}
+        - variable: admin_hostname
+          label: Administrator-facing Hostname
+          description: Documentation/UI hostname; ensure DNS resolves it to TrueNAS.
+          schema: {type: string, default: savapage.local, required: true}
+        - variable: additional_properties
+          label: Additional SavaPage Server Properties
+          description: One key=value entry per item. Managed network/database keys are rejected.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: property
+                label: Property
+                schema: {type: string, required: true}
+
+  - variable: authentication
+    label: ""
+    group: Authentication Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: ldap_enabled
+          label: Plan to Use LDAP
+          description: LDAP is completed in SavaPage's Admin UI; these fields are deployment notes only.
+          schema: {type: boolean, default: false}
+        - variable: ldap_url
+          label: LDAP URL
+          schema:
+            type: string
+            default: ""
+            show_if: [[ldap_enabled, "=", true]]
+        - variable: ldap_base_dn
+          label: LDAP Base DN
+          schema:
+            type: string
+            default: ""
+            show_if: [[ldap_enabled, "=", true]]
+        - variable: ldap_bind_dn
+          label: LDAP Bind DN
+          schema:
+            type: string
+            default: ""
+            show_if: [[ldap_enabled, "=", true]]
+        - variable: enable_pam_authentication
+          label: Enable PAM Authentication (SECURITY RISK)
+          description: Enables a setuid-root helper and disables no-new-privileges. LDAP does not need PAM.
+          schema: {type: boolean, default: false}
+
+  - variable: postgres
+    label: ""
+    group: PostgreSQL Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: database
+          label: Database Name
+          schema: {type: string, default: savapage, required: true}
+        - variable: user
+          label: Database User
+          schema: {type: string, default: savapage, required: true}
+        - variable: password
+          label: Database Password
+          schema: {type: string, default: "", required: true, private: true, min_length: 12}
+        - variable: image_selector
+          label: PostgreSQL Version
+          description: Major-version changes require a tested backup and upgrade procedure.
+          schema:
+            type: string
+            default: postgres_17_image
+            required: true
+            enum: [{value: postgres_17_image, description: PostgreSQL 17}]
+        - variable: pool_max
+          label: SavaPage Connection Pool Maximum
+          schema: {type: int, default: 20, required: true, min: 5, max: 100}
+
+  - variable: printing
+    label: ""
+    group: Printing Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: preserve_job_files
+          label: Preserve CUPS Job Files
+          description: Disabled by default because documents can consume substantial storage and contain sensitive data.
+          schema: {type: boolean, default: false}
+        - variable: cups_max_jobs
+          label: Maximum CUPS Jobs
+          schema: {type: int, default: 500, required: true, min: 500}
+        - variable: cups_admin_password
+          label: CUPS Administrator Password
+          description: Required only when CUPS administration is enabled.
+          schema:
+            type: string
+            default: ""
+            private: true
+            show_if: [["$network.enable_cups_admin", "=", true]]
+        - variable: devices
+          label: Specific USB Device Mappings
+          description: Prefer stable specific devices. USB identifiers can change after reconnects.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: device
+                label: Device
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: host_device
+                      label: Host Device
+                      schema: {type: string, required: true}
+                    - variable: container_device
+                      label: Container Device
+                      schema: {type: string, required: true}
+        - variable: map_usb_bus
+          label: Map Entire /dev/bus/usb (ADVANCED)
+          description: Broader access; network printers are preferred for production.
+          schema: {type: boolean, default: false}
+
+  - variable: airprint
+    label: ""
+    group: AirPrint Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enable
+          label: Enable AirPrint/mDNS
+          description: Uses an explicit host-network Avahi sidecar and can conflict with TrueNAS services.
+          schema: {type: boolean, default: false}
+        - variable: service_name
+          label: Advertised Service Name
+          schema:
+            type: string
+            default: SavaPage on %h
+            required: true
+            show_if: [[enable, "=", true]]
+        - variable: hostname
+          label: Advertised Hostname
+          description: Must resolve on the LAN to the TrueNAS host, not the container.
+          schema:
+            type: string
+            default: savapage.local
+            required: true
+            show_if: [[enable, "=", true]]
+        - variable: use_host_network
+          label: Use Host Networking for mDNS
+          schema:
+            type: boolean
+            default: true
+            show_if: [[enable, "=", true]]
+        - variable: ipv4
+          label: Advertise over IPv4
+          schema: {type: boolean, default: true, show_if: [[enable, "=", true]]}
+        - variable: ipv6
+          label: Advertise over IPv6
+          schema: {type: boolean, default: true, show_if: [[enable, "=", true]]}
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enable_http
+          label: Enable HTTP/IPP
+          schema: {type: boolean, default: true}
+        - variable: http_port
+          label: HTTP/IPP Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Bind Mode
+                schema: {type: string, default: published, hidden: true}
+              - variable: port_number
+                label: Port Number
+                schema: {type: int, default: 30451, required: true, min: 1024, max: 65535}
+              - variable: host_ips
+                label: Host IPs
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema: {type: string, required: true, $ref: [definitions/node_bind_ip]}
+        - variable: https_port
+          label: HTTPS/IPPS Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Bind Mode
+                schema: {type: string, default: published, hidden: true}
+              - variable: port_number
+                label: Port Number
+                schema: {type: int, default: 30450, required: true, min: 1024, max: 65535}
+              - variable: host_ips
+                label: Host IPs
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema: {type: string, required: true, $ref: [definitions/node_bind_ip]}
+        - variable: local_https_port
+          label: Local HTTPS Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Bind Mode
+                schema: {type: string, default: published, hidden: true}
+              - variable: port_number
+                label: Port Number
+                schema: {type: int, default: 30452, required: true, min: 1024, max: 65535}
+              - variable: host_ips
+                label: Host IPs
+                schema: {type: list, default: [], items: [{variable: host_ip, label: Host IP, schema: {type: string, required: true, $ref: [definitions/node_bind_ip]}}]}
+        - variable: enable_raw
+          label: Enable RAW/PostScript Printing
+          schema: {type: boolean, default: false}
+        - variable: raw_port
+          label: RAW Print Port
+          schema:
+            type: dict
+            show_if: [[enable_raw, "=", true]]
+            attrs:
+              - variable: bind_mode
+                label: Bind Mode
+                schema: {type: string, default: published, hidden: true}
+              - variable: port_number
+                label: Port Number
+                schema: {type: int, default: 30453, required: true, min: 1024, max: 65535}
+              - variable: host_ips
+                label: Host IPs
+                schema: {type: list, default: [], items: [{variable: host_ip, label: Host IP, schema: {type: string, required: true, $ref: [definitions/node_bind_ip]}}]}
+        - variable: enable_cups_admin
+          label: Enable CUPS Web Administration
+          schema: {type: boolean, default: false}
+        - variable: cups_admin_port
+          label: CUPS Administration Port
+          schema:
+            type: dict
+            show_if: [[enable_cups_admin, "=", true]]
+            attrs:
+              - variable: bind_mode
+                label: Bind Mode
+                schema: {type: string, default: published, hidden: true}
+              - variable: port_number
+                label: Port Number
+                schema: {type: int, default: 30454, required: true, min: 1024, max: 65535}
+              - variable: host_ips
+                label: Host IPs
+                schema: {type: list, default: [], items: [{variable: host_ip, label: Host IP, schema: {type: string, required: true, $ref: [definitions/node_bind_ip]}}]}
+        - variable: trusted_lan_cidrs
+          label: Trusted LAN CIDRs
+          description: Required for remote CUPS administration.
+          schema:
+            type: list
+            default: []
+            items: [{variable: cidr, label: CIDR, schema: {type: string, required: true}}]
+        - variable: enable_xff
+          label: Trust X-Forwarded-For
+          schema: {type: boolean, default: false}
+        - variable: allowed_proxy_cidrs
+          label: Allowed Reverse Proxy CIDRs
+          schema:
+            type: list
+            default: []
+            show_if: [[enable_xff, "=", true]]
+            items: [{variable: cidr, label: CIDR, schema: {type: string, required: true}}]
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: savapage_data
+          label: SavaPage Data Storage
+          description: Contains encryption.properties, configuration, SafePages, archive, and journal. Keep these on one filesystem.
+          schema: {$ref: [normalize/ix_volume], type: dict, attrs: [{variable: type, label: Type, schema: {type: string, default: ix_volume, enum: [{value: ix_volume, description: ixVolume}, {value: host_path, description: Host Path}]}}, {variable: ix_volume_config, label: ixVolume Configuration, schema: {$ref: [normalize/ix_volume], type: dict, show_if: [[type, "=", ix_volume]], attrs: [{variable: dataset_name, label: Dataset Name, schema: {type: string, default: savapage_data, hidden: true, required: true}}]}}, {variable: host_path_config, label: Host Path Configuration, schema: {type: dict, show_if: [[type, "=", host_path]], attrs: [{variable: path, label: Host Path, schema: {type: hostpath, required: true}}]}}]}
+        - variable: savapage_logs
+          label: SavaPage Logs Storage
+          schema: {$ref: [normalize/ix_volume], type: dict, attrs: [{variable: type, label: Type, schema: {type: string, default: ix_volume, enum: [{value: ix_volume, description: ixVolume}, {value: host_path, description: Host Path}]}}, {variable: ix_volume_config, label: ixVolume Configuration, schema: {$ref: [normalize/ix_volume], type: dict, show_if: [[type, "=", ix_volume]], attrs: [{variable: dataset_name, label: Dataset Name, schema: {type: string, default: savapage_logs, hidden: true, required: true}}]}}, {variable: host_path_config, label: Host Path Configuration, schema: {type: dict, show_if: [[type, "=", host_path]], attrs: [{variable: path, label: Host Path, schema: {type: hostpath, required: true}}]}}]}
+        - variable: cups_config
+          label: CUPS Configuration Storage
+          schema: {$ref: [normalize/ix_volume], type: dict, attrs: [{variable: type, label: Type, schema: {type: string, default: ix_volume, enum: [{value: ix_volume, description: ixVolume}, {value: host_path, description: Host Path}]}}, {variable: ix_volume_config, label: ixVolume Configuration, schema: {$ref: [normalize/ix_volume], type: dict, show_if: [[type, "=", ix_volume]], attrs: [{variable: dataset_name, label: Dataset Name, schema: {type: string, default: cups_config, hidden: true, required: true}}]}}, {variable: host_path_config, label: Host Path Configuration, schema: {type: dict, show_if: [[type, "=", host_path]], attrs: [{variable: path, label: Host Path, schema: {type: hostpath, required: true}}]}}]}
+        - variable: cups_lib
+          label: CUPS State Storage
+          schema: {$ref: [normalize/ix_volume], type: dict, attrs: [{variable: type, label: Type, schema: {type: string, default: ix_volume, enum: [{value: ix_volume, description: ixVolume}, {value: host_path, description: Host Path}]}}, {variable: ix_volume_config, label: ixVolume Configuration, schema: {$ref: [normalize/ix_volume], type: dict, show_if: [[type, "=", ix_volume]], attrs: [{variable: dataset_name, label: Dataset Name, schema: {type: string, default: cups_lib, hidden: true, required: true}}]}}, {variable: host_path_config, label: Host Path Configuration, schema: {type: dict, show_if: [[type, "=", host_path]], attrs: [{variable: path, label: Host Path, schema: {type: hostpath, required: true}}]}}]}
+        - variable: cups_cache
+          label: CUPS Cache/Job-ID Storage
+          description: Never delete this storage; doing so can desynchronize CUPS job IDs from SavaPage.
+          schema: {$ref: [normalize/ix_volume], type: dict, attrs: [{variable: type, label: Type, schema: {type: string, default: ix_volume, enum: [{value: ix_volume, description: ixVolume}, {value: host_path, description: Host Path}]}}, {variable: ix_volume_config, label: ixVolume Configuration, schema: {$ref: [normalize/ix_volume], type: dict, show_if: [[type, "=", ix_volume]], attrs: [{variable: dataset_name, label: Dataset Name, schema: {type: string, default: cups_cache, hidden: true, required: true}}]}}, {variable: host_path_config, label: Host Path Configuration, schema: {type: dict, show_if: [[type, "=", host_path]], attrs: [{variable: path, label: Host Path, schema: {type: hostpath, required: true}}]}}]}
+        - variable: cups_spool
+          label: CUPS Print Spool Storage
+          schema: {$ref: [normalize/ix_volume], type: dict, attrs: [{variable: type, label: Type, schema: {type: string, default: ix_volume, enum: [{value: ix_volume, description: ixVolume}, {value: host_path, description: Host Path}]}}, {variable: ix_volume_config, label: ixVolume Configuration, schema: {$ref: [normalize/ix_volume], type: dict, show_if: [[type, "=", ix_volume]], attrs: [{variable: dataset_name, label: Dataset Name, schema: {type: string, default: cups_spool, hidden: true, required: true}}]}}, {variable: host_path_config, label: Host Path Configuration, schema: {type: dict, show_if: [[type, "=", host_path]], attrs: [{variable: path, label: Host Path, schema: {type: hostpath, required: true}}]}}]}
+        - variable: postgres_data
+          label: PostgreSQL Data Storage
+          schema: {$ref: [normalize/ix_volume], type: dict, attrs: [{variable: type, label: Type, schema: {type: string, default: ix_volume, enum: [{value: ix_volume, description: ixVolume}, {value: host_path, description: Host Path}]}}, {variable: ix_volume_config, label: ixVolume Configuration, schema: {$ref: [normalize/ix_volume], type: dict, show_if: [[type, "=", ix_volume]], attrs: [{variable: dataset_name, label: Dataset Name, schema: {type: string, default: postgres_data, hidden: true, required: true}}]}}, {variable: host_path_config, label: Host Path Configuration, schema: {type: dict, show_if: [[type, "=", host_path]], attrs: [{variable: path, label: Host Path, schema: {type: hostpath, required: true}}]}}]}
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema: {type: string, required: true}
+              - variable: value
+                label: Value
+                schema: {type: string, required: true}
+              - variable: containers
+                label: Containers
+                schema:
+                  type: list
+                  default: [savapage, postgres]
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        enum: [{value: savapage, description: SavaPage}, {value: postgres, description: PostgreSQL}, {value: avahi, description: Avahi}]
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                schema: {type: int, default: 2, required: true}
+              - variable: memory
+                label: Memory (MB)
+                schema: {type: int, default: 4096, required: true}
