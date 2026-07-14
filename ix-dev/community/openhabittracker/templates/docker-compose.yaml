@@ -1,0 +1,24 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.openhabittracker_container_name, "image") %}
+
+{% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/login"}) %}
+
+{% do c1.environment.add_env("ASPNETCORE_HTTP_PORTS", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("AppSettings__UserName", values.openhabittracker.username) %}
+{% do c1.environment.add_env("AppSettings__Email", values.openhabittracker.email) %}
+{% do c1.environment.add_env("AppSettings__Password", values.openhabittracker.password) %}
+{% do c1.environment.add_env("AppSettings__JwtSecret", values.openhabittracker.jwt_secret) %}
+{% do c1.environment.add_user_envs(values.openhabittracker.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/app/.OpenHabitTracker", values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
