@@ -22,6 +22,13 @@
   {% set health_path = "/trace/playwright-logo.svg" %}
   {% set mode_cmd = "test --ui --ui-port=%s --ui-host=0.0.0.0" | format(values.network.web_port.port_number) %}
   {% do tpl.portals.add(values.network.web_port) %}
+  {% do tpl.notes.add_warning(
+      "UI Mode requires a secure context (HTTPS or localhost) because it relies on a browser Service Worker. "
+      "Accessing the Web UI over plain http://<ip> will show a blank page. "
+      "Access it via https:// (e.g. behind a reverse proxy with a trusted certificate) "
+      "or over localhost (e.g. an SSH tunnel: ssh -L %s:localhost:%s <user>@<truenas-host>, then open http://localhost:%s)." | format(
+        values.network.web_port.port_number, values.network.web_port.port_number, values.network.web_port.port_number
+  )) %}
 {% endif %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
@@ -30,6 +37,7 @@
 {% do c1.set_command(["%s %s" | format(base_cmd, mode_cmd)]) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": health_path}) %}
 
+{% do c1.environment.add_env("HOME", values.consts.pwuser_home_path) %}
 {% do c1.environment.add_env("npm_config_cache", "%s/.npm" | format(values.consts.pwuser_home_path)) %}
 {% do c1.environment.add_user_envs(values.playwright.additional_envs) %}
 
