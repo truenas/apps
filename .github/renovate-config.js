@@ -293,6 +293,11 @@ module.exports = {
       ["ghcr.io/immich-app/immich-machine-learning"],
     ),
     customVersioning(
+      // 1.0.8-aio
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>heavy-aio|aio)$",
+      ["ghcr.io/calagopus/panel"],
+    ),
+    customVersioning(
       // stable-2.0.55
       "^stable-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["factoriotools/factorio"],
@@ -366,11 +371,6 @@ module.exports = {
       // v2026.5.29(.2)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["nousresearch/hermes-agent"],
-    ),
-    customVersioning(
-      // 1.0.8-aio
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-heavy)?-aio$",
-      ["ghcr.io/calagopus/panel"],
     ),
   ],
 };
