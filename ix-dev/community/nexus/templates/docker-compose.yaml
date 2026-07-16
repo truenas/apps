@@ -21,18 +21,13 @@
 {% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.web_container_port, "path": "/service/rest/v1/status"}) %}
 {% do c1.environment.add_env("INSTALL4J_ADD_VM_PARAMS", vm_params.items|join(" ")) %}
 {% do c1.environment.add_user_envs(values.nexus.additional_envs) %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.consts.web_container_port, "path": "/service/rest/v1/status"}) %}
-{% do c1.healthcheck.set_start_period(120) %}
-{% do c1.healthcheck.set_interval(30) %}
-{% do c1.healthcheck.set_timeout(10) %}
-{% do c1.healthcheck.set_retries(5) %}
-
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.web_container_port}) %}
 
-{% for dp in values.network.docker_ports %}
+{% for dp in values.network.additional_ports %}
   {% do c1.add_port(dp) %}
 {% endfor %}
 
