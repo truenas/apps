@@ -2,20 +2,24 @@
 
 {% set c1 = tpl.add_container(values.consts.languagetool_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
-{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{# Run as the image's own "languagetool" user (uid 100, gid 101)
+   so the entrypoint can write /LanguageTool/config.properties, which it owns.
+   Running as any other user makes that write fail.  #}
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 
 {% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_port, "path": "/v2/healthcheck"}) %}
 
 {% do c1.environment.add_env("Java_Xms", "%dm"|format(values.languagetool.java_xms_mb)) %}
 {% do c1.environment.add_env("Java_Xmx", "%dm"|format(values.languagetool.java_xmx_mb)) %}
+{% do c1.environment.add_env("langtool_languageModel", values.consts.ngrams_path) %}
 {% do c1.environment.add_env("langtool_pipelinePrewarming", values.languagetool.pipeline_prewarming) %}
 {% do c1.environment.add_user_envs(values.languagetool.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_port}) %}
 
-{% do c1.add_storage("/ngrams", values.storage.ngrams) %}
+{% do c1.add_storage(values.consts.ngrams_path, values.storage.ngrams) %}
 {% do perm_container.add_or_skip_action("ngrams", values.storage.ngrams, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
