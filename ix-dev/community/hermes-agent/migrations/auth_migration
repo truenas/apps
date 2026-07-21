@@ -6,17 +6,29 @@ import yaml
 
 def migrate(values):
     values["hermes-agent"].pop("enable_insecure_dashboard_access", None)
+    
+    basic_auth = False
+    username = ""
+    password = ""
+    new_env = []
+    for env in values.get("additional_envs", []):
+        if env["name"] == "HERMES_DASHBOARD_BASIC_AUTH_USERNAME":
+            username = env["value"]
+        elif env["name"] == "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD":
+            password = env["value"]
+        else:
+            new_env.append(env)
 
-    if values["hermes-agent"].get("additional_envs", {}).get("HERMES_DASHBOARD_BASIC_AUTH_USERNAME") and values["hermes-agent"].get("additional_envs", {}).get("HERMES_DASHBOARD_BASIC_AUTH_PASSWORD"):
-        values["hermes-agent"]["basic_auth_enabled"] = True
-        values["hermes-agent"]["basic_auth_username"] = values["hermes-agent"]["additional_envs"].pop("HERMES_DASHBOARD_BASIC_AUTH_USERNAME")
-        values["hermes-agent"]["basic_auth_password"] = values["hermes-agent"]["additional_envs"].pop("HERMES_DASHBOARD_BASIC_AUTH_PASSWORD")
-    else:
-        values["hermes-agent"]["basic_auth_enabled"] = False
-        values["hermes-agent"].pop("basic_auth_username", None)
-        values["hermes-agent"].pop("basic_auth_password", None)
+    if username and password:
+        basic_auth = True
 
+    values["hermes-agent"]["basic_auth_enabled"] = basic_auth
+    values["hermes-agent"]["basic_auth_username"] = username
+    values["hermes-agent"]["basic_auth_password"] = password
+    values["additional_envs"] = new_env
+    
     return values
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
