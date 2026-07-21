@@ -8,11 +8,12 @@
 {% set shm_mb = 512 if values.trawl.browser_pool_size == 1 else 2048 if values.trawl.browser_pool_size > 5 else 1024 %}
 {% do c1.set_shm_size_mb(shm_mb) %}
 
-{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/health"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do c1.healthcheck.set_start_period(90) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_port(values.network.web_port) %}
 
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("BROWSER_POOL_SIZE", values.trawl.browser_pool_size) %}
 {% do c1.environment.add_env("PROXY_URL", values.trawl.proxy_url) %}
 {% do c1.environment.add_env("RESIDENTIAL_PROXY_URL", values.trawl.residential_proxy_url) %}
