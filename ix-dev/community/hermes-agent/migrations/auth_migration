@@ -4,13 +4,11 @@ import os
 import sys
 import yaml
 
+
 def migrate(values):
     values["hermes_agent"].pop("enable_insecure_dashboard_access", None)
-    
-    basic_auth = False
-    username = ""
-    password = ""
-    key = ""
+
+    username = password = key = ""
     new_env = []
     for env in values.get("additional_envs", []):
         if env["name"] == "HERMES_DASHBOARD_BASIC_AUTH_USERNAME":
@@ -22,15 +20,12 @@ def migrate(values):
         else:
             new_env.append(env)
 
-    if username and password:
-        basic_auth = True
-
-    values["hermes_agent"]["basic_auth_enabled"] = basic_auth
+    values["hermes_agent"]["enable_basic_auth"] = bool(username and password)
     values["hermes_agent"]["basic_auth_username"] = username
     values["hermes_agent"]["basic_auth_password"] = password
     values["hermes_agent"]["hmac_key"] = key
     values["additional_envs"] = new_env
-    
+
     return values
 
 
