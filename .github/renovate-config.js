@@ -73,13 +73,6 @@ module.exports = {
       labels: ["patch"],
     },
     {
-      // AE NetScope publishes stable, alpha, and alpha hotfix tags.
-      matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/whiteassassins/ae-netscope"],
-      versioning: "semver",
-      allowedVersions: "/^v\\d+\\.\\d+\\.\\d+(?:-alpha(?:\\.\\d+)?)?$/",
-    },
-    {
       matchDatasources: ["docker"],
       labels: ["enterprise"],
       groupName: "enterprise",
@@ -378,6 +371,11 @@ module.exports = {
       // v2026.5.29(.2)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["nousresearch/hermes-agent"],
+    ),
+    customVersioning(
+      // v0.1.7-alpha(.1)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpha(\\.(?<build>\\d+))?$",
+      ["ghcr.io/whiteassassins/ae-netscope"],
     ),
   ],
 };
