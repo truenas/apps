@@ -1,0 +1,771 @@
+groups:
+  - name: MediaVault Configuration
+    description: Configure MediaVault
+  - name: User and Group Configuration
+    description: Configure the non-root account used by MediaVault
+  - name: Network Configuration
+    description: Configure the MediaVault web portal
+  - name: Storage Configuration
+    description: TrueNAS creates managed datasets automatically by default
+  - name: Labels Configuration
+    description: Configure optional container labels
+  - name: Resources Configuration
+    description: Configure CPU, memory, and GPU access
+
+questions:
+  - variable: TZ
+    group: MediaVault Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Europe/Amsterdam
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: mediavault
+    label: ""
+    group: MediaVault Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: admin_email
+          label: Initial Administrator Email
+          schema:
+            type: string
+            required: true
+            default: admin@mediavault.local
+        - variable: admin_password
+          label: Initial Administrator Password
+          description: Use a unique password of at least 12 characters. It is only used during first initialization.
+          schema:
+            type: string
+            required: true
+            private: true
+            min_length: 12
+        - variable: cors_origins
+          label: Allowed Browser Origins
+          description: Semicolon-separated origins, for example http://mediavault.local:3000
+          schema:
+            type: string
+            required: true
+            default: http://127.0.0.1:3000
+        - variable: truenas_ui_url
+          label: TrueNAS Web Interface URL
+          description: Used only to open the regular TrueNAS Apps update page from MediaVault.
+          schema:
+            type: string
+            required: true
+            default: http://127.0.0.1
+        - variable: tmdb_token
+          label: TMDB Read Access Token
+          description: Optional. The token remains server-side.
+          schema:
+            type: string
+            private: true
+            default: ""
+        - variable: tmdb_language
+          label: TMDB Language
+          schema:
+            type: string
+            required: true
+            default: nl-NL
+        - variable: hardware_device
+          label: Preferred Hardware Device
+          description: Optional advanced override. Leave empty for automatic hardware detection.
+          schema:
+            type: string
+            default: ""
+        - variable: auto_scan_enabled
+          label: Automatically Scan Libraries
+          schema:
+            type: boolean
+            default: true
+        - variable: auto_scan_debounce_seconds
+          label: Scan Debounce (seconds)
+          schema:
+            type: int
+            min: 5
+            max: 300
+            default: 15
+            required: true
+        - variable: auto_scan_poll_seconds
+          label: Filesystem Poll Interval (seconds)
+          schema:
+            type: int
+            min: 15
+            max: 3600
+            default: 60
+            required: true
+        - variable: full_scan_interval_minutes
+          label: Full Scan Interval (minutes)
+          schema:
+            type: int
+            min: 15
+            max: 10080
+            default: 360
+            required: true
+        - variable: max_transcodes_per_user
+          label: Maximum Transcodes per User
+          schema:
+            type: int
+            min: 1
+            max: 32
+            default: 2
+            required: true
+        - variable: max_concurrent_transcodes
+          label: Maximum Concurrent Transcodes
+          schema:
+            type: int
+            min: 1
+            max: 64
+            default: 4
+            required: true
+        - variable: max_2160p_transcodes
+          label: Maximum Concurrent 4K Transcodes
+          schema:
+            type: int
+            min: 1
+            max: 16
+            default: 1
+            required: true
+        - variable: transcode_retention_minutes
+          label: Transcode Retention (minutes)
+          schema:
+            type: int
+            min: 15
+            max: 1440
+            default: 240
+            required: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          schema:
+            type: int
+            min: 2
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          schema:
+            type: int
+            min: 2
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: published
+                  enum:
+                    - value: published
+                      description: Publish the port on the TrueNAS host
+                    - value: exposed
+                      description: Expose only to other containers
+                    - value: ""
+                      description: Do not expose or publish
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 3000
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: config
+          label: Configuration Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume (automatically managed by TrueNAS)
+                    - value: host_path
+                      description: Host Path (use existing storage)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: mediavault-config
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: data
+          label: Database and Application Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume (automatically managed by TrueNAS)
+                    - value: host_path
+                      description: Host Path (use existing storage)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: mediavault-data
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: cache
+          label: Cache Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume (automatically managed by TrueNAS)
+                    - value: host_path
+                      description: Host Path (use existing storage)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: mediavault-cache
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: transcodes
+          label: Transcode Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume (automatically managed by TrueNAS)
+                    - value: host_path
+                      description: Host Path (use existing storage)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: mediavault-transcodes
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: downloads
+          label: Download Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume (automatically managed by TrueNAS)
+                    - value: host_path
+                      description: Host Path (use existing storage)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: mediavault-downloads
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: backups
+          label: Backup Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume (automatically managed by TrueNAS)
+                    - value: host_path
+                      description: Host Path (use existing storage)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: mediavault-backups
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: media
+          label: Media Library Storage (mounted read-only)
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume (automatically managed by TrueNAS)
+                    - value: host_path
+                      description: Host Path (use existing storage)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: mediavault-media
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: mediavault
+                            description: mediavault
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                schema:
+                  type: int
+                  default: 256
+                  required: true
+                  description: Ruime bovengrens zodat MediaVault op normale TrueNAS-systemen niet door de app wordt begrensd.
+              - variable: memory
+                label: Memory (in MB)
+                schema:
+                  type: int
+                  default: 1048576
+                  required: true
+                  description: Ruime bovengrens van 1 TiB zodat MediaVault het beschikbare hostgeheugen kan gebruiken.
+        - variable: gpus
+          label: GPU Configuration
+          schema:
+            type: dict
+            $ref:
+              - definitions/gpu_configuration
+            attrs: []

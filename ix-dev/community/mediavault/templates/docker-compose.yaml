@@ -1,0 +1,73 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set app = tpl.add_container(values.consts.mediavault_container_name, "image") %}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do app.set_user(values.run_as.user, values.run_as.group) %}
+{% do app.set_init(true) %}
+{% do app.set_read_only(true) %}
+{% do app.set_grace_period(30) %}
+{% do app.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/v1/health"}) %}
+
+{% do app.environment.add_env("MEDIAVAULT_BIND_ADDRESS", "0.0.0.0") %}
+{% do app.environment.add_env("MEDIAVAULT_PORT", values.consts.internal_web_port) %}
+{% do app.environment.add_env("MEDIAVAULT_CONFIG_DIR", "/config") %}
+{% do app.environment.add_env("MEDIAVAULT_DATA_DIR", "/data") %}
+{% do app.environment.add_env("MEDIAVAULT_CACHE_DIR", "/cache") %}
+{% do app.environment.add_env("MEDIAVAULT_TRANSCODE_DIR", "/transcodes") %}
+{% do app.environment.add_env("MEDIAVAULT_OFFLINE_RENDITION_DIR", "/downloads/offline-renditions") %}
+{% do app.environment.add_env("MEDIAVAULT_DOWNLOADS_DIR", "/downloads") %}
+{% do app.environment.add_env("MEDIAVAULT_BACKUPS_DIR", "/backups") %}
+{% do app.environment.add_env("MEDIAVAULT_LOG_DIR", "/data/logs") %}
+{% do app.environment.add_env("MEDIAVAULT_LOG_MAX_BYTES", 5242880) %}
+{% do app.environment.add_env("MEDIAVAULT_LOG_RETAINED_FILES", 3) %}
+{% do app.environment.add_env("MEDIAVAULT_MEDIA_ROOTS", "/media") %}
+{% do app.environment.add_env("MEDIAVAULT_FFMPEG_PATH", "/usr/bin/ffmpeg") %}
+{% do app.environment.add_env("MEDIAVAULT_FFPROBE_PATH", "/usr/bin/ffprobe") %}
+{% do app.environment.add_env("MEDIAVAULT_HARDWARE_DEVICE", values.mediavault.hardware_device) %}
+{% do app.environment.add_env("MEDIAVAULT_ADMIN_EMAIL", values.mediavault.admin_email) %}
+{% do app.environment.add_env("MEDIAVAULT_ADMIN_PASSWORD", values.mediavault.admin_password) %}
+{% do app.environment.add_env("MEDIAVAULT_CORS_ORIGINS", values.mediavault.cors_origins) %}
+{% do app.environment.add_env("MEDIAVAULT_DEPLOYMENT_MODE", "truenas-catalog") %}
+{% do app.environment.add_env("MEDIAVAULT_TRUENAS_UI_URL", values.mediavault.truenas_ui_url) %}
+{% do app.environment.add_env("MEDIAVAULT_TMDB_READ_ACCESS_TOKEN", values.mediavault.tmdb_token) %}
+{% do app.environment.add_env("MEDIAVAULT_TMDB_LANGUAGE", values.mediavault.tmdb_language) %}
+{% do app.environment.add_env("MEDIAVAULT_AUTO_SCAN_ENABLED", values.mediavault.auto_scan_enabled) %}
+{% do app.environment.add_env("MEDIAVAULT_AUTO_SCAN_DEBOUNCE_SECONDS", values.mediavault.auto_scan_debounce_seconds) %}
+{% do app.environment.add_env("MEDIAVAULT_AUTO_SCAN_POLL_INTERVAL_SECONDS", values.mediavault.auto_scan_poll_seconds) %}
+{% do app.environment.add_env("MEDIAVAULT_AUTO_SCAN_INTERVAL_MINUTES", values.mediavault.full_scan_interval_minutes) %}
+{% do app.environment.add_env("MEDIAVAULT_MAX_TRANSCODES_PER_USER", values.mediavault.max_transcodes_per_user) %}
+{% do app.environment.add_env("MEDIAVAULT_MAX_CONCURRENT_TRANSCODES", values.mediavault.max_concurrent_transcodes) %}
+{% do app.environment.add_env("MEDIAVAULT_MAX_CONCURRENT_2160P_TRANSCODES", values.mediavault.max_2160p_transcodes) %}
+{% do app.environment.add_env("MEDIAVAULT_TRANSCODE_RETENTION_MINUTES", values.mediavault.transcode_retention_minutes) %}
+{% do app.environment.add_user_envs(values.mediavault.additional_envs) %}
+
+{% do app.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% set writable_mounts = {
+  "config": ["/config", values.storage.config],
+  "data": ["/data", values.storage.data],
+  "cache": ["/cache", values.storage.cache],
+  "transcodes": ["/transcodes", values.storage.transcodes],
+  "downloads": ["/downloads", values.storage.downloads],
+  "backups": ["/backups", values.storage.backups]
+} %}
+{% for name, mount in writable_mounts.items() %}
+  {% do app.add_storage(mount[0], mount[1]) %}
+  {% do perms.add_or_skip_action(name, mount[1], perms_config) %}
+{% endfor %}
+
+{% set read_only_media = dict(values.storage.media, read_only=true) %}
+{% do app.add_storage("/media", read_only_media) %}
+
+{% do app.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 256, "mode": "0777", "uid": values.run_as.user, "gid": values.run_as.group}}) %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
