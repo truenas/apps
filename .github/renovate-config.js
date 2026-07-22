@@ -363,14 +363,19 @@ module.exports = {
       ["jvmilazz0/kavita"],
     ),
     customVersioning(
-      // 1.0(.0)?
+      // v1.0(.0)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$",
-      ["ghcr.io/retropex/bitcoin-truenas"],
+      ["ghcr.io/retropex/bitcoin-truenas", "ghcr.io/sethforprivacy/p2pool"],
     ),
     customVersioning(
       // v2026.5.29(.2)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["nousresearch/hermes-agent"],
+    ),
+    customVersioning(
+      // v0.1.7-alpha(.1)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpha(\\.(?<build>\\d+))?$",
+      ["ghcr.io/whiteassassins/ae-netscope"],
     ),
   ],
 };
