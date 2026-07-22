@@ -73,6 +73,13 @@ module.exports = {
       labels: ["patch"],
     },
     {
+      // AE NetScope publishes stable, alpha, and alpha hotfix tags.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/whiteassassins/ae-netscope"],
+      versioning: "semver",
+      allowedVersions: "/^v\\d+\\.\\d+\\.\\d+(?:-alpha(?:\\.\\d+)?)?$/",
+    },
+    {
       matchDatasources: ["docker"],
       labels: ["enterprise"],
       groupName: "enterprise",
