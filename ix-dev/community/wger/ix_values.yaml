@@ -14,6 +14,9 @@ images:
   postgres_18_image:
     repository: postgres
     tag: 18.4-trixie
+  powersync_image:
+    repository: journeyapps/powersync-service
+    tag: "1.23.2"
   redis_image:
     repository: valkey/valkey
     tag: 9.1.1
@@ -29,6 +32,8 @@ consts:
   postgres_container_name: postgres
   redis_container_name: redis
   perms_container_name: permissions
+  powersync_container_name: powersync
+  powersync_port: 8080
   db_user: wger
   db_name: wger
 
@@ -45,3 +50,41 @@ consts:
     python3 manage.py download-exercise-images
     python3 manage.py download-exercise-videos
     ```
+
+    ## PowerSync (mobile app sync)
+
+    PowerSync requires a one-time setup before it can start successfully.
+    Until this is done, the `powersync` container will log an authentication
+    error (`password authentication failed for user "powersync_storage"`) and
+    restart — this is expected.
+
+    Shell into the `server` container and run:
+
+    ```sh
+    python3 manage.py setup-powersync-storage
+    ```
+
+    This creates the required Postgres role, schema, and replication slot.
+    It is idempotent and safe to re-run. If you change `powersync_storage_password`,
+    update it in the app settings first and then re-run this command.
+
+    ### Sync rules
+
+    The `sync_rules.yaml` file controls which data is replicated to the mobile app.
+    Its content is provided via the **Sync Rules Content** field in the app settings
+    and is injected directly into the container on every deploy. To change the sync
+    rules, update the field in the UI and redeploy the app.
+
+    The default content can be found at:
+    https://github.com/wger-project/docker/blob/master/services/config-powersync/sync_rules.yaml
+
+    ### Compaction
+
+    PowerSync's replication log grows without bound unless compacted periodically.
+    Run compaction manually with:
+
+    ```sh
+    docker compose run --rm powersync compact
+    ```
+
+    A daily cron or systemd timer is recommended for production deployments.

@@ -1,4 +1,5 @@
 {% from "macros/nginx.conf" import nginx_config %}
+{% from "macros/powersync.conf" import powersync_yaml %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {# {% if values.wger.postgres_image_selector == "postgres_17_image" %}
@@ -24,6 +25,7 @@
   "password": values.wger.db_password,
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
+  "additional_options": {"wal_level": "logical"},
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.wger.postgres_image_selector, pg_config, perm_container) %}
 {% do postgres.container.add_network(wger_net) %}
@@ -35,6 +37,26 @@
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 {% do redis.container.add_network(wger_net) %}
+
+{# -- PowerSync (Conditional) -- #}
+{% if values.wger.powersync_enabled %}
+  {# PowerSync service — both configs injected at render time via Docker configs #}
+  {% set powersync = tpl.add_container(values.consts.powersync_container_name, "powersync_image") %}
+  {% do powersync.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+  {% do powersync.set_command(["start", "-r", "unified"]) %}
+  {% do powersync.healthcheck.set_test("node", {"port": values.consts.powersync_port, "path": "/probes/readiness"}) %}
+  {% do powersync.healthcheck.set_start_period(120) %}
+  {% do powersync.healthcheck.set_retries(10) %}
+  {% do powersync.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+  {% do powersync.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
+  {% do powersync.add_network(wger_net) %}
+
+  {# Both configs injected directly — no storage volume or init container needed #}
+  {% do powersync.configs.add("powersync.yaml", powersync_yaml(values, postgres), "/config/powersync.yaml") %}
+  {% do powersync.configs.add("sync_rules.yaml", values.wger.powersync.sync_rules_content, "/config/sync_rules.yaml") %}
+
+  {% do powersync.environment.add_env("POWERSYNC_CONFIG_PATH", "/config/powersync.yaml") %}
+{% endif %}
 
 {% set containers = [server, worker, beat] %}
 {% for c in containers + [nginx] %}
@@ -88,7 +110,19 @@
 
 {# -- Server -- #}
 {% do server.healthcheck.set_test("wget", {"port": values.consts.internal_server_port}) %}
+{% do server.healthcheck.set_start_period(300) %}
+{% do server.healthcheck.set_retries(10) %}
 {% do server.environment.add_env("WGER_PORT", values.consts.internal_server_port) %}
+{% if values.wger.powersync_enabled %}
+  {# PS_STORAGE_PG_URI is read by setup-powersync-storage to create the role with the correct password #}
+  {% do server.environment.add_env("PS_STORAGE_PG_URI",
+    "postgres://powersync_storage:%s@%s:%s/%s" | format(
+      values.wger.powersync_storage_password,
+      values.consts.postgres_container_name,
+      postgres.get_port(),
+      values.consts.db_name
+    )) %}
+{% endif %}
 {% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do server.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do server.add_storage("/home/wger/static", values.storage.static) %}
@@ -96,12 +130,16 @@
 
 {# -- Worker -- #}
 {% do worker.healthcheck.set_custom_test(["CMD", "celery", "-A", "wger", "inspect", "ping"]) %}
+{% do worker.healthcheck.set_timeout(15) %}
+{% do worker.healthcheck.set_start_period(300) %}
 {% do worker.set_command(["/start-worker"]) %}
 {% do worker.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do worker.add_storage("/home/wger/media", values.storage.media) %}
 
 {# -- Beat -- #}
 {% do beat.healthcheck.set_custom_test(["CMD", "celery", "-A", "wger", "inspect", "ping"]) %}
+{% do beat.healthcheck.set_timeout(15) %}
+{% do beat.healthcheck.set_start_period(60) %}
 {% do beat.set_command(["/start-beat"]) %}
 {% do beat.depends.add_dependency(values.consts.worker_container_name, "service_healthy") %}
 {% do beat.add_storage("/home/wger/beat", values.storage.beat) %}
