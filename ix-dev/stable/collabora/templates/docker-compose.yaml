@@ -24,7 +24,7 @@
   {% do nginx.x.add_storage("/var/cache/nginx", {"type": "anonymous"}) %}
   {% do nginx.x.add_storage("/var/run", {"type": "anonymous"}) %}
 {% else %}
-  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_collabora_web_port}) %}
+  {% do c1.add_port(values.network.web_port) %}
 {% endif %}
 
 {# Github Runners won't start unless we remove this security option #}
@@ -33,7 +33,8 @@
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.add_security_opt("apparmor", "unconfined") %}
 {% do c1.add_caps(caps=["CHOWN", "FOWNER", "SYS_CHROOT", "SYS_ADMIN"]) %}
-{% do c1.healthcheck.set_test("tcp", {"port": values.consts.internal_collabora_web_port}) %}
+{% do c1.set_command(["--port", values.network.web_port.port_number]) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "coolwsd", "--probe", "--disable-ssl", "--port", values.network.web_port.port_number|string]) %}
 
 {% do c1.environment.add_env("timezone", values.TZ) %}
 {% do c1.environment.add_env("aliasgroup1", values.collabora.aliasgroup1|join(",")) %}
