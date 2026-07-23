@@ -67,6 +67,10 @@
 
 {% do c1.set_command(cmd.x) %}
 
+{% if values.minio.license_key %}
+  {% do c1.configs.add("license", values.minio.license_key, values.consts.license_path) %}
+{% endif %}
+
 {# Stores minio "volumes" that will be passed in the MINIO_VOLUMES env var #}
 {% set minio_config_items = namespace(x=[]) %}
 
@@ -80,15 +84,13 @@
 {% do c1.environment.add_user_envs(values.minio.additional_envs) %}
 {% do c1.environment.add_env("MINIO_ROOT_USER", values.minio.credentials.access_key) %}
 {% do c1.environment.add_env("MINIO_ROOT_PASSWORD", values.minio.credentials.secret_key) %}
-
-{% if values.network.server_url %}
-  {% do c1.environment.add_env("MINIO_SERVER_URL", values.network.server_url) %}
-{% endif %}
+{% do c1.environment.add_env("MINIO_LICENSE", values.consts.license_path) %}
 
 {% if values.network.console_url %}
   {% do c1.environment.add_env("MINIO_BROWSER_REDIRECT_URL", values.network.console_url) %}
 {% endif %}
 
+{# https://docs.min.io/aistor/operations/scaling/expansion/expand-aistor-linux/#environment-variable-method #}
 {% if values.minio.multi_mode.entries %}
   {% do c1.environment.add_env("MINIO_VOLUMES", values.minio.multi_mode.entries|join(" ")) %}
 {% else %}
