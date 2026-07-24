@@ -35,42 +35,6 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: mcp_debug
-          label: Enable MCP Debug Logging
-          schema:
-            type: boolean
-            default: false
-            show_if: [["enable_mcp", "=", true]]
-        - variable: oidc_client_id
-          label: OIDC Client ID
-          description: |
-            Optional OpenID Connect client ID.</br>
-            Configure the OIDC provider and access rules in Poznote's administration interface.
-          schema:
-            type: string
-            default: ""
-        - variable: oidc_client_secret
-          label: OIDC Client Secret
-          description: The optional OpenID Connect client secret.
-          schema:
-            type: string
-            default: ""
-            private: true
-        - variable: oidc_disable_normal_login
-          label: Disable Local Login
-          description: |
-            Hides the local username and password form and requires OIDC authentication.</br>
-            Do not enable this until OIDC is fully configured and tested.
-          schema:
-            type: boolean
-            default: false
-        - variable: settings_password
-          label: Settings Password
-          description: Optional password required to access Poznote's settings page.
-          schema:
-            type: string
-            default: ""
-            private: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -232,8 +196,8 @@ questions:
                                     enum:
                                       - value: poznote
                                         description: poznote
-                                      - value: poznote-mcp
-                                        description: poznote-mcp
+                                      - value: mcp
+                                        description: mcp
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -365,6 +329,162 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
 
   - variable: labels
     label: ""
@@ -402,8 +522,8 @@ questions:
                         enum:
                           - value: poznote
                             description: poznote
-                          - value: poznote-mcp
-                            description: poznote-mcp
+                          - value: mcp
+                            description: mcp
 
   - variable: resources
     label: ""
