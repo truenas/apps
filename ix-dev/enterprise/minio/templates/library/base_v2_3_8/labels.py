@@ -1,27 +1,19 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from render import Render
-
 try:
     from .error import RenderError
     from .formatter import escape_dollar
+    from .validations import valid_label_key_or_raise
 except ImportError:
     from error import RenderError
     from formatter import escape_dollar
+    from validations import valid_label_key_or_raise
 
 
 class Labels:
-    def __init__(self, render_instance: "Render"):
-        self._render_instance = render_instance
+    def __init__(self):
         self._labels: dict[str, str] = {}
 
     def add_label(self, key: str, value: str):
-        if not key:
-            raise RenderError("Labels must have a key")
-
-        if key.startswith("com.docker.compose"):
-            raise RenderError(f"Label [{key}] cannot start with [com.docker.compose] as it is reserved")
+        key = valid_label_key_or_raise(key)
 
         if key in self._labels.keys():
             raise RenderError(f"Label [{key}] already added")

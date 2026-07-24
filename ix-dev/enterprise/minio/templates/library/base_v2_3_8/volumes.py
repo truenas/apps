@@ -34,7 +34,13 @@ class Volumes:
         return bool(self._volumes)
 
     def render(self):
-        return {name: v.render() for name, v in sorted(self._volumes.items()) if v.render() is not None}
+        result = {}
+        for name, v in self._volumes.items():
+            rendered = v.render()
+            if rendered is None:
+                continue
+            result[name] = rendered
+        return result
 
 
 class Volume:

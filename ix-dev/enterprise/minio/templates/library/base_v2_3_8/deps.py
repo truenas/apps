@@ -4,9 +4,13 @@ if TYPE_CHECKING:
     from render import Render
 
 try:
+    from .deps_chromadb import ChromaContainer, ChromaConfig
+    from .deps_cron import CronContainer, CronConfig
     from .deps_elastic import ElasticSearchContainer, ElasticConfig
+    from .deps_guacd import GuacdContainer, GuacdConfig
     from .deps_mariadb import MariadbContainer, MariadbConfig
     from .deps_meilisearch import MeilisearchContainer, MeiliConfig
+    from .deps_memcached import MemcachedContainer, MemcachedConfig
     from .deps_mongodb import MongoDBContainer, MongoDBConfig
     from .deps_perms import PermsContainer
     from .deps_postgres import PostgresContainer, PostgresConfig
@@ -14,9 +18,13 @@ try:
     from .deps_solr import SolrContainer, SolrConfig
     from .deps_tika import TikaContainer, TikaConfig
 except ImportError:
+    from deps_chromadb import ChromaContainer, ChromaConfig
+    from deps_cron import CronContainer, CronConfig
     from deps_elastic import ElasticSearchContainer, ElasticConfig
+    from deps_guacd import GuacdContainer, GuacdConfig
     from deps_mariadb import MariadbContainer, MariadbConfig
     from deps_meilisearch import MeilisearchContainer, MeiliConfig
+    from deps_memcached import MemcachedContainer, MemcachedConfig
     from deps_mongodb import MongoDBContainer, MongoDBConfig
     from deps_perms import PermsContainer
     from deps_postgres import PostgresContainer, PostgresConfig
@@ -55,3 +63,15 @@ class Deps:
 
     def tika(self, name: str, image: str, config: TikaConfig):
         return TikaContainer(self._render_instance, name, image, config)
+
+    def memcached(self, name: str, image: str, config: MemcachedConfig):
+        return MemcachedContainer(self._render_instance, name, image, config)
+
+    def guacd(self, name: str, image: str, config: GuacdConfig):
+        return GuacdContainer(self._render_instance, name, image, config)
+
+    def cron(self, name: str, image: str, config: CronConfig):
+        return CronContainer(self._render_instance, name, image, config)
+
+    def chromadb(self, name: str, image: str, config: ChromaConfig, perms_instance: PermsContainer):
+        return ChromaContainer(self._render_instance, name, image, config, perms_instance)
