@@ -2,13 +2,9 @@
 
 {% set powerbeacon_network = tpl.networks.create_internal("powerbeacon_network") %}
 
-{# Main PowerBeacon Container #}
-{% set app = tpl.add_container(values.consts.powerbeacon_container_name, "image") %}
-
-{# Permissions Container (used by postgres) #}
+{% set c1 = tpl.add_container(values.consts.powerbeacon_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
-{# Postgres Container #}
 {% set pg_config = {
   "user": values.consts.db_user,
   "password": values.powerbeacon.db_password,
@@ -16,28 +12,19 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.powerbeacon.postgres_image_selector, pg_config, perm_container) %}
-
-
-{% do app.set_user(0, 0) %}
-{% do app.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
-{% do app.healthcheck.set_test("http", {"port": values.consts.internal_web_port, "path": "/health"}) %}
-
-
-{# Add containers to network #}
 {% do postgres.container.add_network(powerbeacon_network) %}
-{% do app.add_network(powerbeacon_network) %}
-{% do app.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{# Configure environment variables #}
-{% do app.environment.add_env("JWT_SECRET", values.powerbeacon.session_secret) %}
-{% do app.environment.add_env("DB_URL", postgres.get_url("postgresql")) %}
-
-{# Add port mappings #}
-{% do app.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-
+{% do c1.set_user(0, 0) %}
+{% do c1.add_network(powerbeacon_network) %}
+{% do c1.add_caps(["CHOWN", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_test("http", {"port": values.consts.internal_web_port, "path": "/health"}) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.environment.add_env("JWT_SECRET", values.powerbeacon.session_secret) %}
+{% do c1.environment.add_env("DB_URL", postgres.get_url("postgresql")) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do app.add_storage(store.mount_path, store) %}
+  {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
@@ -45,8 +32,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{# Add portal for UI access #}
 {% do tpl.portals.add(values.network.web_port) %}
 
-{# Render the final configuration #}
 {{ tpl.render() | tojson }}
