@@ -11,6 +11,12 @@ OUTPUT_FILE = ".github/outputs/all_changed_files.json"
 EXCLUDE_TESTS = [
     "stable/storj",
 ]
+RENDER_ONLY_TESTS = {
+    ("community", "netbird-client", "basic-values.yaml"),
+    ("community", "netbird-client", "userspace-values.yaml"),
+    ("community", "tailscale", "basic-values.yaml"),
+    ("community", "vllm", "rocm-values.yaml"),
+}
 
 
 def get_changed_files():
@@ -55,6 +61,7 @@ def find_test_files(changed_files):
                         "train": match.group(1),
                         "app": match.group(2),
                         "test_file": file.name,
+                        "render_only": item_tuple in RENDER_ONLY_TESTS,
                     }
                 )
 
