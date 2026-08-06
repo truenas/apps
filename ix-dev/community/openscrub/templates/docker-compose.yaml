@@ -1,0 +1,24 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.openscrub_container_name, "image") %}
+
+{# OpenScrub serves self-signed HTTPS on a fixed container port; python is
+   guaranteed in the image, curl is not #}
+{% do c1.healthcheck.set_custom_test("python3 -c \"import urllib.request,ssl; ctx=ssl._create_unverified_context(); urllib.request.urlopen('https://127.0.0.1:%d/', context=ctx, timeout=5)\"" | format(values.consts.web_port)) %}
+
+{% if values.openscrub.access_token %}
+  {% do c1.environment.add_env("OPENSCRUB_TOKEN", values.openscrub.access_token) %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.openscrub.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.web_port}) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
+
+{{ tpl.render() | tojson }}
