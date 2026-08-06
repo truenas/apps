@@ -40,6 +40,14 @@
   {% do c.add_caps(["CHOWN", "SETUID", "SETGID"]) %}
   {% do c.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
   {% do c.environment.add_env("TYPO3_CONTEXT", "Production") %}
+  {# config/sites/main/config.yaml has base: 'https://%env(SERVER_NAME)%/'. Without
+     this the base resolves to 'https:///', no site matches the request, and the
+     frontend 500s. #}
+  {% do c.environment.add_env("SERVER_NAME", values.t3monitoring.server_name) %}
+  {# Off by default: TrueNAS's WebUI portal opens http://<node-ip>:<port>/typo3/, and
+     lockSSL would 302 that to https://<node-ip>/typo3/ — dropping the port, so it
+     lands on nothing. Turn on only when every route terminates TLS in front. #}
+  {% do c.environment.add_env("TYPO3_BE_LOCKSSL", "1" if values.t3monitoring.force_backend_https else "0") %}
   {% do c.environment.add_env("TYPO3_DB_HOST", values.consts.mariadb_container_name) %}
   {% do c.environment.add_env("TYPO3_DB_PORT", 3306) %}
   {% do c.environment.add_env("TYPO3_DB_USER", values.consts.db_user) %}
