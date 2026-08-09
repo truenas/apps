@@ -1,0 +1,20 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set app = tpl.add_container(values.consts.remux_container_name, "image") %}
+
+{% do app.set_user(0, 0) %}
+{% do app.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/"}) %}
+{% do app.environment.add_user_envs(values.remux.additional_envs) %}
+
+{% do app.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do app.add_storage(values.consts.data_path, values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do app.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.set_body("Add your Stremio add-on manifests (e.g. AIOStreams) from the dashboard, then connect any Jellyfin client.") %}
+
+{{ tpl.render() | tojson }}
