@@ -37,7 +37,10 @@ def test_add_postgres_missing_config(mock_values):
 
 
 def test_add_postgres_unsupported_repo(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "unsupported_repo", "tag": "16.6-bookworm"}
+    mock_values["images"]["pg_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "16.6-bookworm",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -50,14 +53,23 @@ def test_add_postgres_unsupported_repo(mock_values):
                 "user": "test_user",
                 "password": "test_@password",
                 "database": "test_database",
-                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
             },
             perms_container,
         )
 
 
 def test_add_postgres(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "16.6-bookworm",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -69,25 +81,49 @@ def test_add_postgres(mock_values):
             "user": "test_user",
             "password": "test_@password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
             "port": 5000,
         },
         perms_container,
     )
     if perms_container.has_actions():
         perms_container.activate()
-        p.container.depends.add_dependency("perms_container", "service_completed_successfully")
+        p.container.depends.add_dependency(
+            "perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert (
-        p.get_url("postgres") == "postgres://test_user:test_%40password@pg_container:5000/test_database?sslmode=disable"
+        p.get_url("postgres")
+        == "postgres://test_user:test_%40password@pg_container:5000/test_database?sslmode=disable"
     )
     assert "devices" not in output["services"]["pg_container"]
-    assert "reservations" not in output["services"]["pg_container"]["deploy"]["resources"]
+    assert (
+        "reservations"
+        not in output["services"]["pg_container"]["deploy"]["resources"]
+    )
     assert output["services"]["pg_container"]["stop_grace_period"] == "60s"
-    assert output["services"]["pg_container"]["image"] == "postgres:16.6-bookworm"
+    assert (
+        output["services"]["pg_container"]["image"] == "postgres:16.6-bookworm"
+    )
     assert output["services"]["pg_container"]["user"] == "999:999"
-    assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["pg_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["pg_container"]["deploy"]["resources"]["limits"][
+            "cpus"
+        ]
+        == "2.0"
+    )
+    assert (
+        output["services"]["pg_container"]["deploy"]["resources"]["limits"][
+            "memory"
+        ]
+        == "4096M"
+    )
     assert output["services"]["pg_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -135,7 +171,10 @@ def test_add_postgres(mock_values):
 
 
 def test_add_postgres_options(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "16.6-bookworm",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -147,8 +186,17 @@ def test_add_postgres_options(mock_values):
             "user": "test_user",
             "password": "test_@password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
-            "additional_options": {"maintenance_work_mem": "1024MB", "max_connections": "100"},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
+            "additional_options": {
+                "maintenance_work_mem": "1024MB",
+                "max_connections": "100",
+            },
         },
         perms_container,
     )
@@ -175,7 +223,10 @@ def test_add_redis_missing_config(mock_values):
 
 
 def test_add_redis_unsupported_repo(mock_values):
-    mock_values["images"]["redis_image"] = {"repository": "unsupported_repo", "tag": "latest"}
+    mock_values["images"]["redis_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "latest",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -186,14 +237,23 @@ def test_add_redis_unsupported_repo(mock_values):
             "redis_image",
             {
                 "password": "test&password@",
-                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
             },
             perms_container,
         )
 
 
 def test_add_redis_with_password_with_spaces(mock_values):
-    mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
+    mock_values["images"]["redis_image"] = {
+        "repository": "redis",
+        "tag": "latest",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -206,7 +266,10 @@ def test_add_redis_with_password_with_spaces(mock_values):
 
 
 def test_add_redis(mock_values):
-    mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
+    mock_values["images"]["redis_image"] = {
+        "repository": "valkey/valkey",
+        "tag": "latest",
+    }
     mock_values["run_as"] = {"user": 0, "group": 0}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
@@ -217,26 +280,49 @@ def test_add_redis(mock_values):
         "redis_image",
         {
             "password": "test&password@",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
     c1.environment.add_env("REDIS_URL", r.get_url("redis"))
     if perms_container.has_actions():
         perms_container.activate()
-        r.container.depends.add_dependency("perms_container", "service_completed_successfully")
+        r.container.depends.add_dependency(
+            "perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert "devices" not in output["services"]["redis_container"]
-    assert "reservations" not in output["services"]["redis_container"]["deploy"]["resources"]
+    assert (
+        "reservations"
+        not in output["services"]["redis_container"]["deploy"]["resources"]
+    )
     assert (
         output["services"]["test_container"]["environment"]["REDIS_URL"]
         == "redis://default:test%26password%40@redis_container:6379"
     )
     assert output["services"]["redis_container"]["stop_grace_period"] == "60s"
-    assert output["services"]["redis_container"]["image"] == "valkey/valkey:latest"
+    assert (
+        output["services"]["redis_container"]["image"] == "valkey/valkey:latest"
+    )
     assert output["services"]["redis_container"]["user"] == "568:568"
-    assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["redis_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["redis_container"]["deploy"]["resources"]["limits"][
+            "cpus"
+        ]
+        == "2.0"
+    )
+    assert (
+        output["services"]["redis_container"]["deploy"]["resources"]["limits"][
+            "memory"
+        ]
+        == "4096M"
+    )
     assert output["services"]["redis_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -289,7 +375,10 @@ def test_add_mariadb_missing_config(mock_values):
 
 
 def test_add_mariadb_unsupported_repo(mock_values):
-    mock_values["images"]["mariadb_image"] = {"repository": "unsupported_repo", "tag": "latest"}
+    mock_values["images"]["mariadb_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "latest",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -302,14 +391,23 @@ def test_add_mariadb_unsupported_repo(mock_values):
                 "user": "test_user",
                 "password": "test_password",
                 "database": "test_database",
-                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
             },
             perms_container,
         )
 
 
 def test_add_mariadb(mock_values):
-    mock_values["images"]["mariadb_image"] = {"repository": "mariadb", "tag": "latest"}
+    mock_values["images"]["mariadb_image"] = {
+        "repository": "mariadb",
+        "tag": "latest",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -321,21 +419,42 @@ def test_add_mariadb(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
     if perms_container.has_actions():
         perms_container.activate()
-        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+        m.container.depends.add_dependency(
+            "perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert "devices" not in output["services"]["mariadb_container"]
-    assert "reservations" not in output["services"]["mariadb_container"]["deploy"]["resources"]
+    assert (
+        "reservations"
+        not in output["services"]["mariadb_container"]["deploy"]["resources"]
+    )
     assert output["services"]["mariadb_container"]["stop_grace_period"] == "60s"
     assert output["services"]["mariadb_container"]["image"] == "mariadb:latest"
     assert output["services"]["mariadb_container"]["user"] == "999:999"
-    assert output["services"]["mariadb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["mariadb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["mariadb_container"]["deploy"]["resources"][
+            "limits"
+        ]["cpus"]
+        == "2.0"
+    )
+    assert (
+        output["services"]["mariadb_container"]["deploy"]["resources"][
+            "limits"
+        ]["memory"]
+        == "4096M"
+    )
     assert output["services"]["mariadb_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -383,9 +502,18 @@ def test_add_perms_container(mock_values):
         "test_dataset2": "/mnt/test/2",
         "test_dataset3": "/mnt/test/3",
     }
-    mock_values["images"]["postgres_image"] = {"repository": "postgres", "tag": "17.7-bookworm"}
-    mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
-    mock_values["images"]["mariadb_image"] = {"repository": "mariadb", "tag": "latest"}
+    mock_values["images"]["postgres_image"] = {
+        "repository": "postgres",
+        "tag": "17.7-bookworm",
+    }
+    mock_values["images"]["redis_image"] = {
+        "repository": "valkey/valkey",
+        "tag": "latest",
+    }
+    mock_values["images"]["mariadb_image"] = {
+        "repository": "mariadb",
+        "tag": "latest",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -415,16 +543,40 @@ def test_add_perms_container(mock_values):
     c1.add_storage("/some/path10", read_only_volume)
 
     perms_container = render.deps.perms("test_perms_container")
-    perms_container.add_or_skip_action("data", volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data2", volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data3", host_path_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data4", host_path_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data5", host_path_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data6", ix_volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data7", ix_volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data8", ix_volume_acl_perms, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data9", temp_volume, {"uid": 1000, "gid": 1000, "mode": "check"})
-    perms_container.add_or_skip_action("data10", read_only_volume, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action(
+        "data", volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
+    perms_container.add_or_skip_action(
+        "data2", volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
+    perms_container.add_or_skip_action(
+        "data3", host_path_perms, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
+    perms_container.add_or_skip_action(
+        "data4", host_path_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
+    perms_container.add_or_skip_action(
+        "data5",
+        host_path_acl_perms,
+        {"uid": 1000, "gid": 1000, "mode": "check"},
+    )
+    perms_container.add_or_skip_action(
+        "data6", ix_volume_no_perms, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
+    perms_container.add_or_skip_action(
+        "data7", ix_volume_perms, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
+    perms_container.add_or_skip_action(
+        "data8",
+        ix_volume_acl_perms,
+        {"uid": 1000, "gid": 1000, "mode": "check"},
+    )
+    perms_container.add_or_skip_action(
+        "data9", temp_volume, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
+    perms_container.add_or_skip_action(
+        "data10", read_only_volume, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
     postgres = render.deps.postgres(
         "postgres_container",
         "postgres_image",
@@ -432,7 +584,13 @@ def test_add_perms_container(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
@@ -441,7 +599,13 @@ def test_add_perms_container(mock_values):
         "redis_image",
         {
             "password": "test_password",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
@@ -452,17 +616,31 @@ def test_add_perms_container(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
 
     if perms_container.has_actions():
         perms_container.activate()
-        c1.depends.add_dependency("test_perms_container", "service_completed_successfully")
-        postgres.container.depends.add_dependency("test_perms_container", "service_completed_successfully")
-        redis.container.depends.add_dependency("test_perms_container", "service_completed_successfully")
-        mariadb.container.depends.add_dependency("test_perms_container", "service_completed_successfully")
+        c1.depends.add_dependency(
+            "test_perms_container", "service_completed_successfully"
+        )
+        postgres.container.depends.add_dependency(
+            "test_perms_container", "service_completed_successfully"
+        )
+        redis.container.depends.add_dependency(
+            "test_perms_container", "service_completed_successfully"
+        )
+        mariadb.container.depends.add_dependency(
+            "test_perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert output["services"]["test_perms_container"]["network_mode"] == "none"
     assert output["services"]["test_container"]["depends_on"] == {
@@ -481,33 +659,58 @@ def test_add_perms_container(mock_values):
         {"read_only": False, "mount_path": "/mnt/permission/mariadb_container_mariadb_data", "is_temporary": False, "identifier": "mariadb_container_mariadb_data", "recursive": False, "mode": "check", "uid": 999, "gid": 999, "chmod": None}, # noqa
     ]
     # fmt: on
-    assert output["configs"]["permissions_actions_data"]["content"] == json.dumps(content)
-    assert output["services"]["test_perms_container"]["entrypoint"] == ["python3", "/script/permissions.py"]
+    assert output["configs"]["permissions_actions_data"][
+        "content"
+    ] == json.dumps(content)
+    assert output["services"]["test_perms_container"]["entrypoint"] == [
+        "python3",
+        "/script/permissions.py",
+    ]
 
 
 def test_add_duplicate_perms_action(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}}
+    vol_config = {
+        "type": "volume",
+        "volume_config": {
+            "volume_name": "test_volume",
+            "auto_permissions": True,
+        },
+    }
     c1.add_storage("/some/path", vol_config)
     perms_container = render.deps.perms("test_perms_container")
-    perms_container.add_or_skip_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action(
+        "data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
     with pytest.raises(Exception):
-        perms_container.add_or_skip_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+        perms_container.add_or_skip_action(
+            "data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"}
+        )
 
 
 def test_add_perm_action_without_auto_perms_enabled(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    vol_config = {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": False}}
+    vol_config = {
+        "type": "volume",
+        "volume_config": {
+            "volume_name": "test_volume",
+            "auto_permissions": False,
+        },
+    }
     c1.add_storage("/some/path", vol_config)
     perms_container = render.deps.perms("test_perms_container")
-    perms_container.add_or_skip_action("data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"})
+    perms_container.add_or_skip_action(
+        "data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"}
+    )
     if perms_container.has_actions():
         perms_container.activate()
-        c1.depends.add_dependency("test_perms_container", "service_completed_successfully")
+        c1.depends.add_dependency(
+            "test_perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert "configs" not in output
     assert "ix-test_perms_container" not in output["services"]
@@ -528,7 +731,10 @@ def test_add_unsupported_postgres_version(mock_values):
 
 
 def test_add_postgres_with_invalid_tag(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "latest"}
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "latest",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -541,7 +747,10 @@ def test_add_postgres_with_invalid_tag(mock_values):
 
 
 def test_postgres_with_upgrade_container(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "16.6-bookworm"}
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "16.6-bookworm",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -553,13 +762,21 @@ def test_postgres_with_upgrade_container(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
     if perms_container.has_actions():
         perms_container.activate()
-        pg.add_dependency("test_perms_container", "service_completed_successfully")
+        pg.add_dependency(
+            "test_perms_container", "service_completed_successfully"
+        )
     output = render.render()
     pg = output["services"]["postgres_container"]
     pgup = output["services"]["postgres_container_upgrade"]
@@ -572,9 +789,13 @@ def test_postgres_with_upgrade_container(mock_values):
     assert pg["environment"] == pgup_env
     assert pg["depends_on"] == {
         "test_perms_container": {"condition": "service_completed_successfully"},
-        "postgres_container_upgrade": {"condition": "service_completed_successfully"},
+        "postgres_container_upgrade": {
+            "condition": "service_completed_successfully"
+        },
     }
-    assert pgup["depends_on"] == {"test_perms_container": {"condition": "service_completed_successfully"}}
+    assert pgup["depends_on"] == {
+        "test_perms_container": {"condition": "service_completed_successfully"}
+    }
     assert pgup["restart"] == "on-failure:1"
     assert pgup["healthcheck"] == {"disable": True}
     assert pgup["image"] == "ixsystems/postgres-upgrade:1.0.0"
@@ -582,7 +803,10 @@ def test_postgres_with_upgrade_container(mock_values):
 
 
 def test_postgres_version_with_digest_pin(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "17.7-bookworm@sha256:1234567890"}
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "17.7-bookworm@sha256:1234567890",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -594,20 +818,31 @@ def test_postgres_version_with_digest_pin(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
     if perms_container.has_actions():
         perms_container.activate()
-        pg.add_dependency("test_perms_container", "service_completed_successfully")
+        pg.add_dependency(
+            "test_perms_container", "service_completed_successfully"
+        )
     output = render.render()
     pgup = output["services"]["postgres_container_upgrade"]
     assert pgup["environment"]["TARGET_VERSION"] == "17"
 
 
 def test_add_mongodb(mock_values):
-    mock_values["images"]["mongodb_image"] = {"repository": "mongo", "tag": "latest"}
+    mock_values["images"]["mongodb_image"] = {
+        "repository": "mongo",
+        "tag": "latest",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -619,21 +854,42 @@ def test_add_mongodb(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
     if perms_container.has_actions():
         perms_container.activate()
-        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+        m.container.depends.add_dependency(
+            "perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert "devices" not in output["services"]["mongodb_container"]
-    assert "reservations" not in output["services"]["mongodb_container"]["deploy"]["resources"]
+    assert (
+        "reservations"
+        not in output["services"]["mongodb_container"]["deploy"]["resources"]
+    )
     assert output["services"]["mongodb_container"]["stop_grace_period"] == "60s"
     assert output["services"]["mongodb_container"]["image"] == "mongo:latest"
     assert output["services"]["mongodb_container"]["user"] == "568:568"
-    assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["mongodb_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["mongodb_container"]["deploy"]["resources"][
+            "limits"
+        ]["cpus"]
+        == "2.0"
+    )
+    assert (
+        output["services"]["mongodb_container"]["deploy"]["resources"][
+            "limits"
+        ]["memory"]
+        == "4096M"
+    )
     assert output["services"]["mongodb_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -677,7 +933,10 @@ def test_add_mongodb(mock_values):
 
 
 def test_add_mongodb_unsupported_repo(mock_values):
-    mock_values["images"]["mongo_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    mock_values["images"]["mongo_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "7",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -690,14 +949,23 @@ def test_add_mongodb_unsupported_repo(mock_values):
                 "user": "test_user",
                 "password": "test_@password",
                 "database": "test_database",
-                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
             },
             perms_container,
         )
 
 
 def test_add_meilisearch(mock_values):
-    mock_values["images"]["meili_image"] = {"repository": "getmeili/meilisearch", "tag": "v1.17.0"}
+    mock_values["images"]["meili_image"] = {
+        "repository": "getmeili/meilisearch",
+        "tag": "v1.17.0",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -707,21 +975,45 @@ def test_add_meilisearch(mock_values):
         "meili_image",
         {
             "master_key": "test_master_key",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
     if perms_container.has_actions():
         perms_container.activate()
-        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+        m.container.depends.add_dependency(
+            "perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert "devices" not in output["services"]["meili_container"]
-    assert "reservations" not in output["services"]["meili_container"]["deploy"]["resources"]
+    assert (
+        "reservations"
+        not in output["services"]["meili_container"]["deploy"]["resources"]
+    )
     assert output["services"]["meili_container"]["stop_grace_period"] == "60s"
-    assert output["services"]["meili_container"]["image"] == "getmeili/meilisearch:v1.17.0"
+    assert (
+        output["services"]["meili_container"]["image"]
+        == "getmeili/meilisearch:v1.17.0"
+    )
     assert output["services"]["meili_container"]["user"] == "568:568"
-    assert output["services"]["meili_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["meili_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["meili_container"]["deploy"]["resources"]["limits"][
+            "cpus"
+        ]
+        == "2.0"
+    )
+    assert (
+        output["services"]["meili_container"]["deploy"]["resources"]["limits"][
+            "memory"
+        ]
+        == "4096M"
+    )
     assert output["services"]["meili_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -758,7 +1050,7 @@ def test_add_meilisearch(mock_values):
         "MEILI_MASTER_KEY": "test_master_key",
         "MEILI_HTTP_ADDR": "0.0.0.0:7700",
         "MEILI_NO_ANALYTICS": "true",
-        "MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE": "true",
+        "MEILI_UPGRADE_DB": "true",
     }
     assert output["services"]["meili_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
@@ -766,7 +1058,10 @@ def test_add_meilisearch(mock_values):
 
 
 def test_add_meilisearch_unsupported_repo(mock_values):
-    mock_values["images"]["meili_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    mock_values["images"]["meili_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "7",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -777,7 +1072,13 @@ def test_add_meilisearch_unsupported_repo(mock_values):
             "meili_image",
             {
                 "master_key": "test_master_key",
-                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
             },
             perms_container,
         )
@@ -798,21 +1099,45 @@ def test_add_elasticsearch(mock_values):
         {
             "password": "test_password",
             "node_name": "some_test_node",
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
     if perms_container.has_actions():
         perms_container.activate()
-        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+        m.container.depends.add_dependency(
+            "perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert "devices" not in output["services"]["elastic_container"]
-    assert "reservations" not in output["services"]["elastic_container"]["deploy"]["resources"]
+    assert (
+        "reservations"
+        not in output["services"]["elastic_container"]["deploy"]["resources"]
+    )
     assert output["services"]["elastic_container"]["stop_grace_period"] == "60s"
-    assert output["services"]["elastic_container"]["image"] == "elasticsearch:9.1.2"
+    assert (
+        output["services"]["elastic_container"]["image"]
+        == "elasticsearch:9.1.2"
+    )
     assert output["services"]["elastic_container"]["user"] == "1000:1000"
-    assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["elastic_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["elastic_container"]["deploy"]["resources"][
+            "limits"
+        ]["cpus"]
+        == "2.0"
+    )
+    assert (
+        output["services"]["elastic_container"]["deploy"]["resources"][
+            "limits"
+        ]["memory"]
+        == "4096M"
+    )
     assert output["services"]["elastic_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -863,7 +1188,10 @@ def test_add_elasticsearch(mock_values):
 
 
 def test_add_elasticsearch_unsupported_repo(mock_values):
-    mock_values["images"]["elastic_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    mock_values["images"]["elastic_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "7",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -875,7 +1203,13 @@ def test_add_elasticsearch_unsupported_repo(mock_values):
             {
                 "password": "test_password",
                 "node_name": "some_test_node",
-                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
             },
             perms_container,
         )
@@ -893,21 +1227,42 @@ def test_add_solr(mock_values):
         {
             "core": "test_core",
             "modules": ["analysis-extras", "some-other-module"],
-            "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
         },
         perms_container,
     )
     if perms_container.has_actions():
         perms_container.activate()
-        m.container.depends.add_dependency("perms_container", "service_completed_successfully")
+        m.container.depends.add_dependency(
+            "perms_container", "service_completed_successfully"
+        )
     output = render.render()
     assert "devices" not in output["services"]["solr_container"]
-    assert "reservations" not in output["services"]["solr_container"]["deploy"]["resources"]
+    assert (
+        "reservations"
+        not in output["services"]["solr_container"]["deploy"]["resources"]
+    )
     assert output["services"]["solr_container"]["stop_grace_period"] == "60s"
     assert output["services"]["solr_container"]["image"] == "solr:9.9.0"
     assert output["services"]["solr_container"]["user"] == "568:568"
-    assert output["services"]["solr_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["solr_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["solr_container"]["deploy"]["resources"]["limits"][
+            "cpus"
+        ]
+        == "2.0"
+    )
+    assert (
+        output["services"]["solr_container"]["deploy"]["resources"]["limits"][
+            "memory"
+        ]
+        == "4096M"
+    )
     assert output["services"]["solr_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -944,14 +1299,20 @@ def test_add_solr(mock_values):
         "SOLR_PORT": "8983",
         "SOLR_MODULES": "analysis-extras,some-other-module",
     }
-    assert output["services"]["solr_container"]["command"] == ["solr-precreate", "test_core"]
+    assert output["services"]["solr_container"]["command"] == [
+        "solr-precreate",
+        "test_core",
+    ]
     assert output["services"]["solr_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
     }
 
 
 def test_add_solr_unsupported_repo(mock_values):
-    mock_values["images"]["solr_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    mock_values["images"]["solr_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "7",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -962,14 +1323,23 @@ def test_add_solr_unsupported_repo(mock_values):
             "solr_image",
             {
                 "core": "test_core",
-                "volume": {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}},
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
             },
             perms_container,
         )
 
 
 def test_add_tika(mock_values):
-    mock_values["images"]["tika_image"] = {"repository": "apache/tika", "tag": "3.2.3.0-full"}
+    mock_values["images"]["tika_image"] = {
+        "repository": "apache/tika",
+        "tag": "3.2.3.0-full",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -982,12 +1352,28 @@ def test_add_tika(mock_values):
     )
     output = render.render()
     assert "devices" not in output["services"]["tika_container"]
-    assert "reservations" not in output["services"]["tika_container"]["deploy"]["resources"]
+    assert (
+        "reservations"
+        not in output["services"]["tika_container"]["deploy"]["resources"]
+    )
     assert output["services"]["tika_container"]["stop_grace_period"] == "60s"
-    assert output["services"]["tika_container"]["image"] == "apache/tika:3.2.3.0-full"
+    assert (
+        output["services"]["tika_container"]["image"]
+        == "apache/tika:3.2.3.0-full"
+    )
     assert output["services"]["tika_container"]["user"] == "568:568"
-    assert output["services"]["tika_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["tika_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["tika_container"]["deploy"]["resources"]["limits"][
+            "cpus"
+        ]
+        == "2.0"
+    )
+    assert (
+        output["services"]["tika_container"]["deploy"]["resources"]["limits"][
+            "memory"
+        ]
+        == "4096M"
+    )
     assert output["services"]["tika_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -1009,11 +1395,17 @@ def test_add_tika(mock_values):
         "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
     }
-    assert output["services"]["tika_container"]["command"] == ["--port", "10999"]
+    assert output["services"]["tika_container"]["command"] == [
+        "--port",
+        "10999",
+    ]
 
 
 def test_add_tika_unsupported_repo(mock_values):
-    mock_values["images"]["tika_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    mock_values["images"]["tika_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "7",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -1026,7 +1418,10 @@ def test_add_tika_unsupported_repo(mock_values):
 
 
 def test_add_memcached(mock_values):
-    mock_values["images"]["memcached_image"] = {"repository": "memcached", "tag": "1.6.40"}
+    mock_values["images"]["memcached_image"] = {
+        "repository": "memcached",
+        "tag": "1.6.40",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
@@ -1040,12 +1435,29 @@ def test_add_memcached(mock_values):
     )
     output = render.render()
     assert "devices" not in output["services"]["memcached_container"]
-    assert "reservations" not in output["services"]["memcached_container"]["deploy"]["resources"]
-    assert output["services"]["memcached_container"]["stop_grace_period"] == "60s"
-    assert output["services"]["memcached_container"]["image"] == "memcached:1.6.40"
+    assert (
+        "reservations"
+        not in output["services"]["memcached_container"]["deploy"]["resources"]
+    )
+    assert (
+        output["services"]["memcached_container"]["stop_grace_period"] == "60s"
+    )
+    assert (
+        output["services"]["memcached_container"]["image"] == "memcached:1.6.40"
+    )
     assert output["services"]["memcached_container"]["user"] == "568:568"
-    assert output["services"]["memcached_container"]["deploy"]["resources"]["limits"]["cpus"] == "2.0"
-    assert output["services"]["memcached_container"]["deploy"]["resources"]["limits"]["memory"] == "4096M"
+    assert (
+        output["services"]["memcached_container"]["deploy"]["resources"][
+            "limits"
+        ]["cpus"]
+        == "2.0"
+    )
+    assert (
+        output["services"]["memcached_container"]["deploy"]["resources"][
+            "limits"
+        ]["memory"]
+        == "4096M"
+    )
     assert output["services"]["memcached_container"]["healthcheck"] == {
         "test": [
             "CMD",
@@ -1067,11 +1479,19 @@ def test_add_memcached(mock_values):
         "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
     }
-    assert output["services"]["memcached_container"]["command"] == ["-p", "10999", "-m", "512M"]
+    assert output["services"]["memcached_container"]["command"] == [
+        "-p",
+        "10999",
+        "-m",
+        "512M",
+    ]
 
 
 def test_add_memcached_unsupported_repo(mock_values):
-    mock_values["images"]["memcached_image"] = {"repository": "unsupported_repo", "tag": "7"}
+    mock_values["images"]["memcached_image"] = {
+        "repository": "unsupported_repo",
+        "tag": "7",
+    }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
