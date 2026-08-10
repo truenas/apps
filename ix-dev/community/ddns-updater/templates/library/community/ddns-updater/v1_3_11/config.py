@@ -8,8 +8,26 @@ class PublicIPProviders:
     """Centralized definition of all public IP provider configurations"""
 
     DNS = ["all", "cloudflare", "opendns"]
-    IPV4_HTTP = ["all", "ipleak", "ipify", "icanhazip", "ident", "nnev", "wtfismyip", "seeip"]
-    IPV6_HTTP = ["all", "ipleak", "ipify", "icanhazip", "ident", "nnev", "wtfismyip", "seeip"]
+    IPV4_HTTP = [
+        "all",
+        "ipleak",
+        "ipify",
+        "icanhazip",
+        "ident",
+        "nnev",
+        "wtfismyip",
+        "seeip",
+    ]
+    IPV6_HTTP = [
+        "all",
+        "ipleak",
+        "ipify",
+        "icanhazip",
+        "ident",
+        "nnev",
+        "wtfismyip",
+        "seeip",
+    ]
     FETCHERS = ["all", "http", "dns"]
     HTTP = [
         "all",
@@ -99,10 +117,18 @@ providers_schema: Dict[str, ProviderSchema] = {
             ProviderField("zone_identifier", "cloudflare_zone_id"),
             ProviderField("ttl", "cloudflare_ttl", FieldType.INTEGER),
         ],
-        optional=[ProviderField("proxied", "cloudflare_proxied", FieldType.BOOLEAN)],
+        optional=[
+            ProviderField("proxied", "cloudflare_proxied", FieldType.BOOLEAN)
+        ],
         combos=[
             ProviderCombo([ProviderField("token", "cloudflare_token")]),
-            ProviderCombo([ProviderField("user_service_key", "cloudflare_user_service_key")]),
+            ProviderCombo(
+                [
+                    ProviderField(
+                        "user_service_key", "cloudflare_user_service_key"
+                    )
+                ]
+            ),
             ProviderCombo(
                 [
                     ProviderField("email", "cloudflare_email"),
@@ -120,7 +146,12 @@ providers_schema: Dict[str, ProviderSchema] = {
             ProviderField("password", "ddnss_password"),
         ],
         optional=[
-            ProviderField("dual_stack", "ddnss_dual_stack", FieldType.BOOLEAN, default=False),
+            ProviderField(
+                "dual_stack",
+                "ddnss_dual_stack",
+                FieldType.BOOLEAN,
+                default=False,
+            ),
         ],
     ),
     "desec": ProviderSchema(
@@ -187,7 +218,13 @@ providers_schema: Dict[str, ProviderSchema] = {
         ],
         combos=[
             ProviderCombo([ProviderField("key", "gandi_key")]),
-            ProviderCombo([ProviderField("personal_access_token", "gandi_personal_access_token")]),
+            ProviderCombo(
+                [
+                    ProviderField(
+                        "personal_access_token", "gandi_personal_access_token"
+                    )
+                ]
+            ),
         ],
     ),
     "gcp": ProviderSchema(
@@ -211,13 +248,6 @@ providers_schema: Dict[str, ProviderSchema] = {
     ),
     "he": ProviderSchema(
         required=[ProviderField("password", "he_password")],
-    ),
-    "hetzner": ProviderSchema(
-        required=[
-            ProviderField("token", "hetzner_token"),
-            ProviderField("zone_identifier", "hetzner_zone_identifier"),
-        ],
-        optional=[ProviderField("ttl", "hetzner_ttl", FieldType.INTEGER)],
     ),
     "hetznercloud": ProviderSchema(
         required=[ProviderField("token", "hetznercloud_token")],
@@ -406,7 +436,11 @@ class Config:
         self.values = values
 
     def validate_public_ip_providers(
-        self, items: List[Dict[str, Any]], valid: List[str], category: str = "", allow_custom: bool = False
+        self,
+        items: List[Dict[str, Any]],
+        valid: List[str],
+        category: str = "",
+        allow_custom: bool = False,
     ) -> None:
 
         for item in items:
@@ -415,45 +449,70 @@ class Config:
 
             if item["provider"] == "custom":
                 if not allow_custom:
-                    self.fail(f"Custom provider is not supported for [{category}]")
+                    self.fail(
+                        f"Custom provider is not supported for [{category}]"
+                    )
                 else:
                     if not item.get("custom"):
-                        self.fail(f"Expected [custom] to be set when public ip provider is [custom] for [{category}]")
+                        self.fail(
+                            f"Expected [custom] to be set when public ip provider is [custom] for [{category}]"
+                        )
                     if not item["custom"].startswith("url:"):
-                        self.fail(f"Expected [custom] to start with [url:] for [{category}]")
+                        self.fail(
+                            f"Expected [custom] to start with [url:] for [{category}]"
+                        )
 
             if item["provider"] == "all":
                 if len(items) > 1:
-                    self.fail(f"Expected only 1 item in [{category}] with [provider] set to [all], got [{len(items)}]")
+                    self.fail(
+                        f"Expected only 1 item in [{category}] with [provider] set to [all], got [{len(items)}]"
+                    )
 
             if item["provider"] not in valid:
                 self.fail(
                     f"Expected [provider] to be one of [{', '.join(valid)}], got [{item['provider']}] for [{category}]"
                 )
 
-    def get_public_ip_providers(self, category: str, items: List[Dict[str, Any]]) -> str:
+    def get_public_ip_providers(
+        self, category: str, items: List[Dict[str, Any]]
+    ) -> str:
         items = items or []
         result = []
 
         if category == "PUBLICIP_DNS_PROVIDERS":
             self.validate_public_ip_providers(
-                items, PublicIPProviders.DNS, "Public IP DNS Providers", allow_custom=True
+                items,
+                PublicIPProviders.DNS,
+                "Public IP DNS Providers",
+                allow_custom=True,
             )
         elif category == "PUBLICIP_HTTP_PROVIDERS":
             self.validate_public_ip_providers(
-                items, PublicIPProviders.HTTP, "Public IP HTTP Providers", allow_custom=True
+                items,
+                PublicIPProviders.HTTP,
+                "Public IP HTTP Providers",
+                allow_custom=True,
             )
         elif category == "PUBLICIPV4_HTTP_PROVIDERS":
             self.validate_public_ip_providers(
-                items, PublicIPProviders.IPV4_HTTP, "Public IPv4 HTTP Providers", allow_custom=True
+                items,
+                PublicIPProviders.IPV4_HTTP,
+                "Public IPv4 HTTP Providers",
+                allow_custom=True,
             )
         elif category == "PUBLICIPV6_HTTP_PROVIDERS":
             self.validate_public_ip_providers(
-                items, PublicIPProviders.IPV6_HTTP, "Public IPv6 HTTP Providers", allow_custom=True
+                items,
+                PublicIPProviders.IPV6_HTTP,
+                "Public IPv6 HTTP Providers",
+                allow_custom=True,
             )
         elif category == "PUBLICIP_FETCHERS":
             self.validate_public_ip_providers(
-                items, PublicIPProviders.FETCHERS, "Public IP Fetchers", allow_custom=True
+                items,
+                PublicIPProviders.FETCHERS,
+                "Public IP Fetchers",
+                allow_custom=True,
             )
 
         for item in items:
@@ -464,15 +523,11 @@ class Config:
 
         return ",".join(result)
 
-    def get_providers_config(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def get_providers_config(
+        self, items: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         items = items or []
         result = []
-
-        if any(item["provider"] == "hetzner" for item in items):
-            self.notes.add_deprecation(
-                "The [Hetzner] provider uses the legacy Hetzner DNS API which is going to be shutdown soon. "
-                "Please migrate to the [Hetzner Cloud] provider."
-            )
 
         for item in items:
             if item["provider"] not in providers_schema.keys():
@@ -481,7 +536,9 @@ class Config:
                 )
 
             if not item.get("domain", ""):
-                self.fail(f"Expected [domain] to be set for provider [{item['provider']}]")
+                self.fail(
+                    f"Expected [domain] to be set for provider [{item['provider']}]"
+                )
 
             if not item.get("ip_version", "") in IPVersions.ALL:
                 self.fail(
@@ -517,7 +574,9 @@ class Config:
         # Process required fields
         for required_field in provider_data.required:
             value = self.required_key(item, required_field.ui_key)
-            result[required_field.provider_key] = self._convert_field_value(value, required_field)
+            result[required_field.provider_key] = self._convert_field_value(
+                value, required_field
+            )
 
         # Process optional fields
         result.update(self.get_optional_data(item, provider_data))
@@ -543,18 +602,25 @@ class Config:
 
         return result
 
-    def get_combo_data(self, item: Dict[str, Any], combo: ProviderCombo) -> Dict[str, Any]:
+    def get_combo_data(
+        self, item: Dict[str, Any], combo: ProviderCombo
+    ) -> Dict[str, Any]:
         """Get combo authentication data"""
         result = {}
         for required_field in combo.required:
-            if required_field.ui_key not in item or item[required_field.ui_key] == "":
+            if (
+                required_field.ui_key not in item
+                or item[required_field.ui_key] == ""
+            ):
                 return {}
             result[required_field.provider_key] = self._convert_field_value(
                 self.required_key(item, required_field.ui_key), required_field
             )
         return result
 
-    def get_optional_data(self, item: Dict[str, Any], data: Union[ProviderSchema, ProviderCombo]) -> Dict[str, Any]:
+    def get_optional_data(
+        self, item: Dict[str, Any], data: Union[ProviderSchema, ProviderCombo]
+    ) -> Dict[str, Any]:
         result = {}
         for optional_field in data.optional:
             if optional_field.ui_key in item:
@@ -568,7 +634,9 @@ class Config:
     def get_combos_printout(self, combos: List[ProviderCombo]) -> List[str]:
         result = []
         for combo in combos:
-            result.append(f"[{', '.join([field.provider_key for field in combo.required])}]")
+            result.append(
+                f"[{', '.join([field.provider_key for field in combo.required])}]"
+            )
         return result
 
     def _convert_field_value(self, value: Any, field: ProviderField) -> Any:
