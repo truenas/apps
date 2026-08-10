@@ -254,7 +254,7 @@ module.exports = {
     ),
     customVersioning(
       // v1.52.0-jammy
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>(noble|jammy))$",
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>(noble|jammy)))?$",
       ["mcr.microsoft.com/playwright"],
     ),
     customVersioning(
@@ -293,6 +293,11 @@ module.exports = {
       ["ghcr.io/immich-app/immich-machine-learning"],
     ),
     customVersioning(
+      // 1.0.8-aio
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>heavy-aio|aio)$",
+      ["ghcr.io/calagopus/panel"],
+    ),
+    customVersioning(
       // stable-2.0.55
       "^stable-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["factoriotools/factorio"],
@@ -303,14 +308,14 @@ module.exports = {
       ["mbentley/omada-controller"],
     ),
     customVersioning(
+      // 0.7.6-nbxyz4
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-nbxyz(?<build>\\d+)$",
+      ["ghcr.io/netbootxyz/netbootxyz"],
+    ),
+    customVersioning(
       // apache-2.37.0
       "^apache-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["kimai/kimai2"],
-    ),
-    customVersioning(
-      // 4.0.0-beta.434
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
-      ["ghcr.io/coollabsio/coolify"],
     ),
     customVersioning(
       // appname-1.2.3
@@ -348,14 +353,19 @@ module.exports = {
       ["itzcrazykns1337/vane"],
     ),
     customVersioning(
+      // web-v2.9.2
+      "^web-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["registry.gitlab.com/storyteller-platform/storyteller"],
+    ),
+    customVersioning(
       // 0.9.0(.x)?
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["jvmilazz0/kavita"],
     ),
     customVersioning(
-      // 1.0(.0)?
+      // v1.0(.0)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$",
-      ["ghcr.io/retropex/bitcoin-truenas"],
+      ["ghcr.io/retropex/bitcoin-truenas", "ghcr.io/sethforprivacy/p2pool"],
     ),
     customVersioning(
       // v2026.5.29(.2)?
@@ -363,9 +373,9 @@ module.exports = {
       ["nousresearch/hermes-agent"],
     ),
     customVersioning(
-      // 1.0.8-aio
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-aio$",
-      ["ghcr.io/calagopus/panel"],
+      // v0.1.7-alpha(.1)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpha(\\.(?<build>\\d+))?$",
+      ["ghcr.io/whiteassassins/ae-netscope"],
     ),
   ],
 };

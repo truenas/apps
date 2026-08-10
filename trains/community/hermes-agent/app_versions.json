@@ -1,15 +1,15 @@
 {
-    "1.0.3": {
+    "1.0.10": {
         "healthy": true,
         "supported": true,
         "healthy_error": null,
-        "location": "/__w/apps/apps/trains/community/hermes-agent/1.0.3",
-        "last_update": "2026-06-10 15:30:18",
+        "location": "/__w/apps/apps/trains/community/hermes-agent/1.0.10",
+        "last_update": "2026-08-10 11:52:48",
         "required_features": [],
-        "human_version": "v2026.6.5_1.0.3",
-        "version": "1.0.3",
+        "human_version": "v2026.8.3_1.0.10",
+        "version": "1.0.10",
         "app_metadata": {
-            "app_version": "v2026.6.5",
+            "app_version": "v2026.8.3",
             "capabilities": [
                 {
                     "description": "Hermes-Agent is able to change file ownership arbitrarily",
@@ -69,7 +69,7 @@
             ],
             "title": "Hermes-Agent",
             "train": "community",
-            "version": "1.0.3"
+            "version": "1.0.10"
         },
         "schema": {
             "groups": [
@@ -103,11 +103,76 @@
                         "type": "dict",
                         "attrs": [
                             {
+                                "variable": "enable_basic_auth",
+                                "label": "Enable Basic Authentication",
+                                "description": "Enable basic authentication for the dashboard.",
+                                "schema": {
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            },
+                            {
+                                "variable": "basic_auth_username",
+                                "label": "Basic Authentication Username",
+                                "description": "The Username you log in with.",
+                                "schema": {
+                                    "type": "string",
+                                    "show_if": [
+                                        [
+                                            "enable_basic_auth",
+                                            "=",
+                                            true
+                                        ]
+                                    ],
+                                    "default": "",
+                                    "required": true
+                                }
+                            },
+                            {
+                                "variable": "basic_auth_password",
+                                "label": "Basic Authentication Password",
+                                "description": "The Password you log in with.",
+                                "schema": {
+                                    "type": "string",
+                                    "show_if": [
+                                        [
+                                            "enable_basic_auth",
+                                            "=",
+                                            true
+                                        ]
+                                    ],
+                                    "default": "",
+                                    "required": true,
+                                    "private": true
+                                }
+                            },
+                            {
+                                "variable": "basic_auth_secret",
+                                "label": "Basic Authentication Secret",
+                                "description": "Signing the basic provider's stateless session tokens,\nso login stays valid after a restart.</br>\nMust be 32+ bytes, base64/hex/raw encoded.<br>\nGenerate a strong secret with `openssl rand -hex 32`.<br>\n",
+                                "schema": {
+                                    "type": "string",
+                                    "show_if": [
+                                        [
+                                            "enable_basic_auth",
+                                            "=",
+                                            true
+                                        ]
+                                    ],
+                                    "min_length": 32,
+                                    "default": "",
+                                    "required": true,
+                                    "private": true
+                                }
+                            },
+                            {
                                 "variable": "gateway_key",
                                 "label": "Gateway API Key",
+                                "description": "The API key used to authenticate against the gateway API server. <br>\nMust be at least 16 characters long. </br>\nGenerate a strong secret with `openssl rand -hex 32`.\n",
                                 "schema": {
                                     "type": "string",
                                     "default": "",
+                                    "min_length": 16,
                                     "private": true,
                                     "required": true
                                 }
@@ -116,15 +181,6 @@
                                 "variable": "allow_all_users_access",
                                 "label": "Allow All Users Access the Gateway",
                                 "description": "Allow all users to access the gateway. <br>\nThis is only recommended for testing purposes or trusted networks. <br>\nIf no allowlist is set up and this option is disabled, the gateway will not accept any connections.\n",
-                                "schema": {
-                                    "type": "boolean",
-                                    "default": false
-                                }
-                            },
-                            {
-                                "variable": "enable_insecure_dashboard_access",
-                                "label": "Enable Insecure Dashboard Access",
-                                "description": "Allow accessing the dashboard without authentication. <br>\nThis is only recommended for testing purposes or trusted networks. <br>\nIf no authentication method is set up and this option is disabled, the dashboard will not start.</br>\nIgnored when dashboard port is not enabled.\n",
                                 "schema": {
                                     "type": "boolean",
                                     "default": false
@@ -292,6 +348,78 @@
                                             "schema": {
                                                 "type": "int",
                                                 "default": 30433,
+                                                "min": 1,
+                                                "max": 65535,
+                                                "required": true
+                                            }
+                                        },
+                                        {
+                                            "variable": "host_ips",
+                                            "label": "Host IPs",
+                                            "description": "IPs on the host to bind this port",
+                                            "schema": {
+                                                "type": "list",
+                                                "show_if": [
+                                                    [
+                                                        "bind_mode",
+                                                        "=",
+                                                        "published"
+                                                    ]
+                                                ],
+                                                "default": [],
+                                                "items": [
+                                                    {
+                                                        "variable": "host_ip",
+                                                        "label": "Host IP",
+                                                        "schema": {
+                                                            "type": "string",
+                                                            "required": true,
+                                                            "$ref": [
+                                                                "definitions/node_bind_ip"
+                                                            ]
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "variable": "webhook_port",
+                                "label": "Webhook Port",
+                                "schema": {
+                                    "type": "dict",
+                                    "attrs": [
+                                        {
+                                            "variable": "bind_mode",
+                                            "label": "Port Bind Mode",
+                                            "description": "The port bind mode for the webhook adapter.</br>\n- Publish: The port will be published on the host for external access.</br>\n- Expose: The port will be exposed for inter-container communication.</br>\n- None: The webhook adapter is disabled.</br>\nNote: If the Dockerfile defines an EXPOSE directive,\nthe port will still be exposed for inter-container communication regardless of this setting.\n",
+                                            "schema": {
+                                                "type": "string",
+                                                "default": "",
+                                                "enum": [
+                                                    {
+                                                        "value": "published",
+                                                        "description": "Publish port on the host for external access"
+                                                    },
+                                                    {
+                                                        "value": "exposed",
+                                                        "description": "Expose port for inter-container communication"
+                                                    },
+                                                    {
+                                                        "value": "",
+                                                        "description": "None"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        {
+                                            "variable": "port_number",
+                                            "label": "Port Number",
+                                            "schema": {
+                                                "type": "int",
+                                                "default": 30440,
                                                 "min": 1,
                                                 "max": 65535,
                                                 "required": true
@@ -995,7 +1123,7 @@
                                         {
                                             "variable": "cpus",
                                             "label": "CPUs",
-                                            "description": "CPUs limit for Headscale.",
+                                            "description": "CPUs limit for Hermes-Agent.",
                                             "schema": {
                                                 "type": "int",
                                                 "default": 2,
@@ -1005,7 +1133,7 @@
                                         {
                                             "variable": "memory",
                                             "label": "Memory (in MB)",
-                                            "description": "Memory limit for Headscale.",
+                                            "description": "Memory limit for Hermes-Agent.",
                                             "schema": {
                                                 "type": "int",
                                                 "default": 4096,
@@ -1023,7 +1151,7 @@
         "readme": "<h1>Hermes-Agent</h1> <p><a href=\"https://hermes-agent.nousresearch.com/\">Hermes-Agent</a> is the self-improving AI agent built by Nous Research.</p>",
         "changelog": null,
         "chart_metadata": {
-            "app_version": "v2026.6.5",
+            "app_version": "v2026.8.3",
             "capabilities": [
                 {
                     "description": "Hermes-Agent is able to change file ownership arbitrarily",
@@ -1083,7 +1211,7 @@
             ],
             "title": "Hermes-Agent",
             "train": "community",
-            "version": "1.0.3"
+            "version": "1.0.10"
         }
     }
 }

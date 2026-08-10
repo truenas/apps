@@ -1,0 +1,39 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    values["hermes_agent"].pop("enable_insecure_dashboard_access", None)
+
+    new_env = []
+    for env in values["hermes_agent"].get("additional_envs", []):
+        if env["name"] == "HERMES_DASHBOARD_BASIC_AUTH_USERNAME":
+            values["hermes_agent"]["basic_auth_username"] = env["value"]
+        elif env["name"] == "HERMES_DASHBOARD_BASIC_AUTH_PASSWORD":
+            values["hermes_agent"]["basic_auth_password"] = env["value"]
+        elif env["name"] == "HERMES_DASHBOARD_BASIC_AUTH_SECRET":
+            values["hermes_agent"]["basic_auth_secret"] = env["value"]
+        else:
+            new_env.append(env)
+
+    values["hermes_agent"]["enable_basic_auth"] = bool(
+        values["hermes_agent"].get("basic_auth_secret", False)
+        and values["hermes_agent"].get("basic_auth_username", False)
+        and values["hermes_agent"].get("basic_auth_password", False)
+    )
+
+    values["hermes_agent"]["additional_envs"] = new_env
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

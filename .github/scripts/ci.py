@@ -21,7 +21,12 @@ import os
 
 CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 PLATFORM = "linux/amd64"
-CHANGE_PLATFORM_FOR_IMAGES = ["valkey/valkey", "redis", "ghcr.io/euro-office/documentserver"]
+CHANGE_PLATFORM_FOR_IMAGES = [
+    "valkey/valkey",
+    "redis",
+    "ghcr.io/stalwartlabs/stalwart",
+    "ghcr.io/euro-office/documentserver",
+]
 
 
 # Used to print mostly structured data, like yaml or json
@@ -108,7 +113,9 @@ def replace_platform_in_service(svc):
     svc_copy = copy.deepcopy(svc)
     image = svc.get("image", "")
     if not image:
-        print_stderr("No image found in service definition. Skipping platform replacement.")
+        print_stderr(
+            "No image found in service definition. Skipping platform replacement."
+        )
         sys.exit(1)
     repo = image.split(":")[0]
     if repo in CHANGE_PLATFORM_FOR_IMAGES:
@@ -204,7 +211,9 @@ def render_compose():
         except yaml.YAMLError as e:
             print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
             with open(template_file, "r") as f:
-                print_stderr(f"Syntax Error in rendered docker-compose file:\n{f.read()}")
+                print_stderr(
+                    f"Syntax Error in rendered docker-compose file:\n{f.read()}"
+                )
             sys.exit(1)
 
         if args["render_only_debug"]:
@@ -313,7 +322,9 @@ def get_parsed_containers():
     # Outputs one container per line, in json format
     cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
-    all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
+    all_containers = subprocess.run(
+        cmd, shell=True, capture_output=True
+    ).stdout.decode("utf-8")
     parsed_containers = []
     for line in all_containers.split("\n"):
         if not line:
@@ -450,7 +461,9 @@ def run_app():
             return res.returncode or 99
 
         failed_containers = get_failed_containers()
-        failed_containers_names = "\n".join([f"\t-{c['Name']} ({c['ID']})" for c in failed_containers])
+        failed_containers_names = "\n".join(
+            [f"\t-{c['Name']} ({c['ID']})" for c in failed_containers]
+        )
         if not failed_containers:
             print_stderr("✅ No failed containers found")
 
@@ -460,7 +473,9 @@ def run_app():
                 + f"failed containers that failed to start:\n {failed_containers_names}"
             )
         for container in failed_containers:
-            print_stderr(f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data")
+            print_stderr(
+                f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data"
+            )
             print_inspect_data(container)
 
         # https://github.com/docker/compose/issues/10596
@@ -476,7 +491,9 @@ def run_app():
 
 def check_app_dir_exists():
     if not os.path.exists(f"ix-dev/{args['train']}/{args['app']}"):
-        print_stderr(f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist")
+        print_stderr(
+            f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist"
+        )
         sys.exit(1)
 
 
@@ -504,7 +521,9 @@ def copy_macros():
         return
 
     print_stderr("Copying macros")
-    target_macros_dir = f"ix-dev/{args['train']}/{args['app']}/templates/macros/global"
+    target_macros_dir = (
+        f"ix-dev/{args['train']}/{args['app']}/templates/macros/global"
+    )
     os.makedirs(target_macros_dir, exist_ok=True)
     if pathlib.Path(target_macros_dir).exists():
         shutil.rmtree(target_macros_dir, ignore_errors=True)
