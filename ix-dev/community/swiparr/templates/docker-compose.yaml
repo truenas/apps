@@ -7,48 +7,40 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
 
-{# Core provider configuration #}
-{% do c1.environment.add_env("PROVIDER", values.swiparr.provider) %}
-{% do c1.environment.add_env("PROVIDER_LOCK", values.swiparr.provider_lock | string | lower) %}
+{% do c1.environment.add_env("URL_BASE_PATH", "") %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 
-{# Provider-specific URLs #}
+{% do c1.environment.add_env("AUTH_SECRET", values.swiparr.auth_secret) %}
+{% do c1.environment.add_env("ADMIN_USERNAME", values.swiparr.admin_username) %}
+{% do c1.environment.add_env("DATABASE_URL", "file:%s/swiparr.db"|format(values.consts.data_dir)) %}
+
+{% do c1.environment.add_env("PROVIDER", values.swiparr.provider) %}
+{% do c1.environment.add_env("PROVIDER_LOCK", values.swiparr.provider_lock) %}
+{% do c1.environment.add_env("ALLOW_PRIVATE_PROVIDER_URLS", values.swiparr.allow_private_provider_urls) %}
+
 {% do c1.environment.add_env("JELLYFIN_URL", values.swiparr.jellyfin_url) %}
 {% do c1.environment.add_env("JELLYFIN_PUBLIC_URL", values.swiparr.jellyfin_public_url) %}
-{% do c1.environment.add_env("JELLYFIN_USE_WATCHLIST", values.swiparr.jellyfin_use_watchlist | string | lower) %}
+{% do c1.environment.add_env("JELLYFIN_USE_WATCHLIST", values.swiparr.jellyfin_use_watchlist) %}
+{% do c1.environment.add_env("JELLYFIN_ADMIN_USERNAME", values.swiparr.jellyfin_admin_username) %}
 
 {% do c1.environment.add_env("EMBY_URL", values.swiparr.emby_url) %}
 {% do c1.environment.add_env("EMBY_PUBLIC_URL", values.swiparr.emby_public_url) %}
+{% do c1.environment.add_env("EMBY_ADMIN_USERNAME", values.swiparr.emby_admin_username) %}
 
 {% do c1.environment.add_env("PLEX_URL", values.swiparr.plex_url) %}
 {% do c1.environment.add_env("PLEX_PUBLIC_URL", values.swiparr.plex_public_url) %}
 {% do c1.environment.add_env("PLEX_TOKEN", values.swiparr.plex_token) %}
+{% do c1.environment.add_env("PLEX_ADMIN_USERNAME", values.swiparr.plex_admin_username) %}
 
-{# TMDB-specific #}
 {% do c1.environment.add_env("TMDB_ACCESS_TOKEN", values.swiparr.tmdb_access_token) %}
 {% do c1.environment.add_env("TMDB_DEFAULT_REGION", values.swiparr.tmdb_default_region) %}
 
-{# Auth and security #}
-{% do c1.environment.add_env("AUTH_SECRET", values.swiparr.auth_secret) %}
-{% do c1.environment.add_env("USE_SECURE_COOKIES", values.swiparr.use_secure_cookies | string | lower) %}
-{% do c1.environment.add_env("ALLOW_PRIVATE_PROVIDER_URLS", values.swiparr.allow_private_provider_urls | string | lower) %}
-
-{# Admin usernames #}
-{% do c1.environment.add_env("ADMIN_USERNAME", values.swiparr.admin_username) %}
-{% do c1.environment.add_env("JELLYFIN_ADMIN_USERNAME", values.swiparr.jellyfin_admin_username) %}
-{% do c1.environment.add_env("EMBY_ADMIN_USERNAME", values.swiparr.emby_admin_username) %}
-{% do c1.environment.add_env("PLEX_ADMIN_USERNAME", values.swiparr.plex_admin_username) %}
-
-{# Debug #}
-{% do c1.environment.add_env("ENABLE_DEBUG", values.swiparr.enable_debug | string | lower) %}
-
-{# Additional user-defined env vars #}
 {% do c1.environment.add_user_envs(values.swiparr.additional_envs) %}
 
-{# Port and storage #}
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/app/data", values.storage.config) %}
-{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+{% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
