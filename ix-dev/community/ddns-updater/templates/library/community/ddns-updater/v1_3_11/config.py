@@ -212,13 +212,6 @@ providers_schema: Dict[str, ProviderSchema] = {
     "he": ProviderSchema(
         required=[ProviderField("password", "he_password")],
     ),
-    "hetzner": ProviderSchema(
-        required=[
-            ProviderField("token", "hetzner_token"),
-            ProviderField("zone_identifier", "hetzner_zone_identifier"),
-        ],
-        optional=[ProviderField("ttl", "hetzner_ttl", FieldType.INTEGER)],
-    ),
     "hetznercloud": ProviderSchema(
         required=[ProviderField("token", "hetznercloud_token")],
         optional=[ProviderField("ttl", "hetznercloud_ttl", FieldType.INTEGER)],
@@ -467,12 +460,6 @@ class Config:
     def get_providers_config(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
         items = items or []
         result = []
-
-        if any(item["provider"] == "hetzner" for item in items):
-            self.notes.add_deprecation(
-                "The [Hetzner] provider uses the legacy Hetzner DNS API which is going to be shutdown soon. "
-                "Please migrate to the [Hetzner Cloud] provider."
-            )
 
         for item in items:
             if item["provider"] not in providers_schema.keys():
