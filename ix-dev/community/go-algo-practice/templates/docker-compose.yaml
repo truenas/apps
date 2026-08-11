@@ -1,0 +1,174 @@
+{% set root = values.storage.existing_data_root | trim %}
+{% if root %}
+  {% set exercises = root ~ "/exercises" %}
+  {% set data = root ~ "/data" %}
+  {% set backups = root ~ "/backups" %}
+  {% set releases = root ~ "/releases" %}
+  {% set codex_home = root ~ "/codex-home" %}
+  {% set validator_queue = root ~ "/validator-queue" %}
+{% else %}
+  {% set exercises = values.ix_volumes.exercises %}
+  {% set data = values.ix_volumes.data %}
+  {% set backups = values.ix_volumes.backups %}
+  {% set releases = values.ix_volumes.releases %}
+  {% set codex_home = values.ix_volumes.codex_home %}
+  {% set validator_queue = values.ix_volumes.validator_queue %}
+{% endif %}
+
+{% set published_ports = [] %}
+{% set host_ips = values.network.web_port.host_ips or ["0.0.0.0", "::"] %}
+{% for host_ip in host_ips %}
+  {% do published_ports.append({
+    "target": 9500,
+    "published": values.network.web_port.port_number | string,
+    "host_ip": host_ip,
+    "protocol": "tcp",
+    "mode": "ingress"
+  }) %}
+{% endfor %}
+
+{% set init_script = "set -eu; mkdir -p /target/exercises /target/data /target/backups /target/releases /target/codex-home /target/validator-queue; if [ -z \"$(find /target/exercises -mindepth 1 -maxdepth 1 -print -quit)\" ]; then cp -a /app/exercises/. /target/exercises/; fi; chmod 0700 /target/codex-home /target/validator-queue; chown 65532:65532 /target/validator-queue" %}
+
+{% set compose = {
+  "x-notes": "Go Algo Practice starts with Reminder and automatic generation disabled. Open the Web UI and complete every Dashboard readiness item before activation.",
+  "x-portals": [{
+    "host": "0.0.0.0",
+    "name": "Web UI",
+    "path": "/admin/",
+    "port": values.network.web_port.port_number,
+    "scheme": "http"
+  }],
+  "x-action-required": false,
+  "services": {
+    values.consts.init_container_name: {
+      "image": values.images.image.repository ~ ":" ~ values.images.image.tag,
+      "platform": "linux/amd64",
+      "pull_policy": "always",
+      "network_mode": "none",
+      "entrypoint": ["/bin/sh", "-ec"],
+      "command": [init_script],
+      "restart": "no",
+      "cap_drop": ["ALL"],
+      "cap_add": ["CHOWN"],
+      "security_opt": ["no-new-privileges=true"],
+      "volumes": [
+        exercises ~ ":/target/exercises:rw",
+        data ~ ":/target/data:rw",
+        backups ~ ":/target/backups:rw",
+        releases ~ ":/target/releases:rw",
+        codex_home ~ ":/target/codex-home:rw",
+        validator_queue ~ ":/target/validator-queue:rw"
+      ]
+    },
+    values.consts.app_container_name: {
+      "image": values.images.image.repository ~ ":" ~ values.images.image.tag,
+      "platform": "linux/amd64",
+      "pull_policy": "always",
+      "command": ["serve", "--addr", "0.0.0.0:9500", "--with-reminder"],
+      "environment": {
+        "API_ADDR": "0.0.0.0:9500",
+        "API_BASE_URL": values.go_algo.external_url,
+        "API_JWT_SECRET": values.go_algo.api_jwt_secret,
+        "API_WITH_REMINDER": "true",
+        "BACKUP_ENABLED": "true",
+        "BACKUP_PATH": "/app/backups",
+        "BACKUP_RETENTION_DAYS": "30",
+        "CODEX_BINARY": "/usr/local/bin/codex",
+        "CODEX_EXPECTED_VERSION": "0.128.0",
+        "CODEX_WORK_DIR": "/app/data/codex-work",
+        "DATABASE_PATH": "/app/data/practice.db",
+        "EXERCISES_PATH": "/app/exercises",
+        "GO_ALGO_CONTAINER": "true",
+        "INDEX_JSON_PATH": "/app/exercises/index.json",
+        "LOG_FORMAT": "text",
+        "LOG_LEVEL": "info",
+        "RELEASES_DIR": "/app/releases",
+        "SMTP_SETTINGS_KEY": values.go_algo.smtp_settings_key,
+        "TZ": values.TZ,
+        "UPDATE_GATE_SCOPE": "off",
+        "UPDATE_MANIFEST_URL": values.go_algo.external_url ~ "/api/v1/releases/channel/stable/manifest",
+        "UPDATE_POLICY_URL": values.go_algo.external_url ~ "/api/v1/version-policy",
+        "VALIDATOR_HEARTBEAT_MAX_AGE_SECONDS": "15",
+        "VALIDATOR_QUEUE_OWNER_UID": "65532",
+        "VALIDATOR_QUEUE_PATH": "/app/validator-queue",
+        "WORK_DIR": "/app/do-exercise"
+      },
+      "volumes": [
+        exercises ~ ":/app/exercises:rw",
+        data ~ ":/app/data:rw",
+        backups ~ ":/app/backups:rw",
+        releases ~ ":/app/releases:ro",
+        codex_home ~ ":/app/codex-home:rw",
+        validator_queue ~ ":/app/validator-queue:rw"
+      ],
+      "ports": published_ports,
+      "depends_on": {
+        values.consts.init_container_name: {"condition": "service_completed_successfully"}
+      },
+      "healthcheck": {
+        "test": ["CMD", "wget", "-qO-", "http://127.0.0.1:9500/api/v1/health"],
+        "interval": "30s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": "5s"
+      },
+      "restart": "unless-stopped",
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges=true"],
+      "deploy": {
+        "resources": {
+          "limits": {
+            "cpus": values.resources.limits.cpus | string,
+            "memory": (values.resources.limits.memory | string) ~ "M"
+          }
+        }
+      }
+    },
+    values.consts.worker_container_name: {
+      "image": values.images.validator_image.repository ~ ":" ~ values.images.validator_image.tag,
+      "platform": "linux/amd64",
+      "pull_policy": "always",
+      "user": "65532:65532",
+      "environment": {
+        "GO_ALGO_CONTAINER": "true",
+        "GOMAXPROCS": "1",
+        "VALIDATOR_CANDIDATE_TIMEOUT_SECONDS": "5",
+        "VALIDATOR_HEARTBEAT_MAX_AGE_SECONDS": "15",
+        "VALIDATOR_QUEUE_PATH": "/app/validator-queue",
+        "VALIDATOR_SANDBOX_HELPER_PATH": "/proc/self/exe",
+        "VALIDATOR_TRUSTED_GO_CACHE_PATH": "/opt/go-cache",
+        "VALIDATOR_WORKSPACE_PATH": "/app/workspace"
+      },
+      "volumes": [validator_queue ~ ":/app/validator-queue:rw"],
+      "network_mode": "none",
+      "read_only": true,
+      "tmpfs": [
+        "/app/workspace:rw,exec,nosuid,nodev,size=268435456,uid=65532,gid=65532,mode=0700",
+        "/tmp:rw,noexec,nosuid,nodev,size=16777216,uid=65532,gid=65532,mode=0700"
+      ],
+      "depends_on": {
+        values.consts.init_container_name: {"condition": "service_completed_successfully"}
+      },
+      "healthcheck": {
+        "test": ["CMD", "/app/go-algo-practice", "validator-worker", "--health"],
+        "interval": "10s",
+        "timeout": "3s",
+        "retries": 3,
+        "start_period": "5s"
+      },
+      "restart": "unless-stopped",
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges=true"],
+      "deploy": {
+        "resources": {
+          "limits": {
+            "cpus": "1.0",
+            "memory": "256M",
+            "pids": 32
+          }
+        }
+      }
+    }
+  }
+} %}
+{{ compose | tojson }}
