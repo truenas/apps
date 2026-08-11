@@ -183,9 +183,9 @@ module.exports = {
       ["rustdesk/rustdesk-server"],
     ),
     customVersioning(
-      // 9.0.2-stable
+      // 9.1.2-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
-      ["lmscommunity/lyrionmusicserver"],
+      [" ghcr.io/lms-community/lyrionmusicserver"],
     ),
     customVersioning(
       // 2.1.0.3-stable
