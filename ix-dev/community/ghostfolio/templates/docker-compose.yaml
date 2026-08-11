@@ -6,7 +6,7 @@
 {% do ghostfolio.add_network(ghostfolio_net) %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {# Postgres #}
 {% set pg_config = {
@@ -30,17 +30,14 @@
 {% do ghostfolio.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/v1/health"}) %}
 
 {# Ghostfolio #}
-{% do ghostfolio.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do ghostfolio.set_user(values.run_as.user, values.run_as.group) %}
 {% do ghostfolio.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do ghostfolio.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 
 {% do ghostfolio.environment.add_env("ACCESS_TOKEN_SALT", values.ghostfolio.access_token_salt) %}
 {% do ghostfolio.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
 {% do ghostfolio.environment.add_env("JWT_SECRET_KEY", values.ghostfolio.jwt_secret_key) %}
-{% do ghostfolio.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
-{% do ghostfolio.environment.add_env("POSTGRES_PASSWORD", values.ghostfolio.db_password) %}
-{% do ghostfolio.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
-{% do ghostfolio.environment.add_env("REDIS_HOST", redis.get_url("redis")) %}
+{% do ghostfolio.environment.add_env("REDIS_HOST", values.consts.redis_container_name) %}
 {% do ghostfolio.environment.add_env("REDIS_PASSWORD", values.ghostfolio.redis_password) %}
 {% do ghostfolio.environment.add_env("REDIS_PORT", redis.get_port()) %}
 
