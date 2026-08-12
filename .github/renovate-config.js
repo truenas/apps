@@ -183,9 +183,9 @@ module.exports = {
       ["rustdesk/rustdesk-server"],
     ),
     customVersioning(
-      // 9.0.2-stable
+      // 9.1.2-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
-      ["lmscommunity/lyrionmusicserver"],
+      [" ghcr.io/lms-community/lyrionmusicserver"],
     ),
     customVersioning(
       // 2.1.0.3-stable
@@ -293,6 +293,11 @@ module.exports = {
       ["ghcr.io/immich-app/immich-machine-learning"],
     ),
     customVersioning(
+      // 1.0.8-aio
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>heavy-aio|aio)$",
+      ["ghcr.io/calagopus/panel"],
+    ),
+    customVersioning(
       // stable-2.0.55
       "^stable-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["factoriotools/factorio"],
@@ -358,9 +363,9 @@ module.exports = {
       ["jvmilazz0/kavita"],
     ),
     customVersioning(
-      // 1.0(.0)?
+      // v1.0(.0)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$",
-      ["ghcr.io/retropex/bitcoin-truenas"],
+      ["ghcr.io/retropex/bitcoin-truenas", "ghcr.io/sethforprivacy/p2pool"],
     ),
     customVersioning(
       // v2026.5.29(.2)?
@@ -368,9 +373,9 @@ module.exports = {
       ["nousresearch/hermes-agent"],
     ),
     customVersioning(
-      // 1.0.8-aio
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-aio$",
-      ["ghcr.io/calagopus/panel"],
+      // v0.1.7-alpha(.1)?
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpha(\\.(?<build>\\d+))?$",
+      ["ghcr.io/whiteassassins/ae-netscope"],
     ),
   ],
 };
