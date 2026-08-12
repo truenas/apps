@@ -1,12 +1,14 @@
 groups:
   - name: Ratelog Configuration
     description: Configure Ratelog
-  - name: Database Configuration
-    description: Configure PostgreSQL for Ratelog
+  - name: User and Group Configuration
+    description: Configure User and Group for Ratelog
   - name: Network Configuration
     description: Configure Network for Ratelog
   - name: Storage Configuration
     description: Configure Storage for Ratelog
+  - name: Labels Configuration
+    description: Configure Labels for Ratelog
   - name: Resources Configuration
     description: Configure Resources for Ratelog
 
@@ -17,14 +19,6 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: tmdb_api_key
-          label: TMDB API Key
-          description: API key for The Movie Database (TMDB)
-          schema:
-            type: string
-            required: true
-            private: true
-            default: ""
         - variable: postgres_image_selector
           label: Postgres Image (CAUTION)
           description: |
@@ -41,11 +35,18 @@ questions:
             enum:
               - value: postgres_18_image
                 description: Postgres 18
+        - variable: db_password
+          label: Database Password
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
             type: list
-            default: [ ]
+            default: []
             items:
               - variable: env
                 label: Environment Variable
@@ -61,13 +62,29 @@ questions:
                       label: Value
                       schema:
                         type: string
-        - variable: db_password
-          label: Database Password
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Ratelog files will be owned by.
           schema:
-            type: string
-            default: ""
+            type: int
+            min: 568
+            default: 568
             required: true
-            private: true
+        - variable: group
+          label: Group ID
+          description: The group id that Ratelog files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
   - variable: network
     label: ""
     group: Network Configuration
@@ -102,7 +119,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30505
+                  default: 30466
                   min: 1
                   max: 65535
                   required: true
@@ -121,13 +138,96 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
           schema:
-            type: boolean
-            default: false
+            type: list
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: ratelog
+                                        description: ratelog
+                                      - value: postgres
+                                        description: postgres
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -159,7 +259,7 @@ questions:
                 description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
-                  show_if: [ [ "type", "=", "ix_volume" ] ]
+                  show_if: [["type", "=", "ix_volume"]]
                   $ref:
                     - "normalize/ix_volume"
                   attrs:
@@ -181,13 +281,13 @@ questions:
                       label: ACL Configuration
                       schema:
                         type: dict
-                        show_if: [ [ "acl_enable", "=", true ] ]
-                        attrs: [ ]
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
                   type: dict
-                  show_if: [ [ "type", "=", "host_path" ] ]
+                  show_if: [["type", "=", "host_path"]]
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
@@ -199,8 +299,8 @@ questions:
                       label: ACL Configuration
                       schema:
                         type: dict
-                        show_if: [ [ "acl_enable", "=", true ] ]
-                        attrs: [ ]
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
                         $ref:
                           - "normalize/acl"
                     - variable: path
@@ -208,7 +308,7 @@ questions:
                       description: The host path to use for storage.
                       schema:
                         type: hostpath
-                        show_if: [ [ "acl_enable", "=", false ] ]
+                        show_if: [["acl_enable", "=", false]]
                         required: true
                     - variable: auto_permissions
                       label: Automatic Permissions
@@ -221,14 +321,14 @@ questions:
                       schema:
                         type: boolean
                         default: false
-                        show_if: [ [ "acl_enable", "=", false ] ]
+                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
           schema:
             type: list
-            default: [ ]
+            default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -269,7 +369,7 @@ questions:
                       label: Host Path Configuration
                       schema:
                         type: dict
-                        show_if: [ [ "type", "=", "host_path" ] ]
+                        show_if: [["type", "=", "host_path"]]
                         attrs:
                           - variable: acl_enable
                             label: Enable ACL
@@ -281,8 +381,8 @@ questions:
                             label: ACL Configuration
                             schema:
                               type: dict
-                              show_if: [ [ "acl_enable", "=", true ] ]
-                              attrs: [ ]
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
                               $ref:
                                 - "normalize/acl"
                           - variable: path
@@ -290,14 +390,14 @@ questions:
                             description: The host path to use for storage.
                             schema:
                               type: hostpath
-                              show_if: [ [ "acl_enable", "=", false ] ]
+                              show_if: [["acl_enable", "=", false]]
                               required: true
                     - variable: ix_volume_config
                       label: ixVolume Configuration
                       description: The configuration for the ixVolume dataset.
                       schema:
                         type: dict
-                        show_if: [ [ "type", "=", "ix_volume" ] ]
+                        show_if: [["type", "=", "ix_volume"]]
                         $ref:
                           - "normalize/ix_volume"
                         attrs:
@@ -318,8 +418,8 @@ questions:
                             label: ACL Configuration
                             schema:
                               type: dict
-                              show_if: [ [ "acl_enable", "=", true ] ]
-                              attrs: [ ]
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
                               $ref:
                                 - "normalize/acl"
                     - variable: cifs_config
@@ -327,7 +427,7 @@ questions:
                       description: The configuration for the SMB dataset.
                       schema:
                         type: dict
-                        show_if: [ [ "type", "=", "cifs" ] ]
+                        show_if: [["type", "=", "cifs"]]
                         attrs:
                           - variable: server
                             label: Server
@@ -364,7 +464,7 @@ questions:
                       description: The configuration for the NFS dataset.
                       schema:
                         type: dict
-                        show_if: [ [ "type", "=", "nfs" ] ]
+                        show_if: [["type", "=", "nfs"]]
                         attrs:
                           - variable: server
                             label: Server
@@ -378,6 +478,44 @@ questions:
                             schema:
                               type: string
                               required: true
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: ratelog
+                            description: ratelog
+                          - value: postgres
+                            description: postgres
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -391,7 +529,7 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPU limit for Ratelog.
+                description: CPUs limit for Ratelog.
                 schema:
                   type: int
                   default: 2
