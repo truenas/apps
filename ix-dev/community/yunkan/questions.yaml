@@ -49,26 +49,78 @@ questions:
                 description: CUDA (NVIDIA)
               - value: "tensorrt_image"
                 description: TensorRT (NVIDIA)
-        - variable: db_password
-          label: Database Password
+        - variable: external_db
+          label: External Database (Advanced)
           description: |
-            Password for the bundled MariaDB database. Generated once at install
-            time; there is nothing to configure inside the app afterwards.
+            Use an external MySQL / MariaDB server instead of the bundled SQLite -
+            for example the MariaDB app from this catalog.</br>
+            The database must already exist and be reachable from this system; the app
+            creates its tables on first start. The choice is declared here once and the
+            app treats it as fixed - switching it later does not migrate existing data.</br>
+            Leave it disabled to use the bundled SQLite, which fits typical home scale.
+            Heavier multi-camera setups can also migrate to MySQL/MariaDB later from
+            the web interface, which does move existing data.
           schema:
-            type: string
-            default: ""
-            required: true
-            private: true
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                schema:
+                  type: boolean
+                  default: false
+              - variable: host
+                label: Host
+                description: Hostname or IP of the MySQL / MariaDB server.
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: port
+                label: Port
+                schema:
+                  type: int
+                  show_if: [["enabled", "=", true]]
+                  default: 3306
+                  required: true
+              - variable: user
+                label: User
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  default: "skyview"
+                  required: true
+              - variable: password
+                label: Password
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  default: ""
+                  required: true
+                  private: true
+              - variable: database
+                label: Database Name
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  default: "skyview"
+                  required: true
         - variable: webrtc_extern_ips
           label: WebRTC External IPs
           description: |
-            Comma separated addresses that clients use to reach this server, used as
-            WebRTC ICE candidates.</br>
-            Leave empty when Host Network is enabled. When it is disabled, set this to
-            the address of this system, otherwise live view falls back to HLS.
+            Addresses that clients use to reach this server, used as WebRTC ICE
+            candidates.</br>
+            Leave empty when Host Network is enabled. When it is disabled, add the
+            address of this system, otherwise live view falls back to HLS.
           schema:
-            type: string
-            default: ""
+            type: list
+            default: []
+            items:
+              - variable: address
+                label: Address
+                description: IP address or hostname.
+                schema:
+                  type: string
+                  required: true
         - variable: mount_product_uuid
           label: Mount Product UUID
           description: |
@@ -228,8 +280,7 @@ questions:
             Enabled by default: WebRTC live view and camera discovery on the LAN need
             direct access to the host network. Clients use 23406 (web interface) and
             23515 TCP/UDP (WebRTC media); the internal media server also binds 23880
-            and 24214, both gated by a signed token. The bundled database binds 23336
-            on localhost only.</br>
+            and 24214, both gated by a signed token.</br>
             Disable it to run on a bridge network instead - then only the web and
             WebRTC ports are published, and [WebRTC External IPs] has to be set.
           schema:
@@ -472,81 +523,6 @@ questions:
                         required: true
                         hidden: true
                         default: "recordings"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: mariadb_data
-          label: Database Storage
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "mariadb_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
