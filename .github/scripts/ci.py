@@ -24,6 +24,8 @@ PLATFORM = "linux/amd64"
 CHANGE_PLATFORM_FOR_IMAGES = [
     "redis",
     "valkey/valkey",
+    "chaptarr/chaptarr",
+    "ghcr.io/lostb1t/remux",
     "ghcr.io/stalwartlabs/stalwart",
     "ghcr.io/euro-office/documentserver",
 ]
