@@ -131,6 +131,7 @@ questions:
           description: The docker networks to join
           schema:
             type: list
+            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -210,10 +211,17 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -229,9 +237,7 @@ questions:
                 label: Type
                 description: |
                   ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.</br>
-                  SMB Share: Is a SMB share that is mounted to as a volume.</br>
-                  NFS Share: Is a NFS share that is mounted to as a volume.
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
@@ -241,37 +247,6 @@ questions:
                       description: Host Path (Path that already exists on the system)
                     - value: "ix_volume"
                       description: ixVolume (Dataset created automatically by the system)
-                    - value: "cifs"
-                      description: SMB/CIFS Share (Mounts a volume to a SMB share)
-                    - value: "nfs"
-                      description: NFS Share (Mounts a volume to a NFS share)
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
               - variable: ix_volume_config
                 label: ixVolume Configuration
                 description: The configuration for the ixVolume dataset.
@@ -301,61 +276,32 @@ questions:
                         type: dict
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
-              - variable: cifs_config
-                label: SMB Configuration
-                description: The configuration for the SMB dataset.
+              - variable: host_path_config
+                label: Host Path Configuration
                 schema:
                   type: dict
-                  show_if: [["type", "=", "cifs"]]
+                  show_if: [["type", "=", "host_path"]]
                   attrs:
-                    - variable: server
-                      label: Server
-                      description: The server to mount the SMB share.
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
-                        type: string
-                        required: true
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
                     - variable: path
-                      label: Path
-                      description: The path to mount the SMB share.
+                      label: Host Path
+                      description: The host path to use for storage.
                       schema:
-                        type: string
-                        required: true
-                    - variable: username
-                      label: Username
-                      description: The username to use for the SMB share.
-                      schema:
-                        type: string
-                        required: true
-                    - variable: password
-                      label: Password
-                      description: The password to use for the SMB share.
-                      schema:
-                        type: string
-                        required: true
-                        private: true
-                    - variable: domain
-                      label: Domain
-                      description: The domain to use for the SMB share.
-                      schema:
-                        type: string
-              - variable: nfs_config
-                label: NFS Configuration
-                description: The configuration for the NFS dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "nfs"]]
-                  attrs:
-                    - variable: server
-                      label: Server
-                      description: The server to mount the NFS share.
-                      schema:
-                        type: string
-                        required: true
-                    - variable: path
-                      label: Path
-                      description: The path to mount the NFS share.
-                      schema:
-                        type: string
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: additional_storage
           label: Additional Storage
@@ -363,7 +309,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -455,6 +401,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -548,7 +496,6 @@ questions:
                         enum:
                           - value: arr-dashboard
                             description: arr-dashboard
-
   - variable: resources
     label: ""
     group: Resources Configuration
