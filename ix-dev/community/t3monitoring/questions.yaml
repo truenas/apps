@@ -71,25 +71,54 @@ questions:
         - variable: encryption_key
           label: TYPO3 Encryption Key
           description: |
-            Must not be blank. Reuse the value already in
-            project/config/system/settings.php ('encryptionKey') so
-            existing sessions/hashes/links stay valid — a different value doesn't
-            just start fresh, it makes TYPO3 refuse to boot until it's set.
+            A random secret TYPO3 uses to sign sessions, hashes and links. Any
+            long random string works for a new installation — 32 characters or
+            more is recommended. It must not be blank; TYPO3 refuses to start
+            without it.
+
+            Keep it stable once set: changing it later invalidates existing
+            sessions and links. If you are restoring a database from another
+            t3monitoring instance, enter that instance's key instead.
           schema:
             type: string
             default: ""
             required: true
             private: true
-        - variable: install_tool_password
-          label: Install Tool Password (pre-hashed)
+        - variable: admin_user
+          label: Backend Administrator Username
           description: |
-            A pre-hashed argon2i value, not plain text. Generate one with:
-            docker run --rm php:8.4-cli php -r "echo password_hash('yourpassword', PASSWORD_ARGON2I), PHP_EOL;"
+            The administrator account created the first time the app starts. Used
+            to log in at the Web UI (/typo3/).
+          schema:
+            type: string
+            default: admin
+            required: true
+        - variable: admin_password
+          label: Backend Administrator Password
+          description: |
+            Password for the administrator account above. TYPO3 enforces a minimum
+            of 8 characters.
+
+            Only used when the database is empty on first start — changing it here
+            afterwards does not change the existing account's password.
           schema:
             type: string
             default: ""
             required: true
             private: true
+            min_length: 8
+        - variable: install_tool_password
+          label: Install Tool Password
+          description: |
+            Separate password guarding the Install Tool at /typo3/install.php,
+            used for database and upgrade maintenance. Enter it as plain text —
+            it is hashed inside the container on startup.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+            min_length: 8
         - variable: mail_transport
           label: Mail Transport
           schema:
