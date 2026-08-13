@@ -8,21 +8,14 @@
 {% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "KILL"]) %}
 
 {# ── Database ─────────────────────────────────────────────────────────────────
-   No dependency container: this app runs on the host network by default (camera
-   discovery is WS-Discovery multicast) and this repo prohibits combining host
-   networking with dependency containers. The bundled SQLite is the default. An
-   external MySQL/MariaDB server can be declared here at install time instead -
-   provisioned via SKYVIEW_DB_* env vars, which the app treats as fixed
-   infrastructure: the first-run wizard skips the database step and nothing about
-   the database is configurable inside the app. #}
-{% if values.yunkan.external_db.enabled %}
-  {% do c1.environment.add_env("SKYVIEW_DB_TYPE", "mysql") %}
-  {% do c1.environment.add_env("SKYVIEW_DB_HOST", values.yunkan.external_db.host) %}
-  {% do c1.environment.add_env("SKYVIEW_DB_PORT", values.yunkan.external_db.port) %}
-  {% do c1.environment.add_env("SKYVIEW_DB_USER", values.yunkan.external_db.user) %}
-  {% do c1.environment.add_env("SKYVIEW_DB_PASSWORD", values.yunkan.external_db.password) %}
-  {% do c1.environment.add_env("SKYVIEW_DB_NAME", values.yunkan.external_db.database) %}
-{% endif %}
+   Locked to the bundled SQLite: no dependency container (this app runs on the
+   host network by default, and this repo prohibits combining host networking
+   with dependency containers), and the env var below makes the app treat the
+   database as fixed infrastructure - the first-run wizard skips the database
+   step and nothing about the database is configurable inside the app.
+   Advanced setups that want an external database should convert the app to a
+   custom app and manage the SKYVIEW_DB_* env vars there. #}
+{% do c1.environment.add_env("SKYVIEW_DB_TYPE", "sqlite") %}
 
 {% for device in values.yunkan.devices %}
   {% do c1.devices.add_device(device.host_device, device.container_device) %}
