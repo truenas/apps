@@ -419,6 +419,7 @@ def test_add_mariadb(mock_values):
             "user": "test_user",
             "password": "test_password",
             "database": "test_database",
+            "port": 3307,
             "volume": {
                 "type": "volume",
                 "volume_config": {
@@ -461,7 +462,7 @@ def test_add_mariadb(mock_values):
             "mariadb-admin",
             "--user=root",
             "--host=127.0.0.1",
-            "--port=3306",
+            "--port=3307",
             "--password=test_password",
             "ping",
         ],
