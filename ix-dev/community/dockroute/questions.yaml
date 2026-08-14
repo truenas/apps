@@ -19,20 +19,6 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: provider
-          label: DNS Provider
-          description: |
-            The DNS provider to reconcile against.</br>
-            [log] is a dry run that only prints the desired state, no credentials needed.
-          schema:
-            type: string
-            default: "log"
-            required: true
-            enum:
-              - value: "log"
-                description: Log (dry run)
-              - value: "cloudflare"
-                description: Cloudflare
         - variable: owner_id
           label: Owner ID
           description: |
@@ -46,7 +32,8 @@ questions:
           label: Sync Policy
           description: |
             [sync] creates, updates and deletes owned records.</br>
-            [upsert-only] never deletes. [create-only] never updates or deletes.
+            [upsert-only] never deletes.</br>
+            [create-only] never updates or deletes.
           schema:
             type: string
             default: "sync"
@@ -66,10 +53,17 @@ questions:
             default: ""
         - variable: domain_filter
           label: Domain Filter
-          description: Comma-separated allowlist of DNS zones DockRoute may touch. Empty means all zones the token can see.
+          description: Allowlist of DNS zones DockRoute may touch. Empty means all zones the token can see.
           schema:
-            type: string
-            default: ""
+            type: list
+            default: []
+            items:
+              - variable: domain
+                label: Domain
+                schema:
+                  type: string
+                  default: ""
+                  required: true
         - variable: resync_seconds
           label: Resync Interval (seconds)
           description: Interval of the periodic full reconcile that backs up the event stream.
@@ -77,11 +71,23 @@ questions:
             type: int
             default: 60
             min: 5
+        - variable: provider
+          label: DNS Provider
+          description: |
+            The DNS provider to reconcile against.</br>
+            [log] is a dry run that only prints the desired state, no credentials needed.
+          schema:
+            type: string
+            default: "log"
+            required: true
+            enum:
+              - value: "log"
+                description: Log (dry run)
+              - value: "cloudflare"
+                description: Cloudflare
         - variable: cloudflare_api_token
           label: Cloudflare API Token
-          description: |
-            Required for the Cloudflare provider.</br>
-            Needs Zone -> DNS -> Edit (plus Account -> Cloudflare Tunnel -> Edit for tunnel publishing).
+          description: Needs Zone -> DNS -> Edit (plus Account -> Cloudflare Tunnel -> Edit for tunnel publishing).
           schema:
             type: string
             default: ""
@@ -235,7 +241,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -258,7 +264,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -350,6 +356,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -442,7 +450,6 @@ questions:
                         enum:
                           - value: dockroute
                             description: dockroute
-
   - variable: resources
     label: ""
     group: Resources Configuration
