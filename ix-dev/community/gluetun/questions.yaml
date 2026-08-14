@@ -1,0 +1,761 @@
+groups:
+  - name: Gluetun Configuration
+    description: Configure Gluetun
+  - name: Network Configuration
+    description: Configure Network for Gluetun
+  - name: Storage Configuration
+    description: Configure Storage for Gluetun
+  - name: Labels Configuration
+    description: Configure Labels for Gluetun
+  - name: Resources Configuration
+    description: Configure Resources for Gluetun
+
+questions:
+  - variable: TZ
+    label: Timezone
+    description: Timezone
+    group: Gluetun Configuration
+    schema:
+      type: string
+      default: Etc/UTC
+      $ref:
+        - "definitions/timezone"
+
+  - variable: gluetun
+    label: ""
+    group: Gluetun Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: vpn_service_provider
+          label: VPN Service Provider
+          description: |
+            The VPN service provider to use.</br>
+            Use <code>custom</code> for manual OpenVPN or WireGuard configurations.</br>
+            See the upstream documentation for supported provider names and required fields.
+          schema:
+            type: string
+            default: custom
+            required: true
+
+        - variable: vpn_type
+          label: VPN Type
+          description: The VPN protocol to use.
+          schema:
+            type: string
+            default: wireguard
+            required: true
+            enum:
+              - value: openvpn
+                description: OpenVPN
+              - value: wireguard
+                description: WireGuard
+
+        - variable: openvpn_user
+          label: OpenVPN User
+          description: OpenVPN username.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+            show_if: [["vpn_type", "=", "openvpn"]]
+
+        - variable: openvpn_password
+          label: OpenVPN Password
+          description: OpenVPN password.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+            show_if: [["vpn_type", "=", "openvpn"]]
+
+        - variable: wireguard_private_key
+          label: WireGuard Private Key
+          description: |
+            WireGuard private key.</br>
+            Generate one with: <code>wg genkey</code>
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+            show_if: [["vpn_type", "=", "wireguard"]]
+
+        - variable: wireguard_addresses
+          label: WireGuard Addresses
+          description: |
+            WireGuard address assignments.</br>
+            Example: <code>10.64.0.2/32</code>
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: address
+                label: Address
+                schema:
+                  type: string
+                  required: true
+            show_if: [["vpn_type", "=", "wireguard"]]
+
+        - variable: wireguard_endpoint_ip
+          label: WireGuard Endpoint IP
+          description: WireGuard endpoint IP or hostname.
+          schema:
+            type: string
+            default: ""
+            required: true
+            show_if: [["vpn_type", "=", "wireguard"]]
+
+        - variable: wireguard_endpoint_port
+          label: WireGuard Endpoint Port
+          description: WireGuard endpoint port.
+          schema:
+            type: int
+            default: 51820
+            min: 1
+            max: 65535
+            required: true
+            show_if: [["vpn_type", "=", "wireguard"]]
+
+        - variable: wireguard_public_key
+          label: WireGuard Public Key
+          description: WireGuard server public key.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+            show_if: [["vpn_type", "=", "wireguard"]]
+
+        - variable: wireguard_preshared_key
+          label: WireGuard Preshared Key
+          description: Optional WireGuard preshared key.
+          schema:
+            type: string
+            default: ""
+            private: true
+            show_if: [["vpn_type", "=", "wireguard"]]
+
+        - variable: updater_period
+          label: Updater Period
+          description: |
+            How often Gluetun refreshes server lists.</br>
+            Leave blank to use the image default.
+          schema:
+            type: string
+            default: ""
+
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: control_port
+          label: Control Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30471
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: container_port
+                label: Container Port
+                schema:
+                  type: int
+                  default: 8000
+                  hidden: true
+              - variable: protocol
+                label: Protocol
+                schema:
+                  type: string
+                  default: tcp
+                  hidden: true
+                  enum:
+                    - value: tcp
+                      description: TCP
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        - variable: http_proxy_port
+          label: HTTP Proxy Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30472
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: container_port
+                label: Container Port
+                schema:
+                  type: int
+                  default: 8888
+                  hidden: true
+              - variable: protocol
+                label: Protocol
+                schema:
+                  type: string
+                  default: tcp
+                  hidden: true
+                  enum:
+                    - value: tcp
+                      description: TCP
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        - variable: shadowsocks_tcp_port
+          label: Shadowsocks TCP Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30473
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: container_port
+                label: Container Port
+                schema:
+                  type: int
+                  default: 8388
+                  hidden: true
+              - variable: protocol
+                label: Protocol
+                schema:
+                  type: string
+                  default: tcp
+                  hidden: true
+                  enum:
+                    - value: tcp
+                      description: TCP
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        - variable: shadowsocks_udp_port
+          label: Shadowsocks UDP Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30474
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: container_port
+                label: Container Port
+                schema:
+                  type: int
+                  default: 8388
+                  hidden: true
+              - variable: protocol
+                label: Protocol
+                schema:
+                  type: string
+                  default: udp
+                  hidden: true
+                  enum:
+                    - value: udp
+                      description: UDP
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network.</br>
+            Leave disabled for the default bridged deployment.
+          schema:
+            type: boolean
+            default: false
+
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: gluetun
+                                        description: gluetun
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        attrs: []
+
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB/CIFS Share: Is an SMB share that is mounted as a volume.</br>
+                        NFS Share: Is an NFS share that is mounted as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to an SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to an NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              hidden: true
+                              default: "storage"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                    - variable: cifs_config
+                      label: SMB/CIFS Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: host
+                            label: Host
+                            description: SMB/CIFS host.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: SMB/CIFS username.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: SMB/CIFS password.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: share
+                            label: Share
+                            description: SMB/CIFS share name.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: domain
+                            label: Domain
+                            description: SMB/CIFS domain.
+                            schema:
+                              type: string
+                              default: ""
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: host
+                            label: Host
+                            description: NFS host.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: NFS export path.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: options
+                            label: Options
+                            description: Mount options.
+                            schema:
+                              type: string
+                              default: ""
