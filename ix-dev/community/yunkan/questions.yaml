@@ -34,8 +34,7 @@ questions:
             - CPU: Any x86_64 host, no accelerator required.</br>
             - OpenVINO: Intel iGPU or Arc. Enable the GPU under Resources.</br>
             - CUDA: NVIDIA GPU with 6 GB VRAM or more.</br>
-            - TensorRT: NVIDIA GPU with 6 GB VRAM or more, builds an inference engine
-            on first start which takes a few minutes.
+            - TensorRT: NVIDIA GPU with 6 GB VRAM or more, builds an inference engine on first start which takes a few minutes.
           schema:
             type: string
             default: "image"
@@ -129,6 +128,107 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30461
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: webrtc_port
+          label: WebRTC Port
+          description: |
+            Applies to both TCP and UDP. Keep the host port number identical to the
+            internal one, ICE candidates are advertised with the internal number.
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 23515
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: networks
           label: Networks
           description: The docker networks to join
@@ -214,7 +314,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -231,112 +331,6 @@ questions:
           schema:
             type: boolean
             default: true
-        - variable: web_port
-          label: WebUI Port
-          description: |
-            The port for the YunKan web interface.</br>
-            Internal port: 23406
-          schema:
-            type: dict
-            show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 30461
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: webrtc_port
-          label: WebRTC Port
-          description: |
-            The WebRTC media port for YunKan.</br>
-            Internal port: 23515</br>
-            Applies to both TCP and UDP. Keep the host port number identical to the
-            internal one, ICE candidates are advertised with the internal number.
-          schema:
-            type: dict
-            show_if: [["host_network", "=", false]]
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 23515
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
 
   - variable: storage
     label: ""
@@ -345,10 +339,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: YunKan Data Storage
-          description: |
-            The path to store the database, logs and other small state.</br>
-            Recordings are stored separately, see below.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -423,11 +414,10 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: recordings
-          label: YunKan Recordings Storage
+          label: Recordings Storage
           description: |
             The path to store recordings, snapshots and exports.</br>
-            This can grow to terabytes, point it at a dataset on a pool with enough
-            capacity.
+            This can grow to terabytes, point it at a dataset on a pool with enough capacity.
           schema:
             type: dict
             attrs:
@@ -507,7 +497,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict

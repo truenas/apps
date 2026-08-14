@@ -2,53 +2,20 @@
 
 {% set c1 = tpl.add_container(values.consts.yunkan_container_name, values.yunkan.image_selector) %}
 
-{# The image is supervised by s6-overlay and runs its media server, web server and
-   worker processes as root inside the container. #}
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "KILL"]) %}
-
-{# ── Database ─────────────────────────────────────────────────────────────────
-   Locked to the bundled SQLite: no dependency container (this app runs on the
-   host network by default, and this repo prohibits combining host networking
-   with dependency containers), and the env var below makes the app treat the
-   database as fixed infrastructure - the first-run wizard skips the database
-   step and nothing about the database is configurable inside the app.
-   Advanced setups that want an external database should convert the app to a
-   custom app and manage the SKYVIEW_DB_* env vars there. #}
-{% do c1.environment.add_env("SKYVIEW_DB_TYPE", "sqlite") %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/healthz"}) %}
 
 {% for device in values.yunkan.devices %}
   {% do c1.devices.add_device(device.host_device, device.container_device) %}
 {% endfor %}
 
+{% do c1.environment.add_env("SKYVIEW_DB_TYPE", "sqlite") %}
+
 {% if values.yunkan.webrtc_extern_ips %}
   {% do c1.environment.add_env("SKYVIEW_WEBRTC_EXTERN_IPS", values.yunkan.webrtc_extern_ips | join(",")) %}
 {% endif %}
 {% do c1.environment.add_user_envs(values.yunkan.additional_envs) %}
-
-{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/healthz"}) %}
-
-{% do c1.add_storage("/app/data", values.storage.data) %}
-{% do c1.add_storage("/app/data/recordings", values.storage.recordings) %}
-
-{# License binding reads stable host identifiers. Both are mounted read-only and are
-   only used locally to compute a hardware fingerprint. #}
-{% do c1.add_storage(values.consts.machine_id_path, {
-  "type": "host_path",
-  "read_only": true,
-  "host_path_config": {"path": values.consts.machine_id_path, "create_host_path": false}
-}) %}
-{% if values.yunkan.mount_product_uuid %}
-  {% do c1.add_storage(values.consts.product_uuid_path, {
-    "type": "host_path",
-    "read_only": true,
-    "host_path_config": {"path": values.consts.product_uuid_path, "create_host_path": false}
-  }) %}
-{% endif %}
-
-{% for store in values.storage.additional_storage %}
-  {% do c1.add_storage(store.mount_path, store) %}
-{% endfor %}
 
 {# Only the web interface and the WebRTC media port are published. The RTSP (23880) and
    streaming (24214) ports stay internal on purpose: every stream is gated by a signed
@@ -59,8 +26,18 @@
   {% do c1.add_port(values.network.webrtc_port, {"container_port": values.consts.internal_webrtc_port, "protocol": "udp"}) %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"scheme": "http", "port": values.consts.internal_web_port if values.network.host_network else None}) %}
+{# License binding reads stable host identifiers #}
+{% do c1.add_storage(values.consts.machine_id_path, {"type": "host_path","read_only": true, "host_path_config": {"path": values.consts.machine_id_path}}) %}
+{% if values.yunkan.mount_product_uuid %}
+  {% do c1.add_storage(values.consts.product_uuid_path, {"type": "host_path", "read_only": true, "host_path_config": {"path": values.consts.product_uuid_path}}) %}
+{% endif %}
 
-{% do tpl.notes.set_body(values.consts.notes_body) %}
+{% do c1.add_storage("/app/data", values.storage.data) %}
+{% do c1.add_storage("/app/data/recordings", values.storage.recordings) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
 
 {{ tpl.render() | tojson }}
