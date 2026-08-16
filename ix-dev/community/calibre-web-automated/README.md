@@ -21,7 +21,14 @@
 
 Do not download files directly into the ingest directory. Download them completely elsewhere, then move them into the ingest directory.
 
-To use Calibre plugins, add an **Additional Storage** entry mounted at:
+To use Calibre plugins, add an **Additional Storage** entry mounted at `/config/.config/calibre/plugins`.
 
-```text
-/config/.config/calibre/plugins
+If you use Calibre plugins, you might also need to place Calibre's `customize.py.json` in the configuration storage at `/config/.config/calibre/customize.py.json`.
+
+## Existing Calibre-Web installations
+
+To migrate from Calibre-Web, back up the existing configuration first. Then select **Host Path** for Configuration Storage and Calibre Library Storage, pointing them to the copied configuration and existing library datasets.
+
+## Network shares
+
+Enable **Network Share Mode** if the configuration or library data is stored on an SMB or NFS share. This adjusts CWA's database and file-watching behavior to reduce locking and permission problems.
