@@ -1,0 +1,36 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set cwa = tpl.add_container(values.consts.app_container_name, "image") %}
+
+{% do cwa.add_caps(["CHOWN", "SETGID", "SETUID", "DAC_OVERRIDE", "FOWNER"]) %}
+
+{% do cwa.healthcheck.use_built_in() %}
+
+{% if values.cwa.hardcover_token %}
+{% do cwa.environment.add_env("HARDCOVER_TOKEN", values.cwa.hardcover_token) %}
+{% endif %}
+{% do cwa.environment.add_env("NETWORK_SHARE_MODE", values.cwa.network_share_mode) %}
+{% if values.cwa.watch_mode %}
+{% do cwa.environment.add_env("CWA_WATCH_MODE", "poll") %}
+{% endif %}
+{% do cwa.environment.add_env("TRUSTED_PROXY_COUNT", values.cwa.trusted_proxy_count) %}
+{% do cwa.environment.add_env("DISABLE_LIBRARY_AUTOMOUNT", values.cwa.disable_library_automount) %}
+
+{% do cwa.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do cwa.add_storage("/config", values.storage.config) %}
+{% do cwa.add_storage("/calibre-library", values.storage.calibre_library) %}
+{% do cwa.add_storage("/cwa-book-ingest", values.storage.book_ingest) %}
+
+{% for store in values.storage.additional_storage %}
+{% do cwa.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(
+  values.network.web_port,
+  {"port": values.consts.internal_web_port if values.network.host_network else None}
+) %}
+
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
