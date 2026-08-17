@@ -377,6 +377,11 @@ module.exports = {
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpha(\\.(?<build>\\d+))?$",
       ["ghcr.io/whiteassassins/ae-netscope"],
     ),
+    customVersioning(
+      // 6.5.2-81
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
+      ["ghcr.io/zammad/zammad"],
+    ),
   ],
 };
 
