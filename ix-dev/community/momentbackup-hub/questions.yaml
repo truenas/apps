@@ -1,0 +1,283 @@
+groups:
+  - name: MomentBackup Hub Configuration
+    description: Configure MomentBackup Hub
+  - name: User and Group Configuration
+    description: Configure the ordinary account that owns Hub data
+  - name: Network Configuration
+    description: Configure the private Hub port
+  - name: Storage Configuration
+    description: Configure Hub data and optional read-only backup mounts
+  - name: Labels Configuration
+    description: Configure container labels
+  - name: Resources Configuration
+    description: Configure resource limits
+
+questions:
+  - variable: momentbackup
+    label: ""
+    group: MomentBackup Hub Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: public_url
+          label: Hub HTTPS address
+          description: The exact HTTPS origin every computer uses, such as https://truenas.home:8675. Changing it later requires enrolling every computer again.
+          schema:
+            type: uri
+            required: true
+        - variable: scan_backups
+          label: Scan backup storage
+          description: Mount backup storage read-only under /repos before turning this on. Heartbeat reporting stays on either way.
+          schema:
+            type: boolean
+            default: false
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The ordinary account that owns Hub data and may read any backup mounts.
+          schema:
+            type: int
+            min: 568
+            default: 10001
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group that owns Hub data and may read any backup mounts.
+          schema:
+            type: int
+            min: 568
+            default: 10001
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: Hub HTTPS port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port bind mode
+                schema:
+                  type: string
+                  default: published
+                  enum:
+                    - value: published
+                      description: Publish on the TrueNAS host
+                    - value: exposed
+                      description: Expose only to other containers
+                    - value: ""
+                      description: Do not expose
+              - variable: port_number
+                label: Port number
+                schema:
+                  type: int
+                  default: 8675
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Hub data storage
+          description: Holds the Hub identity, accounts, machine trust, notification queue, and audit history.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: TrueNAS-managed dataset
+                    - value: host_path
+                      description: Existing host path
+              - variable: ix_volume_config
+                label: Dataset configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset name
+                      schema:
+                        type: string
+                        hidden: true
+                        default: data
+                        required: true
+                    - variable: acl_entries
+                      label: ACL configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host path configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: additional_storage
+          label: Read-only backup storage
+          description: Add backup datasets under /repos. Keep every entry read-only.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Backup storage
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      schema:
+                        type: string
+                        hidden: true
+                        default: host_path
+                        required: true
+                    - variable: read_only
+                      schema:
+                        type: boolean
+                        hidden: true
+                        default: true
+                    - variable: mount_path
+                      label: Container path
+                      description: Use /repos or a child such as /repos/nas.
+                      schema:
+                        type: path
+                        default: /repos
+                        required: true
+                    - variable: host_path_config
+                      label: Host path configuration
+                      schema:
+                        type: dict
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: path
+                            label: TrueNAS backup path
+                            schema:
+                              type: hostpath
+                              required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: momentbackup-hub
+                            description: MomentBackup Hub
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory in MB
+                schema:
+                  type: int
+                  default: 2048
+                  required: true
