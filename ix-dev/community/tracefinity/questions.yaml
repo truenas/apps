@@ -1,0 +1,193 @@
+groups:
+  - name: Tracefinity Configuration
+    description: Configure Tracefinity Settings
+  - name: Network
+    description: Network Configuration
+  - name: Storage
+    description: Storage Configuration
+  - name: Labels
+    description: Labels Configuration
+  - name: Resources
+    description: Resources Configuration
+
+questions:
+  - variable: tracefinity
+    label: ""
+    group: Tracefinity Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: google_api_key
+          label: Google API Key
+          description: >-
+            Optional. Enables cloud-based tracing with Gemini for better
+            detection results (e.g. reflective/chrome tools). Leave blank
+            to use the local IS-Net model instead.
+          schema:
+            type: string
+            required: false
+            private: true
+            default: ""
+
+        - variable: fal_key
+          label: fal.ai API Key
+          description: >-
+            Optional. Use fal.ai as a remote saliency/tracing provider
+            instead of the local model.
+          schema:
+            type: string
+            required: false
+            private: true
+            default: ""
+
+        - variable: replicate_api_token
+          label: Replicate API Token
+          description: >-
+            Optional. Use Replicate as a remote saliency/tracing provider
+            instead of the local model.
+          schema:
+            type: string
+            required: false
+            private: true
+            default: ""
+
+        - variable: auth_secret
+          label: Shared Auth Secret
+          description: >-
+            Optional. Shared secret for a trusted multi-user reverse proxy
+            setup. Leave blank for normal standalone use.
+          schema:
+            type: string
+            required: false
+            private: true
+            default: ""
+
+        - variable: auto_naming
+          label: Automatic Tool Naming
+          description: >-
+            Optional automatic tool naming using a vision model. Set to
+            "ollama" to use a local Ollama instance for naming, or leave
+            blank to disable.
+          schema:
+            type: string
+            required: false
+            default: ""
+            enum:
+              - value: ""
+                description: "Disabled"
+              - value: "ollama"
+                description: "Ollama (local vision naming)"
+
+        - variable: show_version
+          label: Show Version in Settings
+          description: Show the running version in the settings popover.
+          schema:
+            type: boolean
+            default: true
+
+  - variable: network
+    label: ""
+    group: Network
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: Web Port
+          description: Port for the Tracefinity web interface
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: "Publish port on the host"
+                    - value: "exposed"
+                      description: "Expose port only to other containers"
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30000
+                  min: 1024
+                  max: 65535
+                  required: true
+                        - variable: container_port
+                label: Container Port
+                schema:
+                  type: int
+                  default: 3000
+                  hidden: true
+  - variable: storage
+    label: ""
+    group: Storage
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Tracefinity Storage
+          description: >-
+            Stores uploaded traces, generated bins, and app data
+            (mounted at /app/storage)
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: "Host Path"
+                    - value: "ix_volume"
+                      description: "TrueNAS Dataset"
+              - variable: ix_volume_config
+                label: Dataset Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        required: true
+
+  - variable: resources
+    label: ""
+    group: Resources
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: ""
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPU Limit
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory Limit (MB)
+                schema:
+                  type: int
+                  default: 12288
+                  required: true
