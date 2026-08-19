@@ -12,7 +12,7 @@
 {% do c1.environment.add_env("MBHUB_HEARTBEAT", "on") %}
 {% do c1.environment.add_env("MBHUB_TLS", "self-signed") %}
 {% do c1.environment.add_env("MBHUB_PUBLIC_URL", values.momentbackup.public_url) %}
-{% do c1.environment.add_env("MBHUB_SCAN_PATHS", "/repos" if values.momentbackup.scan_backups else "") %}
+{% do c1.environment.add_env("MBHUB_SCAN_PATHS", values.consts.backup_scan_path if values.momentbackup.scan_backups else "") %}
 
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 
@@ -25,7 +25,7 @@
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perms.add_or_skip_action(store.mount_path, store, perms_config) %}
 
-  {% if not store.mount_path.startswith("/repos") %}{% continue %}{% endif %}
+  {% if not store.mount_path.startswith(values.consts.backup_scan_path) %}{% continue %}{% endif %}
   {% do backup_mounts.x.append(tpl.funcs.get_host_path(store)) %}
   {% if not store.read_only %}{% do tpl.notes.add_warning(
       "Backup storage %s is not read-only. MomentBackup recommends mounting backups read-only."|format(store.mount_path)
