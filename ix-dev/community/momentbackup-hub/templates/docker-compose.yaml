@@ -4,20 +4,22 @@
 {% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% do app.set_init(true) %}
 {% do app.set_user(values.run_as.user, values.run_as.group) %}
+{% do app.healthcheck.set_test("tcp", {"port": values.consts.internal_web_port}) %}
+
 {% do app.environment.add_env("MBHUB_HEARTBEAT", "on") %}
 {% do app.environment.add_env("MBHUB_TLS", "self-signed") %}
 {% do app.environment.add_env("MBHUB_PUBLIC_URL", values.momentbackup.public_url) %}
 {% do app.environment.add_env("MBHUB_SCAN_PATHS", "/repos" if values.momentbackup.scan_backups else "") %}
-{% do app.healthcheck.set_test("tcp", {"port": values.consts.internal_web_port}) %}
 
 {% do app.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% do app.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perms.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
-  {% do store.update({"read_only": true}) %}
   {% do app.add_storage(store.mount_path, store) %}
+  {% do perms.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perms.has_actions() %}
@@ -26,6 +28,5 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
-{% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
