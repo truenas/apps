@@ -5,6 +5,7 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do app.set_init(true) %}
+{% do app.read_only(true) %}
 {% do app.set_user(values.run_as.user, values.run_as.group) %}
 {% do app.healthcheck.set_test("tcp", {"port": values.consts.internal_web_port}) %}
 
@@ -14,13 +15,27 @@
 {% do app.environment.add_env("MBHUB_SCAN_PATHS", "/repos" if values.momentbackup.scan_backups else "") %}
 
 {% do app.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"uid": values.run_as.user, "gid": values.run_as.group}}) %}
 {% do app.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perms.add_or_skip_action("data", values.storage.data, perms_config) %}
 
+{% set backup_mounts = namespace(x=[]) %}
 {% for store in values.storage.additional_storage %}
   {% do app.add_storage(store.mount_path, store) %}
   {% do perms.add_or_skip_action(store.mount_path, store, perms_config) %}
+
+  {% if not store.mount_path.startswith("/repos") %}{% continue %}{% endif %}
+  {% do backup_mounts.x.append(tpl.funcs.get_host_path(store)) %}
+  {% if not store.read_only %}{% do tpl.notes.add_warning(
+      "Backup storage %s is not read-only. MomentBackup recommends mounting backups read-only."|format(store.mount_path)
+  ) %}
+  {% endif %}
 {% endfor %}
+
+{% if values.momentbackup.scan_backups %}
+  {% if not backup_mounts.x %}{% do tpl.funcs.fail("Scan backup storage is enabled, but no backup mounts were found.") %}{% endif %}
+{% endif %}
 
 {% if perms.has_actions() %}
   {% do perms.activate() %}
