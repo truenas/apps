@@ -2,15 +2,15 @@ groups:
   - name: Calibre-Web Automated Configuration
     description: Configure Calibre-Web Automated
   - name: User and Group Configuration
-    description: Configure the user and group that own Calibre-Web Automated files
+    description: Configure User and Group for Calibre-Web Automated
   - name: Network Configuration
-    description: Configure network access
+    description: Configure Network for Calibre-Web Automated
   - name: Storage Configuration
-    description: Configure persistent storage
+    description: Configure Storage for Calibre-Web Automated
   - name: Labels Configuration
-    description: Configure container labels
+    description: Configure Labels for Calibre-Web Automated
   - name: Resources Configuration
-    description: Configure resource limits
+    description: Configure Resources for Calibre-Web Automated
 
 questions:
   - variable: TZ
@@ -36,32 +36,42 @@ questions:
             type: string
             default: ""
             private: true
-        - variable: network_share_mode
-          label: Network Share Mode
-          description: Enable this when the configuration or Calibre library is on an SMB or NFS share.
-          schema:
-            type: boolean
-            default: false
         - variable: watch_mode
-          label: Force Polling Mode
-          description: Use polling instead of inotify to watch for new books when filesystem events are unreliable.
+          label: Watch Mode
           schema:
-            type: boolean
-            default: false
-        - variable: trusted_proxy_count
-          label: Trusted Proxy Count
-          description: Number of reverse proxies in front of Calibre-Web Automated.
-          schema:
-            type: int
-            default: 1
-            min: 0
-            required: true
+            type: string
+            default: "poll"
+            enum:
+              - value: "poll"
+                description: Polling
+              - value: "inotify"
+                description: Inotify
         - variable: disable_library_automount
           label: Disable Library Auto-Mount
           description: Prevent CWA from automatically detecting and mounting the configured library at startup.
           schema:
             type: boolean
             default: false
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
 
   - variable: run_as
     label: ""
@@ -71,7 +81,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user ID that owns Calibre-Web Automated files.
+          description: The user id that Calibre-Web Automated files will be owned by.
           schema:
             type: int
             min: 568
@@ -79,7 +89,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group ID that owns Calibre-Web Automated files.
+          description: The group id that Calibre-Web Automated files will be owned by.
           schema:
             type: int
             min: 568
@@ -96,35 +106,37 @@ questions:
           label: WebUI Port
           schema:
             type: dict
-            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
                 description: |
-                  Publish makes the WebUI reachable from your network.
-                  Expose makes it available only to other containers.
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
-                  default: published
+                  default: "published"
                   enum:
-                    - value: published
-                      description: Publish port on the TrueNAS host
-                    - value: exposed
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
                       description: Expose port for inter-container communication
                     - value: ""
-                      description: Do not expose the port
+                      description: None
               - variable: port_number
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 31068
+                  default: 30471
                   min: 1
                   max: 65535
                   required: true
               - variable: host_ips
                 label: Host IPs
-                description: IP addresses on the TrueNAS host to bind this port to. Leave empty to use all addresses.
+                description: IPs on the host to bind this port
                 schema:
                   type: list
                   show_if: [["bind_mode", "=", "published"]]
@@ -140,7 +152,7 @@ questions:
 
         - variable: networks
           label: Networks
-          description: Optional existing Docker networks for Calibre-Web Automated to join.
+          description: The docker networks to join
           schema:
             type: list
             show_if: [["host_network", "=", false]]
@@ -153,12 +165,16 @@ questions:
                   attrs:
                     - variable: name
                       label: Name
-                      description: The existing Docker network to join.
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
                       schema:
                         type: string
+                        default: ""
                         required: true
                     - variable: containers
                       label: Containers
+                      description: The containers to add to this network.
                       schema:
                         type: list
                         items:
@@ -181,7 +197,8 @@ questions:
                                     type: dict
                                     attrs:
                                       - variable: aliases
-                                        label: Aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
                                         schema:
                                           type: list
                                           default: []
@@ -191,35 +208,41 @@ questions:
                                               schema:
                                                 type: string
                                       - variable: interface_name
-                                        label: Interface Name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
                                         schema:
                                           type: string
                                       - variable: mac_address
-                                        label: MAC Address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
                                         schema:
                                           type: string
                                       - variable: ipv4_address
-                                        label: IPv4 Address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
                                         schema:
                                           type: string
                                       - variable: ipv6_address
-                                        label: IPv6 Address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
                                         schema:
                                           type: string
                                       - variable: gw_priority
-                                        label: Gateway Priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
                                         schema:
                                           type: int
                                           "null": true
                                       - variable: priority
-                                        label: Priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
-
         - variable: host_network
           label: Host Network
-          description: Bind directly to the host network. Leave disabled unless you have a specific reason to use it.
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
           schema:
             type: boolean
             default: false
@@ -231,42 +254,48 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: Configuration Storage
+          label: Config Storage
           description: Stores CWA settings, databases, and processed-book backups.
           schema:
             type: dict
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
-                  default: ix_volume
+                  default: "ix_volume"
                   enum:
-                    - value: host_path
-                      description: Existing TrueNAS path
-                    - value: ix_volume
-                      description: TrueNAS-managed dataset
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
-                    - normalize/ix_volume
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: config
+                        default: "config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -281,6 +310,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -291,51 +321,58 @@ questions:
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
                         $ref:
-                          - normalize/acl
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
 
-        - variable: calibre_library
-          label: Calibre Library Storage
-          description: Stores the Calibre library and metadata. Select Host Path for an existing library dataset.
+        - variable: library
+          label: Library Storage
+          description: Stores the Calibre library and metadata.
           schema:
             type: dict
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
-                  default: ix_volume
+                  default: "ix_volume"
                   enum:
-                    - value: host_path
-                      description: Existing TrueNAS path
-                    - value: ix_volume
-                      description: TrueNAS-managed dataset
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
-                    - normalize/ix_volume
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: calibre_library
+                        default: "library"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -350,6 +387,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -360,14 +398,14 @@ questions:
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
                         $ref:
-                          - normalize/acl
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-
         - variable: book_ingest
           label: Book Ingest Storage
           description: Completed eBook files placed here are automatically imported, then removed after processing.
@@ -376,35 +414,41 @@ questions:
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
-                  default: ix_volume
+                  default: "ix_volume"
                   enum:
-                    - value: host_path
-                      description: Existing TrueNAS path
-                    - value: ix_volume
-                      description: TrueNAS-managed dataset
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
-                    - normalize/ix_volume
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: cwa_book_ingest
+                        default: "book_ingest"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -419,6 +463,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -429,9 +474,10 @@ questions:
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
                         $ref:
-                          - normalize/acl
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
@@ -439,7 +485,6 @@ questions:
 
         - variable: additional_storage
           label: Additional Storage
-          description: Optional storage, such as a Calibre plugins directory mounted at `/config/.config/calibre/plugins`.
           schema:
             type: list
             default: []
@@ -451,27 +496,33 @@ questions:
                   attrs:
                     - variable: type
                       label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
                       schema:
                         type: string
                         required: true
-                        default: ix_volume
+                        default: "ix_volume"
                         enum:
-                          - value: host_path
-                            description: Existing TrueNAS path
-                          - value: ix_volume
-                            description: TrueNAS-managed dataset
-                          - value: cifs
-                            description: SMB/CIFS share
-                          - value: nfs
-                            description: NFS share
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
                     - variable: read_only
                       label: Read Only
+                      description: Mount the volume as read only.
                       schema:
                         type: boolean
                         default: false
                     - variable: mount_path
                       label: Mount Path
-                      description: Path inside the container, for example `/config/.config/calibre/plugins`.
+                      description: The path inside the container to mount the storage.
                       schema:
                         type: path
                         required: true
@@ -483,6 +534,7 @@ questions:
                         attrs:
                           - variable: acl_enable
                             label: Enable ACL
+                            description: Enable ACL for the storage.
                             schema:
                               type: boolean
                               default: false
@@ -493,32 +545,36 @@ questions:
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
                               $ref:
-                                - normalize/acl
+                                - "normalize/acl"
                           - variable: path
                             label: Host Path
+                            description: The host path to use for storage.
                             schema:
                               type: hostpath
                               show_if: [["acl_enable", "=", false]]
                               required: true
                     - variable: ix_volume_config
                       label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "ix_volume"]]
                         $ref:
-                          - normalize/ix_volume
+                          - "normalize/ix_volume"
                         attrs:
                           - variable: acl_enable
                             label: Enable ACL
+                            description: Enable ACL for the storage.
                             schema:
                               type: boolean
                               default: false
                           - variable: dataset_name
                             label: Dataset Name
+                            description: The name of the dataset to use for storage.
                             schema:
                               type: string
                               required: true
-                              default: storage_entry
+                              default: "storage_entry"
                           - variable: acl_entries
                             label: ACL Configuration
                             schema:
@@ -526,51 +582,60 @@ questions:
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
                               $ref:
-                                - normalize/acl
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
+                      description: The configuration for the SMB dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "cifs"]]
                         attrs:
                           - variable: server
                             label: Server
+                            description: The server to mount the SMB share.
                             schema:
                               type: string
                               required: true
                           - variable: path
                             label: Path
+                            description: The path to mount the SMB share.
                             schema:
                               type: string
                               required: true
                           - variable: username
                             label: Username
+                            description: The username to use for the SMB share.
                             schema:
                               type: string
                               required: true
                           - variable: password
                             label: Password
+                            description: The password to use for the SMB share.
                             schema:
                               type: string
                               required: true
                               private: true
                           - variable: domain
                             label: Domain
+                            description: The domain to use for the SMB share.
                             schema:
                               type: string
                     - variable: nfs_config
                       label: NFS Configuration
+                      description: The configuration for the NFS dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "nfs"]]
                         attrs:
                           - variable: server
                             label: Server
+                            description: The server to mount the NFS share.
                             schema:
                               type: string
                               required: true
                           - variable: path
                             label: Path
+                            description: The path to mount the NFS share.
                             schema:
                               type: string
                               required: true
@@ -599,6 +664,7 @@ questions:
                   required: true
               - variable: containers
                 label: Containers
+                description: Containers where the label should be applied
                 schema:
                   type: list
                   items:
@@ -624,7 +690,7 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPU limit for Calibre-Web Automated.
+                description: CPUs limit for Calibre-Web Automated.
                 schema:
                   type: int
                   default: 2
