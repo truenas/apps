@@ -5,18 +5,14 @@
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/"}) %}
 
-{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("JWT_SECRET", values.rtsp_stream_hub.jwt_secret) %}
-{% if values.rtsp_stream_hub.disable_vaapi %}
-  {% do c1.environment.add_env("DISABLE_VAAPI", "true") %}
-{% endif %}
+{% do c1.environment.add_env("DISABLE_VAAPI", values.rtsp_stream_hub.disable_vaapi) %}
 {% do c1.environment.add_user_envs(values.rtsp_stream_hub.additional_envs) %}
 
-{% if not values.network.host_network %}
-  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-{% endif %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/usr/src/app/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
@@ -26,15 +22,11 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
 {% endfor %}
 
-{% for device in values.rtsp_stream_hub.devices %}
-  {% do c1.devices.add_device(device.host_device, device.container_device) %}
-{% endfor %}
-
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
