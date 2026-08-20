@@ -382,6 +382,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
       ["ghcr.io/zammad/zammad"],
     ),
+    customVersioning(
+      // 7.3.6-4.8.0-1.9.0 (server-client-adminclient)
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-\\d+\\.\\d+\\.\\d+-\\d+\\.\\d+\\.\\d+$",
+      ["psono/psono-combo", "psono/psono-combo-enterprise"],
+    ),
   ],
 };
 
