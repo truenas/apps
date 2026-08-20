@@ -3,18 +3,16 @@
 {% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
+{% set scheme = "https" if values.smart_home_dashboard.auto_ssl else "http" %}
+
 {% set c1 = tpl.add_container(values.consts.smart_home_dashboard_container_name, "image") %}
 
-{% set portal_scheme = "https" if values.smart_home_dashboard.auto_ssl else "http" %}
-
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "scheme": portal_scheme}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "scheme": scheme}) %}
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("HOST", "0.0.0.0") %}
 {% do c1.environment.add_env("DATA_DIR", values.consts.data_path) %}
-{% if values.smart_home_dashboard.auto_ssl %}
-  {% do c1.environment.add_env("AUTO_SSL", "true") %}
-{% endif %}
+{% do c1.environment.add_env("AUTO_SSL", values.smart_home_dashboard.auto_ssl) %}
 {% do c1.environment.add_user_envs(values.smart_home_dashboard.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
@@ -32,6 +30,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"scheme": portal_scheme}) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": scheme}) %}
 
 {{ tpl.render() | tojson }}
