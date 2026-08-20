@@ -180,7 +180,7 @@ module.exports = {
     customVersioning(
       // 1.1.11-1 or 1.1.11
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
-      ["rustdesk/rustdesk-server"],
+      ["rustdesk/rustdesk-server", "ghcr.io/openclaw/openclaw"],
     ),
     customVersioning(
       // 9.1.2-stable
