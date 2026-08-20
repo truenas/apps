@@ -5,21 +5,23 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api?mode=version"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api?mode=version"}) %}
+{% do c1.environment.add_env("NZBFAST_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("NZBFAST_PORT_LOCKED", 1) %}
+{% do c1.environment.add_env("NZBFAST_OUT", values.consts.downloads_path) %}
+{% do c1.environment.add_env("NZBFAST_WATCH", values.consts.watch_path) %}
+{% do c1.environment.add_env("NZBFAST_APIKEY", values.nzbfast.api_key) %}
 {% do c1.environment.add_user_envs(values.nzbfast.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-{% for port in values.network.additional_ports %}
-  {% do c1.add_port(port) %}
-{% endfor %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/config", values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
 
-{% do c1.add_storage("/downloads", values.storage.downloads) %}
+{% do c1.add_storage(values.consts.downloads_path, values.storage.downloads) %}
 {% do perm_container.add_or_skip_action("downloads", values.storage.downloads, perms_config) %}
 
-{% do c1.add_storage("/watch", values.storage.watch) %}
+{% do c1.add_storage(values.consts.watch_path, values.storage.watch) %}
 {% do perm_container.add_or_skip_action("watch", values.storage.watch, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
@@ -33,6 +35,5 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
-{% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}

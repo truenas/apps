@@ -18,17 +18,24 @@ questions:
     label: Timezone
     schema:
       type: string
-      default: "Etc/UTC"
+      default: Etc/UTC
       required: true
       $ref:
-        - "definitions/timezone"
-
+        - definitions/timezone
   - variable: nzbfast
     label: ""
     group: nzbfast Configuration
     schema:
       type: dict
       attrs:
+        - variable: api_key
+          label: API Key
+          description: The API key to use for nzbfast.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -107,7 +114,6 @@ questions:
                 schema:
                   type: int
                   default: 30471
-                  show_if: [["bind_mode", "=", "published"]]
                   min: 1
                   max: 65535
                   required: true
@@ -126,75 +132,12 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: additional_ports
-          label: Additional Ports
-          schema:
-            type: list
-            items:
-              - variable: port
-                label: Port
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: bind_mode
-                      label: Port Bind Mode
-                      description: |
-                        The port bind mode.</br>
-                        - Publish: The port will be published on the host for external access.</br>
-                        - Expose: The port will be exposed for inter-container communication.</br>
-                      schema:
-                        type: string
-                        default: "published"
-                        enum:
-                          - value: "published"
-                            description: Publish port on the host for external access
-                          - value: "exposed"
-                            description: Expose port for inter-container communication
-                    - variable: port_number
-                      label: Port Number
-                      schema:
-                        type: int
-                        min: 1
-                        max: 65535
-                        required: true
-                    - variable: container_port
-                      label: Container Port
-                      schema:
-                        type: int
-                        min: 1
-                        max: 65535
-                        required: true
-                    - variable: protocol
-                      label: Protocol
-                      schema:
-                        type: string
-                        required: true
-                        default: "tcp"
-                        enum:
-                          - value: "tcp"
-                            description: TCP
-                          - value: "udp"
-                            description: UDP
-                    - variable: host_ips
-                      label: Host IPs
-                      description: IPs on the host to bind this port
-                      schema:
-                        type: list
-                        show_if: [["bind_mode", "=", "published"]]
-                        default: []
-                        items:
-                          - variable: host_ip
-                            label: Host IP
-                            schema:
-                              type: string
-                              required: true
-                              $ref:
-                                - definitions/node_bind_ip
         - variable: networks
           label: Networks
           description: The docker networks to join
           schema:
             type: list
+            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -274,11 +217,18 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
 
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -286,8 +236,7 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: nzbfast Config Storage
-          description: The path to store nzbfast Config.
+          label: Config Storage
           schema:
             type: dict
             attrs:
@@ -362,8 +311,7 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: downloads
-          label: nzbfast Downloads Storage
-          description: The path to the nzbfast downloads.
+          label: Downloads Storage
           schema:
             type: dict
             attrs:
@@ -438,7 +386,7 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: watch
-          label: nzbfast Watch Folder Storage
+          label: Watch Folder Storage
           description: Drop an .nzb file in here and nzbfast queues it automatically.
           schema:
             type: dict
@@ -519,7 +467,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -611,6 +559,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
