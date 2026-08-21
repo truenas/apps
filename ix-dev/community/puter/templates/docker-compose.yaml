@@ -1,0 +1,133 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set puter_net = tpl.networks.create_internal("puter-net") %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.consts.run_user, "gid": values.consts.run_group, "mode": "check"} %}
+
+{# MariaDB - library dependency #}
+{% set db_config = {
+  "user": values.consts.db_user,
+  "password": values.puter.db_password,
+  "database": values.consts.db_name,
+  "root_password": values.puter.db_root_password or values.puter.db_password,
+  "volume": values.storage.mariadb_data,
+} %}
+{% set mariadb = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", db_config, perm_container) %}
+{% do mariadb.container.add_network(puter_net) %}
+
+{# Valkey - custom container for cluster mode #}
+{% set valkey = tpl.add_container(values.consts.valkey_container_name, "valkey_image") %}
+{% do valkey.set_user(1000, 1000) %}
+{% do valkey.add_network(puter_net) %}
+{% do valkey.healthcheck.set_custom_test([
+  "CMD-SHELL",
+  "valkey-cli -p " + values.consts.internal_valkey_port|string + " cluster info | grep -q cluster_state:ok || exit 1"
+]) %}
+{% do valkey.set_grace_period(30) %}
+{% do valkey.set_command([
+  "sh", "-c",
+  "valkey-server --port " + values.consts.internal_valkey_port|string + " --cluster-enabled yes --cluster-config-file /data/nodes.conf --cluster-node-timeout 5000 --cluster-require-full-coverage no --cluster-announce-ip " + values.consts.valkey_container_name + " --cluster-announce-port " + values.consts.internal_valkey_port|string + " --cluster-announce-bus-port " + (values.consts.internal_valkey_port + 10000)|string + " --appendonly yes --save '60 1' & "
+  + "SERVER_PID=$!; "
+  + "until valkey-cli -p " + values.consts.internal_valkey_port|string + " PING > /dev/null 2>&1; do sleep 0.5; done; "
+  + "if ! valkey-cli -p " + values.consts.internal_valkey_port|string + " CLUSTER NODES | grep -q '0-16383'; then valkey-cli -p " + values.consts.internal_valkey_port|string + " CLUSTER ADDSLOTSRANGE 0 16383; fi; "
+  + "wait $SERVER_PID"
+]) %}
+{% do valkey.add_storage("/data", values.storage.valkey_data) %}
+{% do perm_container.add_or_skip_action("valkey_data", values.storage.valkey_data, {"uid": 1000, "gid": 1000, "mode": "check"}) %}
+
+{# DynamoDB - custom container #}
+{% set dynamodb = tpl.add_container(values.consts.dynamodb_container_name, "dynamodb_image") %}
+{% do dynamodb.set_user(1000, 1000) %}
+{% do dynamodb.add_network(puter_net) %}
+{% do dynamodb.healthcheck.set_custom_test([
+  "CMD-SHELL",
+  "echo > /dev/tcp/localhost/" + values.consts.internal_dynamodb_port|string + " || exit 1"
+]) %}
+{% do dynamodb.set_grace_period(30) %}
+{% do dynamodb.set_command([
+  "-jar", "DynamoDBLocal.jar",
+  "-sharedDb",
+  "-dbPath", "/home/dynamodblocal/data",
+  "-port", values.consts.internal_dynamodb_port|string
+]) %}
+{% do dynamodb.environment.add_env("AWS_ACCESS_KEY_ID", "fake") %}
+{% do dynamodb.environment.add_env("AWS_SECRET_ACCESS_KEY", "fake") %}
+{% do dynamodb.environment.add_env("AWS_REGION", "us-east-1") %}
+{% do dynamodb.add_storage("/home/dynamodblocal/data", values.storage.dynamodb_data) %}
+{% do perm_container.add_or_skip_action("dynamodb_data", values.storage.dynamodb_data, {"uid": 1000, "gid": 1000, "mode": "check"}) %}
+
+{# S3 containers - conditional #}
+{% if values.puter.enable_s3 %}
+{% set s3 = tpl.add_container(values.consts.s3_container_name, "s3_image") %}
+{% do s3.set_user(1000, 1000) %}
+{% do s3.add_network(puter_net) %}
+{% do s3.healthcheck.set_custom_test([
+  "CMD-SHELL",
+  "wget -qO- --tries=1 --timeout=2 http://localhost:" + values.consts.internal_s3_port|string + "/health || exit 1"
+]) %}
+{% do s3.set_grace_period(30) %}
+{% do s3.environment.add_env("RUSTFS_ACCESS_KEY", values.puter.s3_access_key) %}
+{% do s3.environment.add_env("RUSTFS_SECRET_KEY", values.puter.s3_secret_key) %}
+{% do s3.add_storage("/data", values.storage.s3_data) %}
+{% do perm_container.add_or_skip_action("s3_data", values.storage.s3_data, {"uid": 1000, "gid": 1000, "mode": "check"}) %}
+
+{% set s3_init = tpl.add_container(values.consts.s3_init_container_name, "s3_init_image") %}
+{% do s3_init.healthcheck.disable() %}
+{% do s3_init.add_network(puter_net) %}
+{% do s3_init.depends.add_dependency(values.consts.s3_container_name, "service_healthy") %}
+{% do s3_init.environment.add_env("AWS_ACCESS_KEY_ID", values.puter.s3_access_key) %}
+{% do s3_init.environment.add_env("AWS_SECRET_ACCESS_KEY", values.puter.s3_secret_key) %}
+{% do s3_init.environment.add_env("AWS_DEFAULT_REGION", "us-east-1") %}
+{% do s3_init.set_entrypoint(["/bin/sh", "-c"]) %}
+{% do s3_init.set_command([
+  "set -e; "
+  + "endpoint=http://" + values.consts.s3_container_name + ":" + values.consts.internal_s3_port|string + "; "
+  + "bucket=" + values.puter.s3_bucket + "; "
+  + "if aws --endpoint-url $endpoint s3api head-bucket --bucket $bucket 2>/dev/null; then "
+  + "echo 'bucket ' $bucket ' already exists'; "
+  + "else echo 'creating bucket ' $bucket; aws --endpoint-url $endpoint s3 mb s3://$bucket; fi"
+]) %}
+{% do s3_init.restart.set_policy("no") %}
+{% endif %}
+
+{# Puter - main app container #}
+{% set puter = tpl.add_container(values.consts.puter_container_name, "image") %}
+{% do puter.set_user(values.consts.run_user, values.consts.run_group) %}
+{% do puter.add_network(puter_net) %}
+{% do puter.healthcheck.set_custom_test([
+  "CMD-SHELL",
+  "wget --no-verbose --tries=1 --spider http://localhost:" + values.consts.internal_web_port|string + "/ || exit 1"
+]) %}
+{% do puter.set_grace_period(60) %}
+{% do puter.depends.add_dependency(values.consts.valkey_container_name, "service_healthy") %}
+{% do puter.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
+{% do puter.depends.add_dependency(values.consts.dynamodb_container_name, "service_started") %}
+{% if values.puter.enable_s3 %}
+{% do puter.depends.add_dependency(values.consts.s3_init_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do puter.add_storage("/etc/puter", values.storage.config) %}
+{% do puter.add_storage("/var/puter", values.storage.data) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+{% for store in values.storage.additional_storage %}
+{% do puter.add_storage(store.mount_path, store) %}
+{% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% do puter.add_port(values.network.web_port) %}
+
+{% do puter.environment.add_user_envs(values.puter.additional_envs) %}
+
+{# Activate perms container if there are actions #}
+{% if perm_container.has_actions() %}
+{% do perm_container.activate() %}
+{% do mariadb.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% do valkey.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% do puter.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
