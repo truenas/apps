@@ -1,5 +1,13 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% if values.minio.license_key == "replace-me" %}
+  {% do tpl.notes.add_warning(
+    "License key is set to [replace-me] which is not a valid license key. "
+    "AIStor will run in offline mode and block all object storage (S3) operations "
+    "until a valid license key is set."
+  ) %}
+{% endif %}
+
 {# Validate early #}
 {% if values.storage.data_dirs|length == 0 %}
   {% do tpl.funcs.fail("At least 1 storage item must be set") %}
@@ -15,6 +23,7 @@
 {% for store in values.storage.data_dirs %}
   {% do mount_paths.x.append(store.mount_path.rstrip("/")) %}
 {% endfor %}
+
 {% if mount_paths.x|unique|list|length != mount_paths.x|length %}
   {% do tpl.funcs.fail("Mount paths in storage items must be unique, found duplicates: [%s]"|format(mount_paths.x|join(", "))) %}
 {% endif %}
@@ -41,14 +50,9 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid":values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_custom_test(["CMD", "mc", "ready", "--insecure", "--cluster-read", "health"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.api_port.port_number, "path": "/minio/health/live", "scheme": proto}) %}
 
-{% set cmd = namespace(x=[
-  "server",
-  "--address", ":%d"|format(values.network.api_port.port_number),
-  "--console-address", ":%d"|format(values.network.console_port.port_number),
-]) %}
-
+{% set cmd = namespace(x=["minio", "server"]) %}
 {% if values.network.certificate_id %}
   {% do cmd.x.extend(["--certs-dir", "/.minio/certs"]) %}
 
@@ -56,20 +60,12 @@
   {% do c1.configs.add("private", cert.privatekey, "/.minio/certs/private.key") %}
   {% do c1.configs.add("public", cert.certificate, "/.minio/certs/public.crt") %}
 {% endif %}
-
-{% if values.minio.logging.quiet %}
-  {% do cmd.x.append("--quiet") %}
-{% endif %}
-
-{% if values.minio.logging.anonymous %}
-  {% do cmd.x.append("--anonymous") %}
-{% endif %}
-
 {% do c1.set_command(cmd.x) %}
+
+{% if values.minio.license_key %}{% do c1.configs.add("license", values.minio.license_key, values.consts.license_path) %}{% endif %}
 
 {# Stores minio "volumes" that will be passed in the MINIO_VOLUMES env var #}
 {% set minio_config_items = namespace(x=[]) %}
-
 {% for store in values.storage.data_dirs %}
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
@@ -78,18 +74,17 @@
 {% endfor %}
 
 {% do c1.environment.add_user_envs(values.minio.additional_envs) %}
-{% do c1.environment.add_env("MC_HOST_health", "%s://localhost:%d" | format(proto, values.network.api_port.port_number)) %}
 {% do c1.environment.add_env("MINIO_ROOT_USER", values.minio.credentials.access_key) %}
 {% do c1.environment.add_env("MINIO_ROOT_PASSWORD", values.minio.credentials.secret_key) %}
-
-{% if values.network.server_url %}
-  {% do c1.environment.add_env("MINIO_SERVER_URL", values.network.server_url) %}
-{% endif %}
+{% do c1.environment.add_env("MINIO_LICENSE", values.consts.license_path) %}
+{% do c1.environment.add_env("MINIO_ADDRESS", ":%d"|format(values.network.api_port.port_number)) %}
+{% do c1.environment.add_env("MINIO_CONSOLE_ADDRESS", ":%d"|format(values.network.console_port.port_number)) %}
 
 {% if values.network.console_url %}
   {% do c1.environment.add_env("MINIO_BROWSER_REDIRECT_URL", values.network.console_url) %}
 {% endif %}
 
+{# https://docs.min.io/aistor/operations/scaling/expansion/expand-aistor-linux/#environment-variable-method #}
 {% if values.minio.multi_mode.entries %}
   {% do c1.environment.add_env("MINIO_VOLUMES", values.minio.multi_mode.entries|join(" ")) %}
 {% else %}

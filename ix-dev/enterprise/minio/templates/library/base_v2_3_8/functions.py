@@ -207,6 +207,29 @@ class Functions:
             case _:
                 raise RenderError(f"Storage type [{source_type}] does not support host path.")
 
+    def has_intel_gpu(self):
+        gpus = self._render_instance.values.get("resources", {}).get("gpus", {})
+        if gpus.get("use_all_gpus", False):
+            return True
+        return False
+
+    def has_amd_gpu(self):
+        gpus = self._render_instance.values.get("resources", {}).get("gpus", {})
+        if gpus.get("use_all_gpus", False) and gpus.get("kfd_device_exists", False):
+            return True
+        return False
+
+    def has_nvidia_gpu(self):
+        gpus = self._render_instance.values.get("resources", {}).get("gpus", {})
+        if gpus.get("nvidia_gpu_selection", {}):
+            for gpu in gpus["nvidia_gpu_selection"].values():
+                if gpu.get("use_gpu", False):
+                    return True
+        return False
+
+    def has_any_gpu(self):
+        return self.has_intel_gpu() or self.has_amd_gpu() or self.has_nvidia_gpu()
+
     def func_map(self):
         return {
             "auto_cast": self._auto_cast,
@@ -232,4 +255,8 @@ class Functions:
             "url_encode": self._url_encode,
             "url_to_dict": self._url_to_dict,
             "to_yaml": self._to_yaml,
+            "has_amd_gpu": self.has_amd_gpu,
+            "has_nvidia_gpu": self.has_nvidia_gpu,
+            "has_intel_gpu": self.has_intel_gpu,
+            "has_any_gpu": self.has_any_gpu,
         }
