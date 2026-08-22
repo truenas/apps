@@ -1,0 +1,52 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set app = tpl.add_container(values.consts.app_container_name, "image") %}
+
+{# ActuallyFreeCD needs root in-container for raw optical-device access. #}
+{% do app.set_user(0, 0) %}
+
+{% do app.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do app.add_storage("/music", values.storage.music) %}
+
+{# Drive discovery reads Linux sysfs for the real srX/sgX names and then
+   looks for matching device nodes below DEVICE_ROOT. #}
+{% do app.environment.add_env("DEVICE_ROOT", "/hostdev") %}
+{% do app.environment.add_env("MUSIC_ROOT", "/music") %}
+{% do app.environment.add_env("AFCD_DIR_MODE", values.output.directory_mode) %}
+{% do app.environment.add_env("AFCD_FILE_MODE", values.output.file_mode) %}
+
+{% if values.output.uid >= 0 %}
+{% do app.environment.add_env("AFCD_OUTPUT_UID", values.output.uid) %}
+{% endif %}
+
+{% if values.output.gid >= 0 %}
+{% do app.environment.add_env("AFCD_OUTPUT_GID", values.output.gid) %}
+{% endif %}
+
+{% do app.healthcheck.set_custom_test([
+    "CMD",
+    "python3",
+    "-c",
+    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/status', timeout=5).read()"
+]) %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{% do tpl.notes.add_info("ActuallyFreeCD requires an audio-capable optical drive and the matching /dev/srX and /dev/sgX devices.") %}
+{% do tpl.notes.add_info("For shared SMB/Plex access, configure Output Group ID to a shared media group and ensure the selected music Host Path is writable by that group.") %}
+
+{# Preserve the host device basenames inside /hostdev because ActuallyFreeCD
+   correlates /sys/class/block/srX with its matching scsi_generic/sgX name. #}
+{% set block_name = values.optical.block_device.split("/")[-1] %}
+{% set sg_name = values.optical.sg_device.split("/")[-1] %}
+
+{% set rendered = tpl.render() %}
+
+{% do rendered["services"][values.consts.app_container_name].update({
+    "devices": [
+        values.optical.block_device ~ ":/hostdev/" ~ block_name ~ ":rwm",
+        values.optical.sg_device ~ ":/hostdev/" ~ sg_name ~ ":rwm"
+    ]
+}) %}
+
+{{ rendered | tojson }}
