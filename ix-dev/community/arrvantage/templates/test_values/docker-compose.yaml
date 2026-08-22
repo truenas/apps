@@ -1,0 +1,20 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.arrvantage_container_name, "image") %}
+
+{% do c1.set_user(values.consts.run_user, values.consts.run_group) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/login"}) %}
+
+{% do c1.environment.add_env("CONFIG_DIR", "/app/data") %}
+{% do c1.environment.add_env("FORCE_HTTPS_COOKIES", "true" if values.arrvantage.force_https_cookies else "false") %}
+{% do c1.environment.add_user_envs(values.arrvantage.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% endif %}
+
+{% do c1.add_storage("/app/data", values.storage.config) %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}
