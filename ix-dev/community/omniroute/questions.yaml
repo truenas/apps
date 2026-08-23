@@ -1,0 +1,373 @@
+groups:
+  - name: OmniRoute Configuration
+    description: Configure OmniRoute
+  - name: User and Group Configuration
+    description: Configure User and Group for OmniRoute
+  - name: Network Configuration
+    description: Configure Network for OmniRoute
+  - name: Storage Configuration
+    description: Configure Storage for OmniRoute
+  - name: Labels Configuration
+    description: Configure Labels for OmniRoute
+  - name: Resources Configuration
+    description: Configure Resources for OmniRoute
+
+questions:
+  - variable: omniroute
+    label: ""
+    group: OmniRoute Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: jwt_secret
+          label: JWT Secret
+          description: JWT signing key for dashboard sessions. Generate with `openssl rand -base64 48`. Leave empty to auto-generate on first boot (change after).
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: api_key_secret
+          label: API Key Secret
+          description: Encryption key for API keys at rest. Generate with `openssl rand -hex 32`. Leave empty to auto-generate.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: initial_password
+          label: Initial Admin Password
+          description: Initial dashboard password. Default CHANGEME — change immediately after first login via Dashboard → Settings → Security.
+          schema:
+            type: string
+            default: CHANGEME
+            required: true
+            private: true
+        - variable: storage_encryption_key
+          label: Storage Encryption Key
+          description: Optional SQLite encryption key (hex 32). Leave empty to disable DB encryption.
+          schema:
+            type: string
+            default: ""
+            private: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: Add extra environment variables. See https://github.com/diegosouzapw/OmniRoute/blob/release/v3.8.50/.env.example for full list.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: User ID for OmniRoute data ownership.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: Group ID for OmniRoute data ownership.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI / API Port
+          description: Port for dashboard and OpenAI-compatible API (PORT). Default 20128.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: publish on host for external access.</br>
+                  - Expose: expose for inter-container only.</br>
+                  - None: do not expose.</br>
+                schema:
+                  type: string
+                  default: published
+                  enum:
+                    - value: published
+                      description: Publish port on the host for external access
+                    - value: exposed
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 20128
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on host to bind.
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: host_network
+          label: Host Network
+          description: Attach to host network.
+          schema:
+            type: boolean
+            default: false
+        - variable: networks
+          label: Networks
+          description: Extra Docker networks to join.
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: Network name must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: Containers to add to this network.
+                      schema:
+                        type: list
+                        default: []
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: string
+                              required: true
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: OmniRoute Data Storage
+          description: Stores SQLite DB, logs, backups at /app/data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: Storage type for data.
+                schema:
+                  type: string
+                  default: ix_volume
+                  enum:
+                    - value: host_path
+                      description: Host Path
+                    - value: ix_volume
+                      description: TrueNAS Dataset
+                    - value: tmpfs
+                      description: Temporary (tmpfs)
+              - variable: ix_volume_config
+                label: Dataset Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  attrs:
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        default: data
+                    - variable: create_host_path
+                      label: Create Host Path if missing
+                      schema:
+                        type: boolean
+                        default: true
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        required: true
+                    - variable: create_host_path
+                      label: Create Host Path if missing
+                      schema:
+                        type: boolean
+                        default: false
+              - variable: tmpfs_config
+                label: Tmpfs Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "tmpfs"]]
+                  attrs:
+                    - variable: size
+                      label: Size (MiB)
+                      schema:
+                        type: int
+                        default: 1024
+                        min: 100
+                        required: true
+        - variable: additional_storage
+          label: Additional Storage
+          description: Additional mounts (e.g. for custom config).
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage
+                label: Storage
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: mount_path
+                      label: Mount Path
+                      description: Path inside container.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: type
+                      label: Type
+                      schema:
+                        type: string
+                        default: ix_volume
+                        enum:
+                          - value: host_path
+                            description: Host Path
+                          - value: ix_volume
+                            description: TrueNAS Dataset
+                          - value: tmpfs
+                            description: Temporary
+                          - value: anonymous
+                            description: Anonymous Volume
+                    - variable: ix_volume_config
+                      label: Dataset Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        attrs:
+                          - variable: dataset_name
+                            label: Dataset Name
+                            schema:
+                              type: string
+                              required: true
+                          - variable: create_host_path
+                            label: Create Host Path if missing
+                            schema:
+                              type: boolean
+                              default: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: path
+                            label: Host Path
+                            schema:
+                              type: hostpath
+                              required: true
+                          - variable: create_host_path
+                            label: Create Host Path if missing
+                            schema:
+                              type: boolean
+                              default: false
+                    - variable: tmpfs_config
+                      label: Tmpfs Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "tmpfs"]]
+                        attrs:
+                          - variable: size
+                            label: Size (MiB)
+                            schema:
+                              type: int
+                              default: 1024
+                              min: 100
+                              required: true
+                    - variable: volume_config
+                      label: Volume Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "anonymous"]]
+                        attrs:
+                          - variable: nocopy
+                            label: No Copy
+                            schema:
+                              type: boolean
+                              default: false
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Resource Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                schema:
+                  type: int
+                  default: 2
+                  min: 1
+                  required: true
+              - variable: memory
+                label: Memory (MiB)
+                schema:
+                  type: int
+                  default: 2048
+                  min: 512
+                  required: true
