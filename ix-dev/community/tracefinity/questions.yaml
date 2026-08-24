@@ -1,14 +1,16 @@
 groups:
   - name: Tracefinity Configuration
     description: Configure Tracefinity Settings
-  - name: Network
-    description: Network Configuration
-  - name: Storage
-    description: Storage Configuration
-  - name: Labels
-    description: Labels Configuration
-  - name: Resources
-    description: Resources Configuration
+  - name: User and Group Configuration
+    description: Configure User and Group for Tracefinity
+  - name: Network Configuration
+    description: Configure Network for Tracefinity
+  - name: Storage Configuration
+    description: Configure Storage for Tracefinity
+  - name: Labels Configuration
+    description: Configure Labels for Tracefinity
+  - name: Resources Configuration
+    description: Configure Resources for Tracefinity
 
 questions:
   - variable: tracefinity
@@ -84,10 +86,31 @@ questions:
           schema:
             type: boolean
             default: true
-
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Tracefinity files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Tracefinity files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
   - variable: network
     label: ""
-    group: Network
+    group: Network Configuration
     schema:
       type: dict
       attrs:
@@ -99,6 +122,11 @@ questions:
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.
                 schema:
                   type: string
                   default: "published"
@@ -115,78 +143,165 @@ questions:
                   min: 1024
                   max: 65535
                   required: true
-                        - variable: container_port
-                label: Container Port
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
                 schema:
-                  type: int
-                  default: 3000
-                  hidden: true
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
-    group: Storage
+    group: Storage Configuration
     schema:
       type: dict
       attrs:
         - variable: data
           label: Tracefinity Storage
-          description: >-
-            Stores uploaded traces, generated bins, and app data
-            (mounted at /app/storage)
+          description: The path to store Tracefinity data.
           schema:
             type: dict
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
+                  required: true
                   default: "ix_volume"
                   enum:
                     - value: "host_path"
-                      description: "Host Path"
+                      description: Host Path (Path that already exists on the system)
                     - value: "ix_volume"
-                      description: "TrueNAS Dataset"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
-                label: Dataset Configuration
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
                   type: dict
                   show_if: [["type", "=", "host_path"]]
                   attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
+                        show_if: [["acl_enable", "=", false]]
                         required: true
-
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: tracefinity
+                            description: tracefinity
   - variable: resources
     label: ""
-    group: Resources
+    group: Resources Configuration
     schema:
       type: dict
       attrs:
         - variable: limits
-          label: ""
+          label: Limits
           schema:
             type: dict
             attrs:
               - variable: cpus
-                label: CPU Limit
+                label: CPUs
+                description: CPUs limit for Tracefinity.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
-                label: Memory Limit (MB)
+                label: Memory (in MB)
+                description: Memory limit for Tracefinity.
                 schema:
                   type: int
                   default: 12288
