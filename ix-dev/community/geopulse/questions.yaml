@@ -1,8 +1,6 @@
 groups:
   - name: GeoPulse Configuration
     description: Configure GeoPulse
-  - name: OwnTracks MQTT Configuration
-    description: Configure the optional bundled MQTT broker for OwnTracks only
   - name: Network Configuration
     description: Configure network access for GeoPulse
   - name: Storage Configuration
@@ -54,17 +52,28 @@ questions:
           schema:
             type: string
             default: ""
-        - variable: default_measure_unit
-          label: Default Measurement Unit
+        - variable: default_distance_unit
+          label: Default Distance Unit
           schema:
             type: string
-            default: METRIC
+            default: KILOMETERS
             required: true
             enum:
-              - value: METRIC
-                description: Metric
-              - value: IMPERIAL
-                description: Imperial
+              - value: KILOMETERS
+                description: Kilometers
+              - value: MILES
+                description: Miles
+        - variable: default_temperature_unit
+          label: Default Temperature Unit
+          schema:
+            type: string
+            default: CELSIUS
+            required: true
+            enum:
+              - value: CELSIUS
+                description: Celsius
+              - value: FAHRENHEIT
+                description: Fahrenheit
         - variable: additional_backend_envs
           label: Additional Backend Environment Variables
           schema:
@@ -105,37 +114,6 @@ questions:
                       label: Value
                       schema:
                         type: string
-
-  - variable: mqtt
-    label: ""
-    group: OwnTracks MQTT Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: enabled
-          label: Enable OwnTracks MQTT Broker
-          description: |
-            Enable only if you use OwnTracks with the MQTT protocol.</br>
-            GeoPulse does not need this broker for OwnTracks HTTP, Overland, GPSLogger, Home Assistant, Traccar, Dawarich, Colota, or file imports.
-          schema:
-            type: boolean
-            default: false
-        - variable: username
-          label: OwnTracks MQTT Admin Username
-          schema:
-            type: string
-            default: geopulse_mqtt_admin
-            required: true
-            show_if: [["enabled", "=", true]]
-        - variable: password
-          label: OwnTracks MQTT Admin Password
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-            show_if: [["enabled", "=", true]]
-
   - variable: network
     label: ""
     group: Network Configuration
@@ -164,47 +142,6 @@ questions:
                 schema:
                   type: int
                   default: 30078
-                  show_if: [["bind_mode", "=", "published"]]
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: mqtt_port
-          label: MQTT Port
-          schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                schema:
-                  type: string
-                  default: published
-                  show_if: [["mqtt.enabled", "=", true]]
-                  enum:
-                    - value: published
-                      description: Publish port on the host
-                    - value: exposed
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 1883
                   show_if: [["bind_mode", "=", "published"]]
                   min: 1
                   max: 65535
@@ -261,12 +198,8 @@ questions:
                                         description: backend
                                       - value: frontend
                                         description: frontend
-                                      - value: keygen
-                                        description: keygen
                                       - value: postgis
                                         description: postgis
-                                      - value: mosquitto
-                                        description: mosquitto
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -356,24 +289,12 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: keys
-          label: Keys Storage
+        - variable: key_material
+          label: Key Material Storage
           schema:
             <<: *storage_schema
         - variable: import_drop
           label: Import Drop Folder Storage
-          schema:
-            <<: *storage_schema
-        - variable: mosquitto_config
-          label: Mosquitto Config Storage
-          schema:
-            <<: *storage_schema
-        - variable: mosquitto_data
-          label: Mosquitto Data Storage
-          schema:
-            <<: *storage_schema
-        - variable: mosquitto_logs
-          label: Mosquitto Logs Storage
           schema:
             <<: *storage_schema
         - variable: additional_storage
@@ -496,12 +417,8 @@ questions:
                             description: backend
                           - value: frontend
                             description: frontend
-                          - value: keygen
-                            description: keygen
                           - value: postgis
                             description: postgis
-                          - value: mosquitto
-                            description: mosquitto
   - variable: resources
     label: ""
     group: Resources Configuration
