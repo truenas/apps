@@ -1,6 +1,6 @@
 groups:
   - name: HAMAL Configuration
-    description: Configure HAMAL room lifespan, storage limits, and general options
+    description: Configure HAMAL timezone, explicit URL, and environment variables
   - name: User and Group Configuration
     description: Configure User and Group permissions for HAMAL
   - name: Network Configuration
@@ -35,74 +35,13 @@ questions:
           schema:
             type: string
             default: ""
-        - variable: default_ttl
-          label: Default Room Lifespan
-          description: Default room lifespan (e.g. 1h, 30m, 6h).
-          schema:
-            type: string
-            default: "1h"
-        - variable: max_ttl
-          label: Maximum Room Lifespan
-          description: Maximum allowable lifespan for rooms (e.g. 24h, 12h).
-          schema:
-            type: string
-            default: "24h"
-        - variable: max_file_size
-          label: Maximum File Size
-          description: Maximum individual file size permitted for upload (e.g. 10GiB, 500MiB).
-          schema:
-            type: string
-            default: "10GiB"
-        - variable: max_room_size
-          label: Maximum Room Size
-          description: Maximum aggregate storage quota per room (e.g. 10GiB, 50GiB).
-          schema:
-            type: string
-            default: "10GiB"
-        - variable: max_total_storage
-          label: Global Storage Quota
-          description: Maximum global storage quota across all active rooms (e.g. 100GiB).
-          schema:
-            type: string
-            default: "100GiB"
-        - variable: min_free_space
-          label: Minimum Free Space
-          description: Minimum free space required on the storage dataset (e.g. 5GiB).
-          schema:
-            type: string
-            default: "5GiB"
-        - variable: log_level
-          label: Log Level
-          schema:
-            type: string
-            default: "info"
-            enum:
-              - value: "info"
-                description: Info (Default)
-              - value: "debug"
-                description: Debug (Detailed)
-              - value: "warn"
-                description: Warning
-              - value: "error"
-                description: Error
-        - variable: log_format
-          label: Log Format
-          schema:
-            type: string
-            default: "json"
-            enum:
-              - value: "json"
-                description: JSON (Structured)
-              - value: "text"
-                description: Plain Text
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for HAMAL.
           schema:
             type: list
             default: []
             items:
-              - variable: env
+              - variable: env_item
                 label: Environment Variable
                 schema:
                   type: dict
@@ -116,6 +55,7 @@ questions:
                       label: Value
                       schema:
                         type: string
+                        required: true
 
   - variable: run_as
     label: ""
@@ -125,19 +65,19 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user ID that HAMAL runs as and files are owned by.
+          description: The user id that HAMAL files will be owned by.
           schema:
             type: int
             min: 568
-            default: 10001
+            default: 568
             required: true
         - variable: group
           label: Group ID
-          description: The group ID that HAMAL runs as and files are owned by.
+          description: The group id that HAMAL files will be owned by.
           schema:
             type: int
             min: 568
-            default: 10001
+            default: 568
             required: true
 
   - variable: network
@@ -158,86 +98,26 @@ questions:
                   - Publish: The port will be published on the host for external access.</br>
                   - Expose: The port will be exposed for inter-container communication.</br>
                   - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: "published"
                   enum:
                     - value: "published"
-                      description: Publish port on the host for external access
+                      description: "Publish (Default)"
                     - value: "exposed"
-                      description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
+                      description: "Expose"
+                    - value: "none"
+                      description: "None"
               - variable: port_number
                 label: Port Number
                 schema:
                   type: int
-                  default: 7700
                   min: 1
                   max: 65535
+                  default: 7700
                   required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-        - variable: networks
-          label: Networks
-          description: The docker networks to join
-          schema:
-            type: list
-            show_if: [["host_network", "=", false]]
-            default: []
-            items:
-              - variable: network
-                label: Network
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: name
-                      label: Name
-                      description: |
-                        The name of the network to join.</br>
-                        The network must already exist.
-                      schema:
-                        type: string
-                        default: ""
-                        required: true
-                    - variable: containers
-                      label: Containers
-                      description: The containers to add to this network.
-                      schema:
-                        type: list
-                        items:
-                          - variable: container
-                            label: Container
-                            schema:
-                              type: dict
-                              attrs:
-                                - variable: name
-                                  label: Container Name
-                                  schema:
-                                    type: string
-                                    required: true
-                                    enum:
-                                      - value: hamal
-                                        description: hamal
-        - variable: host_network
-          label: Host Network
-          description: Bind to the host network. It is recommended to keep this disabled.
-          schema:
-            type: boolean
-            default: false
 
   - variable: storage
     label: ""
@@ -246,100 +126,94 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: HAMAL Persistent Data Storage
-          description: The dataset or volume to store HAMAL SQLite database and room files.
+          label: Data Storage
+          description: |
+            Persistent storage for HAMAL rooms, uploaded files, and SQLite database.</br>
+            Must be owned/writable by the configured User ID and Group ID.
           schema:
             type: dict
             attrs:
               - variable: type
-                label: Type
-                description: |
-                  ixVolume: Dataset created automatically by TrueNAS.</br>
-                  Host Path: Path that already exists on the system.
+                label: Storage Type
                 schema:
                   type: string
-                  required: true
                   default: "ix_volume"
                   enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
                     - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
+                      description: "ixVolume (Dataset created automatically by TrueNAS)"
+                    - value: "host_path"
+                      description: "Host Path (Existing dataset / directory)"
               - variable: ix_volume_config
                 label: ixVolume Configuration
                 schema:
                   type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
+                  show_if: [["storage.data.type", "=", "ix_volume"]]
                   attrs:
                     - variable: dataset_name
                       label: Dataset Name
                       schema:
                         type: string
                         default: "data"
+                        required: true
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
                   type: dict
-                  show_if: [["type", "=", "host_path"]]
+                  show_if: [["storage.data.type", "=", "host_path"]]
                   attrs:
-                    - variable: path
+                    - variable: host_path
                       label: Host Path
-                      description: Path on TrueNAS host storage.
                       schema:
-                        type: hostpath
+                        type: host_path
                         required: true
         - variable: additional_storage
-          label: Additional Storage
+          label: Additional Storage Mounts
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
                   attrs:
-                    - variable: type
-                      label: Type
+                    - variable: mount_path
+                      label: Mount Path in Container
                       schema:
                         type: string
                         required: true
+                    - variable: type
+                      label: Storage Type
+                      schema:
+                        type: string
                         default: "ix_volume"
                         enum:
-                          - value: "host_path"
-                            description: Host Path
                           - value: "ix_volume"
-                            description: ixVolume
-                    - variable: read_only
-                      label: Read Only
+                            description: "ixVolume (Dataset created automatically by TrueNAS)"
+                          - value: "host_path"
+                            description: "Host Path (Existing dataset / directory)"
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
                       schema:
-                        type: boolean
-                        default: false
-                    - variable: mount_path
-                      label: Mount Path
-                      schema:
-                        type: path
-                        required: true
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        attrs:
+                          - variable: dataset_name
+                            label: Dataset Name
+                            schema:
+                              type: string
+                              required: true
                     - variable: host_path_config
                       label: Host Path Configuration
                       schema:
                         type: dict
                         show_if: [["type", "=", "host_path"]]
                         attrs:
-                          - variable: path
+                          - variable: host_path
                             label: Host Path
                             schema:
-                              type: hostpath
+                              type: host_path
                               required: true
-                    - variable: ix_volume_config
-                      label: ixVolume Configuration
-                      schema:
-                        type: dict
-                        show_if: [["type", "=", "ix_volume"]]
-                        $ref:
-                          - "normalize/ix_volume"
 
   - variable: resources
     label: ""
@@ -348,17 +222,21 @@ questions:
       type: dict
       attrs:
         - variable: limits
-          label: Resource Limits
+          label: Limits
           schema:
             type: dict
             attrs:
               - variable: cpus
-                label: CPU Limit
+                label: CPUs
+                description: CPUs limit for HAMAL.
                 schema:
-                  type: string
-                  default: "2.0"
+                  type: int
+                  default: 2
+                  required: true
               - variable: memory
-                label: Memory Limit (MiB)
+                label: Memory (in MB)
+                description: Memory limit for HAMAL.
                 schema:
                   type: int
                   default: 2048
+                  required: true
