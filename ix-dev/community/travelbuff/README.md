@@ -1,3 +1,3 @@
 # TravelBuff
 
-[TravelBuff](https://actualbudget.org/) is a super fast and privacy-focused app for managing your finances.
+[TravelBuff](https://travelbuff.app/) is a self-hosted, offline-first travel planner, location tracker, and itinerary manager.
