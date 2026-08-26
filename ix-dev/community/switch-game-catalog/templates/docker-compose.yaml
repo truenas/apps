@@ -1,0 +1,40 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% set c1 = tpl.add_container(values.consts.switch_game_catalog_container_name, "image") %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("HOST", "0.0.0.0") %}
+{% do c1.environment.add_env("GAMES_DIR", values.consts.games_path) %}
+{% do c1.environment.add_env("KEYS_PATH", "%s/prod.keys"|format(values.consts.config_path)) %}
+{% do c1.environment.add_env("DB_PATH", "%s/games_db.json"|format(values.consts.config_path)) %}
+{% do c1.environment.add_user_envs(values.switch_game_catalog.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage(values.consts.games_path, values.storage.games) %}
+{% do perms.add_or_skip_action(values.consts.games_path, values.storage.games, perms_config) %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% do perms.add_or_skip_action(values.consts.config_path, values.storage.config, perms_config) %}
+
+{% do c1.add_storage(values.consts.cache_path, values.storage.cache) %}
+{% do perms.add_or_skip_action(values.consts.cache_path, values.storage.cache, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perms.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
