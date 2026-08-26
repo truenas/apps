@@ -6,17 +6,15 @@
 
 {% set outline_net = tpl.networks.create_internal("outline-net") %}
 
-{% if not values.ci %}
-  {% set auth_enabled = namespace(x=false) %}
-  {% for auth in ["oidc_auth", "slack_auth", "google_auth", "github_auth", "azure_auth", "discord_auth"] %}
-    {% if values.outline[auth].enabled %}
-      {% set auth_enabled.x = true %}
-    {% endif %}
-  {% endfor %}
-
-  {% if not auth_enabled.x %}
-    {% do tpl.funcs.fail("No auth methods enabled. Please enable and configure at least one auth method.") %}
+{% set auth_enabled = namespace(x=false) %}
+{% for auth in ["oidc_auth", "slack_auth", "google_auth", "github_auth", "azure_auth", "discord_auth"] %}
+  {% if values.outline.get(auth, {}).get("enabled", false) %}
+    {% set auth_enabled.x = true %}
   {% endif %}
+{% endfor %}
+
+{% if not auth_enabled.x %}
+  {% do tpl.notes.add_warning("No authentication method is enabled. Outline will start, but no one will be able to sign in until at least one authentication method is enabled and configured in the app configuration.") %}
 {% endif %}
 
 {% set c1 = tpl.add_container(values.consts.outline_container_name, "image") %}
