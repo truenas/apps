@@ -1,7 +1,9 @@
 {% macro config_script(values, db_url) -%}
 {%- set config_file = "%s/configuration.yaml"|format(values.consts.config_path) %}
+{%- set store_file = "%s/.storage/http"|format(values.consts.config_path) %}
 {%- set default_files_path = "/default/init" %}
 {%- set extra_files_to_create = ["automations.yaml", "scripts.yaml", "scenes.yaml"] %}
+{%- set web_port = values.network.web_port.port_number %}
 #!/bin/sh
 if [ ! -f "{{ config_file }}" ]; then
   echo "File [{{ config_file }}] does NOT exist. Creating..."
@@ -24,19 +26,66 @@ fi
 echo "Ensure DB URL is up to date [{{ db_url }}] in [{{ config_file }}]"
 yq -i '.recorder.db_url = "{{ db_url }}"' "{{ config_file }}"
 
-if ! yq --exit-status '.http' < "{{ config_file }}" &> /dev/null; then
-  echo "Section [http] does NOT exist in [{{ config_file }}]. Appending..."
-  yq -i '.http = {}' "{{ config_file }}"
+# Home Assistant 2026.8 moved the [http] config out of [{{ config_file }}] and into
+# [{{ store_file }}]. The YAML block is imported into that store exactly once, and is
+# ignored on every start after that, so which file we have to write depends on whether
+# that import has already happened. [yaml_migration_done] is the flag Home Assistant
+# sets once it has; it is absent on the pre-2026.8 store, which is a flat config dict.
+http_migrated="false"
+if [ -f "{{ store_file }}" ]; then
+  http_migrated="$(yq -p=json -o=json -I=0 '.data.yaml_migration_done // false' "{{ store_file }}" 2>/dev/null)"
 fi
 
-echo "Matching server port to configured port [{{ values.network.web_port.port_number }}] in [{{ config_file }}]"
-yq -i '.http.server_port = {{ values.network.web_port.port_number }}' "{{ config_file }}"
+if [ "$http_migrated" != "true" ]; then
+  echo "HTTP config not migrated yet. Writing [http] to [{{ config_file }}] for Home Assistant to import"
+  if ! yq --exit-status '.http' < "{{ config_file }}" &> /dev/null; then
+    echo "Section [http] does NOT exist in [{{ config_file }}]. Appending..."
+    yq -i '.http = {}' "{{ config_file }}"
+  fi
 
-{%- if values.network.certificate_id %}
-echo "Setting up ssl paths [{{ values.consts.ssl_key_path }}] and [{{ values.consts.ssl_cert_path }}] in [{{ config_file }}]"
-yq -i '.http.ssl_key = "{{ values.consts.ssl_key_path }}"' "{{ config_file }}"
-yq -i '.http.ssl_certificate = "{{ values.consts.ssl_cert_path }}"' "{{ config_file }}"
-{%- endif %}
+  echo "Matching server port to configured port [{{ web_port }}] in [{{ config_file }}]"
+  yq -i '.http.server_port = {{ web_port }}' "{{ config_file }}"
+
+  {%- if values.network.certificate_id %}
+  echo "Setting up ssl paths [{{ values.consts.ssl_key_path }}] and [{{ values.consts.ssl_cert_path }}] in [{{ config_file }}]"
+  yq -i '.http.ssl_key = "{{ values.consts.ssl_key_path }}"' "{{ config_file }}"
+  yq -i '.http.ssl_certificate = "{{ values.consts.ssl_cert_path }}"' "{{ config_file }}"
+  {%- else %}
+  echo "No certificate configured. Removing ssl paths from [{{ config_file }}]"
+  yq -i 'del(.http.ssl_key, .http.ssl_certificate)' "{{ config_file }}"
+  {%- endif %}
+else
+  echo "HTTP config lives in [{{ store_file }}]. Patching the fields this app owns"
+
+  # [stable] is the last config the user confirmed as working. [pending] is an
+  # unconfirmed one awaiting promotion; Home Assistant prefers it on the next start
+  # unless it already failed a trial, in which case [error] is set and it is never
+  # applied again. Patch both live slots so the app's settings win either way, and
+  # touch nothing else in them so anything the user staged in the UI survives.
+  # A [pending] left identical to [stable] is deliberately kept rather than cleared:
+  # Home Assistant loads it, starts its 5 minute trial, and restarts once to revert it
+  # when nobody confirms. That is preferred over this script deleting a slot the user owns.
+  echo "Matching server port to configured port [{{ web_port }}] in [{{ store_file }}]"
+  yq -p=json -o=json -i '.data.stable.server_port = {{ web_port }}' "{{ store_file }}"
+  yq -p=json -o=json -i '(.data.pending | select(. != null and .error == null)).server_port = {{ web_port }}' "{{ store_file }}"
+
+  {%- if values.network.certificate_id %}
+  echo "Setting up ssl paths [{{ values.consts.ssl_key_path }}] and [{{ values.consts.ssl_cert_path }}] in [{{ store_file }}]"
+  yq -p=json -o=json -i '.data.stable.ssl_certificate = "{{ values.consts.ssl_cert_path }}" | .data.stable.ssl_key = "{{ values.consts.ssl_key_path }}"' "{{ store_file }}"
+  yq -p=json -o=json -i '(.data.pending | select(. != null and .error == null)).ssl_certificate = "{{ values.consts.ssl_cert_path }}"' "{{ store_file }}"
+  yq -p=json -o=json -i '(.data.pending | select(. != null and .error == null)).ssl_key = "{{ values.consts.ssl_key_path }}"' "{{ store_file }}"
+  {%- else %}
+  echo "No certificate configured. Removing ssl paths from [{{ store_file }}]"
+  yq -p=json -o=json -i 'del(.data.stable.ssl_certificate, .data.stable.ssl_key)' "{{ store_file }}"
+  yq -p=json -o=json -i '(.data.pending | select(. != null and .error == null)) |= del(.ssl_certificate, .ssl_key)' "{{ store_file }}"
+  {%- endif %}
+
+  # The [http] block is ignored from here on and only raises a repair issue.
+  if yq --exit-status '.http' < "{{ config_file }}" &> /dev/null; then
+    echo "Section [http] in [{{ config_file }}] is ignored after migration. Removing..."
+    yq -i 'del(.http)' "{{ config_file }}"
+  fi
+fi
 
 echo "Done"
 {%- endmacro %}

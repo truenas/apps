@@ -51,6 +51,11 @@
 
 {% set proto = "https" if values.network.certificate_id else "http" %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/manifest.json", "scheme": proto, "spider": false}) %}
+{# Home Assistant stages an imported [http] YAML block as a *pending* config when it
+   differs from the built-in defaults, then auto-reverts it 5 minutes in if nobody
+   confirms. [SETUP_PORT] moves the port into those defaults, so a fresh install
+   imports straight to [stable] with no trial. #}
+{% do c1.environment.add_env("SETUP_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_user_envs(values.home_assistant.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
