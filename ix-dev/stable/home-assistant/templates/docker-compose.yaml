@@ -2,6 +2,23 @@
 {% from "macros/config.sh.jinja" import config_script %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% do tpl.notes.add_deprecation(
+  "This app is deprecated and will be removed in a future release. "
+  "Run Home Assistant OS in a VM instead: it gets direct access to the host network, "
+  "so mDNS/zeroconf, DHCP, SSDP/UPnP, Bluetooth, HomeKit and Thread/Matter discovery all work, "
+  "and it can run the add-on ecosystem (ESPHome, Zigbee2MQTT, Mosquitto, Node-RED) "
+  "along with Supervisor-managed updates and backups. "
+  "USB radios such as Zigbee and Z-Wave sticks can be passed through to the VM. "
+  "Use the KVM (.qcow2) image from https://www.home-assistant.io/installation/linux "
+  "and move your existing setup across by creating a full backup here first, then restoring it "
+  "during onboarding: https://www.home-assistant.io/common-tasks/general/#restoring-a-backup. "
+  "Home Assistant's backup only covers its configuration directory. This app's PostgreSQL database, "
+  "where history and long-term statistics live, is not included in it and goes away with the app. "
+  "Home Assistant OS uses SQLite for the recorder (by default), so if you want to keep that history, "
+  "migrate the database before removing this app: "
+  "https://community.home-assistant.io/t/postgresql-to-sqlite-migration-moving-back-to-sqlite/764151"
+) %}
+
 {# {% if values.home_assistant.postgres_image_selector == "postgres_17_image" %}
   {% do tpl.notes.add_deprecation("Postgres 17 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %} #}
@@ -51,6 +68,11 @@
 
 {% set proto = "https" if values.network.certificate_id else "http" %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/manifest.json", "scheme": proto, "spider": false}) %}
+{# Home Assistant stages an imported [http] YAML block as a *pending* config when it
+   differs from the built-in defaults, then auto-reverts it 5 minutes in if nobody
+   confirms. [SETUP_PORT] moves the port into those defaults, so a fresh install
+   imports straight to [stable] with no trial. #}
+{% do c1.environment.add_env("SETUP_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_user_envs(values.home_assistant.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
