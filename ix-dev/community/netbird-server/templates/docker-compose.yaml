@@ -15,6 +15,18 @@
 
 {% if values.netbird.auth_secret.endswith("=") %}{% do tpl.funcs.fail("Auth secret must not end with '='.") %}{% endif %}
 
+{% set dashboard_redirect_uris = [
+  "%s/nb-auth"|format(netbird_address.removesuffix(":443")),
+  "%s/nb-silent-auth"|format(netbird_address.removesuffix(":443")),
+] %}
+{% for addr in values.netbird.additional_dashboard_addresses %}
+  {% set dashboard_addr = tpl.funcs.url_to_dict(addr.rstrip("/")) %}
+  {% if dashboard_addr.scheme != "https" %}{% do tpl.funcs.fail("Additional dashboard address [%s] must use HTTPS."|format(addr)) %}{% endif %}
+  {% set dashboard_address = "%s://%s:%d"|format(dashboard_addr.scheme, dashboard_addr.host, dashboard_addr.port or 443) %}
+  {% do dashboard_redirect_uris.append("%s/nb-auth"|format(dashboard_address.removesuffix(":443"))) %}
+  {% do dashboard_redirect_uris.append("%s/nb-silent-auth"|format(dashboard_address.removesuffix(":443"))) %}
+{% endfor %}
+
 {% set payload = [
   {"server.dataDir": values.consts.data_path},
   {"server.store.engine": "sqlite"},
@@ -28,8 +40,7 @@
   {"server.auth.issuer": "%s/oauth2"|format(netbird_address.removesuffix(":443"))},
   {"server.auth.cliRedirectURIs[0]": "http://localhost:53000/"},
   {"server.auth.signKeyRefreshEnabled": true},
-  {"server.auth.dashboardRedirectURIs[0]": "%s/nb-auth"|format(netbird_address.removesuffix(":443"))},
-  {"server.auth.dashboardRedirectURIs[1]": "%s/nb-silent-auth"|format(netbird_address.removesuffix(":443"))},
+  {"server.auth.dashboardRedirectURIs": dashboard_redirect_uris},
 ] %}
 
 {% do cfg.set_user(values.run_as.user, values.run_as.group) %}
