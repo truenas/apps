@@ -274,7 +274,9 @@ module.exports = {
     ),
     customVersioning(
       // 0.8.1-pg18-trixie
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pg18(-\\w+)?$",
+      // The pg major (and the distro suffix) is captured as "compatibility",
+      // so a pg17 pin only ever updates to another pg17 tag of the same variant
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>pg(?:16|17|18)(?:-\\w+)?)$",
       ["pgvector/pgvector"],
     ),
     customVersioning(
