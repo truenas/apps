@@ -8,3 +8,7 @@ This app uses the community-maintained `chinabanker/comfyui-official` image
 rebuilt via GitHub Actions when upstream changes). Requires an NVIDIA GPU and a
 host driver supporting CUDA 13.0 (TrueNAS SCALE 26 with bundled driver 590.x,
 or any Linux host with a CUDA 13.0-capable driver). Supports RTX 30/40/50 series.
+
+The web UI listens on port 8188 inside the container; by default it is published
+on host port **30481** (configurable during install). ComfyUI-Manager is included
+and auto-installs its component registry on first start.
