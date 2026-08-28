@@ -1,0 +1,81 @@
+images:
+  image:
+    repository: ghcr.io/patte/zfs-autobackup
+    tag: "3.3"
+
+consts:
+  container_name: zfs-autobackup
+  config_path: /config
+  init_container_name: zfs-autobackup-init
+  init_script: |
+    #!/bin/bash
+    # Prepares the config volume before zfs-autobackup starts:
+    # ssh key, ssh config, known_hosts, autobackup property, ssh preflight.
+    set -euo pipefail
+    log() { echo "[init] $*"; }
+    d="$SSH_DIR"
+    # zfs-autobackup runs as root without DAC_OVERRIDE, so the ssh dir must be root-owned
+    mkdir -p "$d" && chown -R 0:0 "$d" && chmod 700 "$d"
+
+    if ! compgen -G "$d/id_*" >/dev/null; then
+      log "generating ssh key $d/id_ed25519"
+      ssh-keygen -q -t ed25519 -N '' -C "zfs-autobackup@truenas" -f "$d/id_ed25519"
+    fi
+    for key in "$d"/id_*; do
+      [[ "$key" == *.pub || ! -f "$key" ]] && continue
+      chmod 600 "$key"
+      [[ -f "$key.pub" ]] && log "ssh public key ($key.pub), add it to the authorized_keys on the ssh target/source:" && echo && cat "$key.pub" && echo
+    done
+    touch "$d/known_hosts"
+
+    {
+      echo "Host *"
+      echo "    ServerAliveInterval 60"
+      echo "    ServerAliveCountMax 15"
+      echo "    ControlMaster auto"
+      echo "    ControlPath /root/.ssh/cm-%r@%h:%p"
+      echo "    ControlPersist 48h"
+      echo "    StrictHostKeyChecking $STRICT_HOST_KEY_CHECKING"
+      echo "    UserKnownHostsFile $d/known_hosts"
+      for key in "$d"/id_*; do
+        [[ "$key" == *.pub || ! -f "$key" ]] && continue
+        echo "    IdentityFile $key"
+      done
+    } > "$d/config"
+
+    for ds in ${AUTOBACKUP_DATASETS//,/ }; do
+      if zfs set "autobackup:$AUTOBACKUP_NAME=true" "$ds"; then
+        log "set autobackup:$AUTOBACKUP_NAME=true on $ds"
+      else
+        log "warning: could not set autobackup:$AUTOBACKUP_NAME on $ds"
+      fi
+    done
+
+    for host in ${SSH_HOSTS//,/ }; do
+      if out=$(ssh -F "$d/config" -o BatchMode=yes -o ConnectTimeout=15 "$host" true 2>&1); then
+        log "ssh connection to $host ok"
+      else
+        rc=$?
+        out=$(grep -v '^Warning: Permanently added' <<<"$out" || true)
+        log "warning: ssh connection to $host failed: ${out:-exit code $rc}"
+      fi
+    done
+  notes_body: |
+    ## First steps
+
+    1. **SSH key**: on the first start the app generates an SSH key pair and prints the public key in the
+       app logs. It is also stored in the config storage as `ssh/id_ed25519.pub`
+       (for an ixVolume: `/mnt/<pool>/ix-apps/app_mounts/<app name>/config/ssh/id_ed25519.pub`).
+       Add it to `~/.ssh/authorized_keys` of the SSH target/source user.
+    2. **Source datasets**: the datasets listed in *Source Datasets* get the ZFS property
+       `autobackup:<Backup Name>=true`. Child datasets inherit it. Alternatively set the property yourself
+       in the TrueNAS shell: `zfs set autobackup:<Backup Name>=true <pool>/<dataset>`.
+    3. **Check the logs**: with *Run on Startup* enabled the first backup runs right away, so the logs show
+       whether the connection and the replication work.
+    4. **Get notified**: a failed run is only visible in the logs. Set a *Ping URL* (healthchecks.io style) to be
+       alerted on failed and on missing runs. The container also reports unhealthy after two consecutive failures.
+
+    The SSH host key of the target/source is pinned in `ssh/known_hosts` in the config storage.
+
+    See the [zfs-autobackup documentation](https://github.com/psy0rz/zfs_autobackup/blob/master/doc/README.md)
+    for all options; extra ones can be passed in *Additional Arguments*.

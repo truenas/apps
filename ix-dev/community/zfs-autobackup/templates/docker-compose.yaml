@@ -1,0 +1,71 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set ssh_dir = "%s/ssh" | format(values.consts.config_path) %}
+{% set ssh_hosts = [values.zab.ssh_source, values.zab.ssh_target] | select | list %}
+
+{# Init container: ssh key/config/known_hosts on the config volume, autobackup property, ssh preflight #}
+{% set init = tpl.add_container(values.consts.init_container_name, "image") %}
+{% do init.set_user(0, 0) %}
+{% do init.setup_as_helper(disable_network=false) %}
+{% do init.add_caps(["SYS_ADMIN", "CHOWN", "DAC_OVERRIDE", "FOWNER"]) %}
+{% do init.devices.add_device("/dev/zfs", "/dev/zfs") %}
+{% do init.configs.add("init_script", values.consts.init_script, "/init.sh", "0755") %}
+{% do init.set_entrypoint(["/bin/bash", "/init.sh"]) %}
+{% do init.environment.add_env("SSH_DIR", ssh_dir) %}
+{% do init.environment.add_env("SSH_HOSTS", ssh_hosts | join(",")) %}
+{% do init.environment.add_env("STRICT_HOST_KEY_CHECKING", "accept-new" if values.zab.trust_host_key_on_first_use else "yes") %}
+{% do init.environment.add_env("AUTOBACKUP_NAME", values.zab.backup_name) %}
+{% do init.environment.add_env("AUTOBACKUP_DATASETS", values.zab.source_datasets | join(",")) %}
+{% do init.add_storage(values.consts.config_path, values.storage.config) %}
+
+{# Main container: zfs-autobackup on a cron schedule #}
+{% set c1 = tpl.add_container(values.consts.container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["SYS_ADMIN"]) %}
+{% do c1.devices.add_device("/dev/zfs", "/dev/zfs") %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
+{% do c1.healthcheck.set_retries(1) %}
+{% do c1.set_grace_period(60) %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+
+{% set args = ["--ssh-config", "%s/config" | format(ssh_dir)] %}
+{% if values.zab.verbose %}
+  {% do args.append("-v") %}
+{% endif %}
+{% if values.zab.ssh_source %}
+  {% do args.extend(["--ssh-source", values.zab.ssh_source]) %}
+{% endif %}
+{% if values.zab.ssh_target %}
+  {% do args.extend(["--ssh-target", values.zab.ssh_target]) %}
+{% endif %}
+{% if values.zab.keep_source %}
+  {% do args.extend(["--keep-source", values.zab.keep_source]) %}
+{% endif %}
+{% if values.zab.keep_target %}
+  {% do args.extend(["--keep-target", values.zab.keep_target]) %}
+{% endif %}
+{% do args.extend(["--strip-path", values.zab.strip_path | string]) %}
+{% for arg in values.zab.additional_args %}
+  {% do args.append(arg) %}
+{% endfor %}
+{% do args.append(values.zab.backup_name) %}
+{% if values.zab.target_path %}
+  {% do args.append(values.zab.target_path) %}
+{% endif %}
+{% do c1.set_command(args) %}
+
+{% do c1.environment.add_env("CRON_SCHEDULE", values.zab.cron_schedule) %}
+{% do c1.environment.add_env("RUN_ON_STARTUP", values.zab.run_on_startup) %}
+{% if values.zab.ping_url %}
+  {% do c1.environment.add_env("PING_URL", values.zab.ping_url) %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.zab.additional_envs) %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}

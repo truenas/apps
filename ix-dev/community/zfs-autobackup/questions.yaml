@@ -1,0 +1,587 @@
+groups:
+  - name: zfs-autobackup Configuration
+    description: Configure zfs-autobackup
+  - name: Network Configuration
+    description: Configure Network for zfs-autobackup
+  - name: Storage Configuration
+    description: Configure Storage for zfs-autobackup
+  - name: Labels Configuration
+    description: Configure Labels for zfs-autobackup
+  - name: Resources Configuration
+    description: Configure Resources for zfs-autobackup
+
+questions:
+  - variable: TZ
+    group: zfs-autobackup Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: "Etc/UTC"
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: zab
+    label: ""
+    group: zfs-autobackup Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: backup_name
+          label: Backup Name
+          description: |
+            Name of this backup job. zfs-autobackup backs up every dataset that has the
+            ZFS property <code>autobackup:&lt;name&gt;=true</code> (child datasets inherit it).
+            Snapshots are named <code>&lt;name&gt;-&lt;timestamp&gt;</code>.
+          schema:
+            type: string
+            default: "offsite"
+            required: true
+        - variable: source_datasets
+          label: Source Datasets
+          description: |
+            Datasets to back up, e.g. <code>tank/photos</code>. On every start the app sets
+            <code>autobackup:&lt;name&gt;=true</code> on these datasets (this is never unset again,
+            use <code>zfs inherit autobackup:&lt;name&gt; &lt;dataset&gt;</code> in the shell to remove a dataset).</br>
+            Leave empty if you set the property yourself.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: dataset
+                label: Dataset
+                schema:
+                  type: string
+                  required: true
+        - variable: target_path
+          label: Target Path
+          description: |
+            Dataset to receive the backups under, e.g. <code>backup/truenas</code> (on the SSH target when set,
+            otherwise on this system).</br>
+            Leave empty to only create and thin out snapshots without replicating them.
+          schema:
+            type: string
+            default: ""
+        - variable: ssh_target
+          label: SSH Target
+          description: |
+            <code>user@host</code> to push the backups to. Leave empty to back up to a local pool.</br>
+            The public key of this app has to be added to the <code>authorized_keys</code> of that user,
+            see the notes after installation.
+          schema:
+            type: string
+            default: ""
+        - variable: ssh_source
+          label: SSH Source
+          description: |
+            <code>user@host</code> to pull the backups from. Leave empty to back up datasets of this system.
+          schema:
+            type: string
+            default: ""
+        - variable: keep_source
+          label: Keep Source
+          description: |
+            Thinning schedule for snapshots on the source, e.g. <code>10,1d1w,1w1m,1m1y</code>
+            (keep the last 10, then 1 per day for a week, 1 per week for a month, 1 per month for a year).</br>
+            See the <a href="https://github.com/psy0rz/zfs_autobackup/blob/master/doc/thinning.md">thinning documentation</a>.
+          schema:
+            type: string
+            default: "10,1d1w,1w1m,1m1y"
+        - variable: keep_target
+          label: Keep Target
+          description: Thinning schedule for snapshots on the target.
+          schema:
+            type: string
+            default: "10,1d1w,1w1m,1m1y"
+        - variable: strip_path
+          label: Strip Path
+          description: |
+            Number of leading path components to strip from the source dataset name on the target.
+            With <code>1</code>, <code>tank/photos</code> ends up as <code>&lt;target path&gt;/photos</code>.
+          schema:
+            type: int
+            default: 1
+            min: 0
+            required: true
+        - variable: verbose
+          label: Verbose
+          description: Show verbose output (<code>-v</code>) in the logs.
+          schema:
+            type: boolean
+            default: true
+        - variable: additional_args
+          label: Additional Arguments
+          description: |
+            Additional <a href="https://github.com/psy0rz/zfs_autobackup/blob/master/doc/README.md">zfs-autobackup arguments</a>,
+            one per entry, e.g. <code>--zfs-compressed</code> or <code>--exclude-received</code>.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: arg
+                label: Argument
+                schema:
+                  type: string
+                  required: true
+        - variable: cron_schedule
+          label: Cron Schedule
+          description: |
+            When to run the backup, as a cron expression (e.g. <code>0 3 * * *</code> for every day at 03:00)
+            or one of <code>@hourly</code>, <code>@daily</code>, <code>@weekly</code>.
+          schema:
+            type: string
+            default: "0 3 * * *"
+            required: true
+        - variable: run_on_startup
+          label: Run on Startup
+          description: Run the backup once immediately when the app starts (in addition to the schedule).
+          schema:
+            type: boolean
+            default: true
+        - variable: ping_url
+          label: Ping URL (Monitoring)
+          description: |
+            Optional <a href="https://healthchecks.io">healthchecks.io</a> style check URL (also supported by Uptime Kuma, Cronitor, ...).
+            It is requested with <code>/start</code> before every run, plainly after a successful run and with
+            <code>/fail</code> after a failed run, so the monitoring service can alert on failed and on missing runs.
+          schema:
+            type: string
+            default: ""
+        - variable: trust_host_key_on_first_use
+          label: Trust SSH Host Key on First Use
+          description: |
+            Accept the SSH host key of the target/source on the first connection and pin it afterwards.</br>
+            When disabled, the host key has to be added to <code>ssh/known_hosts</code> in the config storage
+            before the first run.
+          schema:
+            type: boolean
+            default: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: zfs-autobackup
+                                        description: zfs-autobackup
+                                      - value: zfs-autobackup-init
+                                        description: zfs-autobackup-init
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: config
+          label: zfs-autobackup Config Storage
+          description: Stores the SSH key and known hosts of zfs-autobackup.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "config"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: zfs-autobackup
+                            description: zfs-autobackup
+                          - value: zfs-autobackup-init
+                            description: zfs-autobackup-init
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for zfs-autobackup.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for zfs-autobackup.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
