@@ -1,0 +1,99 @@
+{% from "macros/config.yaml.jinja" import default_config, default_recorder %}
+{% from "macros/config.sh.jinja" import config_script %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% do tpl.notes.add_deprecation(
+  "This app is deprecated and will be removed in a future release. "
+  "Run Home Assistant OS in a VM instead: it gets direct access to the host network, "
+  "so mDNS/zeroconf, DHCP, SSDP/UPnP, Bluetooth, HomeKit and Thread/Matter discovery all work, "
+  "and it can run the add-on ecosystem (ESPHome, Zigbee2MQTT, Mosquitto, Node-RED) "
+  "along with Supervisor-managed updates and backups. "
+  "USB radios such as Zigbee and Z-Wave sticks can be passed through to the VM. "
+  "Use the KVM (.qcow2) image from https://www.home-assistant.io/installation/linux "
+  "and move your existing setup across by creating a full backup here first, then restoring it "
+  "during onboarding: https://www.home-assistant.io/common-tasks/general/#restoring-a-backup. "
+  "Home Assistant's backup only covers its configuration directory. This app's PostgreSQL database, "
+  "where history and long-term statistics live, is not included in it and goes away with the app. "
+  "Home Assistant OS uses SQLite for the recorder (by default), so if you want to keep that history, "
+  "migrate the database before removing this app: "
+  "https://community.home-assistant.io/t/postgresql-to-sqlite-migration-moving-back-to-sqlite/764151"
+) %}
+
+{# {% if values.home_assistant.postgres_image_selector == "postgres_17_image" %}
+  {% do tpl.notes.add_deprecation("Postgres 17 is deprecated and will be removed in the near future. Please upgrade.") %}
+{% endif %} #}
+
+{% set ha_net = tpl.networks.create_internal("home-assistant-net") %}
+
+{% set c1 = tpl.add_container(values.consts.home_assistant_container_name, "image") %}
+{% do c1.add_network(ha_net) %}
+{% set init = tpl.add_container(values.consts.init_container_name, "yq_image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% set pg_config = {
+  "user": values.home_assistant.db_user,
+  "password": values.home_assistant.db_password,
+  "database": values.home_assistant.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.home_assistant.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(ha_net) %}
+
+{% do init.set_user(0, 0) %}
+{% do init.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+{% do init.setup_as_helper() %}
+
+{% do init.configs.add("empty.default", "{}", "/default/init/empty.default") %}
+{% do init.configs.add("configuration.default", default_config(), "/default/init/configuration.default") %}
+{% do init.configs.add("recorder.default", default_recorder(postgres.get_url("postgresql")), "/default/init/recorder.default") %}
+{% do init.configs.add("script.sh", config_script(values, postgres.get_url("postgresql")), "/default/init/script.sh", "0755") %}
+
+{% do init.set_entrypoint(["/bin/sh", "/default/init/script.sh"]) %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "NET_BIND_SERVICE", "NET_RAW"]) %}
+
+{% for device in values.home_assistant.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{% set proto = "https" if values.network.certificate_id else "http" %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/manifest.json", "scheme": proto, "spider": false}) %}
+{# Home Assistant stages an imported [http] YAML block as a *pending* config when it
+   differs from the built-in defaults, then auto-reverts it 5 minutes in if nobody
+   confirms. [SETUP_PORT] moves the port into those defaults, so a fresh install
+   imports straight to [stable] with no trial. #}
+{% do c1.environment.add_env("SETUP_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_user_envs(values.home_assistant.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% for port in values.network.additional_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{% do c1.add_storage("/media", values.storage.media) %}
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% do init.add_storage(values.consts.config_path, values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": proto}) %}
+
+{{ tpl.render() | tojson }}

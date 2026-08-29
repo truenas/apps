@@ -1,0 +1,27 @@
+{%- macro config_script(values, opts) -%}
+#!/bin/sh
+{%- set config_file = "%s/config.d/config.yaml"|format(values.consts.data_path) %}
+mkdir -p "{{ values.consts.data_path }}/config.d"
+if [ ! -f "{{ config_file }}" ]; then
+  echo "File [{{ config_file }}] does NOT exist. Creating..."
+  touch "{{ config_file }}"
+fi
+
+{%- set dummy_endpoint = {
+    "name": "dummy",
+    "url": "http://127.0.0.1:%d/health"|format(values.network.web_port.port_number),
+    "conditions": ["[STATUS] == 200"]
+} -%}
+
+{%- for key, value in opts.items() %}
+echo "Setting [{{ key }}] to [{{ value|tojson }}] in [{{ config_file }}]"
+yq -i '.{{ key }} = {{ value|tojson }}' "{{ config_file }}"
+{%- endfor %}
+
+hasEndpoints=$(yq '. | has("endpoints")' "{{ config_file }}")
+hasSuites=$(yq '. | has("suites")' "{{ config_file }}")
+if [ "$hasEndpoints" != "true" ] && [ "$hasSuites" != "true" ]; then
+  echo "No endpoints or suites found in [{{ config_file }}]. Adding a dummy one..."
+  yq -i '.endpoints = [{{ dummy_endpoint|tojson }}]' "{{ config_file }}"
+fi
+{%- endmacro %}

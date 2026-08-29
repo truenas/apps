@@ -1,0 +1,24 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.satisfactory_container_name, "image") %}
+
+{% do c1.healthcheck.set_custom_test(["CMD", "/home/steam/healthcheck.sh"]) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+
+{# https://github.com/wolveix/satisfactory-server/issues/364 #}
+{% do c1.environment.add_env("ROOTLESS", false) %}
+{% do c1.environment.add_env("SERVERIP", "0.0.0.0") %}
+{% do c1.environment.add_env("SERVERGAMEPORT", values.network.game_port.port_number) %}
+{% do c1.environment.add_env("SERVERMESSAGINGPORT", values.network.messaging_port.port_number) %}
+{% do c1.environment.add_user_envs(values.satisfactory.additional_envs) %}
+
+{% do c1.add_port(values.network.game_port) %}
+{% do c1.add_port(values.network.game_port, {"protocol": "udp"}) %}
+{% do c1.add_port(values.network.messaging_port) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}

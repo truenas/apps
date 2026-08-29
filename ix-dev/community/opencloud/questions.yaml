@@ -38,6 +38,37 @@ questions:
             type: uri
             default: ""
             required: true
+        - variable: extra_hosts
+          label: Extra Hosts
+          description: |
+            Additional host-to-IP mappings to add to the container's /etc/hosts file.</br>
+            This might be needed if you use a reverse proxy and your network setup
+            does not resolve the hostname to the IP of your reverse proxy inside your network.
+
+            If the reverse proxy is the same machine, you can use `host-gateway` instead of the actual IP address.</br>
+
+            Example for reverse proxy on the same machine with an Application URL of https://cloud.example.com:</br>
+            Hostname: cloud.example.com</br>
+            IP Address: host-gateway
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: extra_host
+                label: Extra Host
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: hostname
+                      label: Hostname
+                      schema:
+                        type: string
+                        required: true
+                    - variable: ip_address
+                      label: IP Address
+                      schema:
+                        type: string
+                        required: true
         - variable: insecure
           label: Insecure Access
           description: |
@@ -109,6 +140,8 @@ questions:
                       description: Collabora Online
                     - value: "onlyoffice"
                       description: OnlyOffice
+                    - value: "eurooffice"
+                      description: Euro-Office
               - variable: url
                 label: URL
                 description: The URL of the collaboration application. (e.g. https://collabora.example.com)
@@ -126,10 +159,12 @@ questions:
                   default: false
               - variable: jwt_secret
                 label: JWT Secret
-                description: The JWT secret for OnlyOffice authentication. It must match the secret configured in the OnlyOffice server.
+                description:
+                  The JWT secret for OnlyOffice/Euro-Office authentication. It must match the
+                  secret configured in the OnlyOffice/Euro-Office server.
                 schema:
                   type: string
-                  show_if: [["enabled", "=", true], ["type", "=", "onlyoffice"]]
+                  show_if: [["enabled", "=", true], ["type", "!=", "collabora"]]
                   default: ""
                   private: true
                   required: true
@@ -222,18 +257,23 @@ questions:
           schema:
             type: dict
             attrs:
+              - variable: arcade
+                label: Arcade
+                schema:
+                  type: boolean
+                  default: true
+              - variable: calculator
+                label: Calculator
+                schema:
+                  type: boolean
+                  default: false
+              - variable: cast
+                label: Cast
+                schema:
+                  type: boolean
+                  default: true
               - variable: drawio
                 label: Draw.io
-                schema:
-                  type: boolean
-                  default: true
-              - variable: progress_bars
-                label: Progress Bars
-                schema:
-                  type: boolean
-                  default: true
-              - variable: json_viewer
-                label: JSON Viewer
                 schema:
                   type: boolean
                   default: true
@@ -242,18 +282,13 @@ questions:
                 schema:
                   type: boolean
                   default: true
-              - variable: unzip
-                label: Unzip
+              - variable: importer
+                label: Importer
                 schema:
                   type: boolean
                   default: true
-              - variable: cast
-                label: Cast
-                schema:
-                  type: boolean
-                  default: true
-              - variable: arcade
-                label: Arcade
+              - variable: json_viewer
+                label: JSON Viewer
                 schema:
                   type: boolean
                   default: true
@@ -262,8 +297,18 @@ questions:
                 schema:
                   type: boolean
                   default: true
-              - variable: importer
-                label: Importer
+              - variable: pastebin
+                label: Pastebin
+                schema:
+                  type: boolean
+                  default: false
+              - variable: progress_bars
+                label: Progress Bars
+                schema:
+                  type: boolean
+                  default: true
+              - variable: unzip
+                label: Unzip
                 schema:
                   type: boolean
                   default: true
@@ -608,7 +653,9 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description:
+                                          Indicates in which order Compose connects the service's containers
+                                          to its networks.
                                         schema:
                                           type: int
                                           "null": true

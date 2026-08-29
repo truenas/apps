@@ -1,0 +1,27 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.uptime_kuma_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["NET_RAW"]) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "extra/healthcheck"]) %}
+
+{% do c1.add_storage("/app/data", values.storage.data) %}
+{% if values.uptime_kuma.mount_docker_socket %}
+  {% do c1.add_docker_socket() %}
+{% endif %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("UPTIME_KUMA_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("UPTIME_KUMA_DB_TYPE", "sqlite") %}
+
+{% do c1.environment.add_user_envs(values.uptime_kuma.additional_envs) %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

@@ -1,0 +1,90 @@
+groups:
+  - name: Configuration
+    description: Remote Assist is used by iX Support for Enterprise troubleshooting
+  - name: Storage Configuration
+    description: Configure Storage for Tailscale
+
+questions:
+  - variable: remote_assist
+    label: ""
+    group: Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: hostname
+          label: System Identifier
+          description: |
+            Identifier for this System.</br>
+            One will be given to you by iX Support.
+          schema:
+            type: string
+            default: "truenas-scale"
+            valid_chars: "^[a-z0-9-]+$"
+            valid_chars_error: |
+              Only lowercase letters, numbers, and hyphens are allowed.
+            required: true
+        - variable: auth_key
+          label: Auth Key
+          description: |
+            The auth key for Remote Assistance.</br>
+            Please enter the key as provided by iX support.</br>
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      hidden: true
+      attrs:
+        - variable: state
+          label: Tailscale State Storage
+          description: The path to store Tailscale State.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "state"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []

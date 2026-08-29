@@ -1,0 +1,31 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    values["network"]["http_port"] = {
+        "port_number": values["network"].get("http_port", 30034),
+        "bind_mode": "published" if values["network"]["enable_http"] else "",
+        "host_ips": [],
+    }
+    values["network"]["https_port"] = {
+        "port_number": values["network"].get("https_port", 30035),
+        "bind_mode": "published" if values["network"]["enable_https"] else "",
+        "host_ips": [],
+    }
+    values["network"].pop("enable_http", None)
+    values["network"].pop("enable_https", None)
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

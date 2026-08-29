@@ -1,0 +1,69 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    values["network"]["web_port"] = {
+        "port_number": values["network"]["web_port"],
+        "bind_mode": "published",
+        "host_ips": [],
+    }
+    values["network"]["sftpd_services"] = [
+        {
+            "enabled": s["enabled"],
+            "port": {
+                "port_number": s["port"],
+                "bind_mode": "published",
+                "host_ips": [],
+            },
+        }
+        for s in values["network"]["sftpd_services"]
+    ]
+
+    values["network"]["webdavd_services"] = [
+        {
+            "enabled": s["enabled"],
+            "port": {
+                "port_number": s["port"],
+                "bind_mode": "published",
+                "host_ips": [],
+            },
+        }
+        for s in values["network"]["webdavd_services"]
+    ]
+
+    values["network"]["ftpd_services"] = [
+        {
+            "enabled": s["enabled"],
+            "port": {
+                "port_number": s["port"],
+                "bind_mode": "published",
+                "host_ips": [],
+            },
+        }
+        for s in values["network"]["ftpd_services"]
+    ]
+
+    if values["network"].get("ftpd_passive_port_range", {}):
+        values["network"]["ftpd_passive_port_range"] = {
+            "bind_mode": "published",
+            "start": values["network"]["ftpd_passive_port_range"]["start"],
+            "end": values["network"]["ftpd_passive_port_range"]["end"],
+            "host_ips": [],
+        }
+    else:
+        values["network"].pop("ftpd_passive_port_range", None)
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

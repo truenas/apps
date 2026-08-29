@@ -102,6 +102,10 @@
 {% set url = tpl.funcs.url_to_dict(opencloud_url, true) %}
 {% if url.scheme != "https" %}{% do tpl.funcs.fail("The app URL must be HTTPS") %}{% endif %}
 
+{% for entry in values.opencloud.extra_hosts %}
+  {% do c1.add_extra_host(entry.hostname, entry.ip_address) %}
+{% endfor %}
+
 {% do c1.environment.add_env("OC_URL", opencloud_url) %}
 {% do c1.environment.add_env("OC_INSECURE", values.opencloud.insecure) %}
 {% do c1.environment.add_env("OC_JWT_SECRET", values.opencloud.jwt_secret) %}
@@ -138,11 +142,17 @@
     {% do c1.environment.add_env("COLLABORATION_APP_NAME", "CollaboraOnline") %}
     {% do c1.environment.add_env("COLLABORATION_APP_PRODUCT", "Collabora") %}
     {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/favicon.ico"|format(collaboration_url)) %}
-  {% elif values.opencloud.collaboration.type == "onlyoffice" %}
-    {% do c1.environment.add_env("COLLABORATION_APP_NAME", "OnlyOffice") %}
+  {% elif values.opencloud.collaboration.type in ["onlyoffice", "eurooffice"] %}
+    {% if values.opencloud.collaboration.type == "onlyoffice" %}
+      {% do c1.environment.add_env("COLLABORATION_APP_NAME", "OnlyOffice") %}
+    {% elif values.opencloud.collaboration.type == "eurooffice" %}
+      {% do c1.environment.add_env("COLLABORATION_APP_NAME", "Euro-Office") %}
+    {% endif %}
+
+    {# https://github.com/opencloud-eu/opencloud/blob/573844ada4fac154dea92f85a8ce4fa324b81688/services/collaboration/pkg/config/app.go#L6 #}
     {% do c1.environment.add_env("COLLABORATION_APP_PRODUCT", "OnlyOffice") %}
     {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/web-apps/apps/documenteditor/main/resources/img/favicon.ico"|format(collaboration_url)) %}
-    {% do c1.environment.add_env("COLLABORATION_JWT_SECRET", values.opencloud.collaboration.jwt_secret) %}
+    {% do c1.environment.add_env("COLLABORATION_WOPI_SECRET", values.opencloud.collaboration.jwt_secret) %}
   {% endif %}
 {% endif %}
 

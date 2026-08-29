@@ -31,7 +31,7 @@ if [[ -z "$update_type" ]]; then
   exit 1
 fi
 
-if grep "$app_path" "$log_path"; then
+if grep -Fx "$app_path" "$log_path"; then
   update_type=""
 fi
 

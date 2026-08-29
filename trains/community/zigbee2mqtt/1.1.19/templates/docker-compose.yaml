@@ -1,0 +1,52 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.zigbee_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.add_caps(["NET_BIND_SERVICE"]) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number}) %}
+
+{% do c1.environment.add_env("Z2M_ONBOARD_URL", "http://0.0.0.0:%d"|format(values.network.web_port.port_number)) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_DATA", values.consts.data_path) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_FRONTEND_ENABLED", true) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_FRONTEND_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_FRONTEND_HOST", "0.0.0.0") %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_MQTT_BASE_TOPIC", values.zigbee2mqtt.mqtt.topic) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_MQTT_SERVER", values.zigbee2mqtt.mqtt.server) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_MQTT_USER", values.zigbee2mqtt.mqtt.user) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD", values.zigbee2mqtt.mqtt.password) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_SERIAL_PORT", values.zigbee2mqtt.serial.port) %}
+{% do c1.environment.add_env("ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER", values.zigbee2mqtt.serial.adapter) %}
+{% do c1.environment.add_user_envs(values.zigbee2mqtt.additional_envs) %}
+
+{% if not values.zigbee2mqtt.serial.port.startswith("/dev/serial/by-id/") and not values.zigbee2mqtt.serial.port.startswith("tcp://") %}
+  {% do tpl.funcs.fail("Zigbee2mqtt serial port must start with [/dev/serial/by-id/], [tcp://] or [mdns://]") %}
+{% endif %}
+
+{% if values.zigbee2mqtt.serial.port.startswith("/dev/serial/by-id/") %}
+  {% do c1.add_group(20) %} {# dialout group for usb devices #}
+  {% do c1.add_udev(read_only=True) %}
+  {% do c1.devices.add_device(values.zigbee2mqtt.serial.port, values.zigbee2mqtt.serial.port) %}
+{% endif %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}

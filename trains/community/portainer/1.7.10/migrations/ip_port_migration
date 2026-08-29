@@ -1,0 +1,29 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    values["network"]["web_port"] = {
+        "port_number": values["network"]["web_port"],
+        "bind_mode": "published",
+        "host_ips": [],
+    }
+    values["network"]["tunnel_port"] = {
+        "port_number": values["network"].get("tunnel_port", 31016),
+        "bind_mode": "published" if values["network"].get("tunnel_enabled") else "",
+        "host_ips": [],
+    }
+    values["network"].pop("tunnel_enabled", None)
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

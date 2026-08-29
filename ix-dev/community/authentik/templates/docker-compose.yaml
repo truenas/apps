@@ -13,16 +13,6 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-
-{% if values.storage.uses_deprecated_media %}
-  {% set is_install = values.get("ix_context", {}).get("is_install", False) %}
-  {% if is_install %}
-    {% do tpl.funcs.fail("Cannot use deprecated media storage in new installs. Please disable it and try again.") %}
-  {% endif %}
-
-  {% do tpl.notes.add_deprecation("Using the deprecated media storage, see https://github.com/truenas/apps/pull/3928 for migration instructions") %}
-{% endif %}
-
 {% set pg_config = {
   "user": values.consts.db_user,
   "password": values.authentik.db_password,
@@ -72,10 +62,6 @@
   {% do c.add_storage(values.consts.data_base_path, values.storage.data) %}
   {% do c.add_storage("/templates", values.storage.templates) %}
   {% do c.add_storage("/certs", values.storage.certs) %}
-  {% if values.storage.uses_deprecated_media %}
-    {# FIXME: Deprecated, to be removed in a future release #}
-    {% do c.add_storage("%s/media"|format(values.consts.data_base_path), values.storage.media) %}
-  {% endif %}
 
   {% for store in values.storage.additional_storage %}
     {% do c.add_storage(store.mount_path, store) %}
@@ -99,10 +85,6 @@
 {% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
 {% do perm_container.add_or_skip_action("templates", values.storage.templates, perm_config) %}
 {% do perm_container.add_or_skip_action("certs", values.storage.certs, perm_config) %}
-{% if values.storage.uses_deprecated_media %}
-  {# FIXME: Deprecated, to be removed in a future release #}
-  {% do perm_container.add_or_skip_action("media", values.storage.media, perm_config) %}
-{% endif %}
 {% for store in values.storage.additional_storage %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
 {% endfor %}

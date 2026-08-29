@@ -1,0 +1,37 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set proto = "https" if values.network.use_https else "http" %}
+
+{% set c1 = tpl.add_container(values.consts.mineos_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.set_grace_period(values.mineos.stop_grace_period) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/admin/login.html", "scheme": proto}) %}
+
+{% do c1.environment.add_env("USER_UID", values.run_as.user) %}
+{% do c1.environment.add_env("GROUP_GID", values.run_as.group) %}
+{% do c1.environment.add_env("GROUP_NAME", values.mineos.username) %}
+{% do c1.environment.add_env("USER_NAME", values.mineos.username) %}
+{% do c1.environment.add_env("USER_PASSWORD", values.mineos.password) %}
+{% do c1.environment.add_env("SERVER_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("USE_HTTPS", values.network.use_https|string|lower) %}
+{% do c1.environment.add_user_envs(values.mineos.additional_envs) %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, "/etc/ssl/certs/mineos.key") %}
+  {% do c1.configs.add("public", cert.certificate, "/etc/ssl/certs/mineos.crt") %}
+{% endif %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% for port in values.network.additional_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{% do c1.add_storage("/var/games/minecraft", values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": proto}) %}
+
+{{ tpl.render() | tojson }}

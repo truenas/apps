@@ -1,0 +1,55 @@
+{% macro haproxy_config(container_names, values) -%}
+defaults
+    timeout connect 10s
+    timeout client 150s
+    timeout server 150s
+    mode tcp
+
+frontend dssys_admin
+    maxconn 100
+    bind :4404        name dsadmin
+    default_backend   dssys_nodes
+
+frontend dssys_client
+    maxconn 3000
+    bind :4401        name dscln
+    default_backend   dssys_servers
+
+frontend dssys_group_client
+    maxconn 3000
+    bind :4409        name dsgroup
+    default_backend   dssys_groups
+
+{% if values.network.billing_port.bind_mode %}
+frontend dssys_billing_client
+    maxconn 100
+    bind :4415        name dsbilling
+    default_backend   dssys_billing
+{% endif %}
+
+backend dssys_nodes
+    balance leastconn
+  {%- for c in container_names %}
+    server {{ c }} {{ c }} send-proxy-v2 check inter 4s port 4404
+  {%- endfor %}
+
+backend dssys_servers
+    balance leastconn
+  {%- for c in container_names %}
+    server {{ c }} {{ c }} send-proxy-v2 check inter 4s port 4401
+  {%- endfor %}
+
+backend dssys_groups
+    balance leastconn
+  {%- for c in container_names %}
+    server {{ c }} {{ c }} send-proxy-v2 check inter 4s port 4409
+  {%- endfor %}
+
+{% if values.network.billing_port.bind_mode %}
+backend dssys_billing
+    balance leastconn
+  {%- for c in container_names %}
+    server {{ c }} {{ c }} send-proxy-v2 check inter 4s port 4415
+  {%- endfor %}
+{% endif %}
+{% endmacro %}
