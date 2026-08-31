@@ -1,0 +1,45 @@
+name: ScarletX PR Selector Migration
+
+on:
+  push:
+    branches: [scarletx-community-app]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v5
+        with:
+          ref: scarletx-community-app
+
+      - name: Replace legacy single-container selectors
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("ix-dev/community/scarletx/questions.yaml")
+          text = path.read_text(encoding="utf-8")
+          old = """                                      - value: scarletx
+                                        description: scarletx"""
+          new = """                                      - value: scarletx-backend
+                                        description: scarletx-backend
+                                      - value: scarletx-web
+                                        description: scarletx-web"""
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f"Expected 2 legacy ScarletX container selectors, found {count}")
+          path.write_text(text.replace(old, new), encoding="utf-8")
+          PY
+
+      - name: Commit migrated selectors and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/scarletx-pr-selector-migration.yml
+          git add ix-dev/community/scarletx/questions.yaml
+          git commit -m "Update ScarletX container selectors"
+          git push origin HEAD:scarletx-community-app
