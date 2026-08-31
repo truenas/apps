@@ -388,6 +388,13 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
       ["ghcr.io/zammad/zammad"],
     ),
+    customVersioning(
+      // 4.5.6 or 4.5.3.2, each with an optional "-full" variant.
+      // The variant is captured as "compatibility" so a plain pin never
+      // jumps to a -full tag. The ubuntu-* tags are intentionally skipped.
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?(-(?<compatibility>full))?$",
+      ["nicolargo/glances"],
+    ),
   ],
 };
 
