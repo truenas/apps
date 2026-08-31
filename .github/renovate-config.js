@@ -180,12 +180,12 @@ module.exports = {
     customVersioning(
       // 1.1.11-1 or 1.1.11
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
-      ["rustdesk/rustdesk-server"],
+      ["rustdesk/rustdesk-server", "ghcr.io/openclaw/openclaw"],
     ),
     customVersioning(
-      // 9.0.2-stable
+      // 9.1.2-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
-      ["lmscommunity/lyrionmusicserver"],
+      [" ghcr.io/lms-community/lyrionmusicserver"],
     ),
     customVersioning(
       // 2.1.0.3-stable
@@ -274,7 +274,9 @@ module.exports = {
     ),
     customVersioning(
       // 0.8.1-pg18-trixie
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-pg18(-\\w+)?$",
+      // The pg major (and the distro suffix) is captured as "compatibility",
+      // so a pg17 pin only ever updates to another pg17 tag of the same variant
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>pg(?:16|17|18)(?:-\\w+)?)$",
       ["pgvector/pgvector"],
     ),
     customVersioning(
@@ -376,6 +378,11 @@ module.exports = {
       // v0.1.7-alpha(.1)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpha(\\.(?<build>\\d+))?$",
       ["ghcr.io/whiteassassins/ae-netscope"],
+    ),
+    customVersioning(
+      // 6.5.2-81
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
+      ["ghcr.io/zammad/zammad"],
     ),
   ],
 };
