@@ -12,17 +12,15 @@ module.exports = {
   platform: "github",
   // https://docs.renovatebot.com/self-hosted-configuration/#repositories
   repositories: ["truenas/apps"],
-  // https://docs.renovatebot.com/self-hosted-configuration/#allowpostupgradecommandtemplating
-  allowPostUpgradeCommandTemplating: true,
-  // https://docs.renovatebot.com/self-hosted-configuration/#allowedpostupgradecommands
+  // https://docs.renovatebot.com/self-hosted-configuration/#allowedcommands
   // TODO: Restrict this.
-  allowedPostUpgradeCommands: ["^.*"],
+  allowedCommands: ["^.*"],
   enabledManagers: ["custom.regex", "github-actions"],
   customManagers: [
     {
       customType: "regex",
       // Match only ix_values.yaml files in the ix-dev directory
-      fileMatch: ["^ix-dev/.*/ix_values\\.yaml$"],
+      managerFilePatterns: ["/^ix-dev/.*/ix_values\\.yaml$/"],
       // Matches the repository name and the tag of each image
       matchStrings: [
         "\\s{4}repository: (?<depName>[^\\s]+)\\n\\s{4}tag: [\"']?(?<currentValue>[^\\s\"']+)[\"']?",
@@ -65,12 +63,18 @@ module.exports = {
       matchUpdateTypes: ["minor"],
       groupName: "updates-patch-minor",
       labels: ["minor"],
+      // Assembling the changelogs for this group stalls renovate for ~60s,
+      // long enough for the pooled connection to api.github.com to go stale,
+      // which makes the POST /pulls that follows fail with EPIPE/ECONNRESET.
+      // https://docs.renovatebot.com/configuration-options/#fetchchangelogs
+      fetchChangeLogs: "off",
     },
     {
       matchDatasources: ["docker"],
       matchUpdateTypes: ["patch"],
       groupName: "updates-patch-minor",
       labels: ["patch"],
+      fetchChangeLogs: "off",
     },
     {
       matchDatasources: ["docker"],
@@ -383,6 +387,13 @@ module.exports = {
       // 6.5.2-81
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
       ["ghcr.io/zammad/zammad"],
+    ),
+    customVersioning(
+      // 4.5.6 or 4.5.3.2, each with an optional "-full" variant.
+      // The variant is captured as "compatibility" so a plain pin never
+      // jumps to a -full tag. The ubuntu-* tags are intentionally skipped.
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?(-(?<compatibility>full))?$",
+      ["nicolargo/glances"],
     ),
   ],
 };
