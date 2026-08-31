@@ -2,13 +2,13 @@
 
 ScarletX is a self-hosted adult scene management and automation platform focused on scenes, performers, studios, TPDB metadata, monitoring, downloading, imports, and local-library playback.
 
-This TrueNAS Community Apps definition deploys the official ScarletX container from GitHub Container Registry and exposes the ScarletX web interface.
+This TrueNAS Community Apps definition deploys the official ScarletX 0.3.8 backend and Nginx web containers from GitHub Container Registry. Nginx is the only public HTTP entrypoint; the FastAPI backend remains private on the app network.
 
-Persistent storage is available for:
+Persistent storage is attached to the backend for:
 
 - `/config` — database, cache, generated artwork, and application state
 - `/downloads` — incomplete, completed, and failed downloads
 - `/media` — permanent scene library
 - `/backups` — database backups
 
-ScarletX runs as a configurable non-root user/group by default and does not require additional Linux capabilities.
+Additional ixVolume, host-path, SMB/CIFS, and NFS mounts remain available for the backend. ScarletX containers run as a configurable non-root user/group by default and do not require additional Linux capabilities.
