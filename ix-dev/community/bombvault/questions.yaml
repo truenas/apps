@@ -6,7 +6,7 @@ groups:
   - name: BombVault Configuration
     description: Configure BombVault
   - name: VM Backup Configuration
-    description: Optional — back up KVM/libvirt VMs on a libvirtd host reached over SSH
+    description: Optional. Backs up KVM/libvirt VMs on a libvirtd host reached over SSH
   - name: Network Configuration
     description: Configure Network for BombVault
   - name: Storage Configuration
@@ -37,7 +37,7 @@ questions:
         - variable: app_key
           label: App Key
           description: |
-            REQUIRED. 64 lowercase hex characters — generate with
+            REQUIRED. 64 lowercase hex characters. Generate with
             `openssl rand -hex 32`.</br>
             Master key for secrets and the derived restic repository
             password. Losing it makes encrypted backups unrecoverable.
@@ -50,7 +50,7 @@ questions:
         - variable: http_only
           label: HTTP Only
           description: |
-            Serve plain HTTP instead of HTTPS — only for use behind a
+            Serve plain HTTP instead of HTTPS. Only for use behind a
             TLS-terminating reverse proxy. Off (recommended) = HTTPS with a
             self-signed certificate out of the box. On = plain HTTP on the
             HTTP port below instead (the HTTPS port is not served). NOTE:
@@ -74,18 +74,11 @@ questions:
         - variable: self_container_name
           label: BombVault's Own Container Name (advanced)
           description: |
-            So BombVault never backs up (and thus stops) itself. SET THIS
-            on TrueNAS, do not leave it empty. Automatic detection looks up
-            the container whose NAME matches this container's hostname, and
-            this app pins the hostname to "bombvault" (restic's stale-lock
-            detection needs one that survives a container recreation) while
-            TrueNAS names the real container after the app instance:
-            ix-<app name>-bombvault-1. Verified on TrueNAS SCALE 25.10.0:
-            detection does not find this container, and if some OTHER
-            container on the box happens to be named "bombvault", it
-            identifies THAT one as itself instead. Find the real name in the
-            TrueNAS shell with `docker ps --filter name=bombvault` and enter
-            it here exactly.
+            So BombVault never backs up itself. Set this on TrueNAS rather
+            than leaving it empty: auto-detection matches the container name
+            against this container's hostname, and TrueNAS names the real
+            container ix-&lt;app name&gt;-bombvault-1. Find it with
+            `docker ps --filter name=bombvault` and enter it exactly.
           schema:
             type: string
             default: ""
@@ -126,7 +119,7 @@ questions:
             value (replace user/host):</br>
             `qemu+ssh://root@<truenas-host>/system?socket=/run/truenas_libvirt/libvirt-sock`</br>
             Leave empty to build the connection string from the three
-            fields below instead — that Unraid-style default does NOT
+            fields below instead. That Unraid-style default does not
             work against TrueNAS Scale's libvirtd.
           schema:
             type: string
@@ -271,7 +264,7 @@ questions:
       attrs:
         - variable: config
           label: Config Storage
-          description: BombVault's own state — SQLite DB, TLS certificate, restic cache.
+          description: BombVault's own state: SQLite DB, TLS certificate, restic cache.
           schema:
             type: dict
             attrs:
@@ -344,38 +337,17 @@ questions:
         - variable: host_data
           label: Host Data
           description: |
-            REQUIRED. A real, already-existing host path holding the data
-            you want backed up, normally the pool or dataset your other
-            apps live under, for example /mnt/tank. It is mounted into the
-            container at a fixed internal location, and BombVault is told
-            the real host-side path (via HOST_SOURCE_ROOT) so it can
-            translate the bind-mount sources Docker reports for other
-            containers into that internal location.
-
-            Two limits are worth knowing before you pick a path. TrueNAS
-            does not allow mounting /mnt itself, so choose a pool or
-            dataset below it. And apps left on the default ixVolume
-            storage keep their data under /mnt/.ix-apps, which also cannot
-            be mounted, so for those apps BombVault can back up the
-            container and its definition but not that data. Apps you have
-            configured with host-path storage are fully covered.
-
-            Deliberately not offered as an ixVolume: a fresh, empty,
-            auto-created dataset would contain none of your existing data.
+            An existing host path holding the data you want backed up,
+            normally the pool or dataset your other apps live under, for
+            example /mnt/tank. /mnt itself cannot be mounted, so pick a
+            pool or dataset below it.
+            Apps left on ixVolume storage keep their data under
+            /mnt/.ix-apps, which also cannot be mounted: for those,
+            BombVault backs up the container and its definition but not
+            that data. Apps on host-path storage are fully covered.
           schema:
             type: hostpath
             required: true
-        - variable: host_data_create
-          label: Create the Host Data path if it does not exist
-          description: |
-            Leave this off for a normal install. The path should already
-            exist, and creating it silently would turn a typo into an
-            empty directory that backs up nothing. It exists mainly so an
-            automated deploy test can run against a path it creates
-            itself.
-          schema:
-            type: boolean
-            default: false
         - variable: additional_storage
           label: Additional Storage
           schema:
@@ -519,7 +491,7 @@ questions:
                 label: Memory (in MB)
                 description: |
                   Memory limit for BombVault. Restic can be memory-hungry
-                  on very large backup sets — raise this if large backups
+                  on very large backup sets. Raise this if large backups
                   are OOM-killed.
                 schema:
                   type: int
