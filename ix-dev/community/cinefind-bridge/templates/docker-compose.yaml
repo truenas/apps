@@ -1,9 +1,9 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 {% set bridge = tpl.add_container(values.consts.bridge_container_name, "image") %}
 {% set permissions = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": 568, "gid": 568, "mode": "check"} %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% do bridge.set_user(568, 568) %}
+{% do bridge.set_user(values.run_as.user, values.run_as.group) %}
 {% do bridge.environment.add_env("CINEFIND_PAIRING_CODE", values.bridge.pairing_code) %}
 {% do bridge.environment.add_env("SEERR_URL", values.bridge.seerr_url) %}
 {% do bridge.environment.add_env("SEERR_API_KEY", values.bridge.seerr_api_key) %}
@@ -12,9 +12,15 @@
 {% do bridge.environment.add_env("SONARR_URL", values.bridge.sonarr_url) %}
 {% do bridge.environment.add_env("SONARR_API_KEY", values.bridge.sonarr_api_key) %}
 {% do bridge.environment.add_env("CINEFIND_BRIDGE_NAME", values.bridge.display_name) %}
-{% do bridge.healthcheck.set_custom_test("python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)\"") %}
+{% do bridge.environment.add_user_envs(values.bridge.additional_envs) %}
+{% do bridge.healthcheck.set_custom_test("python -c \"import socket; connection = socket.create_connection(('127.0.0.1', 8080), 3); connection.close()\"") %}
 {% do bridge.add_storage(values.consts.data_path, values.storage.data) %}
 {% do permissions.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do bridge.add_storage(store.mount_path, store) %}
+  {% do permissions.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
 
 {% if permissions.has_actions() %}
   {% do permissions.activate() %}
