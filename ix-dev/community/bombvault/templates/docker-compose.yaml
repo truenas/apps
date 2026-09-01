@@ -1,0 +1,137 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{# BombVault's image ships no USER directive (see the source repo's
+   Dockerfile) and always runs as root: it needs unrestricted read/write
+   access to arbitrary host paths (other containers' appdata, owned by many
+   different users/groups) and root-equivalent control of the Docker socket.
+   No permissions/perms container either: root needs none of the chown-style
+   fixups that container needs to perform. #}
+{% set c1 = tpl.add_container(values.consts.bombvault_container_name, "image") %}
+
+{# Explicit, matching the image's actual default (no USER directive = root)
+   and app.yaml's run_as_context — same as the urbackup community app
+   (c1.set_user(0,0)). Functionally identical to leaving this unset (the
+   image already defaults to root either way), but the render's own
+   generated x-notes security summary otherwise shows "User: unknown /
+   Group: unknown" instead of clearly stating root, which is worse for a
+   TrueNAS user reviewing that notice before installing a root-equivalent
+   app. #}
+{% do c1.set_user(0, 0) %}
+
+{# The library drops ALL capabilities by default regardless of which user
+   the container runs as (cap_drop: [ALL], unconditional) — running as root
+   (uid 0, see above) does NOT get any of them back implicitly. BombVault
+   genuinely needs some of them back: restic backup/restore reads and
+   restores original ownership/permissions on arbitrary host files it does
+   not own (CHOWN to restore original uid/gid, FOWNER + DAC_OVERRIDE to
+   read/write those files and change their mode regardless of owner).
+   Baseline matches the urbackup community app (another root-only backup
+   tool under this same library): CHOWN, DAC_OVERRIDE, FOWNER, SETGID,
+   SETUID. Deliberately NOT adding SETFCAP/SYS_CHROOT (rsyncd's larger set)
+   — BombVault does not set file capabilities or chroot, so that would be
+   over-granting. #}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+
+{# A fixed hostname, so restic can recognise a lock left by a previous
+   incarnation of this container as its own; Docker would otherwise hand out a
+   new random hostname on every recreate. The cost is that BombVault's
+   self-detection (which looks up the container whose name matches its
+   hostname) then misses the real container, since TrueNAS names it after the
+   app instance. That is what bombvault.self_container_name is for, and its
+   description says so. #}
+{% do c1.set_hostname(values.consts.bombvault_container_name) %}
+
+{# The image's own Dockerfile HEALTHCHECK already runs this exact command
+   (`bombvault healthcheck`, which reads /api/health internally over
+   whichever scheme/port this same process is actually serving) — the
+   runtime image carries neither curl nor wget (both are installed only to
+   fetch build artifacts and purged again in the same Dockerfile layer), so
+   a curl/wget-based test() variant would fail. Reusing the app's own binary
+   instead needs no extra tool, exactly like the netbird/tailscale community
+   apps use their own CLI as the health probe. #}
+{% do c1.healthcheck.set_custom_test(["CMD", "/usr/local/bin/bombvault", "healthcheck"]) %}
+{# set_custom_test() only overrides the command — interval/timeout/retries/
+   start_period keep the library's own defaults (30s/5s/5/15s) unless
+   overridden separately. The Dockerfile's own HEALTHCHECK deliberately
+   uses --start-period=40s ("covers the cold start: store open + first
+   sweep") and --retries=3; interval (30s) and timeout (5s) already match
+   the library defaults, so only these two need an explicit override to
+   preserve the image's real intent instead of silently reverting to the
+   library's generic default. #}
+{% do c1.healthcheck.set_start_period(40) %}
+{% do c1.healthcheck.set_retries(3) %}
+
+{% do c1.environment.add_env("APP_KEY", values.bombvault.app_key) %}
+{# Declares the platform explicitly instead of relying on auto-detection —
+   internal/platform/detect.go's auto-detect only recognizes Unraid (by
+   probing for an Unraid-only marker file) and otherwise falls back to
+   generic. A TrueNAS Apps deployment should be unambiguous about which
+   platform it's declaring itself as, exactly like this app's generic-
+   Docker-host compose file explicitly sets PLATFORM: generic rather than
+   relying on auto-detect. Not exposed as a question: it must always be
+   "truenas" for this catalog entry. #}
+{% do c1.environment.add_env("PLATFORM", "truenas") %}
+{% do c1.environment.add_env("HOST_SOURCE_ROOT", values.storage.host_data) %}
+{% do c1.environment.add_env("HTTP_ONLY", values.bombvault.http_only) %}
+{% if values.bombvault.backup_max_hours is not none %}
+  {% do c1.environment.add_env("BACKUP_MAX_HOURS", values.bombvault.backup_max_hours) %}
+{% endif %}
+{% if values.bombvault.self_container_name %}
+  {% do c1.environment.add_env("BOMBVAULT_SELF_CONTAINER", values.bombvault.self_container_name) %}
+{% endif %}
+
+{# VM backup (optional, opt-in). LIBVIRT_HOST/SSH_USER/SSH_PORT match
+   internal/config/config.go's own defaults, so always setting them here is
+   harmless even when VM backup is unused. LIBVIRT_URI, when set, is used
+   verbatim by BombVault and these three are then ignored for the connection
+   string itself — see internal/config/config.go's doc comment on LibvirtURI
+   and docs/vm-backup-ssh-setup.md's "TrueNAS Scale" section in the source
+   repo. #}
+{% if values.vm_backup.libvirt_uri %}
+  {% do c1.environment.add_env("LIBVIRT_URI", values.vm_backup.libvirt_uri) %}
+{% endif %}
+{% do c1.environment.add_env("LIBVIRT_HOST", values.vm_backup.libvirt_host) %}
+{% do c1.environment.add_env("LIBVIRT_SSH_USER", values.vm_backup.libvirt_ssh_user) %}
+{% do c1.environment.add_env("LIBVIRT_SSH_PORT", values.vm_backup.libvirt_ssh_port) %}
+
+{% do c1.environment.add_user_envs(values.bombvault.additional_envs) %}
+
+{# Only needed when VM Backup Host is left at its host.docker.internal
+   default (i.e. libvirtd runs on this same Docker host) — resolves that
+   name to the host's gateway IP. Harmless to always add. #}
+{% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
+
+{# Must be read-write, not read-only: BombVault's whole reason for needing
+   the socket is to STOP, RECREATE and START other containers around backup
+   and restore, not just inspect them — a read_only=True bind would leave
+   the socket reachable but reject exactly those write calls. #}
+{% do c1.add_docker_socket(read_only=False) %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+
+{# Host Data is a plain host path, not an ixVolume (questions.yaml says why),
+   built by hand into the IxStorage shape add_storage() expects — the same
+   pattern rsyncd and webdav use for their real-host-path mounts, including
+   reading create_host_path from the values rather than pinning it. #}
+{% set host_data_cfg = {
+  "type": "host_path",
+  "host_path_config": {
+    "path": values.storage.host_data,
+    "create_host_path": values.storage.get("host_data_create", false),
+  },
+} %}
+{% do c1.add_storage(values.consts.host_data_path, host_data_cfg) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_https_port}) %}
+  {% do c1.add_port(values.network.http_port, {"container_port": values.consts.internal_http_port}) %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"name": "WebUI (HTTPS)", "scheme": "https", "port": values.consts.internal_https_port if values.network.host_network else None}) %}
+{% do tpl.portals.add(values.network.http_port, {"name": "WebUI (HTTP, only if HTTP Only is on)", "scheme": "http", "port": values.consts.internal_http_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}

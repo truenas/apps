@@ -1,0 +1,527 @@
+# There is no "User and Group Configuration" group here on purpose: the image
+# has no USER directive and always runs as root, so there is no uid/gid for the
+# operator to choose. CONTRIBUTIONS.md allows skipping the group in that case.
+
+groups:
+  - name: BombVault Configuration
+    description: Configure BombVault
+  - name: VM Backup Configuration
+    description: Optional — back up KVM/libvirt VMs on a libvirtd host reached over SSH
+  - name: Network Configuration
+    description: Configure Network for BombVault
+  - name: Storage Configuration
+    description: Configure Storage for BombVault
+  - name: Labels Configuration
+    description: Configure Labels for BombVault
+  - name: Resources Configuration
+    description: Configure Resources for BombVault
+
+questions:
+  - variable: TZ
+    group: BombVault Configuration
+    label: Timezone
+    description: Timezone for BombVault's scheduler.
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: bombvault
+    label: ""
+    group: BombVault Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: app_key
+          label: App Key
+          description: |
+            REQUIRED. 64 lowercase hex characters — generate with
+            `openssl rand -hex 32`.</br>
+            Master key for secrets and the derived restic repository
+            password. Losing it makes encrypted backups unrecoverable.
+          schema:
+            type: string
+            required: true
+            private: true
+            valid_chars: "^[0-9a-f]{64}$"
+            valid_chars_error: "App Key must be exactly 64 lowercase hex characters (0-9, a-f)."
+        - variable: http_only
+          label: HTTP Only
+          description: |
+            Serve plain HTTP instead of HTTPS — only for use behind a
+            TLS-terminating reverse proxy. Off (recommended) = HTTPS with a
+            self-signed certificate out of the box. On = plain HTTP on the
+            HTTP port below instead (the HTTPS port is not served). NOTE:
+            when on, use the HTTP port's portal/URL, not the HTTPS one.
+          schema:
+            type: boolean
+            default: false
+        - variable: backup_max_hours
+          label: Backup Max Hours (advanced)
+          description: |
+            Maximum wall-clock hours a single backup run may hold its
+            domain lock before it is force-cancelled (a guard so a wedged
+            run cannot block the domain forever). Leave empty for the 48h
+            default. Raise it for very large or slow cloud backups (a run
+            cancelled at the cap fails with "context deadline exceeded").
+            Set 0 to disable the cap entirely.
+          schema:
+            type: int
+            "null": true
+            default: null
+        - variable: self_container_name
+          label: BombVault's Own Container Name (advanced)
+          description: |
+            So BombVault never backs up (and thus stops) itself. SET THIS
+            on TrueNAS, do not leave it empty. Automatic detection looks up
+            the container whose NAME matches this container's hostname, and
+            this app pins the hostname to "bombvault" (restic's stale-lock
+            detection needs one that survives a container recreation) while
+            TrueNAS names the real container after the app instance:
+            ix-<app name>-bombvault-1. Verified on TrueNAS SCALE 25.10.0:
+            detection does not find this container, and if some OTHER
+            container on the box happens to be named "bombvault", it
+            identifies THAT one as itself instead. Find the real name in the
+            TrueNAS shell with `docker ps --filter name=bombvault` and enter
+            it here exactly.
+          schema:
+            type: string
+            default: ""
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: vm_backup
+    label: ""
+    group: VM Backup Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: libvirt_uri
+          label: Libvirt Connection URI (most TrueNAS Scale users need this)
+          description: |
+            Used verbatim as the libvirt connection string instead of
+            building one from Host/SSH User/SSH Port below. Needed because
+            TrueNAS Scale's libvirtd listens on a non-standard socket path
+            that the built-string form has no way to express. Typical
+            value (replace user/host):</br>
+            `qemu+ssh://root@<truenas-host>/system?socket=/run/truenas_libvirt/libvirt-sock`</br>
+            Leave empty to build the connection string from the three
+            fields below instead — that Unraid-style default does NOT
+            work against TrueNAS Scale's libvirtd.
+          schema:
+            type: string
+            default: ""
+        - variable: libvirt_host
+          label: VM Backup Host (only used when Connection URI above is empty)
+          schema:
+            type: string
+            default: host.docker.internal
+        - variable: libvirt_ssh_user
+          label: VM Backup SSH User (only used when Connection URI above is empty)
+          schema:
+            type: string
+            default: root
+        - variable: libvirt_ssh_port
+          label: VM Backup SSH Port (only used when Connection URI above is empty)
+          schema:
+            type: int
+            default: 22
+            min: 1
+            max: 65535
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port (HTTPS)
+          description: The BombVault WebUI (HTTPS, self-signed cert out of the box). This is the port you open.
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 3443
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: http_port
+          label: WebUI Port (HTTP)
+          description: |
+            Plain-HTTP port. Only used when HTTP Only above is set to on
+            (i.e. behind a TLS-terminating reverse proxy). Leave at the
+            default otherwise.
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 3000
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: config
+          label: Config Storage
+          description: BombVault's own state — SQLite DB, TLS certificate, restic cache.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "config"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: host_data
+          label: Host Data
+          description: |
+            REQUIRED. A real, already-existing host path holding the data
+            you want backed up, normally the pool or dataset your other
+            apps live under, for example /mnt/tank. It is mounted into the
+            container at a fixed internal location, and BombVault is told
+            the real host-side path (via HOST_SOURCE_ROOT) so it can
+            translate the bind-mount sources Docker reports for other
+            containers into that internal location.
+
+            Two limits are worth knowing before you pick a path. TrueNAS
+            does not allow mounting /mnt itself, so choose a pool or
+            dataset below it. And apps left on the default ixVolume
+            storage keep their data under /mnt/.ix-apps, which also cannot
+            be mounted, so for those apps BombVault can back up the
+            container and its definition but not that data. Apps you have
+            configured with host-path storage are fully covered.
+
+            Deliberately not offered as an ixVolume: a fresh, empty,
+            auto-created dataset would contain none of your existing data.
+          schema:
+            type: hostpath
+            required: true
+        - variable: host_data_create
+          label: Create the Host Data path if it does not exist
+          description: |
+            Leave this off for a normal install. The path should already
+            exist, and creating it silently would turn a typo into an
+            empty directory that backs up nothing. It exists mainly so an
+            automated deploy test can run against a path it creates
+            itself.
+          schema:
+            type: boolean
+            default: false
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      schema:
+                        type: string
+                        required: true
+                        default: "host_path"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                    - variable: read_only
+                      label: Read Only
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: bombvault
+                            description: bombvault
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for BombVault.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: |
+                  Memory limit for BombVault. Restic can be memory-hungry
+                  on very large backup sets — raise this if large backups
+                  are OOM-killed.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
