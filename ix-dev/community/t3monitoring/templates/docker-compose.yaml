@@ -14,39 +14,18 @@
 } %}
 {% set mariadb_container = tpl.deps.mariadb(values.consts.mariadb_container_name, "mariadb_image", mariadb_config, perm_container) %}
 {% do mariadb_container.container.add_network(t3_net) %}
-{# The fixture DB predates utf8mb4 and expects classic utf8/utf8_unicode_ci;
-   deps.mariadb() only sets --port by default, so re-set the full command. #}
-{% do mariadb_container.container.set_command(["--port", "3306", "--character-set-server=utf8", "--collation-server=utf8_unicode_ci"]) %}
 
-{% set web = tpl.add_container(values.consts.web_container_name, "image") %}
+{% set web = tpl.add_container(values.consts.t3monitoring_container_name, "image") %}
 {% do web.add_network(t3_net) %}
 {% set scheduler = tpl.add_container(values.consts.scheduler_container_name, "image") %}
 {% do scheduler.add_network(t3_net) %}
 
-{# Both containers run the same image and need the same TYPO3 runtime config.
-   Neither gets set_user() here: the image's own ENTRYPOINT starts as root
-   (Apache needs that to bind port 80) and drops privileges to www-data
-   itself via setpriv — see deploy/docker-entrypoint.sh in the app repo. #}
 {% set containers = [web, scheduler] %}
 {% for c in containers %}
-  {# Containers default to cap_drop: [ALL], which breaks that privilege drop:
-     Apache fails with "AH02156: setgid: unable to set group id to Group 33"
-     and keeps its workers running as root, while the scheduler dies on
-     "setpriv: setresuid failed". SETUID/SETGID are what let both drop to
-     www-data as intended — dropping privileges needs the capability to do so.
-     CHOWN is for the entrypoint's ownership fix-up: redundant when the
-     permissions container ran (ix_volume storage), but the only thing that
-     makes the mounts writable if it didn't (host_path storage). #}
   {% do c.add_caps(["CHOWN", "SETUID", "SETGID"]) %}
   {% do c.depends.add_dependency(values.consts.mariadb_container_name, "service_healthy") %}
   {% do c.environment.add_env("TYPO3_CONTEXT", "Production") %}
-  {# config/sites/main/config.yaml has base: 'https://%env(SERVER_NAME)%/'. Without
-     this the base resolves to 'https:///', no site matches the request, and the
-     frontend 500s. #}
   {% do c.environment.add_env("SERVER_NAME", values.t3monitoring.server_name) %}
-  {# Off by default: TrueNAS's WebUI portal opens http://<node-ip>:<port>/typo3/, and
-     lockSSL would 302 that to https://<node-ip>/typo3/ — dropping the port, so it
-     lands on nothing. Turn on only when every route terminates TLS in front. #}
   {% do c.environment.add_env("TYPO3_BE_LOCKSSL", "1" if values.t3monitoring.force_backend_https else "0") %}
   {% do c.environment.add_env("TYPO3_DB_HOST", values.consts.mariadb_container_name) %}
   {% do c.environment.add_env("TYPO3_DB_PORT", 3306) %}
@@ -54,8 +33,6 @@
   {% do c.environment.add_env("TYPO3_DB_PASSWORD", values.t3monitoring.db_password) %}
   {% do c.environment.add_env("TYPO3_DB_DBNAME", values.consts.db_name) %}
   {% do c.environment.add_env("TYPO3_SYS_ENCRYPTIONKEY", values.t3monitoring.encryption_key) %}
-  {# The image hashes this at boot if it is not already an argon2i/bcrypt hash,
-     so the user can type a normal password into the form. #}
   {% do c.environment.add_env("TYPO3_BE_INSTALLTOOLPASSWORD", values.t3monitoring.install_tool_password) %}
   {% do c.environment.add_env("TYPO3_BE_ADMIN_USER", values.t3monitoring.admin_user) %}
   {% do c.environment.add_env("TYPO3_BE_ADMIN_PASSWORD", values.t3monitoring.admin_password) %}
@@ -73,42 +50,24 @@
   {% endfor %}
 {% endfor %}
 
-{# Register each ix_volume's permission-fix action once, not once per
-   container that mounts it — deps_perms rejects duplicate identifiers. #}
 {% do perm_container.add_or_skip_action("fileadmin", values.storage.fileadmin, perms_config) %}
 {% do perm_container.add_or_skip_action("var-log", values.storage.var_log, perms_config) %}
 {% for store in values.storage.additional_storage %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{# A fresh install has an empty database, which TYPO3 cannot serve from: the
-   image's entrypoint creates the schema on first boot. Only this container does
-   it — both containers run the same image against the same database, and
-   concurrent DDL from two of them corrupts the schema. #}
 {% do web.environment.add_env("T3M_DB_AUTO_SETUP", "1") %}
 
-{# Deliberately not a tcp probe. Apache accepts connections long before TYPO3 can
-   answer, so a port check reports healthy while every request 500s — which is
-   exactly how a completely unusable app passed CI before. Ask for the backend
-   over HTTP instead, with the Host header the site configuration expects. #}
 {% do web.healthcheck.set_test("curl", {
   "port": values.consts.internal_web_port,
   "path": "/typo3/",
   "headers": [["Host", values.t3monitoring.server_name]],
 }) %}
-{# First boot runs schema creation and extension setup before Apache starts, so
-   the container is legitimately unresponsive for a while. #}
 {% do web.healthcheck.set_start_period(300) %}
 {% if not values.network.web_port.bind_mode == "" %}
   {% do web.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% endif %}
 
-{# t3monitoring's monitoring checks run as TYPO3 scheduler tasks — without
-   this container, the app just sits there and nothing gets monitored. #}
-{# A failing run must not kill the loop — one bad task should not stop monitoring
-   — but it must not vanish either. `|| true` swallowed the failure entirely,
-   which is how "table tx_scheduler_task doesn't exist" went unnoticed on every
-   fresh install. Log it and keep going. #}
 {% do scheduler.set_command(["sh", "-c", "while true; do vendor/bin/typo3 scheduler:run || echo \"scheduler:run failed with exit $?\" >&2; sleep 60; done"]) %}
 {% do scheduler.healthcheck.disable() %}
 
