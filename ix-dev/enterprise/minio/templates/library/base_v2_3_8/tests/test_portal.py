@@ -31,7 +31,6 @@ def test_add_portal_with_host_ips(mock_values):
     port1 = {"bind_mode": "published", "port_number": 8080, "host_ips": ["1.2.3.4", "5.6.7.8"]}
     port2 = {"bind_mode": "published", "port_number": 8081, "host_ips": ["::", "0.0.0.0"]}
     port3 = {"bind_mode": "published", "port_number": 8081, "host_ips": ["1.2.3.4"]}
-    port3 = {"bind_mode": "published", "port_number": 8081, "host_ips": ["1.2.3.4"]}
     port4 = {"bind_mode": "exposed", "port_number": 1234, "host_ips": ["1.2.3.4"]}
     render.portals.add(port1)
     render.portals.add(port1, {"name": "test1", "host": "my-host.com"})

@@ -28,7 +28,6 @@ class Notes:
 
         self._auto_set_app_name()
         self._auto_set_app_train()
-        self._auto_set_header()
         self._auto_set_footer()
 
     def _is_enterprise_train(self):
@@ -43,9 +42,6 @@ class Notes:
         app_train = self._render_instance.values.get("ix_context", {}).get("app_metadata", {}).get("train", "")
         self._app_train = app_train or "<app_train>"
 
-    def _auto_set_header(self):
-        self._header = f"# {self._app_name}\n\n"
-
     def _auto_set_footer(self):
         url = "https://github.com/truenas/apps"
         if self._is_enterprise_train():
@@ -54,6 +50,13 @@ class Notes:
         footer += "If you find a bug in this app or have an idea for a new feature, please file an issue at\n"
         footer += f"{url}\n"
         self._footer = footer
+
+    def _set_header(self):
+        header = f"# {self._app_name}"
+        if len(self._warnings) > 0 or len(self._deprecations) > 0:
+            header += " ⚠️"
+
+        self._header = f"{header}\n\n"
 
     def add_info(self, info: str):
         self._info.append(info)
@@ -67,16 +70,25 @@ class Notes:
     def add_deprecation(self, deprecation: str):
         self._deprecations.append(deprecation)
 
+    def has_deprecations(self) -> bool:
+        return len(self._deprecations) > 0
+
+    def has_warnings(self) -> bool:
+        return len(self._warnings) > 0
+
     def set_body(self, body: str):
         self._body = body
 
     def get_pretty_host_mount(self, hm: str) -> tuple[str, bool]:
         hm = hm.rstrip("/")
         mapping = {
+            "/dev": "Device Directory",
             "/dev/bus/usb": "USB Devices",
             "/dev/net/tun": "TUN Device",
             "/dev/snd": "Sound Device",
             "/dev/fuse": "Fuse Device",
+            "/dev/hugepages": "Huge Pages",
+            "/dev/cpu": "CPU Device",
             "/dev/uinput": "UInput Device",
             "/dev/dvb": "DVB Devices",
             "/dev/dri": "DRI Device",
@@ -85,6 +97,9 @@ class Notes:
             "/etc/group": "Group File",
             "/etc/passwd": "Password File",
             "/etc/hostname": "Hostname File",
+            "/lib/modules": "Kernel Modules",
+            "/proc": "Process Information",
+            "/sys": "System Information",
             "/var/run/docker.sock": "Docker Socket",
             "/var/run/utmp": "UTMP",
             "/var/run/dbus": "DBus Socket",
@@ -139,6 +154,12 @@ class Notes:
                         ],
                     )
                 )
+
+            networks = []
+            for net in c.networks._networks.values():
+                networks.append(net._name)
+            if networks:
+                self._security[name].append(Security(header="Joined networks", items=networks))
 
             run_as_sec_items = []
             user, group = c._user.split(":") if c._user else [-1, -1]
@@ -223,18 +244,19 @@ class Notes:
         self._security = {k: v for k, v in self._security.items() if v}
 
     def render(self):
+        self._set_header()
         self.scan_containers()
 
         result = self._header
 
         if self._warnings:
-            result += "## Warnings\n\n"
+            result += "## Warnings ⚠️\n\n"
             for warning in self._warnings:
                 result += f"- {warning}\n"
             result += "\n"
 
         if self._deprecations:
-            result += "## Deprecations\n\n"
+            result += "## Deprecations ⚠️\n\n"
             for deprecation in self._deprecations:
                 result += f"- {deprecation}\n"
             result += "\n"

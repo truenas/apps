@@ -42,6 +42,14 @@ class Devices:
     def add_usb_bus(self):
         self.add_device("/dev/bus/usb", "/dev/bus/usb", allow_disallowed=True)
 
+    def add_dri_device(self):
+        # If it was added via auto add, skip
+        # we need this func in some edge cases where /dev/dri is needed for nvidia
+        if "/dev/dri" in self._container_device_paths:
+            return
+
+        self.add_device("/dev/dri", "/dev/dri", allow_disallowed=True)
+
     def _add_snd_device(self):
         self.add_device("/dev/snd", "/dev/snd", allow_disallowed=True)
 
