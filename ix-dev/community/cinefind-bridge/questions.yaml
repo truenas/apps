@@ -22,66 +22,12 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-
   - variable: bridge
     label: ""
     group: CineFind Bridge Configuration
     schema:
       type: dict
       attrs:
-        - variable: pairing_code
-          label: CineFind Pairing Code
-          description: Create this one-time 10-character code in CineFind Account → CineFind Bridge. It expires after 15 minutes.
-          schema:
-            type: string
-            default: ''
-            required: true
-            private: true
-        - variable: seerr_url
-          label: Local Seerr URL (Optional)
-          description: Your local Seerr URL, for example http://192.168.178.195:5055. Leave both Seerr fields empty if unused.
-          schema:
-            type: string
-            default: ''
-            required: false
-        - variable: seerr_api_key
-          label: Seerr API Key (Optional)
-          description: Create this key in Seerr. It stays inside this TrueNAS app and is never sent to CineFind.
-          schema:
-            type: string
-            default: ''
-            required: false
-            private: true
-        - variable: radarr_url
-          label: Local Radarr URL (Optional)
-          description: Your local Radarr URL, for example http://192.168.178.195:7878. Used for movie requests.
-          schema:
-            type: string
-            default: ''
-            required: false
-        - variable: radarr_api_key
-          label: Radarr API Key (Optional)
-          description: Found under Radarr Settings → General → Security. It stays local and is never sent to CineFind.
-          schema:
-            type: string
-            default: ''
-            required: false
-            private: true
-        - variable: sonarr_url
-          label: Local Sonarr URL (Optional)
-          description: Your local Sonarr URL, for example http://192.168.178.195:8989. Used for series requests.
-          schema:
-            type: string
-            default: ''
-            required: false
-        - variable: sonarr_api_key
-          label: Sonarr API Key (Optional)
-          description: Found under Sonarr Settings → General → Security. It stays local and is never sent to CineFind.
-          schema:
-            type: string
-            default: ''
-            required: false
-            private: true
         - variable: display_name
           label: Device Name
           description: A friendly name shown in your CineFind account.
@@ -90,6 +36,53 @@ questions:
             default: TrueNAS
             max_length: 80
             required: true
+        - variable: pairing_code
+          label: CineFind Pairing Code
+          description: Create this one-time 10-character code in CineFind Account → CineFind Bridge. It expires after 15 minutes.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: seerr_url
+          label: Local Seerr URL (Optional)
+          description: Your local Seerr URL, for example http://192.168.178.195:5055. Leave both Seerr fields empty if unused.
+          schema:
+            type: uri
+            default: ""
+        - variable: seerr_api_key
+          label: Seerr API Key (Optional)
+          description: Create this key in Seerr. It stays inside this TrueNAS app and is never sent to CineFind.
+          schema:
+            type: string
+            default: ""
+            private: true
+        - variable: radarr_url
+          label: Local Radarr URL (Optional)
+          description: Your local Radarr URL, for example http://192.168.178.195:7878. Used for movie requests.
+          schema:
+            type: uri
+            default: ""
+        - variable: radarr_api_key
+          label: Radarr API Key (Optional)
+          description: Found under Radarr Settings → General → Security. It stays local and is never sent to CineFind.
+          schema:
+            type: string
+            default: ""
+            private: true
+        - variable: sonarr_url
+          label: Local Sonarr URL (Optional)
+          description: Your local Sonarr URL, for example http://192.168.178.195:8989. Used for series requests.
+          schema:
+            type: uri
+            default: ""
+        - variable: sonarr_api_key
+          label: Sonarr API Key (Optional)
+          description: Found under Sonarr Settings → General → Security. It stays local and is never sent to CineFind.
+          schema:
+            type: string
+            default: ""
+            private: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -110,7 +103,6 @@ questions:
                       label: Value
                       schema:
                         type: string
-
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -225,19 +217,17 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
         - variable: host_network
           label: Host Network
           description: |
-            Bind to the host network.</br>
-            Enable this only when local services are not reachable through the default container network.
+            Bind to the host network. It's recommended to keep this disabled.
           schema:
             type: boolean
             default: false
-
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -245,7 +235,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Bridge Data Storage
+          label: Data Storage
           description: Stores a revocable device token. Do not delete it unless you intend to pair again.
           schema:
             type: dict
@@ -258,20 +248,20 @@ questions:
                 schema:
                   type: string
                   required: true
-                  default: ix_volume
+                  default: "ix_volume"
                   enum:
-                    - value: ix_volume
-                      description: ixVolume (managed by TrueNAS)
-                    - value: host_path
-                      description: Host Path (an existing TrueNAS directory)
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
                 description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
-                  show_if: [[type, '=', ix_volume]]
+                  show_if: [["type", "=", "ix_volume"]]
                   $ref:
-                    - normalize/ix_volume
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
@@ -284,22 +274,20 @@ questions:
                       description: The name of the dataset to use for storage.
                       schema:
                         type: string
-                        hidden: true
-                        default: data
                         required: true
+                        hidden: true
+                        default: "data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
                         type: dict
-                        show_if: [[acl_enable, '=', true]]
-                        $ref:
-                          - normalize/acl
+                        show_if: [["acl_enable", "=", true]]
                         attrs: []
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
                   type: dict
-                  show_if: [[type, '=', host_path]]
+                  show_if: [["type", "=", "host_path"]]
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
@@ -311,25 +299,24 @@ questions:
                       label: ACL Configuration
                       schema:
                         type: dict
-                        show_if: [[acl_enable, '=', true]]
-                        $ref:
-                          - normalize/acl
+                        show_if: [["acl_enable", "=", true]]
                         attrs: []
+                        $ref:
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
                       description: The host path to use for storage.
                       schema:
                         type: hostpath
-                        show_if: [[acl_enable, '=', false]]
+                        show_if: [["acl_enable", "=", false]]
                         required: true
-
         - variable: additional_storage
           label: Additional Storage
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -480,7 +467,7 @@ questions:
                               type: string
                               required: true
   - variable: labels
-    label: ''
+    label: ""
     group: Labels Configuration
     schema:
       type: list
@@ -503,7 +490,7 @@ questions:
                   required: true
               - variable: containers
                 label: Containers
-                description: Containers where the label should be applied.
+                description: Containers where the label should be applied
                 schema:
                   type: list
                   items:
@@ -514,9 +501,9 @@ questions:
                         required: true
                         enum:
                           - value: cinefind-bridge
-                            description: CineFind Bridge
+                            description: cinefind-bridge
   - variable: resources
-    label: ''
+    label: ""
     group: Resources Configuration
     schema:
       type: dict
@@ -528,15 +515,15 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPU limit for CineFind Bridge.
+                description: CPUs limit for CineFind Bridge.
                 schema:
                   type: int
-                  default: 1
+                  default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
                 description: Memory limit for CineFind Bridge.
                 schema:
                   type: int
-                  default: 256
+                  default: 4096
                   required: true
