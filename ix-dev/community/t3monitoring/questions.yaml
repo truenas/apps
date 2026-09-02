@@ -16,7 +16,7 @@ questions:
     label: Timezone
     schema:
       type: string
-      default: Europe/Berlin
+      default: Etc/UTC
       required: true
       $ref:
         - definitions/timezone
@@ -27,6 +27,20 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: db_password
+          label: Database Password
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: db_root_password
+          label: Root Database Password
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
         - variable: server_name
           label: Server Name
           description: |
@@ -52,22 +66,6 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: db_password
-          label: Database Password
-          description: The database password for t3monitoring.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-        - variable: db_root_password
-          label: Root Database Password
-          description: The root database password for MariaDB.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
         - variable: encryption_key
           label: TYPO3 Encryption Key
           description: |
@@ -147,15 +145,18 @@ questions:
       attrs:
         - variable: web_port
           label: WebUI Port
-          description: |
-            Plain HTTP only — TYPO3 trusts X-Forwarded-Proto from whatever
-            reverse proxy you put in front of this for TLS. See
-            deploy/README-TrueNAS.md in the t3monitoring-dev repo.
           schema:
             type: dict
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: "published"
@@ -170,8 +171,8 @@ questions:
                 label: Port Number
                 schema:
                   type: int
+                  default: 30489
                   show_if: [["bind_mode", "=", "published"]]
-                  default: 30482
                   min: 1
                   max: 65535
                   required: true
@@ -190,6 +191,98 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: t3monitoring
+                                        description: t3monitoring
+                                      - value: scheduler
+                                        description: scheduler
+                                      - value: mariadb
+                                        description: mariadb
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
 
   - variable: storage
     label: ""
@@ -205,6 +298,9 @@ questions:
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
@@ -216,6 +312,7 @@ questions:
                       description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
@@ -224,11 +321,13 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
@@ -248,6 +347,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -261,18 +361,21 @@ questions:
                           - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: var_log
-          label: TYPO3 Log Storage
-          description: TYPO3's var/log directory.
+          label: Log Storage
           schema:
             type: dict
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
@@ -284,6 +387,7 @@ questions:
                       description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
@@ -292,16 +396,18 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: "var_log"
+                        default: "storage_uploads"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -316,6 +422,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -329,17 +436,21 @@ questions:
                           - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: db_data
-          label: MariaDB Data Storage
+        - variable: mariadb_data
+          label: Database Storage
           schema:
             type: dict
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
@@ -351,6 +462,7 @@ questions:
                       description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
@@ -359,16 +471,18 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: "db_data"
+                        default: "mariadb_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -383,6 +497,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -396,6 +511,7 @@ questions:
                           - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
@@ -406,13 +522,18 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
                   attrs:
                     - variable: type
                       label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
                       schema:
                         type: string
                         required: true
@@ -422,13 +543,19 @@ questions:
                             description: Host Path (Path that already exists on the system)
                           - value: "ix_volume"
                             description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
                     - variable: read_only
                       label: Read Only
+                      description: Mount the volume as read only.
                       schema:
                         type: boolean
                         default: false
                     - variable: mount_path
                       label: Mount Path
+                      description: The path inside the container to mount the storage.
                       schema:
                         type: path
                         required: true
@@ -440,6 +567,7 @@ questions:
                         attrs:
                           - variable: acl_enable
                             label: Enable ACL
+                            description: Enable ACL for the storage.
                             schema:
                               type: boolean
                               default: false
@@ -453,12 +581,14 @@ questions:
                                 - "normalize/acl"
                           - variable: path
                             label: Host Path
+                            description: The host path to use for storage.
                             schema:
                               type: hostpath
                               show_if: [["acl_enable", "=", false]]
                               required: true
                     - variable: ix_volume_config
                       label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "ix_volume"]]
@@ -467,11 +597,13 @@ questions:
                         attrs:
                           - variable: acl_enable
                             label: Enable ACL
+                            description: Enable ACL for the storage.
                             schema:
                               type: boolean
                               default: false
                           - variable: dataset_name
                             label: Dataset Name
+                            description: The name of the dataset to use for storage.
                             schema:
                               type: string
                               required: true
@@ -484,7 +616,62 @@ questions:
                               attrs: []
                               $ref:
                                 - "normalize/acl"
-
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -509,6 +696,7 @@ questions:
                   required: true
               - variable: containers
                 label: Containers
+                description: Containers where the label should be applied
                 schema:
                   type: list
                   items:
@@ -524,7 +712,6 @@ questions:
                             description: scheduler
                           - value: mariadb
                             description: mariadb
-
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -538,13 +725,15 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
+                description: CPUs limit for t3monitoring.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
+                description: Memory limit for t3monitoring.
                 schema:
                   type: int
-                  default: 2048
+                  default: 4096
                   required: true
