@@ -1,6 +1,6 @@
-# AIStor
+# AIStor™
 
-[AIStor](https://min.io) delivers unmatched enterprise performance, scale, agility and economics for AI data, agentic computing, and analytics.
+[AIStor™](https://min.io) delivers unmatched enterprise performance, scale, agility and economics for AI data, agentic computing, and analytics.
 
 **Users who migrate from MinIO, will need to make sure that at least the User and Group Configuration and Storage Configuration match the previous MinIO configuration.**
 Network, Resources and other sections can be changed later.
