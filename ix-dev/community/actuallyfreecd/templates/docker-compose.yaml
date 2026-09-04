@@ -1,0 +1,36 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set app = tpl.add_container(values.consts.actuallyfreecd_container_name, "image") %}
+{% do app.set_user(0, 0) %}
+
+{% do app.environment.add_env("DEVICE_ROOT", "/hostdev") %}
+{% do app.environment.add_env("MUSIC_ROOT", "/music") %}
+{% do app.environment.add_env("AFCD_DIR_MODE", values.actuallyfreecd.directory_mode) %}
+{% do app.environment.add_env("AFCD_FILE_MODE", values.actuallyfreecd.file_mode) %}
+
+{% if values.actuallyfreecd.output_uid >= 0 %}
+  {% do app.environment.add_env("AFCD_OUTPUT_UID", values.actuallyfreecd.output_uid) %}
+{% endif %}
+
+{% if values.actuallyfreecd.output_gid >= 0 %}
+  {% do app.environment.add_env("AFCD_OUTPUT_GID", values.actuallyfreecd.output_gid) %}
+{% endif %}
+
+{% do app.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% for device in values.actuallyfreecd.devices %}
+  {% do app.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+
+{% do app.add_storage("/music", values.storage.music) %}
+
+{% do app.healthcheck.set_custom_test([
+  "CMD",
+  "python3",
+  "-c",
+  "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/status', timeout=5).read()"
+]) %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
