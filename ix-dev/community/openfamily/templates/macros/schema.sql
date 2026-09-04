@@ -2,7 +2,9 @@
    on first init, matching upstream's own docker-compose.yml. The published server
    image only ships incremental "ADD COLUMN IF NOT EXISTS" migrations on top of
    this base schema (github.com/NexaFlowFrance/OpenFamily server/src/db.ts), so a
-   fresh database needs this to exist before the server can start. #}
+   fresh database needs this to exist before the server can start.
+   Before bumping app_version, run ../../check_schema_sync.py to check this
+   against the new version's upstream schema.sql. #}
 {% macro schema() -%}
 -- OpenFamily Database Schema
 
@@ -18,6 +20,7 @@ CREATE TABLE users (
     currency VARCHAR(3) DEFAULT 'EUR',
     language VARCHAR(8) NOT NULL DEFAULT 'fr',
     avatar_url TEXT,
+    -- Family-wide optional modules: JSON array of disabled module keys (set on the family owner's row).
     disabled_modules TEXT NOT NULL DEFAULT '[]',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -183,7 +186,7 @@ CREATE TABLE budget_limits (
     UNIQUE(user_id, category, month, year)
 );
 
--- Reward Transactions table (gamified kids mode - points ledger per family member)
+-- Reward Transactions table (gamified kids mode — points ledger per family member)
 CREATE TABLE reward_transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -228,7 +231,7 @@ CREATE TABLE family_notes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- AI Assistant Settings table (local-first AI assistant, one provider config per family)
+-- AI Assistant Settings table (local-first AI assistant — one provider config per family)
 CREATE TABLE ai_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
