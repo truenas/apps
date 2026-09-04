@@ -1,0 +1,48 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.app_container_name, "image") %}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_init(true) %}
+{% do c1.set_read_only(true) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
+
+{% do c1.environment.add_env("MBHUB_HEARTBEAT", "on") %}
+{% do c1.environment.add_env("MBHUB_BIND", "0.0.0.0:%d"|format(values.network.web_port.port_number)) %}
+{% do c1.environment.add_env("MBHUB_TLS", "self-signed") %}
+{% do c1.environment.add_env("MBHUB_PUBLIC_URL", values.momentbackup.public_url) %}
+{% do c1.environment.add_env("MBHUB_SCAN_PATHS", values.consts.backup_scan_path if values.momentbackup.scan_backups else "") %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"uid": values.run_as.user, "gid": values.run_as.group}}) %}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do perms.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% set backup_mounts = namespace(x=[]) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perms.add_or_skip_action(store.mount_path, store, perms_config) %}
+
+  {% if not store.mount_path.startswith(values.consts.backup_scan_path) %}{% continue %}{% endif %}
+  {% do backup_mounts.x.append(tpl.funcs.get_host_path(store)) %}
+  {% if not store.read_only %}{% do tpl.notes.add_warning(
+      "Backup storage %s is not read-only. MomentBackup recommends mounting backups read-only."|format(store.mount_path)
+  ) %}
+  {% endif %}
+{% endfor %}
+
+{% if values.momentbackup.scan_backups %}
+  {% if not backup_mounts.x %}{% do tpl.funcs.fail("Scan backup storage is enabled, but no backup mounts were found.") %}{% endif %}
+{% endif %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
+
+{{ tpl.render() | tojson }}
