@@ -7,14 +7,15 @@
 {% do c1.set_init(true) %}
 {% do c1.set_read_only(true) %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("tcp", {"port": values.consts.internal_web_port}) %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
 
 {% do c1.environment.add_env("MBHUB_HEARTBEAT", "on") %}
+{% do c1.environment.add_env("MBHUB_BIND", "0.0.0.0:%d"|format(values.network.web_port.port_number)) %}
 {% do c1.environment.add_env("MBHUB_TLS", "self-signed") %}
 {% do c1.environment.add_env("MBHUB_PUBLIC_URL", values.momentbackup.public_url) %}
 {% do c1.environment.add_env("MBHUB_SCAN_PATHS", values.consts.backup_scan_path if values.momentbackup.scan_backups else "") %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"uid": values.run_as.user, "gid": values.run_as.group}}) %}
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
