@@ -1,0 +1,28 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.app_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "SETGID", "SETUID", "DAC_OVERRIDE", "FOWNER"]) %}
+
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
+
+{% do c1.environment.add_env("CWA_PORT_OVERRIDE", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("DISABLE_LIBRARY_AUTOMOUNT", values.cwa.disable_library_automount) %}
+{% do c1.environment.add_env("CWA_WATCH_MODE", values.cwa.watch_mode) %}
+{% do c1.environment.add_env("HARDCOVER_TOKEN", values.cwa.hardcover_token) %}
+{% do c1.environment.add_user_envs(values.cwa.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage("/calibre-library", values.storage.library) %}
+{% do c1.add_storage("/cwa-book-ingest", values.storage.book_ingest) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
