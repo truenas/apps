@@ -1,0 +1,77 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.fliks_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+
+{# The image ships neither curl nor wget, so probe the liveness endpoint with node. #}
+{% do c1.healthcheck.set_custom_test([
+  "CMD", "node", "-e",
+  "require('http').get('http://127.0.0.1:" ~ values.consts.internal_web_port ~ "/api/system/liveness',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+]) %}
+{# A first scan saturates the CPU with ffmpeg probes; a short start period would kill it. #}
+{% do c1.healthcheck.set_start_period(60) %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.fliks.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("DB_PORT", postgres.get_port()) %}
+{% do c1.environment.add_env("DB_USERNAME", values.consts.db_user) %}
+{% do c1.environment.add_env("DB_PASSWORD", values.fliks.db_password) %}
+{% do c1.environment.add_env("DB_NAME", values.consts.db_name) %}
+{% do c1.environment.add_env("FLIKS_CONF_DIR", "/app/conf") %}
+{% do c1.environment.add_env("FLIKS_DATA_DIR", "/app/data") %}
+{% do c1.environment.add_env("FLIKS_TRANSCODE_DIR", "/app/transcode") %}
+{% if values.fliks.external_url %}
+  {% do c1.environment.add_env("EXTERNAL_URL", values.fliks.external_url) %}
+{% endif %}
+{% if values.fliks.disable_update_check %}
+  {% do c1.environment.add_env("FLIKS_DISABLE_UPDATE_CHECK", "1") %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.fliks.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% endif %}
+
+{% do c1.add_storage("/app/conf", values.storage.conf) %}
+{% do perm_container.add_or_skip_action("conf", values.storage.conf, perm_config) %}
+
+{% do c1.add_storage("/app/data", values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
+
+{% set transcode_storage = dict(values.storage.transcode, **{
+  "tmpfs_config": {"mode": "0777"},
+  "volume_config": {"volume_name": "fliks-transcode"},
+}) %}
+{% do c1.add_storage("/app/transcode", transcode_storage) %}
+{% do perm_container.add_or_skip_action("transcode", transcode_storage, perm_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
+{% endfor %}
+
+{% for device in values.fliks.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}
