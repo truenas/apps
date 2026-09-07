@@ -8,8 +8,6 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-
-
 {% set pg_config = {
   "user": values.consts.db_user,
   "password": values.fliks.db_password,
@@ -18,7 +16,6 @@
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
 {% do postgres.container.add_network(fliks_net) %}
-
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -30,15 +27,11 @@
 {% do c1.environment.add_env("DB_USERNAME", values.consts.db_user) %}
 {% do c1.environment.add_env("DB_PASSWORD", values.fliks.db_password) %}
 {% do c1.environment.add_env("DB_NAME", values.consts.db_name) %}
+{% do c1.environment.add_env("EXTERNAL_URL", values.fliks.external_url) %}
 {% do c1.environment.add_env("FLIKS_CONF_DIR", values.consts.config_dir) %}
 {% do c1.environment.add_env("FLIKS_DATA_DIR", values.consts.data_dir) %}
 {% do c1.environment.add_env("FLIKS_TRANSCODE_DIR", values.consts.transcode_dir) %}
-{% if values.fliks.external_url %}
-  {% do c1.environment.add_env("EXTERNAL_URL", values.fliks.external_url) %}
-{% endif %}
-{% if values.fliks.disable_update_check %}
-  {% do c1.environment.add_env("FLIKS_DISABLE_UPDATE_CHECK", "1") %}
-{% endif %}
+{% do c1.environment.add_env("FLIKS_DISABLE_UPDATE_CHECK", "1") %}
 {% do c1.environment.add_user_envs(values.fliks.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
