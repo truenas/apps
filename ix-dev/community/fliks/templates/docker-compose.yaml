@@ -1,12 +1,14 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set fliks_net = tpl.networks.create_internal("fliks-net") %}
+
 {% set c1 = tpl.add_container(values.consts.fliks_container_name, "image") %}
+{% do c1.add_network(fliks_net) %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
-{% do c1.healthcheck.set_test("http", {"port": values.consts.internal_web_port, "path": "/api/system/liveness"}) %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -15,9 +17,14 @@
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_config, perm_container) %}
-{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do postgres.container.add_network(fliks_net) %}
 
-{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/api/system/liveness"}) %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("DB_HOST", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("DB_PORT", postgres.get_port()) %}
 {% do c1.environment.add_env("DB_USERNAME", values.consts.db_user) %}
@@ -34,12 +41,10 @@
 {% endif %}
 {% do c1.environment.add_user_envs(values.fliks.additional_envs) %}
 
-{% if not values.network.host_network %}
-  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
-{% endif %}
+{% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage(values.consts.config_dir, values.storage.conf) %}
-{% do perm_container.add_or_skip_action("conf", values.storage.conf, perm_config) %}
+{% do c1.add_storage(values.consts.config_dir, values.storage.config) %}
+{% do perm_container.add_or_skip_action("config", values.storage.config, perm_config) %}
 
 {% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perm_config) %}
@@ -66,6 +71,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
