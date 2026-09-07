@@ -1,0 +1,54 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% if values.rotki.session_key | length < 32 %}
+  {% do tpl.funcs.fail("Session Key must contain at least 32 characters.") %}
+{% endif %}
+{% if values.rotki.secure_cookie not in ["0", "1"] %}
+  {% do tpl.funcs.fail("Secure Session Cookie must be 0 (HTTP) or 1 (HTTPS).") %}
+{% endif %}
+{% if values.run_as.user < 568 or values.run_as.group < 568 %}
+  {% do tpl.funcs.fail("Rotki must run as a non-root user and group (ID 568 or higher).") %}
+{% endif %}
+
+{% set c1 = tpl.add_container(values.consts.rotki_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.set_read_only(true) %}
+{% do c1.set_grace_period(30) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/opt/rotki/starling", "healthcheck"]) %}
+{% do c1.healthcheck.set_start_period(120) %}
+{% do c1.healthcheck.set_timeout(10) %}
+
+{% do c1.environment.add_env("ROTKI_HTTP_PORT", values.consts.http_port) %}
+{% do c1.environment.add_env("ROTKI_SESSION_KEY", values.rotki.session_key) %}
+{% do c1.environment.add_env("ROTKI_SESSION_COOKIE_SECURE", values.rotki.secure_cookie) %}
+{% do c1.environment.add_user_envs(values.rotki.additional_envs) %}
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.http_port}) %}
+
+{# The distroless supervisor and frozen Python backend need writable scratch space. #}
+{% for path, size in [("/tmp", 512), ("/run", 16), ("/config", 1)] %}
+  {% do c1.add_storage(path, {"type": "tmpfs", "tmpfs_config": {"size": size, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
+{% endfor %}
+
+{% for name, path in [("data", values.consts.data_path), ("logs", values.consts.logs_path)] %}
+  {% do c1.add_storage(path, values.storage[name]) %}
+  {% do perm_container.add_or_skip_action(name, values.storage[name], perms_config) %}
+{% endfor %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.add_info("Create your Rotki account in the Web UI. The Session Key authenticates API sessions and is not your account password. Keep it unchanged across upgrades.") %}
+{% do tpl.notes.add_info("Keep this app on a trusted private network or behind an authenticating HTTPS reverse proxy. Select HTTPS cookies only when accessing the app through HTTPS.") %}
+
+{{ tpl.render() | tojson }}
