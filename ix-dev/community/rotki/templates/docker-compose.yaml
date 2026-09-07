@@ -1,15 +1,5 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% if values.rotki.session_key | length < 32 %}
-  {% do tpl.funcs.fail("Session Key must contain at least 32 characters.") %}
-{% endif %}
-{% if values.rotki.secure_cookie not in ["0", "1"] %}
-  {% do tpl.funcs.fail("Secure Session Cookie must be 0 (HTTP) or 1 (HTTPS).") %}
-{% endif %}
-{% if values.run_as.user < 568 or values.run_as.group < 568 %}
-  {% do tpl.funcs.fail("Rotki must run as a non-root user and group (ID 568 or higher).") %}
-{% endif %}
-
 {% set c1 = tpl.add_container(values.consts.rotki_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
@@ -28,14 +18,14 @@
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.http_port}) %}
 
 {# The distroless supervisor and frozen Python backend need writable scratch space. #}
-{% for path, size in [("/tmp", 512), ("/run", 16), ("/config", 1)] %}
-  {% do c1.add_storage(path, {"type": "tmpfs", "tmpfs_config": {"size": size, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
-{% endfor %}
+{% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 512, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
+{% do c1.add_storage("/run", {"type": "tmpfs", "tmpfs_config": {"size": 16, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
+{% do c1.add_storage("/config", {"type": "tmpfs", "tmpfs_config": {"size": 1, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
 
-{% for name, path in [("data", values.consts.data_path), ("logs", values.consts.logs_path)] %}
-  {% do c1.add_storage(path, values.storage[name]) %}
-  {% do perm_container.add_or_skip_action(name, values.storage[name], perms_config) %}
-{% endfor %}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+{% do c1.add_storage(values.consts.logs_path, values.storage.logs) %}
+{% do perm_container.add_or_skip_action("logs", values.storage.logs, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
@@ -48,7 +38,7 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
-{% do tpl.notes.add_info("Create your Rotki account in the Web UI. The Session Key authenticates API sessions and is not your account password. Keep it unchanged across upgrades.") %}
+{% do tpl.notes.add_info("Create your Rotki account in the Web UI. The Session Key secures browser login sessions. Changing it requires users to log in again. It does not encrypt your database.") %}
 {% do tpl.notes.add_info("Keep this app on a trusted private network or behind an authenticating HTTPS reverse proxy. Select HTTPS cookies only when accessing the app through HTTPS.") %}
 
 {{ tpl.render() | tojson }}
