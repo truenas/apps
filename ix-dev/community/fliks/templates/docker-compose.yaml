@@ -6,11 +6,7 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 
-{# The image ships neither curl nor wget, so probe the liveness endpoint with node. #}
-{% do c1.healthcheck.set_custom_test([
-  "CMD", "node", "-e",
-  "require('http').get('http://127.0.0.1:" ~ values.consts.internal_web_port ~ "/api/system/liveness',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
-]) %}
+{% do c1.healthcheck.set_test("http", {"port": values.consts.internal_web_port, "path": "/api/system/liveness"}) %}
 {# A first scan saturates the CPU with ffmpeg probes; a short start period would kill it. #}
 {% do c1.healthcheck.set_start_period(60) %}
 
