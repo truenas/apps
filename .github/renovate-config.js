@@ -374,6 +374,11 @@ module.exports = {
       ["ghcr.io/retropex/bitcoin-truenas", "ghcr.io/sethforprivacy/p2pool"],
     ),
     customVersioning(
+      // 1.0(.0)?
+      "^(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$",
+      ["ghcr.io/jellyfin/jellyfin"],
+    ),
+    customVersioning(
       // v2026.5.29(.2)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
       ["nousresearch/hermes-agent"],
