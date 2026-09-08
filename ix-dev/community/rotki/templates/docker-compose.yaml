@@ -9,13 +9,12 @@
 {% do c1.set_grace_period(30) %}
 {% do c1.healthcheck.set_custom_test(["CMD", "/opt/rotki/starling", "healthcheck"]) %}
 {% do c1.healthcheck.set_start_period(120) %}
-{% do c1.healthcheck.set_timeout(10) %}
 
-{% do c1.environment.add_env("ROTKI_HTTP_PORT", values.consts.http_port) %}
+{% do c1.environment.add_env("ROTKI_HTTP_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("ROTKI_SESSION_KEY", values.rotki.session_key) %}
 {% do c1.environment.add_env("ROTKI_SESSION_COOKIE_SECURE", values.rotki.secure_cookie) %}
 {% do c1.environment.add_user_envs(values.rotki.additional_envs) %}
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.http_port}) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {# The distroless supervisor and frozen Python backend need writable scratch space. #}
 {% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 512, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
@@ -24,6 +23,7 @@
 
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
 {% do c1.add_storage(values.consts.logs_path, values.storage.logs) %}
 {% do perm_container.add_or_skip_action("logs", values.storage.logs, perms_config) %}
 
