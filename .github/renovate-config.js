@@ -371,7 +371,11 @@ module.exports = {
     customVersioning(
       // v1.0(.0)?
       "^v(?<major>\\d+)\\.(?<minor>\\d+)(\\.(?<patch>\\d+))?$",
-      ["ghcr.io/retropex/bitcoin-truenas", "ghcr.io/sethforprivacy/p2pool"],
+      [
+        "ghcr.io/retropex/bitcoin-truenas", 
+        "ghcr.io/sethforprivacy/p2pool", 
+        "ghcr.io/jellyfin/jellyfin",
+      ],
     ),
     customVersioning(
       // v2026.5.29(.2)?
