@@ -82,6 +82,13 @@ module.exports = {
       groupName: "enterprise",
       matchFileNames: ["ix-dev/enterprise/**"],
     },
+    {
+      // registry:3 is incompatible with GitLab JWT tokens (sameersbn/docker-gitlab docs).
+      // Pin the registry image to v2.x only.
+      matchDatasources: ["docker"],
+      matchDepNames: ["registry"],
+      allowedVersions: "<3.0.0",
+    },
     // Custom versioning matching
     // https://docs.renovatebot.com/modules/versioning/regex/#rangesconstraints
     customVersioning(

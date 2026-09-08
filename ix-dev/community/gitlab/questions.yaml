@@ -1,0 +1,932 @@
+groups:
+  - name: GitLab Configuration
+    description: Configure GitLab
+  - name: User and Group Configuration
+    description: Configure User and Group for GitLab
+  - name: Network Configuration
+    description: Configure Network for GitLab
+  - name: Storage Configuration
+    description: Configure Storage for GitLab
+  - name: Postgres Configuration
+    description: Configure Postgres for GitLab
+  - name: Redis Configuration
+    description: Configure Redis for GitLab
+  - name: Registry Configuration
+    description: Configure Container Registry
+  - name: Pages Configuration
+    description: Configure GitLab Pages
+  - name: Labels Configuration
+    description: Configure Labels
+  - name: Resources Configuration
+    description: Configure Resources
+
+questions:
+  - variable: TZ
+    group: GitLab Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+
+  - variable: gitlab
+    label: ""
+    group: GitLab Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: host
+          label: GitLab External Hostname
+          description: The external URL hostname (e.g. git.example.com) used for clone URLs and the registry/pages realm. TLS is terminated by your reverse proxy.
+          schema:
+            type: string
+            required: true
+        - variable: root_password
+          label: Initial Root Password (first boot only)
+          description: Password for the root user, applied ONLY on first boot (GITLAB_ROOT_PASSWORD). Leave empty to let GitLab generate a random one. Must meet GitLab's password policy (no common words/sequences, 8+ chars). Changing it later has no effect — use the GitLab UI to change the password after first login.
+          schema:
+            type: string
+            default: ""
+            private: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+        - variable: db_password
+          label: Postgres Password
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: secrets_db_key_base
+          label: GitLab DB Secret Key Base
+          description: Rails secret key base for the database (GITLAB_SECRETS_DB_KEY_BASE). Generate a long random hex string. DO NOT change after first boot or encrypted DB columns become unreadable.
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: secrets_secret_key_base
+          label: GitLab Secret Key Base
+          description: Rails secret key base for sessions (GITLAB_SECRETS_SECRET_KEY_BASE). Generate a long random hex string. DO NOT change after first boot.
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: secrets_otp_key_base
+          label: GitLab OTP Secret Key Base
+          description: Rails secret key base for 2FA/OTP (GITLAB_SECRETS_OTP_KEY_BASE). Generate a long random hex string. DO NOT change after first boot.
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: postgres_image_selector
+          label: Postgres Image
+          description: Select the Postgres image to use.
+          schema:
+            type: string
+            default: postgres_17_image
+            required: true
+            enum:
+              - value: postgres_17_image
+                description: Postgres 17
+        - variable: registry_enabled
+          label: Enable Container Registry
+          schema:
+            type: boolean
+            default: false
+        - variable: registry_host
+          label: Registry External Hostname
+          description: The external hostname for the registry (e.g. registry.example.com). docker push/pull target. Required when registry is enabled.
+          schema:
+            type: string
+            show_if: [["registry_enabled", "=", true]]
+            required: true
+            default: ""
+        - variable: pages_enabled
+          label: Enable GitLab Pages
+          schema:
+            type: boolean
+            default: false
+        - variable: pages_host
+          label: Pages Wildcard Domain
+          description: The base domain for GitLab Pages (e.g. pages.example.com). Sites are served at namespace.pages.example.com. Required when pages are enabled.
+          schema:
+            type: string
+            show_if: [["pages_enabled", "=", true]]
+            required: true
+            default: ""
+        - variable: pages_https
+          label: Pages HTTPS
+          description: Enable if your reverse proxy terminates HTTPS for the pages wildcard domain.
+          schema:
+            type: boolean
+            show_if: [["pages_enabled", "=", true]]
+            default: false
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30454
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: container_port
+                label: Container Port
+                description: The in-container port to map to (nginx listens on 80).
+                schema:
+                  type: int
+                  default: 80
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: ssh_port
+          label: SSH Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host
+                    - value: "exposed"
+                      description: Expose for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30452
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: container_port
+                label: Container Port
+                description: The in-container SSH port to map to (sshd listens on 22).
+                schema:
+                  type: int
+                  default: 22
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: registry_port
+          label: Registry Port
+          schema:
+            type: dict
+            show_if: [["registry_enabled", "=", true]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host
+                    - value: "exposed"
+                      description: Expose for inter-container communication
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30453
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: container_port
+                label: Container Port
+                description: The in-container registry port (registry listens on 5000).
+                schema:
+                  type: int
+                  default: 5000
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: additional_ports
+          label: Additional Ports
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: port
+                label: Port
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: bind_mode
+                      label: Port Bind Mode
+                      schema:
+                        type: string
+                        default: "published"
+                        enum:
+                          - value: "published"
+                            description: Publish port on the host
+                          - value: "exposed"
+                            description: Expose for inter-container communication
+                    - variable: port_number
+                      label: Port Number
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: container_port
+                      label: Container Port
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: protocol
+                      label: Protocol
+                      schema:
+                        type: string
+                        required: true
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
+                    - variable: host_ips
+                      label: Host IPs
+                      schema:
+                        type: list
+                        show_if: [["bind_mode", "=", "published"]]
+                        default: []
+                        items:
+                          - variable: host_ip
+                            label: Host IP
+                            schema:
+                              type: string
+                              required: true
+                              $ref:
+                                - definitions/node_bind_ip
+        - variable: networks
+          label: Networks
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: gitlab
+                                        description: gitlab
+                                      - value: postgres
+                                        description: postgres
+                                      - value: redis
+                                        description: redis
+                                      - value: registry
+                                        description: registry
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        schema:
+                                          type: string
+        - variable: host_network
+          label: Host Network
+          description: Bind to the host network. Not recommended.
+          schema:
+            type: boolean
+            default: false
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: gitlab_data
+          label: GitLab Data Storage
+          description: Repositories, uploads, pages, and shared registry data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path
+                    - value: "ix_volume"
+                      description: ixVolume
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "gitlab_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: gitlab_config
+          label: GitLab Config Storage
+          description: GitLab configuration and keys.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path
+                    - value: "ix_volume"
+                      description: ixVolume
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "gitlab_config"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: certs
+          label: Registry Certs Storage
+          description: Shared between gitlab and registry containers for JWT signing key+cert (only used when registry is enabled).
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path
+                    - value: "ix_volume"
+                      description: ixVolume
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "certs"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: postgres_data
+          label: Postgres Data Storage
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path
+                    - value: "ix_volume"
+                      description: ixVolume
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "postgres_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path
+                          - value: "ix_volume"
+                            description: ixVolume
+                          - value: "cifs"
+                            description: SMB/CIFS Share
+                          - value: "nfs"
+                            description: NFS Share
+                    - variable: read_only
+                      label: Read Only
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            schema:
+                              type: string
+                              required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: gitlab
+                            description: gitlab
+                          - value: postgres
+                            description: postgres
+                          - value: redis
+                            description: redis
+                          - value: registry
+                            description: registry
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                schema:
+                  type: int
+                  default: 4
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                schema:
+                  type: int
+                  default: 8192
+                  required: true
