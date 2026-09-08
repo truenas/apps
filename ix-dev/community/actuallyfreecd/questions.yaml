@@ -1,5 +1,5 @@
 groups:
-  - name: ActuallyFreeCD Configuration
+  - name: ActuallyFreeCD Server Configuration
     description: Configure ActuallyFreeCD Server
   - name: Network Configuration
     description: Configure Network for ActuallyFreeCD Server
@@ -12,7 +12,7 @@ groups:
 
 questions:
   - variable: TZ
-    group: ActuallyFreeCD Configuration
+    group: ActuallyFreeCD Server Configuration
     label: Timezone
     schema:
       type: string
@@ -23,14 +23,14 @@ questions:
 
   - variable: actuallyfreecd
     label: ""
-    group: ActuallyFreeCD Configuration
+    group: ActuallyFreeCD Server Configuration
     schema:
       type: dict
       attrs:
         - variable: devices
           label: Devices
           description: |
-            Pass the optical block device and its matching SCSI generic device to ActuallyFreeCD.</br>
+            Pass the optical block device and its matching SCSI generic device to ActuallyFreeCD Server.</br>
             Use `lsscsi -g` on the TrueNAS host to identify the matching pair.</br>
             Examples:</br>
             - Host Device: /dev/sr0, Container Device: /hostdev/sr0</br>
@@ -54,7 +54,6 @@ questions:
                       schema:
                         type: string
                         required: true
-
         - variable: output_uid
           label: Output User ID
           description: Optional owner UID for created files. Set to -1 to leave the owner unchanged.
@@ -64,7 +63,6 @@ questions:
             min: -1
             max: 2147483647
             required: true
-
         - variable: output_gid
           label: Output Group ID
           description: Optional group GID for created files. Set to -1 to leave the group unchanged.
@@ -74,7 +72,6 @@ questions:
             min: -1
             max: 2147483647
             required: true
-
         - variable: directory_mode
           label: Directory Mode
           description: Octal directory permissions used for newly created directories.
@@ -90,6 +87,26 @@ questions:
             type: string
             default: "0664"
             required: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
 
   - variable: network
     label: ""
@@ -125,7 +142,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30475
+                  default: 30487
                   min: 1
                   max: 65535
                   required: true
@@ -150,6 +167,7 @@ questions:
           description: The docker networks to join
           schema:
             type: list
+            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -229,11 +247,17 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
-
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -242,7 +266,6 @@ questions:
       attrs:
         - variable: music
           label: Music Storage
-          description: Storage mounted inside ActuallyFreeCD as /music.
           schema:
             type: dict
             attrs:
@@ -311,12 +334,167 @@ questions:
                           - "normalize/acl"
                     - variable: path
                       label: Host Path
-                      description: The host path to use for music storage.
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -377,5 +555,5 @@ questions:
                 description: Memory limit for ActuallyFreeCD Server.
                 schema:
                   type: int
-                  default: 2048
+                  default: 4096
                   required: true
