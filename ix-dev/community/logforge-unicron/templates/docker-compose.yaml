@@ -1,6 +1,19 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
+{% set agent_network = tpl.networks.create_internal("logforge-agents") %}
+{% set web_port = values.network.web_port.port_number %}
+{% set agent_port = values.network.agent_port.port_number %}
+{% set public_host = values.logforge.central_fqdn %}
+{% set url_host = "[%s]" | format(public_host) if ":" in public_host else public_host %}
+{% set router_hosts = ["localhost", "127.0.0.1", "host.docker.internal", "unicron.central", public_host] %}
+
+{# These ports are reserved by the appliance's bundled services. #}
+{% set reserved_ports = [80, 2003, 3020, 4242, 4317, 4318, 5173, 5432, 6379, 8000, 8011, 8012, 8089, 8428, 8888, 9000, 9100, 9428, 13133, 27017] %}
+{% if web_port == agent_port or web_port in reserved_ports or agent_port in reserved_ports %}
+  {% do tpl.funcs.fail("Web UI and Agent mTLS ports must be different and must not use ports reserved by the bundled services: " ~ reserved_ports | join(", ")) %}
+{% endif %}
 
 {% set c1 = tpl.add_container(values.consts.logforge_container_name, "image") %}
+{% do c1.add_network(agent_network, {"aliases": ["unicron.central"]}) %}
 
 {% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "NET_BIND_SERVICE"]) %}
@@ -8,28 +21,42 @@
 
 {% do c1.environment.add_env("TMPDIR", "/run/pyinstaller") %}
 {% do c1.environment.add_env("UNICRON_APPLIANCE_CONTAINER_NAME", values.consts.logforge_container_name) %}
-{% do c1.environment.add_env("UNICRON_CENTRAL_FQDN", "localhost") %}
-{% do c1.environment.add_env("UNICRON_CENTRAL_PORT", "443") %}
-{% do c1.environment.add_env("UNICRON_PUBLIC_CENTRAL_PORT", values.network.web_port.port_number) %}
-{% do c1.environment.add_env("UNICRON_CENTRAL_MTLS_PORT", "8443") %}
-{% do c1.environment.add_env("UNICRON_PUBLIC_CENTRAL_MTLS_PORT", values.network.agent_port.port_number) %}
+{# Internal PKI calls must resolve to this container even when the public host is a NAS IP. #}
+{% do c1.environment.add_env("UNICRON_CENTRAL_FQDN", "unicron.central") %}
+{% do c1.environment.add_env("TRAEFIK_ROUTER_HOSTS", router_hosts | unique | join(",")) %}
+{% do c1.environment.add_env("TRAEFIK_CERT_SANS", (router_hosts + ["unicron-stepca", "unicron-stepca-ra"]) | unique | join(",")) %}
+{% do c1.environment.add_env("CENTRAL_AUTH_PUBLIC_BASE_URL", "https://%s:%s" | format(url_host, web_port)) %}
+{# Listener and advertised ports match, including when ports are only exposed. #}
+{% do c1.environment.add_env("UNICRON_CENTRAL_PORT", web_port) %}
+{% do c1.environment.add_env("UNICRON_PUBLIC_CENTRAL_PORT", web_port) %}
+{# Agents use a separate listener that requires mutual TLS authentication. #}
+{% do c1.environment.add_env("UNICRON_CENTRAL_MTLS_PORT", agent_port) %}
+{% do c1.environment.add_env("UNICRON_PUBLIC_CENTRAL_MTLS_PORT", agent_port) %}
 {% do c1.environment.add_env("UNICRON_DATA_DIR", values.consts.data_path) %}
-{% do c1.environment.add_env("LOCAL_AGENT_CENTRAL_URL", "https://unicron.central/unicron") %}
-{% do c1.environment.add_env("LOCAL_AGENT_DOCKER_NETWORK", "ix-logforge-unicron_default") %}
+{# Local agent installation commands join this app's network and resolve its alias. #}
+{% do c1.environment.add_env("LOCAL_AGENT_CENTRAL_URL", "https://unicron.central:%s/unicron" | format(web_port)) %}
+{% do c1.environment.add_env("LOCAL_AGENT_DOCKER_NETWORK", agent_network) %}
+{# TrueNAS owns container updates and recreation. #}
+{% do c1.environment.add_env("UNICRON_SELF_UPDATE_ENABLED", false) %}
 {% do c1.environment.add_env("CENTRAL_ADMIN_USERNAME", values.logforge.admin_username) %}
 {% do c1.environment.add_env("CENTRAL_ADMIN_PASSWORD", values.logforge.admin_password) %}
 {% do c1.environment.add_env("CENTRAL_ADMIN_RECOVERY_OVERRIDE", values.logforge.admin_recovery_override) %}
 {% do c1.environment.add_user_envs(values.logforge.additional_envs) %}
 
+{# The bundled certificate authority, registration authority and internal Central
+   clients use these names to reach services in the same container. #}
 {% do c1.add_extra_host("unicron-stepca", "127.0.0.1") %}
 {% do c1.add_extra_host("unicron-stepca-ra", "127.0.0.1") %}
 {% do c1.add_extra_host("unicron.central", "127.0.0.1") %}
 {% do c1.add_docker_socket(read_only=false) %}
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": 443}) %}
-{% do c1.add_port(values.network.agent_port, {"container_port": 8443}) %}
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.agent_port) %}
 
-{% do tpl.portals.add(values.network.web_port, {"scheme": "https", "path": "/unicron"}) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https", "host": public_host, "path": "/unicron"}) %}
 
 {{ tpl.render() | tojson }}

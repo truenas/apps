@@ -19,15 +19,26 @@ questions:
     schema:
       type: dict
       attrs:
+        - variable: central_fqdn
+          label: LogForge Hostname or IP Address
+          description: |
+            The hostname or IP address of this NAS that browsers and agents use to reach LogForge.
+            Enter only the host, without a URL scheme or port. This address is used for routing and TLS certificates.
+          schema:
+            type: string
+            required: true
         - variable: admin_username
           label: Initial Administrator Username
+          description: The username for the administrator account created during initial setup.
           schema:
             type: string
             default: admin
             required: true
         - variable: admin_password
           label: Initial Administrator Password
-          description: Must include uppercase, lowercase, numeric, and special characters.
+          description: |
+            The password for the administrator account created during initial setup.
+            Must include uppercase, lowercase, numeric, and special characters.
           schema:
             type: string
             private: true
@@ -40,6 +51,7 @@ questions:
             default: false
         - variable: additional_envs
           label: Additional Environment Variables
+          description: Additional environment variables to pass to the LogForge appliance.
           schema:
             type: list
             default: []
@@ -51,11 +63,13 @@ questions:
                   attrs:
                     - variable: name
                       label: Name
+                      description: The name of the environment variable.
                       schema:
                         type: string
                         required: true
                     - variable: value
                       label: Value
+                      description: The value of the environment variable.
                       schema:
                         type: string
 
@@ -67,11 +81,19 @@ questions:
       attrs:
         - variable: web_port
           label: Web UI Port
+          description: The port for accessing the LogForge web interface.
           schema:
             type: dict
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: published
@@ -84,14 +106,16 @@ questions:
                       description: Do not expose or publish
               - variable: port_number
                 label: Port Number
+                description: The host port to use for the LogForge web interface when published.
                 schema:
                   type: int
-                  default: 30461
+                  default: 30488
                   min: 1
                   max: 65535
                   required: true
               - variable: host_ips
                 label: Host IPs
+                description: IPs on the host to bind this port
                 schema:
                   type: list
                   show_if: [["bind_mode", "=", "published"]]
@@ -106,11 +130,19 @@ questions:
                           - definitions/node_bind_ip
         - variable: agent_port
           label: Agent mTLS Port
+          description: The port for authenticated connections from remote LogForge agents.
           schema:
             type: dict
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: published
@@ -123,14 +155,16 @@ questions:
                       description: Do not expose or publish
               - variable: port_number
                 label: Port Number
+                description: The host port to use for the LogForge agent endpoint when published.
                 schema:
                   type: int
-                  default: 30462
+                  default: 30489
                   min: 1
                   max: 65535
                   required: true
               - variable: host_ips
                 label: Host IPs
+                description: IPs on the host to bind this port
                 schema:
                   type: list
                   show_if: [["bind_mode", "=", "published"]]
@@ -145,10 +179,9 @@ questions:
                           - definitions/node_bind_ip
         - variable: networks
           label: Networks
-          description: Existing Docker networks to join
+          description: The docker networks to join
           schema:
             type: list
-            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -158,14 +191,18 @@ questions:
                   attrs:
                     - variable: name
                       label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
                       schema:
                         type: string
+                        default: ""
                         required: true
                     - variable: containers
                       label: Containers
+                      description: The containers to add to this network.
                       schema:
                         type: list
-                        default: []
                         items:
                           - variable: container
                             label: Container
@@ -173,7 +210,7 @@ questions:
                               type: dict
                               attrs:
                                 - variable: name
-                                  label: Name
+                                  label: Container Name
                                   schema:
                                     type: string
                                     required: true
@@ -181,12 +218,13 @@ questions:
                                       - value: logforge-unicron
                                         description: logforge-unicron
                                 - variable: config
-                                  label: Configuration
+                                  label: Container Network Configuration
                                   schema:
                                     type: dict
                                     attrs:
                                       - variable: aliases
-                                        label: Aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
                                         schema:
                                           type: list
                                           default: []
@@ -195,11 +233,38 @@ questions:
                                               label: Alias
                                               schema:
                                                 type: string
-        - variable: host_network
-          label: Host Network
-          schema:
-            type: boolean
-            default: false
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
 
   - variable: storage
     label: ""
@@ -209,40 +274,53 @@ questions:
       attrs:
         - variable: data
           label: LogForge Data Storage
+          description: Stores LogForge configuration, database, logs, certificates, and bundled service state.
           schema:
             type: dict
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
-                  default: ix_volume
+                  default: "ix_volume"
                   enum:
-                    - value: ix_volume
-                      description: Dataset created automatically by TrueNAS
-                    - value: host_path
-                      description: Existing host path
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
-                    - normalize/ix_volume
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: data
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
@@ -251,15 +329,180 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: additional_storage
+          label: Additional Storage
+          description: Additional storage volumes to mount inside the LogForge appliance.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
 
   - variable: labels
     label: ""
@@ -275,16 +518,19 @@ questions:
             attrs:
               - variable: key
                 label: Key
+                description: The name of the container label.
                 schema:
                   type: string
                   required: true
               - variable: value
                 label: Value
+                description: The value of the container label.
                 schema:
                   type: string
                   required: true
               - variable: containers
                 label: Containers
+                description: Containers where the label should be applied.
                 schema:
                   type: list
                   items:
@@ -305,17 +551,20 @@ questions:
       attrs:
         - variable: limits
           label: Limits
+          description: Resource limits for the LogForge appliance and its bundled services.
           schema:
             type: dict
             attrs:
               - variable: cpus
                 label: CPUs
+                description: CPUs limit for LogForge Unicron.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
+                description: Memory limit for LogForge Unicron.
                 schema:
                   type: int
                   default: 4096

@@ -46,7 +46,7 @@ class MariadbContainer:
         self._get_repo(image)
         c = self._render_instance.add_container(name, image)
         c.set_user(999, 999)
-        c.healthcheck.set_test("mariadb", {"password": root_password})
+        c.healthcheck.set_test("mariadb", {"password": root_password, "port": port})
         c.remove_devices()
         c.set_grace_period(60)
 

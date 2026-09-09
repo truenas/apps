@@ -90,7 +90,7 @@ def get_major_version(variant: str, tag: str):
 
     elif variant == "paradedb/paradedb":
         # 0.21.8-pg18
-        regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
+        regex = re.compile(r"^v?\d+\.\d+\.\d+-pg\d+")
 
         def oper(x):
             parts = x.split("-")
