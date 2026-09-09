@@ -1,0 +1,67 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{# Base path is optional. Normalize to "" or "/prefix" the same way the app does. #}
+{% set trimmed_base_path = values.deltasync.base_path.strip("/") %}
+{% set base_path = "/" ~ trimmed_base_path if trimmed_base_path else "" %}
+
+{% set deltasync_net = tpl.networks.create_internal("deltasync-net") %}
+
+{% set c1 = tpl.add_container(values.consts.deltasync_container_name, "image") %}
+{% do c1.add_network(deltasync_net) %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.deltasync.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(
+  values.consts.postgres_container_name,
+  values.deltasync.postgres_image_selector,
+  pg_config, perm_container
+) %}
+{% do postgres.container.add_network(deltasync_net) %}
+
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": base_path ~ "/api/v1/health"}) %}
+
+{# The PHP app reads DATABASE_*; the entrypoint's schema migrations use libpq's PG* vars.
+   Both point at the same database. #}
+{% do c1.environment.add_env("DATABASE_URL", "pgsql:host=%s;port=%d;dbname=%s"|format(
+  values.consts.postgres_container_name, postgres.get_port(), values.consts.db_name)) %}
+{% do c1.environment.add_env("DATABASE_USER", values.consts.db_user) %}
+{% do c1.environment.add_env("DATABASE_PASSWORD", values.deltasync.db_password) %}
+{% do c1.environment.add_env("PGHOST", values.consts.postgres_container_name) %}
+{% do c1.environment.add_env("PGPORT", postgres.get_port()) %}
+{% do c1.environment.add_env("PGDATABASE", values.consts.db_name) %}
+{% do c1.environment.add_env("PGUSER", values.consts.db_user) %}
+{% do c1.environment.add_env("PGPASSWORD", values.deltasync.db_password) %}
+
+{# Applied by the entrypoint at startup, so the operator never has to read a
+   generated token out of the container log. #}
+{% do c1.environment.add_env("ADMIN_USERNAME", values.deltasync.admin_username) %}
+{% do c1.environment.add_env("ADMIN_PASSWORD", values.deltasync.admin_password) %}
+{% do c1.environment.add_env("LOG_LEVEL", values.deltasync.log_level) %}
+{% do c1.environment.add_env("AUDIT_RETENTION_DAYS", values.deltasync.audit_retention_days) %}
+{% do c1.environment.add_env("ENROLLMENT_TOKEN_TTL_HOURS", values.deltasync.enrollment_token_ttl_hours) %}
+{% do c1.environment.add_env("APP_BASE_PATH", base_path) %}
+
+{% do c1.environment.add_user_envs(values.deltasync.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.notes.add_info("Sign in to the admin panel with the username and password you set during installation. You can look them up again under Edit -> KeePass DeltaSync Configuration.") %}
+{# admin.html is a static file served straight out of the web root, so it is
+   NOT moved by APP_BASE_PATH. Keep the portal on the bare path. #}
+{% do tpl.notes.add_info("The web admin panel is served at [/admin.html]. It is a static file and is not affected by the Base Path setting.") %}
+
+{% do tpl.portals.add(values.network.web_port, {"path": "/admin.html"}) %}
+
+{{ tpl.render() | tojson }}
