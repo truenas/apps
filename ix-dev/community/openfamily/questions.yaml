@@ -1,6 +1,8 @@
 groups:
   - name: OpenFamily Configuration
     description: Configure OpenFamily
+  - name: User and Group Configuration
+    description: Configure User and Group for OpenFamily
   - name: Network Configuration
     description: Configure Network for OpenFamily
   - name: Storage Configuration
@@ -35,7 +37,6 @@ questions:
                 description: Postgres 18
         - variable: db_password
           label: Database Password
-          description: The password for the OpenFamily database.
           schema:
             type: string
             default: ""
@@ -142,6 +143,28 @@ questions:
                       label: Value
                       schema:
                         type: string
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that OpenFamily files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that OpenFamily files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
@@ -177,7 +200,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 31600
+                  default: 30488
                   show_if: [["bind_mode", "=", "published"]]
                   min: 1
                   max: 65535
@@ -285,11 +308,10 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
-
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -298,7 +320,6 @@ questions:
       attrs:
         - variable: uploads
           label: Uploads Storage
-          description: The path to store OpenFamily uploaded files (e.g. recipe photos).
           schema:
             type: dict
             attrs:
@@ -447,6 +468,18 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
           schema:
@@ -545,6 +578,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
