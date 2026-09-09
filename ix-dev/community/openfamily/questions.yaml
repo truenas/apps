@@ -17,28 +17,6 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: jwt_secret
-          label: JWT Secret
-          description: |
-            A long random secret used to sign authentication tokens.</br>
-            Must be at least 32 characters long.</br>
-            Generate one with: openssl rand -hex 32
-          schema:
-            type: string
-            required: true
-            private: true
-            min_length: 32
-        - variable: registration_enabled
-          label: Enable Registration
-          description: |
-            Allow new accounts to be created from the login page.</br>
-            Disable once your family has signed up to prevent strangers from registering.</br>
-            Note: the bundled web app's "Sign up" link visibility is fixed by the published
-            image and may still appear even when this is disabled; the server will still
-            refuse the registration.
-          schema:
-            type: boolean
-            default: true
         - variable: postgres_image_selector
           label: Postgres Image (CAUTION)
           description: |
@@ -53,8 +31,6 @@ questions:
             default: postgres_18_image
             required: true
             enum:
-              - value: postgres_17_image
-                description: Postgres 17
               - value: postgres_18_image
                 description: Postgres 18
         - variable: db_password
@@ -65,6 +41,26 @@ questions:
             default: ""
             required: true
             private: true
+        - variable: jwt_secret
+          label: JWT Secret
+          description: |
+            A long random secret used to sign authentication tokens.</br>
+            Must be at least 32 characters long.</br>
+            Generate one with: openssl rand -hex 32
+          schema:
+            type: string
+            min_length: 32
+            required: true
+            private: true
+            default: ""
+        - variable: registration_enabled
+          label: Enable Registration
+          description: |
+            Allow new accounts to be created from the login page.</br>
+            Disable once your family has signed up to prevent strangers from registering.
+          schema:
+            type: boolean
+            default: true
         - variable: cors_origins
           label: Additional CORS Origins (Optional)
           description: |
@@ -90,80 +86,40 @@ questions:
           schema:
             type: string
             default: ""
-        - variable: smtp
-          label: SMTP (Optional)
-          description: |
-            Configure an SMTP server to send family invites by e-mail and password reset
-            links.</br>
-            Leave the host empty to keep e-mail disabled: invitations remain shareable via
-            their link, but e-mail delivery and password reset by e-mail are unavailable.
+        - variable: enable_web_push
+          label: Enable Web Push Notifications
           schema:
-            type: dict
-            attrs:
-              - variable: host
-                label: SMTP Host
-                schema:
-                  type: string
-                  default: ""
-              - variable: port
-                label: SMTP Port
-                schema:
-                  type: int
-                  default: 587
-                  required: true
-              - variable: secure
-                label: Use TLS
-                schema:
-                  type: boolean
-                  default: false
-              - variable: username
-                label: SMTP Username
-                schema:
-                  type: string
-                  default: ""
-              - variable: password
-                label: SMTP Password
-                schema:
-                  type: string
-                  default: ""
-                  private: true
-              - variable: mail_from
-                label: From Address
-                description: 'Example: "OpenFamily <openfamily@example.com>"'
-                schema:
-                  type: string
-                  default: ""
-              - variable: support_email
-                label: Support Address (Optional)
-                description: Support address shown in e-mails. Leave empty to omit the line.
-                schema:
-                  type: string
-                  default: ""
+            type: boolean
+            default: false
         - variable: vapid
-          label: Web Push Notifications (Optional)
+          label: Web Push Notifications
           description: |
             Configure Web Push (VAPID) to enable browser push notifications.</br>
             Generate a key pair with: npx web-push generate-vapid-keys</br>
             Leave the public key empty to keep push notifications disabled.
           schema:
             type: dict
+            show_if: [["enable_web_push", "=", true]]
             attrs:
               - variable: public_key
                 label: VAPID Public Key
                 schema:
                   type: string
+                  required: true
                   default: ""
               - variable: private_key
                 label: VAPID Private Key
                 schema:
                   type: string
-                  default: ""
+                  required: true
                   private: true
+                  default: ""
               - variable: subject
                 label: VAPID Subject
-                description: 'A contact URI, e.g. mailto:admin@example.com'
+                description: "A contact URI, e.g. mailto:admin@example.com"
                 schema:
                   type: string
+                  required: true
                   default: ""
         - variable: additional_envs
           label: Additional Environment Variables
@@ -222,6 +178,7 @@ questions:
                 schema:
                   type: int
                   default: 31600
+                  show_if: [["bind_mode", "=", "published"]]
                   min: 1
                   max: 65535
                   required: true
@@ -245,7 +202,6 @@ questions:
           description: The docker networks to join
           schema:
             type: list
-            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -333,13 +289,6 @@ questions:
                                         schema:
                                           type: int
                                           "null": true
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
-          schema:
-            type: boolean
-            default: false
 
   - variable: storage
     label: ""
@@ -348,7 +297,7 @@ questions:
       type: dict
       attrs:
         - variable: uploads
-          label: OpenFamily Uploads Storage
+          label: Uploads Storage
           description: The path to store OpenFamily uploaded files (e.g. recipe photos).
           schema:
             type: dict
@@ -425,7 +374,6 @@ questions:
                         required: true
         - variable: postgres_data
           label: Postgres Data Storage
-          description: The path to store the OpenFamily postgres database.
           schema:
             type: dict
             attrs:
