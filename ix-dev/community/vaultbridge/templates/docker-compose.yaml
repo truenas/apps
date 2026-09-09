@@ -1,0 +1,39 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set app = tpl.add_container(values.consts.vaultbridge_container_name, "image") %}
+{% set permissions = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set permissions_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do app.set_user(values.run_as.user, values.run_as.group) %}
+{% do app.healthcheck.set_custom_test([
+  "CMD",
+  "python",
+  "-c",
+  "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=5).read()"
+]) %}
+
+{% do app.environment.add_env("API_KEY", values.vaultbridge.api_key) %}
+{% do app.environment.add_env("API_KEY_PREVIOUS", values.vaultbridge.api_key_previous) %}
+{% do app.environment.add_env("VAULT_PATH", values.consts.vault_path) %}
+{% do app.environment.add_env("SEMANTIC_DATA_PATH", values.consts.data_path) %}
+{% do app.environment.add_env("HF_HOME", values.consts.data_path ~ "/huggingface") %}
+{% do app.environment.add_env("SEMANTIC_WATCH_ENABLED", values.vaultbridge.watch_enabled) %}
+{% do app.environment.add_env("SEMANTIC_WATCH_DEBOUNCE_SECONDS", values.vaultbridge.watch_debounce_seconds) %}
+
+{% do app.add_port(values.network.web_port, {"container_port": values.consts.application_port}) %}
+
+{# /vault is authoritative operator data. Never add it to the permissions helper. #}
+{% do app.add_storage(values.consts.vault_path, values.storage.vault) %}
+
+{# /data is app-owned, rebuildable persistent state and may use the standard helper. #}
+{% do app.add_storage(values.consts.data_path, values.storage.data) %}
+{% do permissions.add_or_skip_action("data", values.storage.data, permissions_config) %}
+
+{% if permissions.has_actions() %}
+  {% do permissions.activate() %}
+  {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "http", "path": "/ui/"}) %}
+
+{{ tpl.render() | tojson }}

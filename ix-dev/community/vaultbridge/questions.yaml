@@ -1,0 +1,386 @@
+groups:
+  - name: VaultBridge Configuration
+    description: Configure VaultBridge
+  - name: User and Group Configuration
+    description: Configure the non-root user and group for VaultBridge
+  - name: Network Configuration
+    description: Configure network access for VaultBridge
+  - name: Storage Configuration
+    description: Configure the Obsidian vault and derived semantic data
+  - name: Labels Configuration
+    description: Configure labels for VaultBridge
+  - name: Resources Configuration
+    description: Configure resource limits for VaultBridge
+
+questions:
+  - variable: vaultbridge
+    label: ""
+    group: VaultBridge Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: api_key
+          label: API Key
+          description: Required Bearer credential for the API and Web UI. Use a long random value and store it securely.
+          schema:
+            type: string
+            default: ""
+            min_length: 32
+            private: true
+            required: true
+        - variable: api_key_previous
+          label: Previous API Key
+          description: Optional old key for a brief rotation overlap. Clear it after all clients use the new API Key.
+          schema:
+            type: string
+            default: ""
+            private: true
+        - variable: watch_enabled
+          label: Filesystem Watcher
+          description: Watch external Markdown changes. Startup synchronization still reconciles changes made while VaultBridge is stopped.
+          schema:
+            type: boolean
+            default: false
+        - variable: watch_debounce_seconds
+          label: Watcher Debounce Seconds
+          description: Seconds used to coalesce filesystem event bursts before queuing semantic refresh work.
+          schema:
+            type: int
+            default: 1
+            min: 1
+            required: true
+            show_if: [["watch_enabled", "=", true]]
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: Non-root user ID used by the VaultBridge process. It must already be able to access the selected vault.
+          schema:
+            type: int
+            min: 1
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: Non-root group ID used by the VaultBridge process. It must already be able to access the selected vault.
+          schema:
+            type: int
+            min: 1
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: Web Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: published
+                  hidden: true
+                  required: true
+                  enum:
+                    - value: published
+                      description: Publish the port on the TrueNAS host
+              - variable: port_number
+                label: Web Port
+                description: Host port that maps to VaultBridge container port 8000.
+                schema:
+                  type: int
+                  default: 30488
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: Host addresses on which to publish the Web Port. Empty publishes on wildcard IPv4 and IPv6 addresses.
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: networks
+          label: Additional Networks
+          description: Existing Docker networks to join. No additional network is required for a normal installation.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: vaultbridge
+                                        description: vaultbridge
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority
+                                        schema:
+                                          type: int
+                                          "null": true
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: vault
+          label: Obsidian Vault
+          description: Existing host path containing the authoritative Obsidian Markdown vault. VaultBridge never changes its ownership or ACL automatically.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  default: host_path
+                  required: true
+                  hidden: true
+                  enum:
+                    - value: host_path
+                      description: Existing Host Path
+              - variable: read_only
+                label: Read Only
+                description: Retrieval-only mode. Create and append operations fail while this is enabled.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Deliberately configure an ACL for the selected UID/GID. Leave disabled to preserve existing ownership and ACLs.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      description: Existing dataset or directory containing the Obsidian vault.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: data
+          label: Semantic / Derived Data
+          description: Persistent semantic index and model cache. This data is rebuildable from the authoritative vault.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: ixVolume is managed by TrueNAS; Host Path uses an existing operator-selected location.
+                schema:
+                  type: string
+                  default: ix_volume
+                  required: true
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume
+                    - value: host_path
+                      description: Host Path
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: TrueNAS-managed persistent storage for VaultBridge derived data.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        default: data
+                        required: true
+                        hidden: true
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable only when TrueNAS should deliberately configure access for the selected UID/GID.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - normalize/acl
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: vaultbridge
+                            description: vaultbridge
+
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: Configurable CPU limit for VaultBridge indexing and requests; this is not a minimum requirement.
+                schema:
+                  type: int
+                  default: 2
+                  min: 1
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Configurable memory limit for the local model and indexing; this is not a minimum requirement.
+                schema:
+                  type: int
+                  default: 4096
+                  min: 1
+                  required: true
