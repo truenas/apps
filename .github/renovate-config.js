@@ -172,6 +172,7 @@ module.exports = {
       [
         "ghcr.io/nextcloud-releases/aio-imaginary",
         "ghcr.io/nextcloud-releases/aio-talk",
+        "ghcr.io/nextcloud-releases/aio-talk-recording",
       ],
     ),
     customVersioning(

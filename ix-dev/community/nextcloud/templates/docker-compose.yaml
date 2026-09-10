@@ -271,6 +271,7 @@
 
 {# -- Talk (High Performance Backend) -- #}
 {% do nc_container.environment.add_env("IX_TALK", values.nextcloud.talk.enabled) %}
+{% do nc_container.environment.add_env("IX_TALK_RECORDING", values.nextcloud.talk.enabled and values.nextcloud.talk.recording.enabled) %}
 {% if values.nextcloud.talk.enabled %}
   {% if ext_protocol != "https" %}
     {% do tpl.funcs.fail("Nextcloud URL Protocol must be set to HTTPS for Talk to work") %}
@@ -316,6 +317,36 @@
   {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER", "%s://%s/standalone-signaling/" | format(ext_protocol, ext_host_port.x)) %}
   {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER_VERIFY", values.nextcloud.urls.is_cert_valid) %}
   {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
+
+
+  {# -- Talk Recording -- #}
+  {% if values.nextcloud.talk.recording.enabled %}
+    {% set recording_container = tpl.add_container(values.consts.talk_recording_container_name, "talk_recording_image") %}
+    {% do recording_container.add_network(nc_net) %}
+    {% do recording_container.set_user(values.run_as.user, values.run_as.group) %}
+    {% do recording_container.set_read_only(true) %}
+    {% do recording_container.set_init(true) %}
+    {% do recording_container.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
+    {# The browser needs a lot more shared memory than the default 64m #}
+    {% do recording_container.set_shm_size_mb(values.nextcloud.talk.recording.shm_size_mb) %}
+
+    {% do recording_container.environment.add_env("NC_DOMAIN", ext_host_port.x) %}
+    {% do recording_container.environment.add_env("NC_PROTOCOL", ext_protocol) %}
+    {% do recording_container.environment.add_env("RECORDING_SECRET", values.nextcloud.talk.recording.secret) %}
+    {% do recording_container.environment.add_env("INTERNAL_SECRET", values.nextcloud.talk.internal_secret) %}
+    {% do recording_container.environment.add_env("HPB_PROTOCOL", "http") %}
+    {% do recording_container.environment.add_env("HPB_DOMAIN", "%s:%d" | format(values.consts.talk_container_name, values.consts.internal_talk_signaling_port)) %}
+    {% do recording_container.environment.add_env("HPB_PATH", "/") %}
+    {% do recording_container.environment.add_env("HOME", "/tmp") %}
+
+    {% do recording_container.add_storage("/conf", {"type": "tmpfs"}) %}
+    {# Recordings are written here before being uploaded, and wiped on every start #}
+    {% do recording_container.add_storage("/tmp", values.storage.talk_recording_data) %}
+    {% do perm_container.add_or_skip_action("talk-recording-data", values.storage.talk_recording_data, perm_config) %}
+
+    {% do nc_container.environment.add_env("IX_TALK_RECORDING_SERVER", "http://%s:%d" | format(values.consts.talk_recording_container_name, values.consts.internal_talk_recording_port)) %}
+    {% do nc_container.environment.add_env("IX_TALK_RECORDING_SECRET", values.nextcloud.talk.recording.secret) %}
+  {% endif %}
 
   {% do nginx_container.depends.add_dependency(values.consts.talk_container_name, "service_started") %}
 {% endif %}

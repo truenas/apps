@@ -517,6 +517,46 @@ questions:
                   private: true
                   required: true
                   show_if: [["enabled", "=", true]]
+              - variable: recording
+                label: Recording
+                description: |
+                  Records calls with a headless browser and uploads the result into
+                  the conversation.</br>
+                  This is a heavy container, it runs a browser and transcodes video.
+                  A GPU is used for transcoding when one is assigned to the app,
+                  otherwise it falls back to the CPU and is considerably slower.
+                schema:
+                  type: dict
+                  show_if: [["enabled", "=", true]]
+                  attrs:
+                    - variable: enabled
+                      label: Enabled
+                      description: Enable the Talk Recording container
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: secret
+                      label: Recording Secret
+                      description: Shared secret between Nextcloud and the recording server.
+                      schema:
+                        type: string
+                        private: true
+                        required: true
+                        show_if: [["enabled", "=", true]]
+                    - variable: shm_size_mb
+                      label: Shared Memory Size (MB)
+                      description: |
+                        Shared memory available to the browser doing the recording.</br>
+                        Every recording in progress runs its own browser and they all
+                        share this, so raise it if several calls are recorded at once
+                        and recordings fail part way through.</br>
+                        This is a limit and not a reservation, unused space costs nothing.
+                      schema:
+                        type: int
+                        default: 2048
+                        min: 512
+                        required: true
+                        show_if: [["enabled", "=", true]]
         - variable: collabora
           label: Collabora
           description: |
@@ -1151,6 +1191,86 @@ questions:
                         required: true
                         hidden: true
                         default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: talk_recording_data
+          label: Talk Recording Scratch Storage
+          description: |
+            The path Talk Recording uses while a recording is in progress.</br>
+            Finished recordings are uploaded into the conversation, so nothing here
+            has to be kept. It is emptied every time the container starts.</br>
+            It has to be on disk rather than memory, a long call can grow to several GB.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "talk_recording_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
