@@ -265,6 +265,53 @@
   {% do nginx_container.depends.add_dependency(values.consts.notify_push_container_name, "service_started") %}
 {% endif %}
 
+{# -- Talk (High Performance Backend) -- #}
+{% do nc_container.environment.add_env("IX_TALK", values.nextcloud.talk.enabled) %}
+{% if values.nextcloud.talk.enabled %}
+  {% if ext_protocol != "https" %}
+    {% do tpl.funcs.fail("Nextcloud URL Protocol must be set to HTTPS for Talk to work") %}
+  {% endif %}
+
+  {% set talk_container = tpl.add_container(values.consts.talk_container_name, "talk_image") %}
+  {% do talk_container.add_network(nc_net) %}
+  {% do talk_container.set_user(values.run_as.user, values.run_as.group) %}
+  {% do talk_container.set_read_only(true) %}
+  {% do talk_container.set_init(true) %}
+  {% do talk_container.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
+
+  {% do talk_container.environment.add_env("NC_DOMAIN", ext_host_port.x) %}
+  {% do talk_container.environment.add_env("TALK_HOST", values.consts.talk_container_name) %}
+  {% do talk_container.environment.add_env("TALK_PORT", values.network.talk_port.port_number) %}
+  {#
+    Defaults to NC_DOMAIN, which carries a port on any non 80/443 setup and produces an
+    invalid TURN address, killing janus on startup. Janus shares this container with
+    eturnal, so point it straight at the loopback address instead.
+  #}
+  {% do talk_container.environment.add_env("TURN_DOMAIN", "127.0.0.1") %}
+  {% do talk_container.environment.add_env("TURN_SECRET", values.nextcloud.talk.turn_secret) %}
+  {% do talk_container.environment.add_env("SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
+  {% do talk_container.environment.add_env("INTERNAL_SECRET", values.nextcloud.talk.internal_secret) %}
+  {% do talk_container.environment.add_env("SKIP_CERT_VERIFY", not values.nextcloud.urls.is_cert_valid) %}
+
+  {% do talk_container.add_port(values.network.talk_port) %}
+  {% do talk_container.add_port(values.network.talk_port, {"protocol": "udp"}) %}
+
+  {# The container is read only, these are the only paths it writes to #}
+  {% do talk_container.add_storage("/conf", {"type": "tmpfs"}) %}
+  {% do talk_container.add_storage("/tmp", {"type": "tmpfs"}) %}
+  {% do talk_container.add_storage("/run", {"type": "tmpfs"}) %}
+  {% do talk_container.add_storage("/opt/eturnal/run", {"type": "tmpfs"}) %}
+
+  {% do nc_container.environment.add_env("IX_TALK_TURN_SERVER", "%s:%d" | format(parsed_url.host, values.network.talk_port.port_number)) %}
+  {% do nc_container.environment.add_env("IX_TALK_TURN_SECRET", values.nextcloud.talk.turn_secret) %}
+  {% do nc_container.environment.add_env("IX_TALK_STUN_SERVERS", "%s:%d" | format(parsed_url.host, values.network.talk_port.port_number)) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER", "%s://%s/standalone-signaling/" | format(ext_protocol, ext_host_port.x)) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER_VERIFY", values.nextcloud.urls.is_cert_valid) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
+
+  {% do nginx_container.depends.add_dependency(values.consts.talk_container_name, "service_started") %}
+{% endif %}
+
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do nc_container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
