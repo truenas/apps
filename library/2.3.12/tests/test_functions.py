@@ -82,6 +82,13 @@ def test_funcs(mock_values):
         {"func": "is_boolean", "values": ["false"], "expected": True},
         {"func": "is_number", "values": ["1"], "expected": True},
         {"func": "is_number", "values": ["1.1"], "expected": True},
+        {"func": "is_ip", "values": ["192.168.1.100"], "expected": (True, 4)},
+        {"func": "is_ip", "values": ["aaaa:bbbb:ffff:cccc::dddd"], "expected": (True, 6)},
+        {"func": "is_ip", "values": ["::1"], "expected": (True, 6)},
+        {"func": "is_ip", "values": ["cloud.example.com"], "expected": (False, 0)},
+        {"func": "is_ip", "values": ["[aaaa:bbbb:ffff:cccc::dddd]"], "expected": (False, 0)},
+        {"func": "is_ip", "values": ["999.999.999.999"], "expected": (False, 0)},
+        {"func": "is_ip", "values": [""], "expected": (False, 0)},
         {"func": "match_regex", "values": ["value", "^[a-zA-Z0-9]+$"], "expected": True},
         {"func": "match_regex", "values": ["value", "^[0-9]+$"], "expected": False},
         {

@@ -3,6 +3,7 @@ import copy
 import yaml
 import bcrypt
 import secrets
+import ipaddress
 import urllib.parse
 from base64 import b64encode
 from typing import TYPE_CHECKING
@@ -88,6 +89,14 @@ class Functions:
             return True
         except ValueError:
             return False
+
+    def _is_ip(self, string) -> tuple[bool, int]:
+        """Returns whether the string is an IP address and which version it is.
+        The version is 0 when it is not an IP address."""
+        try:
+            return True, ipaddress.ip_address(string).version
+        except ValueError:
+            return False, 0
 
     def _copy_dict(self, dict):
         return copy.deepcopy(dict)
@@ -242,6 +251,7 @@ class Functions:
             "htpasswd": self._htpasswd,
             "is_boolean": self._is_boolean,
             "is_number": self._is_number,
+            "is_ip": self._is_ip,
             "match_regex": self._match_regex,
             "deep_merge": self._deep_merge,
             "must_match_regex": self._must_match_regex,

@@ -475,6 +475,48 @@ questions:
                       description: CUDA compatible GPU
                     - value: rocm
                       description: ROCm compatible GPU
+        - variable: talk
+          label: Talk (High Performance Backend)
+          description: |
+            Talk High Performance Backend (signaling server, TURN/STUN and media relay).</br>
+            Enabling or Disabling this will trigger actions on each startup to ensure
+            the configuration is either present or absent.</br>
+            Actions like, update configuration, add/remove nextcloud app.</br>
+            Requires the Protocol under URLs to be set to HTTPS,
+            as browsers refuse to start calls over plain HTTP.
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enabled
+                description: Enable the Talk High Performance Backend container
+                schema:
+                  type: boolean
+                  default: false
+              - variable: turn_secret
+                label: TURN Secret
+                description: Shared secret between Talk and the TURN server.
+                schema:
+                  type: string
+                  private: true
+                  required: true
+                  show_if: [["enabled", "=", true]]
+              - variable: signaling_secret
+                label: Signaling Secret
+                description: Shared secret between Nextcloud and the signaling server.
+                schema:
+                  type: string
+                  private: true
+                  required: true
+                  show_if: [["enabled", "=", true]]
+              - variable: internal_secret
+                label: Internal Secret
+                description: Secret used between the signaling server's own components.
+                schema:
+                  type: string
+                  private: true
+                  required: true
+                  show_if: [["enabled", "=", true]]
         - variable: collabora
           label: Collabora
           description: |
@@ -654,6 +696,16 @@ questions:
                       description: HTTP
                     - value: https
                       description: HTTPS
+              - variable: is_cert_valid
+                label: Certificate is Publicly Trusted
+                description: |
+                  Whether the certificate served on the URL above is trusted by other machines.</br>
+                  Only used by Talk. When disabled, Talk's signaling server and Nextcloud
+                  skip verifying each other's certificate.</br>
+                  Leave this disabled for self-signed certificates, otherwise Talk will fail to connect.
+                schema:
+                  type: boolean
+                  default: false
               - variable: host
                 label: Host
                 description: |
@@ -789,6 +841,55 @@ questions:
                 schema:
                   type: int
                   default: 30125
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: talk_port
+          label: Talk (TURN/STUN) Port
+          description: |
+            The port used by Talk for TURN and STUN, on both TCP and UDP.</br>
+            Clients connect to this port directly, so it has to be reachable
+            from wherever calls are made from.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30126
                   min: 1
                   max: 65535
                   required: true

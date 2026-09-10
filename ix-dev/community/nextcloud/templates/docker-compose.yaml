@@ -202,10 +202,12 @@
   {% set imaginary_container = tpl.add_container(values.consts.imaginary_container_name, "imaginary_image") %}
   {% do imaginary_container.add_network(nc_net) %}
   {% do imaginary_container.set_user(values.run_as.user, values.run_as.group) %}
+  {% do imaginary_container.set_read_only(true) %}
+  {% do imaginary_container.set_init(true) %}
   {% do imaginary_container.healthcheck.set_test("wget", {"port": values.consts.internal_imaginary_port, "path": "/health"}) %}
   {% do imaginary_container.set_entrypoint([
       "imaginary",
-      "-p", "9000",
+      "-p", values.consts.internal_imaginary_port|string,
       "-concurrency", "20",
       "-max-allowed-resolution", "222.2",
       "-enable-url-source",
@@ -249,6 +251,7 @@
   {% set notify_push_container = tpl.add_container(values.consts.notify_push_container_name, "notify_push_image") %}
   {% do notify_push_container.add_network(nc_net) %}
   {% do notify_push_container.set_user(values.run_as.user, values.run_as.group) %}
+  {% do notify_push_container.set_read_only(true) %}
   {% do notify_push_container.healthcheck.set_test("netcat", {"port": values.consts.internal_notify_push_port}) %}
   {% do notify_push_container.environment.add_env("NEXTCLOUD_URL", "%s://%s:%s" | format(
     "https" if values.network.certificate_id else "http",
