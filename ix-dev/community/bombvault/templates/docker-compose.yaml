@@ -1,0 +1,47 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.bombvault_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.set_hostname(values.consts.bombvault_container_name) %}
+
+{% do c1.healthcheck.set_custom_test(["CMD", "/usr/local/bin/bombvault", "healthcheck"]) %}
+
+{% do c1.environment.add_env("APP_KEY", values.bombvault.app_key) %}
+{% do c1.environment.add_env("PLATFORM", "truenas") %}
+{% do c1.environment.add_env("HOST_SOURCE_ROOT", values.storage.host_data) %}
+{% do c1.environment.add_env("HTTP_ONLY", values.bombvault.http_only) %}
+{% if values.bombvault.backup_max_hours is not none %}
+  {% do c1.environment.add_env("BACKUP_MAX_HOURS", values.bombvault.backup_max_hours) %}
+{% endif %}
+{% if values.bombvault.self_container_name %}
+  {% do c1.environment.add_env("BOMBVAULT_SELF_CONTAINER", values.bombvault.self_container_name) %}
+{% endif %}
+{% if values.vm_backup.libvirt_uri %}
+  {% do c1.environment.add_env("LIBVIRT_URI", values.vm_backup.libvirt_uri) %}
+{% endif %}
+{% do c1.environment.add_env("LIBVIRT_HOST", values.vm_backup.libvirt_host) %}
+{% do c1.environment.add_env("LIBVIRT_SSH_USER", values.vm_backup.libvirt_ssh_user) %}
+{% do c1.environment.add_env("LIBVIRT_SSH_PORT", values.vm_backup.libvirt_ssh_port) %}
+{% do c1.environment.add_user_envs(values.bombvault.additional_envs) %}
+
+{% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
+{% do c1.add_docker_socket(read_only=False) %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% do c1.add_storage(values.consts.host_data_path, {"type": "host_path", "host_path_config": {"path": values.storage.host_data}}) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_https_port}) %}
+  {% do c1.add_port(values.network.http_port, {"container_port": values.consts.internal_http_port}) %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"name": "WebUI (HTTPS)", "scheme": "https", "port": values.consts.internal_https_port if values.network.host_network else None}) %}
+{% do tpl.portals.add(values.network.http_port, {"name": "WebUI (HTTP, only if HTTP Only is on)", "scheme": "http", "port": values.consts.internal_http_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}
