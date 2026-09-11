@@ -164,6 +164,7 @@
 {# -- Nginx -- #}
 {% set nginx_container = tpl.add_container(values.consts.nginx_container_name, "nginx_image") %}
 {% do nginx_container.add_network(nc_net) %}
+{% do nginx_container.remove_devices() %}
 {% do nginx_container.set_user(values.run_as.user, values.run_as.group) %}
 {% do nginx_container.healthcheck.set_test("curl", {
   "port": values.network.web_port.port_number, "path": "/status.php",
@@ -201,11 +202,14 @@
 {% if values.nextcloud.previews.enabled and values.nextcloud.previews.imaginary.enabled %}
   {% set imaginary_container = tpl.add_container(values.consts.imaginary_container_name, "imaginary_image") %}
   {% do imaginary_container.add_network(nc_net) %}
+  {% do imaginary_container.remove_devices() %}
   {% do imaginary_container.set_user(values.run_as.user, values.run_as.group) %}
+  {% do imaginary_container.set_read_only(true) %}
+  {% do imaginary_container.set_init(true) %}
   {% do imaginary_container.healthcheck.set_test("wget", {"port": values.consts.internal_imaginary_port, "path": "/health"}) %}
   {% do imaginary_container.set_entrypoint([
       "imaginary",
-      "-p", "9000",
+      "-p", values.consts.internal_imaginary_port|string,
       "-concurrency", "20",
       "-max-allowed-resolution", "222.2",
       "-enable-url-source",
@@ -219,6 +223,7 @@
 {% if values.nextcloud.harp.enabled %}
   {% set harp_container = tpl.add_container(values.consts.harp_container_name, "harp_image") %}
   {% do harp_container.add_caps(["DAC_READ_SEARCH"]) %}
+  {% do harp_container.remove_devices() %}
   {% do harp_container.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
   {% do harp_container.add_docker_socket(read_only=false) %}
   {% do harp_container.environment.add_env("NC_INSTANCE_URL", "%s://%s" |format(ext_protocol, ext_host_port.x)) %}
@@ -248,7 +253,9 @@
 {% if values.nextcloud.notify_push.enabled %}
   {% set notify_push_container = tpl.add_container(values.consts.notify_push_container_name, "notify_push_image") %}
   {% do notify_push_container.add_network(nc_net) %}
+  {% do notify_push_container.remove_devices() %}
   {% do notify_push_container.set_user(values.run_as.user, values.run_as.group) %}
+  {% do notify_push_container.set_read_only(true) %}
   {% do notify_push_container.healthcheck.set_test("netcat", {"port": values.consts.internal_notify_push_port}) %}
   {% do notify_push_container.environment.add_env("NEXTCLOUD_URL", "%s://%s:%s" | format(
     "https" if values.network.certificate_id else "http",
@@ -260,6 +267,88 @@
   {% do nc_container.environment.add_env("IX_NOTIFY_PUSH_ENDPOINT", "%s://%s/push" | format(ext_protocol, ext_host_port.x)) %}
   {# We only want to ensure the notify push container has started before nginx starts, so it can resolve the address #}
   {% do nginx_container.depends.add_dependency(values.consts.notify_push_container_name, "service_started") %}
+{% endif %}
+
+{# -- Talk (High Performance Backend) -- #}
+{% do nc_container.environment.add_env("IX_TALK", values.nextcloud.talk.enabled) %}
+{% do nc_container.environment.add_env("IX_TALK_RECORDING", values.nextcloud.talk.enabled and values.nextcloud.talk.recording.enabled) %}
+{% if values.nextcloud.talk.enabled %}
+  {% if ext_protocol != "https" %}
+    {% do tpl.funcs.fail("Nextcloud URL Protocol must be set to HTTPS for Talk to work") %}
+  {% endif %}
+  {% if not values.nextcloud.urls.is_cert_valid %}
+    {% do tpl.funcs.fail("Nextcloud URL Certificate must be a trusted one for Talk to work. See [Certificate is Trusted] under URLs") %}
+  {% endif %}
+
+  {% set talk_container = tpl.add_container(values.consts.talk_container_name, "talk_image") %}
+  {% do talk_container.add_network(nc_net) %}
+  {% do talk_container.remove_devices() %}
+  {% do talk_container.set_user(values.run_as.user, values.run_as.group) %}
+  {% do talk_container.set_read_only(true) %}
+  {% do talk_container.set_init(true) %}
+  {% do talk_container.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
+
+  {% do talk_container.environment.add_env("NC_DOMAIN", ext_host_port.x) %}
+  {% do talk_container.environment.add_env("TALK_HOST", values.consts.talk_container_name) %}
+  {% do talk_container.environment.add_env("TALK_PORT", values.network.talk_port.port_number) %}
+  {#
+    Defaults to NC_DOMAIN, which carries a port on any non 80/443 setup and produces an
+    invalid TURN address, killing janus on startup. Janus shares this container with
+    eturnal, so point it straight at the loopback address instead.
+  #}
+  {% do talk_container.environment.add_env("TURN_DOMAIN", "127.0.0.1") %}
+  {% do talk_container.environment.add_env("TURN_SECRET", values.nextcloud.talk.turn_secret) %}
+  {% do talk_container.environment.add_env("SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
+  {% do talk_container.environment.add_env("INTERNAL_SECRET", values.nextcloud.talk.internal_secret) %}
+  {% do talk_container.environment.add_env("SKIP_CERT_VERIFY", not values.nextcloud.urls.is_cert_valid) %}
+
+  {% do talk_container.add_port(values.network.talk_port) %}
+  {% do talk_container.add_port(values.network.talk_port, {"protocol": "udp"}) %}
+
+  {# The container is read only, these are the only paths it writes to #}
+  {% do talk_container.add_storage("/conf", {"type": "tmpfs"}) %}
+  {% do talk_container.add_storage("/tmp", {"type": "tmpfs"}) %}
+  {% do talk_container.add_storage("/run", {"type": "tmpfs"}) %}
+  {% do talk_container.add_storage("/opt/eturnal/run", {"type": "tmpfs"}) %}
+
+  {% do nc_container.environment.add_env("IX_TALK_TURN_SERVER", "%s:%d" | format(parsed_url.host, values.network.talk_port.port_number)) %}
+  {% do nc_container.environment.add_env("IX_TALK_TURN_SECRET", values.nextcloud.talk.turn_secret) %}
+  {% do nc_container.environment.add_env("IX_TALK_STUN_SERVERS", "%s:%d" | format(parsed_url.host, values.network.talk_port.port_number)) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER", "%s://%s/standalone-signaling/" | format(ext_protocol, ext_host_port.x)) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER_VERIFY", values.nextcloud.urls.is_cert_valid) %}
+  {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
+
+
+  {# -- Talk Recording -- #}
+  {% if values.nextcloud.talk.recording.enabled %}
+    {% set recording_container = tpl.add_container(values.consts.talk_recording_container_name, "talk_recording_image") %}
+    {% do recording_container.add_network(nc_net) %}
+    {% do recording_container.set_user(values.run_as.user, values.run_as.group) %}
+    {% do recording_container.set_read_only(true) %}
+    {% do recording_container.set_init(true) %}
+    {% do recording_container.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
+    {# The browser needs a lot more shared memory than the default 64m #}
+    {% do recording_container.set_shm_size_mb(values.nextcloud.talk.recording.shm_size_mb) %}
+
+    {% do recording_container.environment.add_env("NC_DOMAIN", ext_host_port.x) %}
+    {% do recording_container.environment.add_env("NC_PROTOCOL", ext_protocol) %}
+    {% do recording_container.environment.add_env("RECORDING_SECRET", values.nextcloud.talk.recording.secret) %}
+    {% do recording_container.environment.add_env("INTERNAL_SECRET", values.nextcloud.talk.internal_secret) %}
+    {% do recording_container.environment.add_env("HPB_PROTOCOL", "http") %}
+    {% do recording_container.environment.add_env("HPB_DOMAIN", "%s:%d" | format(values.consts.talk_container_name, values.consts.internal_talk_signaling_port)) %}
+    {% do recording_container.environment.add_env("HPB_PATH", "/") %}
+    {% do recording_container.environment.add_env("HOME", "/tmp") %}
+
+    {% do recording_container.add_storage("/conf", {"type": "tmpfs"}) %}
+    {# Recordings are written here before being uploaded, and wiped on every start #}
+    {% do recording_container.add_storage("/tmp", values.storage.talk_recording_data) %}
+    {% do perm_container.add_or_skip_action("talk-recording-data", values.storage.talk_recording_data, perm_config) %}
+
+    {% do nc_container.environment.add_env("IX_TALK_RECORDING_SERVER", "http://%s:%d" | format(values.consts.talk_recording_container_name, values.consts.internal_talk_recording_port)) %}
+    {% do nc_container.environment.add_env("IX_TALK_RECORDING_SECRET", values.nextcloud.talk.recording.secret) %}
+  {% endif %}
+
+  {% do nginx_container.depends.add_dependency(values.consts.talk_container_name, "service_started") %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
