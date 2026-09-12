@@ -1,0 +1,32 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set c1 = tpl.add_container(values.consts.omnivoice_container_name, "image") %}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "python3", "/app/healthcheck.py"]) %}
+{% do c1.healthcheck.set_start_period(1800) %}
+{% do c1.healthcheck.set_timeout(10) %}
+{% do c1.healthcheck.set_start_interval(30) %}
+{% do c1.environment.add_env("OMNIVOICE_DEVICE", values.omnivoice.device) %}
+{% do c1.environment.add_env("OMNIVOICE_MODEL", values.omnivoice.model) %}
+{% do c1.environment.add_env("OMNIVOICE_LANGUAGE", values.omnivoice.language) %}
+{% do c1.environment.add_env("OMNIVOICE_LANGUAGE_CODE", values.omnivoice.language_code) %}
+{% do c1.environment.add_env("OMNIVOICE_REF_AUDIO", values.omnivoice.voice_ref) %}
+{% do c1.environment.add_env("OMNIVOICE_REF_TEXT", values.omnivoice.ref_text) %}
+{% do c1.environment.add_env("OMNIVOICE_INSTRUCT", values.omnivoice.instruct) %}
+{% do c1.environment.add_env("OMNIVOICE_NUM_STEP", values.omnivoice.num_step) %}
+{% do c1.environment.add_env("OMNIVOICE_GUIDANCE_SCALE", values.omnivoice.guidance_scale) %}
+{% do c1.environment.add_env("OMNIVOICE_SPEED", values.omnivoice.speed) %}
+{% do c1.environment.add_env("OMNIVOICE_T_SHIFT", values.omnivoice.t_shift) %}
+{% do c1.environment.add_env("OMNIVOICE_FULL_TEXT_CHARS", values.omnivoice.full_text_chars) %}
+{% do c1.environment.add_env("OMNIVOICE_FIRST_STREAM_CHARS", values.omnivoice.first_stream_chars) %}
+{% do c1.environment.add_env("OMNIVOICE_STREAM_CHARS", values.omnivoice.stream_chars) %}
+{% do c1.environment.add_env("OMNIVOICE_INTER_CHUNK_SILENCE", values.omnivoice.silence) %}
+{% do c1.environment.add_user_envs(values.omnivoice.additional_envs) %}
+{% do c1.add_port(values.network.wyoming_port, {"container_port": 10200}) %}
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do perms.add_or_skip_action("data", values.storage.data, {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"}) %}
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+{{ tpl.render() | tojson }}

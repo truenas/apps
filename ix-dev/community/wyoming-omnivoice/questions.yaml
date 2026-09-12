@@ -1,0 +1,458 @@
+groups:
+- description: Configure OmniVoice
+  name: OmniVoice Configuration
+- description: Configure the user and group for OmniVoice
+  name: User and Group Configuration
+- description: Configure Network for OmniVoice
+  name: Network Configuration
+- description: Configure Storage for OmniVoice
+  name: Storage Configuration
+- description: Configure Labels for OmniVoice
+  name: Labels Configuration
+- description: Configure Resources for OmniVoice
+  name: Resources Configuration
+questions:
+- group: OmniVoice Configuration
+  label: ''
+  schema:
+    attrs:
+    - label: Inference Device
+      schema:
+        default: cpu
+        enum:
+        - description: CPU
+          value: cpu
+        - description: NVIDIA GPU (select a GPU below)
+          value: cuda
+        type: string
+      variable: device
+      description: 'Where speech is generated. Default: CPU. Choose NVIDIA GPU for
+        CUDA acceleration, then select the intended NVIDIA GPU under Resources. Tesla
+        P40 is supported by the pinned CUDA 12.6 image; AMD/Intel GPU acceleration
+        is not supported.'
+    - variable: model
+      label: Model
+      description: 'Hugging Face model ID or a local model directory inside /data.
+        Default: k2-fsa/OmniVoice. A different model may need additional memory/storage
+        and must be compatible with OmniVoice. Downloaded weights are cached persistently.'
+      schema:
+        type: string
+        default: k2-fsa/OmniVoice
+        required: true
+        min_length: 1
+    - label: Synthesis Language
+      schema:
+        default: English
+        type: string
+      variable: language
+      description: 'Language name passed to the speech model, for example English
+        or French. Default: English. Set the matching language code below. One configured
+        language/voice is advertised to Home Assistant; per-request language switching
+        is not supported.'
+    - label: Language Code (BCP 47)
+      schema:
+        default: en
+        type: string
+      variable: language_code
+      description: 'BCP 47 language code advertised to Home Assistant, for example
+        en or fr. Default: en. This must match Synthesis Language; changing this code
+        alone does not change the language spoken by the model.'
+    - description: 'Optional WAV file path inside the container, for example /data/voices/reference.wav.
+        Default: empty (no reference voice). The file must be readable by the app
+        user. Supply its exact transcript below; leave both fields empty to generate
+        a voice without a reference.'
+      label: Reference Audio Path Inside /data (Optional)
+      schema:
+        default: ''
+        type: string
+      variable: voice_ref
+    - label: Reference Audio Transcript (Optional)
+      schema:
+        default: ''
+        private: true
+        type: string
+      variable: ref_text
+      description: 'The words spoken in the reference WAV, transcribed accurately.
+        Default: empty. Required when reference audio is set. This is private voice
+        configuration and is hidden in the UI; do not include it in public issue reports.'
+    - variable: instruct
+      label: Voice Design Instruction (Optional)
+      description: 'Optional description of the desired voice, such as speaking style
+        or accent. Default: empty. This is passed to OmniVoice as its voice-design
+        instruction; support and its interaction with a reference voice depend on
+        the model.'
+      schema:
+        type: string
+        default: ''
+        required: false
+    - description: 'Number of generation steps. Integer range: 1–100; default: 32.
+        More steps generally improve quality but increase latency. 8 steps has been
+        tested on Tesla P40 for faster responses. Changing this can alter voice quality.'
+      label: Generation Steps
+      schema:
+        default: 32
+        max: 100
+        min: 1
+        type: int
+      variable: num_step
+    - variable: guidance_scale
+      label: Guidance Scale
+      description: 'How strongly generation follows its conditioning. Decimal range:
+        0–10; default: 2.0. Higher is not always better and can change naturalness.
+        1.2 was used in the tested P40 setup.'
+      schema:
+        type: string
+        default: '2.0'
+        required: true
+        valid_chars: ^(?:[0-9](?:\.[0-9]+)?|10(?:\.0+)?)$
+    - variable: speed
+      label: Speech Speed
+      description: 'Speech speed multiplier. Decimal range: 0.25–4; default: 1.0.
+        Below 1.0 is slower, above 1.0 is faster. For example 0.9 is slightly slower
+        speech. This changes generated speech rather than network transfer speed.'
+      schema:
+        type: string
+        default: '1.0'
+        required: true
+        valid_chars: ^(?:0\.(?:2[5-9][0-9]*|[3-9][0-9]*)|[1-3](?:\.[0-9]+)?|4(?:\.0+)?)$
+    - variable: t_shift
+      label: Diffusion Time Shift
+      description: 'Advanced diffusion sampling parameter. Decimal range: 0–1; default:
+        0.1. Changes how sampling steps are distributed during generation. Keep the
+        default unless comparing output quality; this is not a delay in seconds.'
+      schema:
+        type: string
+        default: '0.1'
+        required: true
+        valid_chars: ^(?:0(?:\.[0-9]+)?|1(?:\.0+)?)$
+    - variable: full_text_chars
+      label: Complete Request Piece Size (Characters)
+      description: 'Maximum characters per generated piece for complete, non-streamed
+        text requests. Integer range: 20–500; default: 100. Shorter pieces can reduce
+        waiting time but may make speech less natural. Sentence and word boundaries
+        are preferred; unusually long unbroken tokens are split to keep the limit.'
+      schema:
+        type: int
+        default: 100
+        required: true
+        min: 20
+        max: 500
+    - variable: first_stream_chars
+      label: First Streamed Piece Size (Characters)
+      description: 'Maximum characters per generated piece for the first piece of
+        streamed text. Integer range: 20–500; default: 100. Shorter pieces can reduce
+        waiting time but may make speech less natural. Sentence and word boundaries
+        are preferred; unusually long unbroken tokens are split to keep the limit.'
+      schema:
+        type: int
+        default: 100
+        required: true
+        min: 20
+        max: 500
+    - variable: stream_chars
+      label: Following Streamed Piece Size (Characters)
+      description: 'Maximum characters per generated piece for subsequent pieces of
+        streamed text. Integer range: 20–500; default: 100. Shorter pieces can reduce
+        waiting time but may make speech less natural. Sentence and word boundaries
+        are preferred; unusually long unbroken tokens are split to keep the limit.'
+      schema:
+        type: int
+        default: 100
+        required: true
+        min: 20
+        max: 500
+    - variable: silence
+      label: Silence Between Pieces (Seconds)
+      description: 'Silence inserted between generated text pieces. Decimal range:
+        0–2 seconds; default: 0.15. Set 0 for no inserted pause. Longer pauses may
+        sound more separated and increase the total audio duration.'
+      schema:
+        type: string
+        default: '0.15'
+        required: true
+        valid_chars: ^(?:[01](?:\.[0-9]+)?|2(?:\.0+)?)$
+    - label: Additional Environment Variables
+      schema:
+        default: []
+        items:
+        - label: Environment Variable
+          schema:
+            attrs:
+            - label: Name
+              schema:
+                required: true
+                type: string
+              variable: name
+            - label: Value
+              schema:
+                type: string
+              variable: value
+            type: dict
+          variable: env
+        type: list
+      variable: additional_envs
+      description: Advanced settings for dependencies that are not covered by the
+        fields above. Values are strings. Do not duplicate the OMNIVOICE variables
+        represented by these fields or override the automatically managed GPU/cache
+        settings. Each dependency defines its own supported values.
+    type: dict
+  variable: omnivoice
+- group: User and Group Configuration
+  label: ''
+  schema:
+    attrs:
+    - description: The user id that OmniVoice files will be owned by.
+      label: User ID
+      schema:
+        default: 568
+        min: 2
+        required: true
+        type: int
+      variable: user
+    - description: The group id that OmniVoice files will be owned by.
+      label: Group ID
+      schema:
+        default: 568
+        min: 2
+        required: true
+        type: int
+      variable: group
+    type: dict
+  variable: run_as
+- group: Network Configuration
+  label: ''
+  schema:
+    attrs:
+    - label: Wyoming TCP Port
+      schema:
+        attrs:
+        - description: 'The port bind mode.</br>
+
+            - Publish: The port will be published on the host for external access.</br>
+
+            - Expose: The port will be exposed for inter-container communication.</br>
+
+            - None: The port will not be exposed or published.</br>
+
+            Note: If the Dockerfile defines an EXPOSE directive,
+
+            the port will still be exposed for inter-container communication regardless
+            of this setting.
+
+            '
+          label: Port Bind Mode
+          schema:
+            default: published
+            enum:
+            - description: Publish port on the host for external access
+              value: published
+            - description: Expose port for inter-container communication
+              value: exposed
+            - description: None
+              value: ''
+            type: string
+          variable: bind_mode
+        - label: Port Number
+          schema:
+            default: 30490
+            max: 65535
+            min: 1
+            required: true
+            type: int
+          variable: port_number
+        - description: IPs on the host to bind this port
+          label: Host IPs
+          schema:
+            default: []
+            items:
+            - label: Host IP
+              schema:
+                $ref:
+                - definitions/node_bind_ip
+                required: true
+                type: string
+              variable: host_ip
+            show_if:
+            - - bind_mode
+              - '='
+              - published
+            type: list
+          variable: host_ips
+        type: dict
+      variable: wyoming_port
+    type: dict
+  variable: network
+- group: Storage Configuration
+  label: ''
+  schema:
+    attrs:
+    - description: Persistent /data directory. Allow space for downloaded model weights.
+        Must be writable by the configured user.
+      label: Model Cache and Voice Storage
+      schema:
+        attrs:
+        - description: 'ixVolume: Is dataset created automatically by the system.</br>
+
+            Host Path: Is a path that already exists on the system.
+
+            '
+          label: Type
+          schema:
+            default: ix_volume
+            enum:
+            - description: Host Path (Path that already exists on the system)
+              value: host_path
+            - description: ixVolume (Dataset created automatically by the system)
+              value: ix_volume
+            required: true
+            type: string
+          variable: type
+        - description: The configuration for the ixVolume dataset.
+          label: ixVolume Configuration
+          schema:
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - description: Enable ACL for the storage.
+              label: Enable ACL
+              schema:
+                default: false
+                type: boolean
+              variable: acl_enable
+            - description: The name of the dataset to use for storage.
+              label: Dataset Name
+              schema:
+                default: data
+                hidden: true
+                required: true
+                type: string
+              variable: dataset_name
+            - label: ACL Configuration
+              schema:
+                attrs: []
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                type: dict
+              variable: acl_entries
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            type: dict
+          variable: ix_volume_config
+        - label: Host Path Configuration
+          schema:
+            attrs:
+            - description: Enable ACL for the storage.
+              label: Enable ACL
+              schema:
+                default: false
+                type: boolean
+              variable: acl_enable
+            - label: ACL Configuration
+              schema:
+                $ref:
+                - normalize/acl
+                attrs: []
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                type: dict
+              variable: acl
+            - description: The host path to use for storage.
+              label: Host Path
+              schema:
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+                type: hostpath
+              variable: path
+            - label: Automatic Permissions
+              schema:
+                default: false
+                type: boolean
+              variable: auto_permissions
+            show_if:
+            - - type
+              - '='
+              - host_path
+            type: dict
+          variable: host_path_config
+        type: dict
+      variable: data
+    type: dict
+  variable: storage
+- group: Labels Configuration
+  label: ''
+  schema:
+    default: []
+    items:
+    - label: Label
+      schema:
+        attrs:
+        - label: Key
+          schema:
+            required: true
+            type: string
+          variable: key
+        - label: Value
+          schema:
+            required: true
+            type: string
+          variable: value
+        - description: Containers where the label should be applied
+          label: Containers
+          schema:
+            items:
+            - label: Container
+              schema:
+                enum:
+                - description: wyoming-omnivoice
+                  value: wyoming-omnivoice
+                required: true
+                type: string
+              variable: container
+            type: list
+          variable: containers
+        type: dict
+      variable: label
+    type: list
+  variable: labels
+- group: Resources Configuration
+  label: ''
+  schema:
+    attrs:
+    - label: Limits
+      schema:
+        attrs:
+        - description: CPUs limit for OmniVoice.
+          label: CPUs
+          schema:
+            default: 4
+            required: true
+            type: int
+          variable: cpus
+        - description: Memory limit for OmniVoice.
+          label: Memory (in MB)
+          schema:
+            default: 8192
+            required: true
+            type: int
+          variable: memory
+        type: dict
+      variable: limits
+    - group: Resources Configuration
+      label: GPU Configuration
+      schema:
+        $ref:
+        - definitions/gpu_configuration
+        attrs: []
+        type: dict
+      variable: gpus
+    type: dict
+  variable: resources
