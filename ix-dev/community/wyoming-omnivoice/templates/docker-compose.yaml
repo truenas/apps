@@ -1,4 +1,10 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
+{% if values.omnivoice.device == "cuda" and not tpl.funcs.has_nvidia_gpu() %}
+  {% do tpl.funcs.fail("NVIDIA inference requires an NVIDIA GPU selected under Resources. Select a GPU or choose CPU inference.") %}
+{% endif %}
+{% if (values.omnivoice.voice_ref and not values.omnivoice.ref_text) or (values.omnivoice.ref_text and not values.omnivoice.voice_ref) %}
+  {% do tpl.funcs.fail("Reference audio and its transcript must be supplied together, or both left empty.") %}
+{% endif %}
 {% set c1 = tpl.add_container(values.consts.omnivoice_container_name, "image") %}
 {% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
@@ -6,6 +12,8 @@
 {% do c1.healthcheck.set_start_period(1800) %}
 {% do c1.healthcheck.set_timeout(10) %}
 {% do c1.healthcheck.set_start_interval(30) %}
+{% do c1.environment.add_env("OMP_NUM_THREADS", values.resources.limits.cpus) %}
+{% do c1.environment.add_env("MKL_NUM_THREADS", values.resources.limits.cpus) %}
 {% do c1.environment.add_env("OMNIVOICE_DEVICE", values.omnivoice.device) %}
 {% do c1.environment.add_env("OMNIVOICE_MODEL", values.omnivoice.model) %}
 {% do c1.environment.add_env("OMNIVOICE_LANGUAGE", values.omnivoice.language) %}
