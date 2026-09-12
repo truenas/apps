@@ -2,10 +2,6 @@
 
 {% set iz_net = tpl.networks.create_internal("inbox-zero-net") %}
 
-{% if values.inbox_zero.google_client_id == "skipped" and not values.inbox_zero.microsoft_auth.enabled %}
-  {% do tpl.notes.add_warning("Google OAuth is set to 'skipped' and Microsoft OAuth is disabled. No one will be able to sign in until at least one login provider is configured.") %}
-{% endif %}
-
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
@@ -21,7 +17,7 @@
 
 {# --- Redis --- #}
 {% set redis_config = {
-  "password": values.inbox_zero.queue.redis_password,
+  "password": values.inbox_zero.queue_redis_password,
   "volume": values.storage.redis_data,
 } %}
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
@@ -35,7 +31,7 @@
 {% do redis_http.healthcheck.disable() %}
 {% do redis_http.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do redis_http.environment.add_env("SRH_MODE", "env") %}
-{% do redis_http.environment.add_env("SRH_TOKEN", values.inbox_zero.queue.upstash_redis_token) %}
+{% do redis_http.environment.add_env("SRH_TOKEN", values.inbox_zero.queue_upstash_redis_token) %}
 {% do redis_http.environment.add_env("SRH_CONNECTION_STRING", redis.get_url("redis")) %}
 
 {# --- Web (main application) --- #}
@@ -60,8 +56,9 @@
 {% do web.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do web.environment.add_env("NEXT_PUBLIC_BASE_URL", values.inbox_zero.app_url) %}
 {% do web.environment.add_env("INTERNAL_API_URL", internal_api_url) %}
-{% do web.environment.add_env("NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS", values.inbox_zero.bypass_premium_checks) %}
-{% do web.environment.add_env("NEXT_PUBLIC_EMAIL_SEND_ENABLED", values.inbox_zero.email_send_enabled) %}
+{# No billing system and no reason to block sending when self-hosting. #}
+{% do web.environment.add_env("NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS", true) %}
+{% do web.environment.add_env("NEXT_PUBLIC_EMAIL_SEND_ENABLED", true) %}
 {% do web.environment.add_env("NEXT_PUBLIC_AI_MODEL_SETTINGS_DISABLED", values.inbox_zero.ai_model_settings_disabled) %}
 
 {% do web.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
@@ -78,95 +75,88 @@
   {% do web.environment.add_env("API_KEY_SALT", values.inbox_zero.api_key_salt) %}
 {% endif %}
 
-{% do web.environment.add_env("GOOGLE_CLIENT_ID", values.inbox_zero.google_client_id) %}
-{% do web.environment.add_env("GOOGLE_CLIENT_SECRET", values.inbox_zero.google_client_secret) %}
-{% do web.environment.add_env("GOOGLE_PUBSUB_TOPIC_NAME", values.inbox_zero.google_pubsub_topic_name) %}
-{% if values.inbox_zero.google_pubsub_verification_token %}
-  {% do web.environment.add_env("GOOGLE_PUBSUB_VERIFICATION_TOKEN", values.inbox_zero.google_pubsub_verification_token) %}
-{% endif %}
-
-{% if values.inbox_zero.microsoft_auth.enabled %}
-  {% do web.environment.add_env("MICROSOFT_CLIENT_ID", values.inbox_zero.microsoft_auth.client_id) %}
-  {% do web.environment.add_env("MICROSOFT_CLIENT_SECRET", values.inbox_zero.microsoft_auth.client_secret) %}
-  {% do web.environment.add_env("MICROSOFT_TENANT_ID", values.inbox_zero.microsoft_auth.tenant_id) %}
-  {% do web.environment.add_env("MICROSOFT_WEBHOOK_CLIENT_STATE", values.inbox_zero.microsoft_auth.webhook_client_state) %}
-{% endif %}
-
-{% do web.environment.add_env("DEFAULT_LLMS", values.inbox_zero.llm.default_llms) %}
-{% if values.inbox_zero.llm.economy_llms %}
-  {% do web.environment.add_env("ECONOMY_LLMS", values.inbox_zero.llm.economy_llms) %}
-{% endif %}
-{% if values.inbox_zero.llm.chat_llms %}
-  {% do web.environment.add_env("CHAT_LLMS", values.inbox_zero.llm.chat_llms) %}
-{% endif %}
-{% if values.inbox_zero.llm.nano_llms %}
-  {% do web.environment.add_env("NANO_LLMS", values.inbox_zero.llm.nano_llms) %}
-{% endif %}
-{% if values.inbox_zero.llm.draft_llms %}
-  {% do web.environment.add_env("DRAFT_LLMS", values.inbox_zero.llm.draft_llms) %}
-{% endif %}
-{% if values.inbox_zero.llm.llm_api_key %}
-  {% do web.environment.add_env("LLM_API_KEY", values.inbox_zero.llm.llm_api_key) %}
-{% endif %}
-{% if values.inbox_zero.llm.anthropic_api_key %}
-  {% do web.environment.add_env("ANTHROPIC_API_KEY", values.inbox_zero.llm.anthropic_api_key) %}
-{% endif %}
-{% if values.inbox_zero.llm.openai_api_key %}
-  {% do web.environment.add_env("OPENAI_API_KEY", values.inbox_zero.llm.openai_api_key) %}
-{% endif %}
-{% if values.inbox_zero.llm.google_api_key %}
-  {% do web.environment.add_env("GOOGLE_API_KEY", values.inbox_zero.llm.google_api_key) %}
-{% endif %}
-{% if values.inbox_zero.llm.openrouter_api_key %}
-  {% do web.environment.add_env("OPENROUTER_API_KEY", values.inbox_zero.llm.openrouter_api_key) %}
-{% endif %}
-{% if values.inbox_zero.llm.groq_api_key %}
-  {% do web.environment.add_env("GROQ_API_KEY", values.inbox_zero.llm.groq_api_key) %}
-{% endif %}
-
-{% do web.environment.add_env("UPSTASH_REDIS_URL", upstash_redis_url) %}
-{% do web.environment.add_env("UPSTASH_REDIS_TOKEN", values.inbox_zero.queue.upstash_redis_token) %}
-{% do web.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
-{% do web.environment.add_env("QUEUE_BACKEND", values.inbox_zero.queue.queue_backend) %}
-{% if values.inbox_zero.queue.queue_backend == "qstash" %}
-  {% do web.environment.add_env("QSTASH_TOKEN", values.inbox_zero.queue.qstash_token) %}
-  {% do web.environment.add_env("QSTASH_CURRENT_SIGNING_KEY", values.inbox_zero.queue.qstash_current_signing_key) %}
-  {% do web.environment.add_env("QSTASH_NEXT_SIGNING_KEY", values.inbox_zero.queue.qstash_next_signing_key) %}
-{% endif %}
-
-{% do web.environment.add_env("NEXT_PUBLIC_DIGEST_ENABLED", values.inbox_zero.features.digest_enabled) %}
-{% do web.environment.add_env("NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED", values.inbox_zero.features.follow_up_reminders_enabled) %}
-{% do web.environment.add_env("NEXT_PUBLIC_MEETING_BRIEFS_ENABLED", values.inbox_zero.features.meeting_briefs_enabled) %}
-{% do web.environment.add_env("NEXT_PUBLIC_CONTACTS_ENABLED", values.inbox_zero.features.contacts_enabled) %}
-{% do web.environment.add_env("NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED", values.inbox_zero.features.webhook_action_enabled) %}
-{% do web.environment.add_env("NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED", values.inbox_zero.features.delete_email_action_enabled) %}
-{% do web.environment.add_env("NEXT_PUBLIC_AUTO_DRAFT_DISABLED", values.inbox_zero.features.auto_draft_disabled) %}
-
-{% do web.environment.add_env("NEXT_PUBLIC_MEETING_RECORDER_ENABLED", values.inbox_zero.meeting_recorder.enabled) %}
-{% if values.inbox_zero.meeting_recorder.enabled %}
-  {% do web.environment.add_env("RECALL_API_KEY", values.inbox_zero.meeting_recorder.recall_api_key) %}
-  {% do web.environment.add_env("RECALL_WEBHOOK_SECRET", values.inbox_zero.meeting_recorder.recall_webhook_secret) %}
-  {% do web.environment.add_env("RECALL_REGION", values.inbox_zero.meeting_recorder.recall_region) %}
-{% endif %}
-
-{% if values.inbox_zero.resend.api_key %}
-  {% do web.environment.add_env("RESEND_API_KEY", values.inbox_zero.resend.api_key) %}
-  {% do web.environment.add_env("NEXT_PUBLIC_IS_RESEND_CONFIGURED", true) %}
-  {% if values.inbox_zero.resend.from_email %}
-    {% do web.environment.add_env("RESEND_FROM_EMAIL", values.inbox_zero.resend.from_email) %}
+{# --- Sign-in provider --- #}
+{% if values.inbox_zero.auth_provider == "google" %}
+  {% do web.environment.add_env("GOOGLE_CLIENT_ID", values.inbox_zero.google_client_id) %}
+  {% do web.environment.add_env("GOOGLE_CLIENT_SECRET", values.inbox_zero.google_client_secret) %}
+  {% do web.environment.add_env("GOOGLE_PUBSUB_TOPIC_NAME", values.inbox_zero.google_pubsub_topic_name) %}
+  {% if values.inbox_zero.google_pubsub_verification_token %}
+    {% do web.environment.add_env("GOOGLE_PUBSUB_VERIFICATION_TOKEN", values.inbox_zero.google_pubsub_verification_token) %}
   {% endif %}
+{% elif values.inbox_zero.auth_provider == "microsoft" %}
+  {% do web.environment.add_env("MICROSOFT_CLIENT_ID", values.inbox_zero.microsoft_client_id) %}
+  {% do web.environment.add_env("MICROSOFT_CLIENT_SECRET", values.inbox_zero.microsoft_client_secret) %}
+  {% do web.environment.add_env("MICROSOFT_TENANT_ID", values.inbox_zero.microsoft_tenant_id) %}
+  {% do web.environment.add_env("MICROSOFT_WEBHOOK_CLIENT_STATE", values.inbox_zero.microsoft_webhook_client_state) %}
 {% endif %}
 
-{% if values.inbox_zero.access.admins %}
-  {% do web.environment.add_env("ADMINS", values.inbox_zero.access.admins) %}
+{# --- AI provider --- #}
+{% if values.inbox_zero.llm_provider == "openai" %}
+  {% set llm_model = values.inbox_zero.openai_model %}
+{% elif values.inbox_zero.llm_provider == "anthropic" %}
+  {% set llm_model = values.inbox_zero.anthropic_model %}
+{% elif values.inbox_zero.llm_provider == "google" %}
+  {% set llm_model = values.inbox_zero.google_model %}
+{% elif values.inbox_zero.llm_provider == "openrouter" %}
+  {% set llm_model = values.inbox_zero.openrouter_model %}
+{% elif values.inbox_zero.llm_provider == "groq" %}
+  {% set llm_model = values.inbox_zero.groq_model %}
+{% elif values.inbox_zero.llm_provider == "ollama" %}
+  {% set llm_model = values.inbox_zero.ollama_model %}
 {% endif %}
-{% if values.inbox_zero.access.auth_allowed_emails %}
-  {% do web.environment.add_env("AUTH_ALLOWED_EMAILS", values.inbox_zero.access.auth_allowed_emails) %}
+{% do web.environment.add_env("DEFAULT_LLMS", values.inbox_zero.llm_provider ~ ":" ~ llm_model) %}
+
+{% if values.inbox_zero.llm_provider == "ollama" %}
+  {% do web.environment.add_env("OLLAMA_BASE_URL", values.inbox_zero.ollama_base_url) %}
+{% elif values.inbox_zero.llm_provider == "anthropic" %}
+  {% do web.environment.add_env("ANTHROPIC_API_KEY", values.inbox_zero.llm_api_key) %}
+{% elif values.inbox_zero.llm_provider == "openai" %}
+  {% do web.environment.add_env("OPENAI_API_KEY", values.inbox_zero.llm_api_key) %}
+{% elif values.inbox_zero.llm_provider == "google" %}
+  {% do web.environment.add_env("GOOGLE_API_KEY", values.inbox_zero.llm_api_key) %}
+{% elif values.inbox_zero.llm_provider == "openrouter" %}
+  {% do web.environment.add_env("OPENROUTER_API_KEY", values.inbox_zero.llm_api_key) %}
+{% elif values.inbox_zero.llm_provider == "groq" %}
+  {% do web.environment.add_env("GROQ_API_KEY", values.inbox_zero.llm_api_key) %}
 {% endif %}
-{% if values.inbox_zero.access.auth_allowed_email_domains %}
-  {% do web.environment.add_env("AUTH_ALLOWED_EMAIL_DOMAINS", values.inbox_zero.access.auth_allowed_email_domains) %}
+
+{# --- Background jobs (BullMQ, bundled worker + Redis) --- #}
+{% do web.environment.add_env("UPSTASH_REDIS_URL", upstash_redis_url) %}
+{% do web.environment.add_env("UPSTASH_REDIS_TOKEN", values.inbox_zero.queue_upstash_redis_token) %}
+{% do web.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
+{% do web.environment.add_env("QUEUE_BACKEND", "bullmq") %}
+
+{% do web.environment.add_env("NEXT_PUBLIC_DIGEST_ENABLED", values.inbox_zero.digest_enabled) %}
+{% do web.environment.add_env("NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED", values.inbox_zero.follow_up_reminders_enabled) %}
+{% do web.environment.add_env("NEXT_PUBLIC_MEETING_BRIEFS_ENABLED", values.inbox_zero.meeting_briefs_enabled) %}
+{% do web.environment.add_env("NEXT_PUBLIC_CONTACTS_ENABLED", values.inbox_zero.contacts_enabled) %}
+{% do web.environment.add_env("NEXT_PUBLIC_WEBHOOK_ACTION_ENABLED", values.inbox_zero.webhook_action_enabled) %}
+{% do web.environment.add_env("NEXT_PUBLIC_DELETE_EMAIL_ACTION_ENABLED", values.inbox_zero.delete_email_action_enabled) %}
+{% do web.environment.add_env("NEXT_PUBLIC_AUTO_DRAFT_DISABLED", values.inbox_zero.auto_draft_disabled) %}
+
+{% do web.environment.add_env("NEXT_PUBLIC_MEETING_RECORDER_ENABLED", values.inbox_zero.meeting_recorder_enabled) %}
+{% if values.inbox_zero.meeting_recorder_enabled %}
+  {% do web.environment.add_env("RECALL_API_KEY", values.inbox_zero.recall_api_key) %}
+  {% do web.environment.add_env("RECALL_WEBHOOK_SECRET", values.inbox_zero.recall_webhook_secret) %}
+  {% do web.environment.add_env("RECALL_REGION", values.inbox_zero.recall_region) %}
 {% endif %}
-{% do web.environment.add_env("AUTO_JOIN_ORGANIZATION_ENABLED", values.inbox_zero.access.auto_join_organization_enabled) %}
+
+{% if values.inbox_zero.resend_enabled %}
+  {% do web.environment.add_env("RESEND_API_KEY", values.inbox_zero.resend_api_key) %}
+  {% do web.environment.add_env("NEXT_PUBLIC_IS_RESEND_CONFIGURED", true) %}
+  {% do web.environment.add_env("RESEND_FROM_EMAIL", values.inbox_zero.resend_from_email) %}
+{% endif %}
+
+{% if values.inbox_zero.admins %}
+  {% do web.environment.add_env("ADMINS", values.inbox_zero.admins) %}
+{% endif %}
+{% if values.inbox_zero.auth_allowed_emails %}
+  {% do web.environment.add_env("AUTH_ALLOWED_EMAILS", values.inbox_zero.auth_allowed_emails) %}
+{% endif %}
+{% if values.inbox_zero.auth_allowed_email_domains %}
+  {% do web.environment.add_env("AUTH_ALLOWED_EMAIL_DOMAINS", values.inbox_zero.auth_allowed_email_domains) %}
+{% endif %}
+{% do web.environment.add_env("AUTO_JOIN_ORGANIZATION_ENABLED", values.inbox_zero.auto_join_organization_enabled) %}
 
 {% do web.environment.add_user_envs(values.inbox_zero.additional_envs) %}
 
@@ -185,19 +175,17 @@
 {% endif %}
 
 {# --- Worker (BullMQ background job processor) --- #}
-{% if values.inbox_zero.queue.queue_backend == "bullmq" %}
-  {% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
-  {% do worker.set_user(0, 0) %}
-  {% do worker.add_network(iz_net) %}
-  {% do worker.set_command(["/app/docker/scripts/start-worker.sh"]) %}
-  {% do worker.healthcheck.disable() %}
-  {% do worker.depends.add_dependency(values.consts.web_container_name, "service_healthy") %}
-  {% do worker.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-  {% do worker.environment.add_env("INTERNAL_API_URL", internal_api_url) %}
-  {% do worker.environment.add_env("INTERNAL_API_KEY", values.inbox_zero.internal_api_key) %}
-  {% do worker.environment.add_env("QUEUE_BACKEND", "bullmq") %}
-  {% do worker.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
-{% endif %}
+{% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
+{% do worker.set_user(0, 0) %}
+{% do worker.add_network(iz_net) %}
+{% do worker.set_command(["/app/docker/scripts/start-worker.sh"]) %}
+{% do worker.healthcheck.disable() %}
+{% do worker.depends.add_dependency(values.consts.web_container_name, "service_healthy") %}
+{% do worker.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do worker.environment.add_env("INTERNAL_API_URL", internal_api_url) %}
+{% do worker.environment.add_env("INTERNAL_API_KEY", values.inbox_zero.internal_api_key) %}
+{% do worker.environment.add_env("QUEUE_BACKEND", "bullmq") %}
+{% do worker.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
 
 {# --- Cron (scheduled task runner) --- #}
 {% set cron_auth_header = "Authorization: Bearer " ~ values.inbox_zero.cron_secret %}

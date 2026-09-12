@@ -30,28 +30,15 @@ questions:
         - variable: app_url
           label: App URL
           description: |
-            The public base URL where Inbox Zero will be reachable.</br>
+            The public URL where Inbox Zero will be reachable (used to build sign-in
+            redirects and links in emails/notifications).</br>
             Examples:</br>
-            https://inbox.example.com </br>
+            https://mail.example.com </br>
             http://192.168.1.100:30489
           schema:
             type: uri
             default: ""
             required: true
-
-        - variable: bypass_premium_checks
-          label: Bypass Premium Checks
-          description: Bypasses premium/billing checks. Recommended for self-hosting.
-          schema:
-            type: boolean
-            default: true
-
-        - variable: email_send_enabled
-          label: Enable Email Sending
-          description: Allow Inbox Zero to send emails on your behalf (replies, drafts, digests).
-          schema:
-            type: boolean
-            default: true
 
         - variable: ai_model_settings_disabled
           label: Hide User AI Model Settings
@@ -62,7 +49,9 @@ questions:
 
         - variable: auth_secret
           label: Auth Secret
-          description: Secret used by better-auth to sign sessions. Generate with `openssl rand -hex 32`.
+          description: |
+            Secret used by better-auth to sign sessions.</br>
+            Generate once with `openssl rand -hex 32` and keep it the same across restarts/updates.
           schema:
             type: string
             default: ""
@@ -77,7 +66,9 @@ questions:
 
         - variable: internal_api_key
           label: Internal API Key
-          description: Secret key used for internal API calls between the web, worker and cron containers. Generate with `openssl rand -hex 32`.
+          description: |
+            Secret key used for internal API calls between the web, worker and cron containers.</br>
+            Generate once with `openssl rand -hex 32`. Internal only - you will never need to use this value yourself.
           schema:
             type: string
             default: ""
@@ -92,7 +83,9 @@ questions:
 
         - variable: email_encrypt_secret
           label: Email Encrypt Secret
-          description: Secret used to encrypt stored OAuth tokens. Generate with `openssl rand -hex 32`.
+          description: |
+            Secret used to encrypt stored OAuth tokens.</br>
+            Generate once with `openssl rand -hex 32` and keep it the same across restarts/updates.
           schema:
             type: string
             default: ""
@@ -107,7 +100,9 @@ questions:
 
         - variable: email_encrypt_salt
           label: Email Encrypt Salt
-          description: Salt used to encrypt stored OAuth tokens. Generate with `openssl rand -hex 16`.
+          description: |
+            Salt used to encrypt stored OAuth tokens.</br>
+            Generate once with `openssl rand -hex 16` and keep it the same across restarts/updates.
           schema:
             type: string
             default: ""
@@ -124,7 +119,8 @@ questions:
           label: Cron Secret
           description: |
             Shared secret used to authenticate the bundled cron container's calls to the
-            scheduled task endpoints (`/api/cron/*`, `/api/watch/all`, etc). Generate with `openssl rand -hex 32`.
+            scheduled task endpoints. Generate once with `openssl rand -hex 32`. Internal
+            only - you will never need to use this value yourself.
           schema:
             type: string
             default: ""
@@ -139,7 +135,7 @@ questions:
 
         - variable: db_password
           label: Database Password
-          description: Password for the bundled Postgres database.
+          description: Password for the bundled Postgres database. Set once when first installing.
           schema:
             type: string
             default: ""
@@ -148,7 +144,10 @@ questions:
 
         - variable: external_api_enabled
           label: Enable External API
-          description: Enables the external API (v1 endpoints, API keys, API key UI).
+          description: |
+            Enables Inbox Zero's own external REST API (v1 endpoints, API keys, API key UI)
+            for scripting/integrating with your deployment. Off by default; only enable if
+            you plan to use it.
           schema:
             type: boolean
             default: false
@@ -171,24 +170,34 @@ questions:
             required: true
             private: true
 
+        - variable: auth_provider
+          label: Sign-in Provider
+          description: Which email provider users will sign in with.
+          schema:
+            type: string
+            default: "google"
+            enum:
+              - value: "google"
+                description: Google (Gmail)
+              - value: "microsoft"
+                description: Microsoft (Outlook)
+
         - variable: google_client_id
           label: Google Client ID
-          description: |
-            OAuth client ID from Google Cloud Console.</br>
-            If you only use Microsoft OAuth, set this to `skipped`.
+          description: OAuth client ID from Google Cloud Console.
           schema:
             type: string
             default: ""
+            show_if: [["auth_provider", "=", "google"]]
             required: true
 
         - variable: google_client_secret
           label: Google Client Secret
-          description: |
-            OAuth client secret from Google Cloud Console.</br>
-            If you only use Microsoft OAuth, set this to `skipped`.
+          description: OAuth client secret from Google Cloud Console.
           schema:
             type: string
             default: ""
+            show_if: [["auth_provider", "=", "google"]]
             required: true
             private: true
 
@@ -200,6 +209,7 @@ questions:
           schema:
             type: string
             default: ""
+            show_if: [["auth_provider", "=", "google"]]
             required: true
 
         - variable: google_pubsub_verification_token
@@ -210,337 +220,289 @@ questions:
           schema:
             type: string
             default: ""
+            show_if: [["auth_provider", "=", "google"]]
             private: true
 
-        - variable: microsoft_auth
-          label: Microsoft Authentication
-          description: Microsoft (Outlook) OAuth for Inbox Zero.
+        - variable: microsoft_client_id
+          label: Microsoft Client ID
+          description: OAuth client ID from the Azure Portal.
           schema:
-            type: dict
-            attrs:
-              - variable: enabled
-                label: Enabled
-                description: Enable Microsoft OAuth login and Outlook account connections.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: client_id
-                label: Client ID
-                description: OAuth client ID from the Azure Portal.
-                schema:
-                  type: string
-                  show_if: [["enabled", "=", true]]
-                  required: true
-              - variable: client_secret
-                label: Client Secret
-                description: OAuth client secret from the Azure Portal.
-                schema:
-                  type: string
-                  show_if: [["enabled", "=", true]]
-                  required: true
-                  private: true
-              - variable: tenant_id
-                label: Tenant ID
-                description: Leave as `common` for multi-tenant/personal-account support, or set your tenant ID for single tenant.
-                schema:
-                  type: string
-                  default: "common"
-                  show_if: [["enabled", "=", true]]
-              - variable: webhook_client_state
-                label: Webhook Client State
-                description: Secret for Microsoft webhook verification. Generate with `openssl rand -hex 32`.
-                schema:
-                  type: string
-                  show_if: [["enabled", "=", true]]
-                  required: true
-                  private: true
+            type: string
+            default: ""
+            show_if: [["auth_provider", "=", "microsoft"]]
+            required: true
 
-        - variable: llm
-          label: LLM Configuration
+        - variable: microsoft_client_secret
+          label: Microsoft Client Secret
+          description: OAuth client secret from the Azure Portal.
+          schema:
+            type: string
+            default: ""
+            show_if: [["auth_provider", "=", "microsoft"]]
+            required: true
+            private: true
+
+        - variable: microsoft_tenant_id
+          label: Microsoft Tenant ID
+          description: Leave as `common` for multi-tenant/personal-account support, or set your tenant ID for single tenant.
+          schema:
+            type: string
+            default: "common"
+            show_if: [["auth_provider", "=", "microsoft"]]
+
+        - variable: microsoft_webhook_client_state
+          label: Microsoft Webhook Client State
+          description: Secret for Microsoft webhook verification. Generate with `openssl rand -hex 32`.
+          schema:
+            type: string
+            default: ""
+            show_if: [["auth_provider", "=", "microsoft"]]
+            required: true
+            private: true
+
+        - variable: llm_provider
+          label: AI Provider
+          description: Which AI provider Inbox Zero uses for classifying/drafting emails.
+          schema:
+            type: string
+            default: "openai"
+            enum:
+              - value: "openai"
+                description: OpenAI
+              - value: "anthropic"
+                description: Anthropic (Claude)
+              - value: "google"
+                description: Google (Gemini)
+              - value: "openrouter"
+                description: OpenRouter
+              - value: "groq"
+                description: Groq
+              - value: "ollama"
+                description: Ollama (self-hosted, no API key needed)
+
+        - variable: openai_model
+          label: Model
+          description: 'Example: gpt-5-mini'
+          schema:
+            type: string
+            default: "gpt-5-mini"
+            show_if: [["llm_provider", "=", "openai"]]
+            required: true
+        - variable: anthropic_model
+          label: Model
+          description: 'Example: claude-sonnet-4.6'
+          schema:
+            type: string
+            default: "claude-sonnet-4.6"
+            show_if: [["llm_provider", "=", "anthropic"]]
+            required: true
+        - variable: google_model
+          label: Model
+          description: 'Example: gemini-2.5-flash'
+          schema:
+            type: string
+            default: "gemini-2.5-flash"
+            show_if: [["llm_provider", "=", "google"]]
+            required: true
+        - variable: openrouter_model
+          label: Model
+          description: 'Example: anthropic/claude-sonnet-4.6'
+          schema:
+            type: string
+            default: "anthropic/claude-sonnet-4.6"
+            show_if: [["llm_provider", "=", "openrouter"]]
+            required: true
+        - variable: groq_model
+          label: Model
+          description: 'Example: llama-3.3-70b-versatile'
+          schema:
+            type: string
+            default: "llama-3.3-70b-versatile"
+            show_if: [["llm_provider", "=", "groq"]]
+            required: true
+        - variable: ollama_model
+          label: Model
+          description: The name of a model already pulled on your Ollama server (e.g. llama3.1).
+          schema:
+            type: string
+            default: ""
+            show_if: [["llm_provider", "=", "ollama"]]
+            required: true
+
+        - variable: llm_api_key
+          label: API Key
+          description: API key for the selected AI provider.
+          schema:
+            type: string
+            default: ""
+            show_if: [["llm_provider", "!=", "ollama"]]
+            required: true
+            private: true
+
+        - variable: ollama_base_url
+          label: Ollama Server URL
           description: |
-            Configure the AI provider(s) Inbox Zero uses. Format for each model list is
-            `provider:model` (comma-separate multiple entries for ordered fallbacks).</br>
-            See https://docs.getinboxzero.com/hosting/llm-setup for supported providers
-            (Azure, Bedrock, Vertex, Ollama, OpenAI-compatible, etc.) not listed below -
-            add those credentials via Additional Environment Variables.
+            The API URL of your Ollama server.</br>
+            Example: http://192.168.1.50:11434/api
           schema:
-            type: dict
-            attrs:
-              - variable: default_llms
-                label: Default Models
-                description: 'Example: openrouter:anthropic/claude-sonnet-4.6'
-                schema:
-                  type: string
-                  default: ""
-                  required: true
-              - variable: economy_llms
-                label: Economy Models
-                description: Ordered model list for cheaper operations. Falls back to Default Models.
-                schema:
-                  type: string
-                  default: ""
-              - variable: chat_llms
-                label: Chat Models
-                description: Ordered model list for chat operations. Falls back to Default Models.
-                schema:
-                  type: string
-                  default: ""
-              - variable: nano_llms
-                label: Nano Models
-                description: Ordered model list for lightweight classification/extraction tasks.
-                schema:
-                  type: string
-                  default: ""
-              - variable: draft_llms
-                label: Draft Models
-                description: Ordered model list for drafting replies. Falls back to Default Models.
-                schema:
-                  type: string
-                  default: ""
-              - variable: llm_api_key
-                label: Shared LLM API Key
-                description: Shared fallback API key for simple single-provider setups.
-                schema:
-                  type: string
-                  default: ""
-                  private: true
-              - variable: anthropic_api_key
-                label: Anthropic API Key
-                schema:
-                  type: string
-                  default: ""
-                  private: true
-              - variable: openai_api_key
-                label: OpenAI API Key
-                schema:
-                  type: string
-                  default: ""
-                  private: true
-              - variable: google_api_key
-                label: Google Gemini API Key
-                schema:
-                  type: string
-                  default: ""
-                  private: true
-              - variable: openrouter_api_key
-                label: OpenRouter API Key
-                schema:
-                  type: string
-                  default: ""
-                  private: true
-              - variable: groq_api_key
-                label: Groq API Key
-                schema:
-                  type: string
-                  default: ""
-                  private: true
+            type: string
+            default: "http://localhost:11434/api"
+            show_if: [["llm_provider", "=", "ollama"]]
+            required: true
 
-        - variable: queue
-          label: Redis & Background Jobs
-          description: Configure the bundled Redis instance and background job backend.
+        - variable: queue_redis_password
+          label: Redis Password
+          description: Password for the bundled Redis instance. Set once when first installing.
           schema:
-            type: dict
-            attrs:
-              - variable: redis_password
-                label: Redis Password
-                schema:
-                  type: string
-                  default: ""
-                  required: true
-                  private: true
-              - variable: upstash_redis_token
-                label: Redis HTTP Token
-                description: |
-                  Shared bearer token for the bundled Upstash-compatible Redis HTTP proxy
-                  (used for BullMQ/serverless Redis access). Generate with `openssl rand -hex 32`.
-                schema:
-                  type: string
-                  default: ""
-                  required: true
-                  private: true
-              - variable: queue_backend
-                label: Background Job Backend
-                description: |
-                  bullmq: runs the bundled worker container against the bundled Redis (recommended for self-hosting).</br>
-                  qstash: use a managed Upstash QStash queue instead of the bundled worker.</br>
-                  internal: no extra worker, limited durability and throttling.
-                schema:
-                  type: string
-                  default: "bullmq"
-                  enum:
-                    - value: "bullmq"
-                      description: BullMQ (bundled worker + Redis)
-                    - value: "qstash"
-                      description: QStash (managed, external)
-                    - value: "internal"
-                      description: Internal fallback (no extra worker)
-              - variable: qstash_token
-                label: QStash Token
-                schema:
-                  type: string
-                  default: ""
-                  show_if: [["queue_backend", "=", "qstash"]]
-                  required: true
-                  private: true
-              - variable: qstash_current_signing_key
-                label: QStash Current Signing Key
-                schema:
-                  type: string
-                  default: ""
-                  show_if: [["queue_backend", "=", "qstash"]]
-                  required: true
-                  private: true
-              - variable: qstash_next_signing_key
-                label: QStash Next Signing Key
-                schema:
-                  type: string
-                  default: ""
-                  show_if: [["queue_backend", "=", "qstash"]]
-                  required: true
-                  private: true
+            type: string
+            default: ""
+            required: true
+            private: true
 
-        - variable: features
-          label: Feature Flags
-          description: Toggle optional Inbox Zero features.
-          schema:
-            type: dict
-            attrs:
-              - variable: digest_enabled
-                label: Enable Email Digest
-                description: Sends periodic summaries of emails. Requires the bundled cron container.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: follow_up_reminders_enabled
-                label: Enable Follow-Up Reminders
-                description: Allows labeling emails for automatic follow-up tracking. Requires the bundled cron container.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: meeting_briefs_enabled
-                label: Enable Meeting Briefs
-                description: Sends pre-meeting briefings to users. Requires the bundled cron container.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: contacts_enabled
-                label: Enable Contact Suggestions
-                description: Opt in to Gmail and Outlook contact suggestions while composing.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: webhook_action_enabled
-                label: Enable Outgoing Webhook Actions
-                description: Enable outgoing webhook rule actions and the webhook-secret UI.
-                schema:
-                  type: boolean
-                  default: true
-              - variable: delete_email_action_enabled
-                label: Enable Delete/Trash Actions
-                description: Enable delete/trash actions for automation rules.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: auto_draft_disabled
-                label: Disable Auto-Drafting
-                description: Disables the auto-drafting feature that automatically drafts replies based on assistant rules.
-                schema:
-                  type: boolean
-                  default: false
-
-        - variable: meeting_recorder
-          label: Meeting Recorder (Recall.ai)
+        - variable: queue_upstash_redis_token
+          label: Redis HTTP Token
           description: |
-            Optional AI meeting notetaker powered by Recall.ai (third-party, own pricing).
-            The bundled cron container always calls the scheduling endpoint; it is a no-op unless configured here.
+            Shared token securing the bundled Redis HTTP proxy used for background job
+            processing. Internal only - generate once with `openssl rand -hex 32`, you
+            will never need to use this value yourself.
           schema:
-            type: dict
-            attrs:
-              - variable: enabled
-                label: Enabled
-                description: Show the Meeting Recorder feature in the app.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: recall_api_key
-                label: Recall.ai API Key
-                schema:
-                  type: string
-                  show_if: [["enabled", "=", true]]
-                  required: true
-                  private: true
-              - variable: recall_webhook_secret
-                label: Recall.ai Webhook Signing Secret
-                description: Signing secret for the Recall webhook at `/api/recall/webhook`.
-                schema:
-                  type: string
-                  show_if: [["enabled", "=", true]]
-                  required: true
-                  private: true
-              - variable: recall_region
-                label: Recall.ai Workspace Region
-                schema:
-                  type: string
-                  default: "us-west-2"
-                  show_if: [["enabled", "=", true]]
+            type: string
+            default: ""
+            required: true
+            private: true
 
-        - variable: resend
-          label: Transactional Email (Resend)
-          description: Optional. Used to send transactional emails (e.g. digests) via Resend.
+        - variable: digest_enabled
+          label: Enable Email Digest
+          description: Sends periodic summaries of emails.
           schema:
-            type: dict
-            attrs:
-              - variable: api_key
-                label: Resend API Key
-                schema:
-                  type: string
-                  default: ""
-                  private: true
-              - variable: from_email
-                label: From Email
-                schema:
-                  type: string
-                  default: ""
+            type: boolean
+            default: true
+        - variable: follow_up_reminders_enabled
+          label: Enable Follow-Up Reminders
+          description: Allows labeling emails for automatic follow-up tracking.
+          schema:
+            type: boolean
+            default: true
+        - variable: meeting_briefs_enabled
+          label: Enable Meeting Briefs
+          description: Sends pre-meeting briefings to users.
+          schema:
+            type: boolean
+            default: true
+        - variable: contacts_enabled
+          label: Enable Contact Suggestions
+          description: Gmail and Outlook contact suggestions while composing.
+          schema:
+            type: boolean
+            default: true
+        - variable: webhook_action_enabled
+          label: Enable Outgoing Webhook Actions
+          description: Allow automation rules to call external webhooks.
+          schema:
+            type: boolean
+            default: true
+        - variable: delete_email_action_enabled
+          label: Enable Delete/Trash Actions
+          description: Allow automation rules to delete/trash emails.
+          schema:
+            type: boolean
+            default: true
+        - variable: auto_draft_disabled
+          label: Disable Auto-Drafting
+          description: Disables automatically drafting replies based on assistant rules.
+          schema:
+            type: boolean
+            default: false
 
-        - variable: access
-          label: Admin & Access Control
+        - variable: meeting_recorder_enabled
+          label: Enable Meeting Recorder
+          description: |
+            Optional AI meeting notetaker. Requires a separate account at
+            https://recall.ai (own pricing). Leave off if you don't have one -
+            the feature stays fully hidden and no calls are made to Recall.ai.
           schema:
-            type: dict
-            attrs:
-              - variable: admins
-                label: Admin Emails
-                description: Comma-separated list of admin emails.
-                schema:
-                  type: string
-                  default: ""
-              - variable: auth_allowed_emails
-                label: Allowed Sign-up Emails
-                description: Comma-separated list of exact email addresses allowed to create new accounts. Leave empty for open sign-up.
-                schema:
-                  type: string
-                  default: ""
-              - variable: auth_allowed_email_domains
-                label: Allowed Sign-up Email Domains
-                description: Comma-separated list of email domains allowed to create new accounts (e.g. company.com,subsidiary.org).
-                schema:
-                  type: string
-                  default: ""
-              - variable: auto_join_organization_enabled
-                label: Auto-Join Organization
-                description: |
-                  Automatically add new users to the single organization on sign-up.</br>
-                  Requires exactly one organization to already exist.
-                schema:
-                  type: boolean
-                  default: false
+            type: boolean
+            default: false
+        - variable: recall_api_key
+          label: Recall.ai API Key
+          schema:
+            type: string
+            show_if: [["meeting_recorder_enabled", "=", true]]
+            required: true
+            private: true
+        - variable: recall_webhook_secret
+          label: Recall.ai Webhook Signing Secret
+          description: Signing secret for the Recall webhook at `/api/recall/webhook`.
+          schema:
+            type: string
+            show_if: [["meeting_recorder_enabled", "=", true]]
+            required: true
+            private: true
+        - variable: recall_region
+          label: Recall.ai Workspace Region
+          schema:
+            type: string
+            default: "us-west-2"
+            show_if: [["meeting_recorder_enabled", "=", true]]
+
+        - variable: resend_enabled
+          label: Enable Transactional Email
+          description: |
+            Optional. Sends the app's own system emails (digests, notifications) via a
+            separate service called https://resend.com (own account/pricing). This is
+            unrelated to sending replies through your own Gmail/Outlook account. Leave
+            off to skip these system emails entirely.
+          schema:
+            type: boolean
+            default: false
+        - variable: resend_api_key
+          label: Resend API Key
+          schema:
+            type: string
+            show_if: [["resend_enabled", "=", true]]
+            required: true
+            private: true
+        - variable: resend_from_email
+          label: From Email
+          schema:
+            type: string
+            show_if: [["resend_enabled", "=", true]]
+            required: true
+
+        - variable: admins
+          label: Admin Emails
+          description: Comma-separated list of emails that get admin privileges inside the app.
+          schema:
+            type: string
+            default: ""
+        - variable: auth_allowed_emails
+          label: Allowed Sign-up Emails
+          description: Comma-separated exact email addresses allowed to create new accounts. Leave empty for open sign-up.
+          schema:
+            type: string
+            default: ""
+        - variable: auth_allowed_email_domains
+          label: Allowed Sign-up Email Domains
+          description: Comma-separated email domains allowed to create new accounts (e.g. company.com,subsidiary.org). Leave empty for open sign-up.
+          schema:
+            type: string
+            default: ""
+        - variable: auto_join_organization_enabled
+          label: Auto-Join Organization
+          description: |
+            Automatically add new users to the single organization on sign-up.</br>
+            Requires exactly one organization to already exist.
+          schema:
+            type: boolean
+            default: false
 
         - variable: additional_envs
           label: Additional Environment Variables
           description: |
             Add any other environment variable documented at
             https://docs.getinboxzero.com/hosting/environment-variables
-            (Slack, Teams, Telegram, Sentry, Axiom, PostHog, white-labeling, image proxy, etc).
-            These are applied to the [web] and [worker] containers.
+            (Slack, Teams, Telegram, Sentry, Axiom, PostHog, white-labeling, image proxy,
+            per-task model overrides, etc). These are applied to the [web] and [worker] containers.
           schema:
             type: list
             default: []
