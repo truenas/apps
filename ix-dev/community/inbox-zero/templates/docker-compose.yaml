@@ -42,6 +42,12 @@
 {% do web.set_user(0, 0) %}
 {% do web.add_network(iz_net) %}
 {% do web.healthcheck.set_test("node", {"port": values.network.web_port.port_number, "path": "/"}) %}
+{# First boot applies the full Prisma migration history (260+ migrations) before the
+   server can respond, which can take several minutes; give it a generous grace period
+   so Docker doesn't give up before it's actually ready. Later restarts have nothing to
+   migrate and come up in seconds, well within this budget too. #}
+{% do web.healthcheck.set_start_period(60) %}
+{% do web.healthcheck.set_retries(10) %}
 {% do web.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do web.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do web.depends.add_dependency(values.consts.redis_http_container_name, "service_started") %}
