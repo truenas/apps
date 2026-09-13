@@ -1,0 +1,49 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set agent_network = tpl.networks.create_internal("logforge-agents") %}
+{% set web_port = values.network.web_port.port_number %}
+{% set agent_port = values.network.agent_port.port_number %}
+{% set public_host = values.logforge.central_fqdn %}
+
+{% set c1 = tpl.add_container(values.consts.logforge_container_name, "image") %}
+{% do c1.add_network(agent_network, {"aliases": ["unicron.central"]}) %}
+
+{% do c1.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do c1.set_read_only(true) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "NET_BIND_SERVICE"]) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/usr/local/bin/unicron-appliance-manager", "healthcheck"]) %}
+
+{% do c1.environment.add_env("TMPDIR", "/run/pyinstaller") %}
+{% do c1.environment.add_env("UNICRON_APPLIANCE_CONTAINER_NAME", values.consts.logforge_container_name) %}
+{% do c1.environment.add_env("UNICRON_CENTRAL_FQDN", public_host) %}
+{% do c1.environment.add_env("UNICRON_CENTRAL_PORT", web_port) %}
+{% do c1.environment.add_env("UNICRON_PUBLIC_CENTRAL_PORT", web_port) %}
+{% do c1.environment.add_env("UNICRON_CENTRAL_MTLS_PORT", agent_port) %}
+{% do c1.environment.add_env("UNICRON_PUBLIC_CENTRAL_MTLS_PORT", agent_port) %}
+{% do c1.environment.add_env("UNICRON_DATA_DIR", values.consts.data_path) %}
+{% do c1.environment.add_env("LOCAL_AGENT_CENTRAL_URL", "https://unicron.central:%s/unicron" | format(web_port)) %}
+{% do c1.environment.add_env("LOCAL_AGENT_DOCKER_NETWORK", agent_network) %}
+{% do c1.environment.add_env("UNICRON_SELF_UPDATE_ENABLED", false) %}
+{% do c1.environment.add_env("CENTRAL_ADMIN_USERNAME", values.logforge.admin_username) %}
+{% do c1.environment.add_env("CENTRAL_ADMIN_PASSWORD", values.logforge.admin_password) %}
+{% do c1.environment.add_env("CENTRAL_ADMIN_RECOVERY_OVERRIDE", values.logforge.admin_recovery_override) %}
+{% do c1.environment.add_user_envs(values.logforge.additional_envs) %}
+
+{% do c1.add_extra_host("unicron-stepca", "127.0.0.1") %}
+{% do c1.add_extra_host("unicron-stepca-ra", "127.0.0.1") %}
+{% do c1.add_extra_host("unicron.central", "127.0.0.1") %}
+{% do c1.add_extra_host(public_host, "127.0.0.1") %}
+{% do c1.add_docker_socket(read_only=false) %}
+{% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 256}}) %}
+{% do c1.add_storage("/run", {"type": "tmpfs", "tmpfs_config": {"size": 64, "mode": "0755"}}) %}
+{% do c1.add_storage("/run/pyinstaller", {"type": "tmpfs", "tmpfs_config": {"size": 256}}) %}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.agent_port) %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https", "path": "/unicron"}) %}
+
+{{ tpl.render() | tojson }}
