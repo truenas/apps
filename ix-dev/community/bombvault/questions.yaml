@@ -50,23 +50,18 @@ questions:
         - variable: http_only
           label: HTTP Only
           description: |
-            Serve plain HTTP instead of HTTPS. Only for use behind a
-            TLS-terminating reverse proxy. Off (recommended) = HTTPS with a
-            self-signed certificate out of the box. On = plain HTTP on the
-            HTTP port below instead (the HTTPS port is not served). NOTE:
-            when on, use the HTTP port's portal/URL, not the HTTPS one.
+            Serve plain HTTP instead of HTTPS, for use behind a
+            TLS-terminating proxy. Off serves HTTPS with a self-signed
+            certificate. On serves the HTTP port only, so use that portal.
           schema:
             type: boolean
             default: false
         - variable: backup_max_hours
           label: Backup Max Hours (advanced)
           description: |
-            Maximum wall-clock hours a single backup run may hold its
-            domain lock before it is force-cancelled (a guard so a wedged
-            run cannot block the domain forever). Leave empty for the 48h
-            default. Raise it for very large or slow cloud backups (a run
-            cancelled at the cap fails with "context deadline exceeded").
-            Set 0 to disable the cap entirely.
+            Hours a single backup run may hold its domain lock before it
+            is cancelled. Empty uses the 48h default, 0 disables the cap.
+            Raise it for very large or slow cloud backups.
           schema:
             type: int
             "null": true
@@ -74,11 +69,9 @@ questions:
         - variable: self_container_name
           label: BombVault's Own Container Name (advanced)
           description: |
-            So BombVault never backs up itself. Set this on TrueNAS rather
-            than leaving it empty: auto-detection matches the container name
-            against this container's hostname, and TrueNAS names the real
-            container ix-&lt;app name&gt;-bombvault-1. Find it with
-            `docker ps --filter name=bombvault` and enter it exactly.
+            So BombVault never backs up itself. Auto-detection matches the
+            container hostname, which does not match on TrueNAS, so set it
+            here. Find it with `docker ps --filter name=bombvault`.
           schema:
             type: string
             default: ""
@@ -110,22 +103,18 @@ questions:
       type: dict
       attrs:
         - variable: libvirt_uri
-          label: Libvirt Connection URI (most TrueNAS Scale users need this)
+          label: Libvirt Connection URI
           description: |
-            Used verbatim as the libvirt connection string instead of
-            building one from Host/SSH User/SSH Port below. Needed because
-            TrueNAS Scale's libvirtd listens on a non-standard socket path
-            that the built-string form has no way to express. Typical
-            value (replace user/host):</br>
+            Used verbatim as the libvirt connection string. TrueNAS Scale
+            needs it, because libvirtd listens on a socket path the fields
+            below cannot express.</br>
             `qemu+ssh://root@<truenas-host>/system?socket=/run/truenas_libvirt/libvirt-sock`</br>
-            Leave empty to build the connection string from the three
-            fields below instead. That Unraid-style default does not
-            work against TrueNAS Scale's libvirtd.
+            Leave empty to build the string from those fields.
           schema:
             type: string
             default: ""
         - variable: libvirt_host
-          label: VM Backup Host (only used when Connection URI above is empty)
+          label: VM Backup Host
           schema:
             type: string
             default: host.docker.internal
@@ -338,13 +327,10 @@ questions:
           label: Host Data
           description: |
             An existing host path holding the data you want backed up,
-            normally the pool or dataset your other apps live under, for
-            example /mnt/tank. /mnt itself cannot be mounted, so pick a
-            pool or dataset below it.
-            Apps left on ixVolume storage keep their data under
-            /mnt/.ix-apps, which also cannot be mounted: for those,
-            BombVault backs up the container and its definition but not
-            that data. Apps on host-path storage are fully covered.
+            normally the pool or dataset your apps live under, for example
+            /mnt/tank. Neither /mnt nor /mnt/.ix-apps can be mounted, so
+            apps on ixVolume storage are backed up as container and
+            definition only.
           schema:
             type: hostpath
             required: true
