@@ -1,8 +1,6 @@
 groups:
   - name: RuTracker CF Proxy Configuration
     description: Configure RuTracker CF Proxy
-  - name: Prowlarr Integration
-    description: Install the Prowlarr indexer definition
   - name: User and Group Configuration
     description: Configure User and Group for RuTracker CF Proxy
   - name: Network Configuration
@@ -33,25 +31,66 @@ questions:
         - variable: byparr_url
           label: Byparr URL
           description: |
-            FlareSolverr-compatible endpoint of Byparr, for example http://192.168.1.10:30230/v1.</br>
-            Byparr is only used to obtain the Cloudflare clearance cookie. It must reach the
-            internet from the same public IPv4 address as this app.
+            The Byparr endpoint, for example http://192.168.1.10:30230/v1.</br>
+            Byparr must reach the internet from the same public IPv4 address as this app.
           schema:
-            type: string
+            type: uri
             default: ""
             required: true
-        - variable: upstream_url
-          label: RuTracker URL
-          description: RuTracker mirror to proxy.
+        - variable: prowlarr_definition
+          label: Prowlarr Indexer Definition
           schema:
-            type: string
-            default: "https://rutracker.org"
-            required: true
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Install Definition
+                description: |
+                  Write the "RuTracker (proxy)" indexer definition into a folder that is also
+                  mounted into Prowlarr at /config/Definitions/Custom.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: public_url
+                label: Proxy URL
+                description: The URL Prowlarr uses to reach this app, for example http://192.168.1.10:30490/.
+                schema:
+                  type: uri
+                  show_if: [["enabled", "=", true]]
+                  default: ""
+                  required: true
+              - variable: path
+                label: Definitions Folder
+                description: The host path that is mounted into Prowlarr at /config/Definitions/Custom.
+                schema:
+                  type: hostpath
+                  show_if: [["enabled", "=", true]]
+                  required: true
+              - variable: fix_permissions
+                label: Fix Permissions
+                description: |
+                  Change the owner of the definitions folder to the user and group specified in
+                  [User and Group Configuration] on startup.
+                schema:
+                  type: boolean
+                  show_if: [["enabled", "=", true]]
+                  default: false
+              - variable: prowlarr_url
+                label: Prowlarr URL
+                description: |
+                  Optional. With the API key set, Prowlarr reloads the definition without a restart.
+                schema:
+                  type: uri
+                  show_if: [["enabled", "=", true]]
+                  default: ""
+              - variable: prowlarr_api_key
+                label: Prowlarr API Key
+                schema:
+                  type: string
+                  show_if: [["enabled", "=", true]]
+                  default: ""
+                  private: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: |
-            Optional tuning, for example CACHE_TTL, UPSTREAM_CONCURRENCY, IMPERSONATE, IP_FAMILY, LOG_LEVEL.</br>
-            See the project README for all variables.
           schema:
             type: list
             default: []
@@ -70,57 +109,6 @@ questions:
                       label: Value
                       schema:
                         type: string
-
-  - variable: prowlarr_definition
-    label: ""
-    group: Prowlarr Integration
-    schema:
-      type: dict
-      attrs:
-        - variable: enabled
-          label: Install Prowlarr Indexer Definition
-          description: |
-            On every start, write the bundled "RuTracker (proxy)" Cardigann definition into a folder
-            shared with Prowlarr.</br>
-            Create a dataset and add it to Prowlarr as Additional Storage with the mount path
-            /config/Definitions/Custom, then select the same dataset below.
-          schema:
-            type: boolean
-            default: false
-        - variable: public_url
-          label: Proxy URL as Seen by Prowlarr
-          description: |
-            Address Prowlarr uses to reach this app, for example http://192.168.1.10:30490/.
-            It is written into the definition.
-          schema:
-            type: string
-            show_if: [["enabled", "=", true]]
-            default: ""
-            required: true
-        - variable: definitions_path
-          label: Shared Definitions Folder
-          description: Host path that is mounted into Prowlarr as /config/Definitions/Custom.
-          schema:
-            type: hostpath
-            show_if: [["enabled", "=", true]]
-            required: true
-        - variable: prowlarr_url
-          label: Prowlarr URL (Optional)
-          description: |
-            For example http://192.168.1.10:30050. With the API key set, Prowlarr reloads the
-            definition without a restart.
-          schema:
-            type: string
-            show_if: [["enabled", "=", true]]
-            default: ""
-        - variable: prowlarr_api_key
-          label: Prowlarr API Key (Optional)
-          description: Prowlarr - Settings - General - API Key.
-          schema:
-            type: string
-            show_if: [["enabled", "=", true]]
-            default: ""
-            private: true
 
   - variable: run_as
     label: ""

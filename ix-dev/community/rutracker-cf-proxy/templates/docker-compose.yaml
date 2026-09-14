@@ -6,12 +6,9 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/health"}) %}
-{% do c1.environment.add_env("HOST", "0.0.0.0") %}
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
-{# Keeps the Cloudflare clearance across restarts #}
 {% do c1.environment.add_env("CLEARANCE_FILE", "%s/clearance.json" | format(values.consts.data_path)) %}
 {% do c1.environment.add_env("BYPARR_URL", values.rutracker_cf_proxy.byparr_url) %}
-{% do c1.environment.add_env("UPSTREAM_URL", values.rutracker_cf_proxy.upstream_url) %}
 {% do c1.environment.add_user_envs(values.rutracker_cf_proxy.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
@@ -24,16 +21,16 @@
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{#
-  Optional one-shot helper: writes the bundled Prowlarr indexer definition into a folder
-  that is shared with Prowlarr (mounted there as /config/Definitions/Custom), then exits.
-#}
-{% set definitions_storage = {
-  "type": "host_path",
-  "host_path_config": {"path": values.prowlarr_definition.definitions_path, "auto_permissions": true},
-} %}
-{% if values.prowlarr_definition.enabled %}
-  {# A freshly created dataset is owned by root: hand it over to the app user while it is still empty #}
+{% set definition = values.rutracker_cf_proxy.prowlarr_definition %}
+{% if definition.enabled %}
+  {% set definitions_storage = {
+    "type": "host_path",
+    "host_path_config": {
+      "path": definition.path,
+      "auto_permissions": definition.fix_permissions,
+      "create_host_path": definition.get("create_host_path", False),
+    },
+  } %}
   {% do perm_container.add_or_skip_action("definitions", definitions_storage, perms_config) %}
 {% endif %}
 
@@ -42,27 +39,22 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% if values.prowlarr_definition.enabled %}
-  {% set reload = values.prowlarr_definition.prowlarr_url and values.prowlarr_definition.prowlarr_api_key %}
+{% if definition.enabled %}
+  {% set reload = definition.prowlarr_url and definition.prowlarr_api_key %}
   {% set c2 = tpl.add_container(values.consts.definition_container_name, "image") %}
   {% do c2.setup_as_helper(disable_network=not reload) %}
   {% do c2.set_user(values.run_as.user, values.run_as.group) %}
   {% do c2.set_command(["install-definition"]) %}
-  {% do c2.environment.add_env("DEFINITION_DIR", "/definitions") %}
-  {% do c2.environment.add_env("PUBLIC_URL", values.prowlarr_definition.public_url) %}
+  {% do c2.environment.add_env("DEFINITION_DIR", values.consts.definitions_path) %}
+  {% do c2.environment.add_env("PUBLIC_URL", definition.public_url) %}
   {% if reload %}
-    {% do c2.environment.add_env("PROWLARR_URL", values.prowlarr_definition.prowlarr_url) %}
-    {% do c2.environment.add_env("PROWLARR_API_KEY", values.prowlarr_definition.prowlarr_api_key) %}
+    {% do c2.environment.add_env("PROWLARR_URL", definition.prowlarr_url) %}
+    {% do c2.environment.add_env("PROWLARR_API_KEY", definition.prowlarr_api_key) %}
   {% endif %}
-  {% do c2.add_storage("/definitions", definitions_storage) %}
+  {% do c2.add_storage(values.consts.definitions_path, definitions_storage) %}
   {% if perm_container.has_actions() %}
     {% do c2.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% endif %}
-{% endif %}
-
-{% do tpl.notes.add_info("In Prowlarr, add the \"RuTracker (proxy)\" indexer (without a FlareSolverr tag) once the definition is installed.") %}
-{% if not values.prowlarr_definition.enabled %}
-  {% do tpl.notes.add_info("The indexer definition is not installed automatically: copy rutracker-proxy.yml from the project repository into Prowlarr's Definitions/Custom folder, or enable Prowlarr Integration.") %}
 {% endif %}
 
 {{ tpl.render() | tojson }}
