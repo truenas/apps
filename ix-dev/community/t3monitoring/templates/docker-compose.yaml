@@ -17,12 +17,17 @@
 
 {% set web = tpl.add_container(values.consts.t3monitoring_container_name, "image") %}
 {% do web.environment.add_env("T3M_DB_AUTO_SETUP", "1") %}
-{% do web.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/typo3/", "headers": [["Host", values.t3monitoring.server_name]]}) %}
+{% set web_healthcheck_headers = [["Host", values.t3monitoring.server_name]] %}
+{% if values.t3monitoring.force_backend_https %}
+  {% do web_healthcheck_headers.append(["X-Forwarded-Proto", "https"]) %}
+{% endif %}
+{% do web.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/typo3/", "headers": web_healthcheck_headers}) %}
 {% do web.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 
 {% set scheduler = tpl.add_container(values.consts.scheduler_container_name, "image") %}
 {% do scheduler.set_command(["sh", "-c", "while true; do vendor/bin/typo3 scheduler:run || echo \"scheduler:run failed with exit $?\" >&2; sleep 60; done"]) %}
-{% do scheduler.healthcheck.disable() %}
+{% do scheduler.healthcheck.set_test("pidof", {"process": "sh"}) %}
+{% do scheduler.healthcheck.set_start_period(150) %}
 
 {% set containers = [web, scheduler] %}
 {% for c in containers %}
