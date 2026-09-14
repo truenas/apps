@@ -25,12 +25,12 @@
 
   {% for item in values.aistor.multi_mode.entries %}
     {% if item in disallowed_keys %}
-      {% do tpl.funcs.fail("MinIO: Value [%s] is not allowed in [Multi Mode] items"|format(item)) %}
+      {% do tpl.funcs.fail("AIStor: Value [%s] is not allowed in [Multi Mode] items"|format(item)) %}
     {% endif %}
 
     {# /data{1..2} should fail but /data{1...2} should pass #}
     {% if item.startswith("/") and ('{' in item or '}' in item) and "..." not in item %}
-      {% do tpl.funcs.fail("MinIO: [Multi Mode] item [%s] must have 3 dots when they are paths with expansion eg [/some_path{1...4}]"|format(item)) %}
+      {% do tpl.funcs.fail("AIStor: [Multi Mode] item [%s] must have 3 dots when they are paths with expansion eg [/some_path{1...4}]"|format(item)) %}
     {% endif %}
   {% endfor %}
 {% endif %}
@@ -38,7 +38,7 @@
 
 {% set proto = "https" if values.network.certificate_id else "http" %}
 
-{% set c1 = tpl.add_container(values.consts.minio_container_name, "image") %}
+{% set c1 = tpl.add_container(values.consts.aistor_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid":values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
@@ -70,7 +70,7 @@
 {% do c1.environment.add_env("MINIO_ROOT_PASSWORD", values.aistor.credentials.secret_key) %}
 {% do c1.environment.add_env("MINIO_LICENSE", values.consts.license_path) %}
 {% do c1.environment.add_env("MINIO_ADDRESS", ":%d"|format(values.network.api_port.port_number)) %}
-{% do c1.environment.add_env("MINIO_CONSOLE_ADDRESS", ":%d"|format(values.aistor.console_port.port_number)) %}
+{% do c1.environment.add_env("MINIO_CONSOLE_ADDRESS", ":%d"|format(values.network.console_port.port_number)) %}
 
 {% if values.network.console_url %}
   {% do c1.environment.add_env("MINIO_BROWSER_REDIRECT_URL", values.network.console_url) %}
