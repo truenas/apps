@@ -311,13 +311,20 @@
   {% do talk_container.add_storage("/run", {"type": "tmpfs"}) %}
   {% do talk_container.add_storage("/opt/eturnal/run", {"type": "tmpfs"}) %}
 
-  {% do nc_container.environment.add_env("IX_TALK_TURN_SERVER", "%s:%d" | format(parsed_url.host, values.network.talk_port.port_number)) %}
-  {% do nc_container.environment.add_env("IX_TALK_TURN_SECRET", values.nextcloud.talk.turn_secret) %}
-  {% do nc_container.environment.add_env("IX_TALK_STUN_SERVERS", "%s:%d" | format(parsed_url.host, values.network.talk_port.port_number)) %}
+  {# Ours plus whatever else was configured. These lists are written to talk in
+     full on every start, so they are the complete set talk ends up with. #}
+  {% set talk_host_port = "%s:%d" | format(parsed_url.host, values.network.talk_port.port_number) %}
+  {% set stun_servers = ([talk_host_port] + values.nextcloud.talk.additional_stun_servers) | unique | list %}
+  {% do nc_container.environment.add_env("IX_TALK_STUN_SERVERS", stun_servers | join(" ")) %}
+
+  {% set turn_servers = namespace(x=[{"schemes": "turn", "server": talk_host_port, "secret": values.nextcloud.talk.turn_secret, "protocols": "udp,tcp"}]) %}
+  {% for turn in values.nextcloud.talk.additional_turn_servers %}
+    {% do turn_servers.x.append({"schemes": turn.schemes, "server": turn.server, "secret": turn.secret, "protocols": turn.protocols}) %}
+  {% endfor %}
+  {% do nc_container.environment.add_env("IX_TALK_TURN_SERVERS", turn_servers.x | tojson) %}
   {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER", "%s://%s/standalone-signaling/" | format(ext_protocol, ext_host_port.x)) %}
   {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SERVER_VERIFY", values.nextcloud.urls.is_cert_valid) %}
   {% do nc_container.environment.add_env("IX_TALK_SIGNALING_SECRET", values.nextcloud.talk.signaling_secret) %}
-
 
   {# -- Talk Recording -- #}
   {% if values.nextcloud.talk.recording.enabled %}
