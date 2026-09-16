@@ -23,11 +23,14 @@ class PostgresConfig(TypedDict):
     password: str
     database: str
     port: NotRequired[int]
+    max_connections: NotRequired[int]
     volume: "IxStorage"
     additional_options: NotRequired[dict[str, str]]
 
 
 MAX_POSTGRES_VERSION = 18
+# Postgres' own default for max_connections
+DEFAULT_MAX_CONNECTIONS = 100
 SUPPORTED_REPOS = [
     "postgres",
     "postgis/postgis",
@@ -90,7 +93,7 @@ def get_major_version(variant: str, tag: str):
 
     elif variant == "paradedb/paradedb":
         # 0.21.8-pg18
-        regex = re.compile(r"^\d+\.\d+\.\d+-pg\d+")
+        regex = re.compile(r"^v?\d+\.\d+\.\d+-pg\d+")
 
         def oper(x):
             parts = x.split("-")
@@ -126,12 +129,17 @@ class PostgresContainer:
                 raise RenderError(f"Expected [{key}] to be set for postgres")
 
         port = valid_port_or_raise(self.get_port())
+        max_connections = self.get_max_connections()
 
         # TODO: Set some defaults for ZFS Optimizations (Need to check if applies on updates)
         # https://vadosware.io/post/everything-ive-seen-on-optimizing-postgres-on-zfs-on-linux/
 
-        opts = []
-        for k, v in config.get("additional_options", {}).items():
+        additional_options = config.get("additional_options", {})
+        if "max_connections" in additional_options:
+            raise RenderError("Use the [max_connections] key instead of setting it in [additional_options]")
+
+        opts = ["-c", f"max_connections={max_connections}"]
+        for k, v in additional_options.items():
             opts.extend(["-c", f"{k}={v}"])
 
         common_variables = {
@@ -149,8 +157,7 @@ class PostgresContainer:
         c.remove_devices()
         c.set_grace_period(60)
 
-        if opts:
-            c.set_command(opts)
+        c.set_command(opts)
 
         target_major_version = self._get_target_version(image)
         # This is the new format upstream Postgres uses/suggests.
@@ -230,6 +237,12 @@ class PostgresContainer:
 
     def get_port(self):
         return self._config.get("port") or 5432
+
+    def get_max_connections(self):
+        max_connections = self._config.get("max_connections") or DEFAULT_MAX_CONNECTIONS
+        if max_connections < 1:
+            raise RenderError(f"Expected [max_connections] to be greater than 0, got [{max_connections}]")
+        return max_connections
 
     def get_url(self, variant: str):
         raw_user = self._config["user"]
