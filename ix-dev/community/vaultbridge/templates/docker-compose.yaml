@@ -5,18 +5,16 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test(
-  "http",
-  {"port": values.consts.internal_port, "path": "/health/live"}
-) %}
+{% do c1.healthcheck.set_test("http", {"port": values.consts.internal_port, "path": "/health/live"}) %}
 
-{% do c1.environment.add_env("API_KEY", values.vaultbridge.api_key) %}
-{% do c1.environment.add_env("API_KEY_PREVIOUS", values.vaultbridge.api_key_previous) %}
 {% do c1.environment.add_env("VAULT_PATH", values.consts.vault_path) %}
 {% do c1.environment.add_env("SEMANTIC_DATA_PATH", values.consts.data_path) %}
-{% do c1.environment.add_env("HF_HOME", values.consts.data_path ~ "/huggingface") %}
+{% do c1.environment.add_env("HF_HOME", "%s/huggingface"|format(values.consts.data_path)) %}
+{% do c1.environment.add_env("API_KEY", values.vaultbridge.api_key) %}
+{% do c1.environment.add_env("API_KEY_PREVIOUS", values.vaultbridge.api_key_previous) %}
 {% do c1.environment.add_env("SEMANTIC_WATCH_ENABLED", values.vaultbridge.watch_enabled) %}
 {% do c1.environment.add_env("SEMANTIC_WATCH_DEBOUNCE_SECONDS", values.vaultbridge.watch_debounce_seconds) %}
+{% do c1.environment.add_user_envs(values.vaultbridge.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_port}) %}
 
@@ -32,6 +30,6 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"scheme": "http", "path": "/ui/"}) %}
+{% do tpl.portals.add(values.network.web_port, {"path": "/ui/"}) %}
 
 {{ tpl.render() | tojson }}
