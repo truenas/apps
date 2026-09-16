@@ -195,7 +195,7 @@ def test_add_postgres_options(mock_values):
             },
             "additional_options": {
                 "maintenance_work_mem": "1024MB",
-                "max_connections": "100",
+                "work_mem": "16MB",
             },
         },
         perms_container,
@@ -204,10 +204,143 @@ def test_add_postgres_options(mock_values):
     output = render.render()
     assert output["services"]["pg_container"]["command"] == [
         "-c",
+        "max_connections=100",
+        "-c",
         "maintenance_work_mem=1024MB",
+        "-c",
+        "work_mem=16MB",
+    ]
+
+
+def test_add_postgres_max_connections(mock_values):
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "16.6-bookworm",
+    }
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    p = render.deps.postgres(
+        "pg_container",
+        "pg_image",
+        {
+            "user": "test_user",
+            "password": "test_@password",
+            "database": "test_database",
+            "max_connections": 250,
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
+        },
+        perms_container,
+    )
+
+    output = render.render()
+    assert p.get_max_connections() == 250
+    assert output["services"]["pg_container"]["command"] == [
+        "-c",
+        "max_connections=250",
+    ]
+
+
+def test_add_postgres_default_max_connections(mock_values):
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "16.6-bookworm",
+    }
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    p = render.deps.postgres(
+        "pg_container",
+        "pg_image",
+        {
+            "user": "test_user",
+            "password": "test_@password",
+            "database": "test_database",
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
+        },
+        perms_container,
+    )
+
+    output = render.render()
+    assert p.get_max_connections() == 100
+    assert output["services"]["pg_container"]["command"] == [
         "-c",
         "max_connections=100",
     ]
+
+
+def test_add_postgres_invalid_max_connections(mock_values):
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "16.6-bookworm",
+    }
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.postgres(
+            "pg_container",
+            "pg_image",
+            {
+                "user": "test_user",
+                "password": "test_@password",
+                "database": "test_database",
+                "max_connections": -1,
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
+            },
+            perms_container,
+        )
+
+
+def test_add_postgres_max_connections_in_additional_options(mock_values):
+    mock_values["images"]["pg_image"] = {
+        "repository": "postgres",
+        "tag": "16.6-bookworm",
+    }
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception):
+        render.deps.postgres(
+            "pg_container",
+            "pg_image",
+            {
+                "user": "test_user",
+                "password": "test_@password",
+                "database": "test_database",
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
+                "additional_options": {"max_connections": "200"},
+            },
+            perms_container,
+        )
 
 
 def test_add_redis_missing_config(mock_values):
