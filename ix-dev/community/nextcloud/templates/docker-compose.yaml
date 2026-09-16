@@ -21,6 +21,7 @@
   "user": values.consts.db_user,
   "password": values.nextcloud.db_password,
   "database": values.consts.db_name,
+  "max_connections": values.consts.db_max_connections,
   "volume": values.storage.postgres_data,
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.nextcloud.postgres_image_selector, pg_config, perm_container) %}
@@ -46,7 +47,9 @@
 {% do nc_container.add_extra_host("host.docker.internal", "host-gateway") %}
 {% do nc_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do nc_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do nc_container.configs.add("php_tune", php_tune_ini(values), "/usr/local/etc/php-fpm.d/zz-tune.conf") %}
+{# Each php-fpm child holds its own postgres connection, so never allow more children than the db accepts #}
+{% set fpm_max_children = postgres.get_max_connections() - values.consts.db_reserved_connections %}
+{% do nc_container.configs.add("php_tune", php_tune_ini(values, fpm_max_children), "/usr/local/etc/php-fpm.d/zz-tune.conf") %}
 {% do nc_container.configs.add("redis_session", redis_session(values), "/usr/local/etc/php/conf.d/redis-session.ini") %}
 {% do nc_container.configs.add("opcache_recommended", opcache_recommended(values), "/usr/local/etc/php/conf.d/opcache-recommended.ini") %}
 {% do nc_container.environment.add_user_envs(values.nextcloud.additional_envs) %}
