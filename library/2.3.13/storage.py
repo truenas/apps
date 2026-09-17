@@ -100,21 +100,30 @@ class Storage:
     def is_defined(self, mount_path: str):
         return mount_path in [m.mount_path for m in self._volume_mounts]
 
-    def _add_docker_socket(self, read_only: bool = True, mount_path: str = ""):
+    def _add_docker_socket(self, mount_path: str = ""):
         mount_path = valid_fs_path_or_raise(mount_path)
         cfg: "IxStorage" = {
             "type": "host_path",
-            "read_only": read_only,
+            "read_only": True,
             "host_path_config": {"path": "/var/run/docker.sock", "create_host_path": False},
         }
         self.add(mount_path, cfg)
 
-    def _add_udev(self, read_only: bool = True, mount_path: str = ""):
+    def _add_udev(self, mount_path: str = ""):
         mount_path = valid_fs_path_or_raise(mount_path)
         cfg: "IxStorage" = {
             "type": "host_path",
-            "read_only": read_only,
+            "read_only": True,
             "host_path_config": {"path": "/run/udev", "create_host_path": False},
+        }
+        self.add(mount_path, cfg)
+
+    def _add_utmp(self, mount_path: str = ""):
+        mount_path = valid_fs_path_or_raise(mount_path)
+        cfg: "IxStorage" = {
+            "type": "host_path",
+            "read_only": True,
+            "host_path_config": {"path": "/var/run/utmp", "create_host_path": False},
         }
         self.add(mount_path, cfg)
 
