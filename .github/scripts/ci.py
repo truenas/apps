@@ -28,6 +28,7 @@ CHANGE_PLATFORM_FOR_IMAGES = [
     "ghcr.io/lostb1t/remux",
     "ghcr.io/stalwartlabs/stalwart",
     "ghcr.io/euro-office/documentserver",
+    "ghcr.io/karakeep-app/karakeep-chrome",
 ]
 
 
