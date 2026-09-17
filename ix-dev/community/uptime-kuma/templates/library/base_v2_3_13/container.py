@@ -329,11 +329,14 @@ class Container:
         self.add_group(999)
         self._storage._add_docker_socket(mount_path)
 
-    def add_udev(self, mount_path: str = "/run/udev"):
-        self._storage._add_udev(mount_path)
+    def add_udev(self, mount_path: str = "", subpath: str = ""):
+        self._storage._add_udev(mount_path, subpath)
 
     def add_utmp(self, mount_path: str = "/var/run/utmp"):
         self._storage._add_utmp(mount_path)
+
+    def add_dbus(self, mount_path: str = "/run/dbus"):
+        self._storage._add_dbus(mount_path)
 
     def add_tun_device(self):
         self.devices._add_tun_device()

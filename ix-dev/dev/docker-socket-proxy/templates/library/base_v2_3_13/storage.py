@@ -109,12 +109,18 @@ class Storage:
         }
         self.add(mount_path, cfg)
 
-    def _add_udev(self, mount_path: str = ""):
-        mount_path = valid_fs_path_or_raise(mount_path)
+    def _add_udev(self, mount_path: str = "", subpath: str = ""):
+        host_path = "/run/udev"
+        if subpath:
+            if subpath.startswith("/") or ".." in subpath.split("/"):
+                raise RenderError(f"Expected [subpath] to be a relative path without [..], got [{subpath}]")
+            host_path = f"{host_path}/{subpath.rstrip('/')}"
+        host_path = valid_fs_path_or_raise(host_path)
+        mount_path = valid_fs_path_or_raise(mount_path or host_path)
         cfg: "IxStorage" = {
             "type": "host_path",
             "read_only": True,
-            "host_path_config": {"path": "/run/udev", "create_host_path": False},
+            "host_path_config": {"path": host_path, "create_host_path": False},
         }
         self.add(mount_path, cfg)
 
@@ -124,6 +130,15 @@ class Storage:
             "type": "host_path",
             "read_only": True,
             "host_path_config": {"path": "/var/run/utmp", "create_host_path": False},
+        }
+        self.add(mount_path, cfg)
+
+    def _add_dbus(self, mount_path: str = ""):
+        mount_path = valid_fs_path_or_raise(mount_path)
+        cfg: "IxStorage" = {
+            "type": "host_path",
+            "read_only": True,
+            "host_path_config": {"path": "/run/dbus", "create_host_path": False},
         }
         self.add(mount_path, cfg)
 
