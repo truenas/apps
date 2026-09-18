@@ -169,7 +169,11 @@ module.exports = {
     customVersioning(
       // 20250122_091948 {year}{month}{day}_{build}
       "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
-      ["ghcr.io/nextcloud-releases/aio-imaginary"],
+      [
+        "ghcr.io/nextcloud-releases/aio-imaginary",
+        "ghcr.io/nextcloud-releases/aio-talk",
+        "ghcr.io/nextcloud-releases/aio-talk-recording",
+      ],
     ),
     customVersioning(
       // 2024.10.22-7ca5933
@@ -392,6 +396,13 @@ module.exports = {
       // 6.5.2-81
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
       ["ghcr.io/zammad/zammad"],
+    ),
+    customVersioning(
+      // 151.0.7922.47-r1 (chrome version, plus a packaging revision).
+      // "revision" only counts when "build" is also set, so the 4th chrome
+      // digit has to be captured for the -rN part to affect ordering.
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-r(?<revision>\\d+)$",
+      ["ghcr.io/karakeep-app/karakeep-chrome"],
     ),
     customVersioning(
       // 4.5.6 or 4.5.3.2, each with an optional "-full" variant.
