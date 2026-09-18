@@ -398,6 +398,13 @@ module.exports = {
       ["ghcr.io/zammad/zammad"],
     ),
     customVersioning(
+      // 151.0.7922.47-r1 (chrome version, plus a packaging revision).
+      // "revision" only counts when "build" is also set, so the 4th chrome
+      // digit has to be captured for the -rN part to affect ordering.
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-r(?<revision>\\d+)$",
+      ["ghcr.io/karakeep-app/karakeep-chrome"],
+    ),
+    customVersioning(
       // 4.5.6 or 4.5.3.2, each with an optional "-full" variant.
       // The variant is captured as "compatibility" so a plain pin never
       // jumps to a -full tag. The ubuntu-* tags are intentionally skipped.

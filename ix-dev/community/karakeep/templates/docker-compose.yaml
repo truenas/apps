@@ -11,19 +11,22 @@
 
 {% set chrome = tpl.add_container(values.consts.chrome_container_name, "chrome_image") %}
 {% do chrome.add_network(karakeep_net) %}
-{% do chrome.healthcheck.set_test("netcat", {"port": values.consts.chrome_port}) %}
+{% do chrome.healthcheck.set_test("tcp", {"port": values.consts.chrome_port}) %}
 {% do chrome.set_user(values.consts.run_user, values.consts.run_group) %}
+{% do chrome.set_init(true) %}
 {% set tmp_config = {"type": "temporary", "volume_config": {"volume_name": "chrome-cache"}} %}
 {% do chrome.add_storage("/cache/chrome", tmp_config) %}
 {% do perm_container.add_or_skip_action("chrome-cache", tmp_config, perms_config) %}
 {% do chrome.environment.add_env("HOME", "/cache/chrome") %}
+{# The image's entrypoint already passes --no-sandbox and binds the remote
+   debugging port, fronted by socat on chrome_port. Passing those flags again
+   makes chrome fight socat for the port. #}
 {% do chrome.set_command([
-  "--no-sandbox",
   "--disable-gpu",
   "--disable-dev-shm-usage",
-  "--remote-debugging-address=0.0.0.0",
-  "--remote-debugging-port=%d"|format(values.consts.chrome_port),
   "--hide-scrollbars",
+  "--disable-blink-features=AutomationControlled",
+  "--window-size=1440,900",
 ]) %}
 
 {% set c1 = tpl.add_container(values.consts.karakeep_container_name, "image") %}
