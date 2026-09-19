@@ -16,3 +16,5 @@ improvements, not currently used. AI review is not an independent professional a
 
 External HTTPS is required for normal login. Keep the database, uploads and keys
 across updates. See the [installation guide](https://github.com/mrksrus/selfhost-unihub/blob/main/docs/INSTALLATION.md).
+
+**ALPHA: account backup, import and restore are experimental. Do not rely on them as your only copy of important data. Keep an independent, consistent backup of MySQL, uploads, configuration and secrets, especially before deleting messages from your email provider.**
