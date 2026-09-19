@@ -1,0 +1,128 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set cfg = values.unihub %}
+
+{# Validate deployment inputs before creating containers. Never echo secrets. #}
+{% for key in ['db_password', 'db_root_password', 'jwt_secret', 'encryption_key'] %}
+  {% set secret = cfg[key] %}
+  {% if not secret | trim or secret | trim | lower == 'changeme' or 'change_me' in secret | lower %}
+    {% do tpl.funcs.fail('A real non-placeholder value is required for ' ~ key) %}
+  {% endif %}
+{% endfor %}
+{% if cfg.admin_password | length < 12 %}
+  {% do tpl.funcs.fail('Administrator password must be at least 12 characters.') %}
+{% endif %}
+{% if not tpl.funcs.match_regex(cfg.admin_email, '^[^\s@]+@[^\s@]+\.[^\s@]+$') %}
+  {% do tpl.funcs.fail('Enter a valid administrator email address.') %}
+{% endif %}
+{% for key in ['jwt_secret', 'encryption_key'] %}
+  {% if cfg[key] | length < 32 %}
+    {% do tpl.funcs.fail(key ~ ' must be at least 32 characters; use a randomly generated value.') %}
+  {% endif %}
+{% endfor %}
+{% set origins = [cfg.browser_origin] + cfg.additional_origins %}
+{% for origin in origins %}
+  {% if not tpl.funcs.match_regex(origin, '^https://(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|\[[0-9a-f:]+\])(?::[1-9][0-9]{0,4})?$') %}
+    {% do tpl.funcs.fail('Browser addresses must be lowercase HTTPS origins without a path, trailing slash or credentials.') %}
+  {% endif %}
+  {% set parsed = tpl.funcs.url_to_dict(origin, true) %}
+  {% if ':' in parsed.host %}
+    {% set canonical = ix_lib.base.validations.ipaddress.ip_address(parsed.host_no_brackets).compressed %}
+    {% if parsed.host != '[' ~ canonical ~ ']' %}
+      {% do tpl.funcs.fail('Use the canonical compressed IPv6 address in browser origins.') %}
+    {% endif %}
+  {% elif tpl.funcs.match_regex(parsed.host.split('.')[-1], '^(?:[0-9]+|0x[0-9a-f]+)$') %}
+    {% set canonical = ix_lib.base.validations.ipaddress.ip_address(parsed.host).compressed %}
+    {% if parsed.host != canonical %}
+      {% do tpl.funcs.fail('Use a canonical full IPv4 address in browser origins.') %}
+    {% endif %}
+  {% else %}
+    {% for label in parsed.host.split('.') %}
+      {% if not tpl.funcs.match_regex(label, '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$') %}
+        {% do tpl.funcs.fail('Enter a valid hostname in browser origins.') %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+  {% if parsed.port == 443 %}
+    {% do tpl.funcs.fail('Omit the default :443 port from browser origins so they match browser Origin headers.') %}
+  {% endif %}
+{% endfor %}
+{% if not cfg.trusted_proxy_cidrs %}
+  {% do tpl.funcs.fail('Enter the actual connecting address of your external HTTPS proxy.') %}
+{% endif %}
+{% for proxy in cfg.trusted_proxy_cidrs %}
+  {% set subnet = ix_lib.base.validations.ipaddress.ip_network(proxy, strict=false) %}
+  {% if subnet.prefixlen == 0 %}
+    {% do tpl.funcs.fail('Do not trust all addresses as proxies. Use only proxy addresses/networks you control.') %}
+  {% endif %}
+{% endfor %}
+{% for host in cfg.trusted_mail_hosts %}
+  {% if not tpl.funcs.match_regex(host, '^[a-zA-Z0-9][a-zA-Z0-9.:-]*$') %}
+    {% do tpl.funcs.fail('Private mail hosts must be plain hostnames or IP addresses, without URL schemes, ports or CIDRs.') %}
+  {% endif %}
+  {% if ':' in host %}
+    {% do ix_lib.base.validations.valid_ip_or_raise(host) %}
+  {% endif %}
+{% endfor %}
+
+{% set app = tpl.add_container(values.consts.app_container_name, 'image') %}
+{% set db = tpl.add_container(values.consts.mysql_container_name, 'mysql_image') %}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set db_net = tpl.networks.create_internal('unihub-db') %}
+{% do app.add_network(db_net) %}
+{% do db.add_network(db_net) %}
+{% do app.set_user(0, 0) %}
+{% do app.set_init(true) %}
+{% do app.add_caps(['NET_BIND_SERVICE']) %}
+{% do app.healthcheck.set_test('wget', {'port': 80, 'path': '/health'}) %}
+{% do app.healthcheck.set_start_period(360) %}
+{% do app.healthcheck.set_start_interval(5) %}
+{% do app.healthcheck.set_retries(3) %}
+{% do app.depends.add_dependency(values.consts.mysql_container_name, 'service_started') %}
+{% do app.add_port(values.network.web_port, {'container_port': 80}) %}
+{% do app.add_storage('/app/uploads', values.storage.uploads) %}
+{% do perms.add_or_skip_action('uploads', values.storage.uploads, {'uid': 0, 'gid': 0, 'mode': 'check'}) %}
+
+{% for key, value in {
+  'NODE_ENV': 'production', 'MYSQL_HOST': values.consts.mysql_container_name,
+  'MYSQL_PORT': '3306', 'MYSQL_DATABASE': values.consts.db_name,
+  'MYSQL_USER': values.consts.db_user, 'MYSQL_PASSWORD': cfg.db_password,
+  'JWT_SECRET': cfg.jwt_secret, 'ENCRYPTION_KEY': cfg.encryption_key,
+  'BACKUP_MASTER_KEY': cfg.backup_master_key,
+  'BOOTSTRAP_ADMIN_EMAIL': cfg.admin_email, 'BOOTSTRAP_ADMIN_PASSWORD': cfg.admin_password,
+  'ALLOWED_ORIGINS': origins | unique | join(','), 'TRUST_PROXY_HEADERS': 'true',
+  'TRUSTED_PROXY_CIDRS': (['127.0.0.1/32', '::1/128'] + cfg.trusted_proxy_cidrs) | unique | join(','),
+  'TRUSTED_MAIL_HOSTS': cfg.trusted_mail_hosts | join(','),
+  'MYSQL_STARTUP_MAX_WAIT_SECONDS': '300', 'MYSQL_STARTUP_CHECK_INTERVAL_SECONDS': '5',
+  'UNIHUB_API_START_DELAY_SECONDS': '2'
+}.items() %}
+  {% do app.environment.add_env(key, value) %}
+{% endfor %}
+
+{# Keep the official MySQL root initialization/drop-user behavior. #}
+{% do db.set_user(0, 0) %}
+{% do db.set_init(true) %}
+{% do db.set_grace_period(60) %}
+{% do db.add_caps(['CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'SETGID', 'SETUID']) %}
+{% do db.add_storage('/var/lib/mysql', values.storage.mysql_data) %}
+{% do db.configs.add('mysql_settings', values.consts.mysql_config, '/etc/mysql/conf.d/unihub.cnf', '0444') %}
+{% for key, value in {
+  'MYSQL_DATABASE': values.consts.db_name, 'MYSQL_USER': values.consts.db_user,
+  'MYSQL_PASSWORD': cfg.db_password, 'MYSQL_ROOT_PASSWORD': cfg.db_root_password
+}.items() %}
+  {% do db.environment.add_env(key, value) %}
+{% endfor %}
+{% do db.healthcheck.set_custom_test(['CMD-SHELL', 'MYSQL_PWD="$MYSQL_PASSWORD" mysql --protocol=TCP -h 127.0.0.1 -u "$MYSQL_USER" "$MYSQL_DATABASE" -e "SELECT 1" >/dev/null']) %}
+{% do db.healthcheck.set_interval(5) %}
+{% do db.healthcheck.set_timeout(5) %}
+{% do db.healthcheck.set_start_period(300) %}
+{% do db.healthcheck.set_retries(20) %}
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do app.depends.add_dependency(values.consts.perms_container_name, 'service_completed_successfully') %}
+{% endif %}
+
+{# Web UI opens the configured HTTPS proxy, not the internal HTTP port. #}
+{% set portal = tpl.funcs.url_to_dict(cfg.browser_origin, true) %}
+{% do tpl.portals.add({'bind_mode': 'published', 'port_number': portal.port or 443}, {'host': portal.host, 'scheme': 'https'}) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+{{ tpl.render() | tojson }}
