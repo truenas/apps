@@ -333,11 +333,6 @@ module.exports = {
       ["opencloudeu/web-extensions"],
     ),
     customVersioning(
-      // 1.0.0-beta.4
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-beta\\.(?<build>\\d+))?$",
-      ["rustfs/rustfs"],
-    ),
-    customVersioning(
       // 10.0.160-mongo8
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/goofball222/unifi"],
