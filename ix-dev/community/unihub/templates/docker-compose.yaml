@@ -72,8 +72,10 @@
 {% do db.add_network(db_net) %}
 {% do app.set_user(0, 0) %}
 {% do app.set_init(true) %}
-{% do app.add_caps(['NET_BIND_SERVICE']) %}
-{% do app.healthcheck.set_test('wget', {'port': 80, 'path': '/health'}) %}
+{# Nginx prepares nginx-owned paths, binds port 80 and drops worker privileges. #}
+{% do app.add_caps(['CHOWN', 'DAC_OVERRIDE', 'NET_BIND_SERVICE', 'SETGID', 'SETUID']) %}
+{# The API health route supports GET, not wget --spider's HEAD request. #}
+{% do app.healthcheck.set_custom_test(['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:80/health']) %}
 {% do app.healthcheck.set_start_period(360) %}
 {% do app.healthcheck.set_start_interval(5) %}
 {% do app.healthcheck.set_retries(3) %}
