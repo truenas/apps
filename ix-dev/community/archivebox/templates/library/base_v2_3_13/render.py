@@ -75,9 +75,14 @@ class Render(object):
         if not self._containers:
             raise RenderError("No containers added.")
 
+        action_required = False
+        if self.notes.has_deprecations() or self.notes.has_warnings():
+            action_required = True
+
         result: dict = {
             "x-notes": self.notes.render(),
             "x-portals": self.portals.render(),
+            "x-action-required": action_required,
             "services": {c._name: c.render() for c in self._containers.values()},
         }
 

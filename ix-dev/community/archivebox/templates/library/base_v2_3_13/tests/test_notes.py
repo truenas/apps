@@ -8,11 +8,12 @@ from render import Render
 def mock_values():
     return {
         "ix_context": {
+            "app_name": "My Test App",
             "app_metadata": {
                 "name": "test_app",
                 "title": "Test App",
                 "train": "enterprise",
-            }
+            },
         },
         "images": {
             "test_image": {
@@ -99,11 +100,12 @@ def test_notes_with_warnings(mock_values):
     c1.set_user(568, 568)
     c1.healthcheck.disable()
     output = render.render()
+    assert output["x-action-required"] is True
     assert (
         output["x-notes"]
-        == """# Test App
+        == """# Test App ⚠️
 
-## Warnings
+## Warnings ⚠️
 
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
@@ -140,11 +142,12 @@ def test_notes_with_deprecations(mock_values):
     c1.set_user(568, 568)
     c1.healthcheck.disable()
     output = render.render()
+    assert output["x-action-required"] is True
     assert (
         output["x-notes"]
-        == """# Test App
+        == """# Test App ⚠️
 
-## Deprecations
+## Deprecations ⚠️
 
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
@@ -251,6 +254,10 @@ some other info.
     c1.set_grace_period(61)
     c1.remove_security_opt("no-new-privileges")
     c1.add_docker_socket()
+    c1.add_udev()
+    c1.add_udev(subpath="data")
+    c1.add_utmp()
+    c1.add_dbus()
     c1.add_tun_device()
     c1.add_usb_bus()
     c1.add_snd_device()
@@ -268,18 +275,19 @@ some other info.
     c3.set_user(568, 568)
 
     output = render.render()
+    assert output["x-action-required"] is True
     assert (
         output["x-notes"]
-        == """# Test App
+        == """# Test App ⚠️
 
-## Warnings
+## Warnings ⚠️
 
 - Container [test_container] is running with a TTY, Logs do not appear correctly in the UI due to an [upstream bug](https://github.com/docker/docker-py/issues/1394)
 - this is not properly configured. fix it now!
 - that is not properly configured. fix it later!
 - Container [test_container] has a grace period of [61] seconds. TrueNAS waits a maximum of 60 seconds for docker engine to stop during system reboot/shutdown. If the container needs the full configured grace period, manually stop it before reboot/shutdown to ensure the full wait time is honored.
 
-## Deprecations
+## Deprecations ⚠️
 
 - this is will be removed later. fix it now!
 - that is will be removed later. fix it later!
@@ -316,8 +324,8 @@ some other info.
 
 #### Joined networks
 
-- ix-internal-test_network1
-- ix-internal-test_network2
+- ix-internal-my-test-app-test_network1
+- ix-internal-my-test-app-test_network2
 
 #### Running user/group(s)
 
@@ -348,11 +356,15 @@ some other info.
 #### Passing Host Files, Devices, or Sockets into the Container
 
 - /dev/null - (rwm)
+- /run/udev/data - (Read Only)
+- DBus Socket (/run/dbus) - (Read Only)
 - Docker Socket (/var/run/docker.sock) - (Read Only)
 - OS Release File (/etc/os-release) - (Read/Write)
 - Sound Device (/dev/snd) - (Read/Write)
 - TUN Device (/dev/net/tun) - (Read/Write)
 - USB Devices (/dev/bus/usb) - (Read/Write)
+- UTMP (/var/run/utmp) - (Read Only)
+- Udev Socket (/run/udev) - (Read Only)
 
 ---
 

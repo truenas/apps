@@ -207,6 +207,12 @@ class Functions:
             case _:
                 raise RenderError(f"Storage type [{source_type}] does not support host path.")
 
+    def has_intel_gpu(self):
+        gpus = self._render_instance.values.get("resources", {}).get("gpus", {})
+        if gpus.get("use_all_gpus", False):
+            return True
+        return False
+
     def has_amd_gpu(self):
         gpus = self._render_instance.values.get("resources", {}).get("gpus", {})
         if gpus.get("use_all_gpus", False) and gpus.get("kfd_device_exists", False):
@@ -220,6 +226,9 @@ class Functions:
                 if gpu.get("use_gpu", False):
                     return True
         return False
+
+    def has_any_gpu(self):
+        return self.has_intel_gpu() or self.has_amd_gpu() or self.has_nvidia_gpu()
 
     def func_map(self):
         return {
@@ -248,4 +257,6 @@ class Functions:
             "to_yaml": self._to_yaml,
             "has_amd_gpu": self.has_amd_gpu,
             "has_nvidia_gpu": self.has_nvidia_gpu,
+            "has_intel_gpu": self.has_intel_gpu,
+            "has_any_gpu": self.has_any_gpu,
         }

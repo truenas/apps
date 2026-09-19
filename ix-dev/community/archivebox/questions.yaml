@@ -13,22 +13,33 @@ groups:
     description: Configure Resources for ArchiveBox
 
 questions:
-  - variable: TZ
-    group: ArchiveBox Configuration
-    label: Timezone
-    schema:
-      type: string
-      default: Etc/UTC
-      required: true
-      $ref:
-        - definitions/timezone
-
   - variable: archivebox
     label: ""
     group: ArchiveBox Configuration
     schema:
       type: dict
       attrs:
+        - variable: base_url
+          label: ArchiveBox URL
+          description: Full URL used to access ArchiveBox, including http or https and the published port (for example http://truenas.local:30820).
+          schema:
+            type: uri
+            required: true
+            default: ""
+        - variable: server_security_mode
+          label: Snapshot Replay Mode
+          description: |
+            Single-domain mode works with a NAS IP or hostname and disables JavaScript in archived pages.</br>
+            Full replay requires wildcard DNS and a reverse proxy for the ArchiveBox domain and its subdomains.</br>
+            See https://docs.archivebox.io for domain and reverse proxy setup.
+          schema:
+            type: string
+            default: safe-onedomain-nojsreplay
+            enum:
+              - value: safe-onedomain-nojsreplay
+                description: Single domain (no JavaScript replay)
+              - value: safe-subdomains-fullreplay
+                description: Separate subdomains (full replay)
         - variable: admin_username
           label: Admin Username
           description: The initial admin username for ArchiveBox (only used on first run).
@@ -50,12 +61,19 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: public_snapshots
-          label: Public Snapshot Contents
-          description: Allow anonymous/non-logged-in users to view archived snapshot contents.
+        - variable: permissions
+          label: Default Snapshot Visibility
+          description: Visibility of newly archived snapshots. Individual snapshots can be changed in ArchiveBox.
           schema:
-            type: boolean
-            default: false
+            type: string
+            default: private
+            enum:
+              - value: private
+                description: Private (login required)
+              - value: unlisted
+                description: Unlisted (anyone with the link)
+              - value: public
+                description: Public
         - variable: public_add_view
           label: Public Add View
           description: Allow anonymous/non-logged-in users to submit new URLs to archive.
@@ -217,10 +235,6 @@ questions:
                                     enum:
                                       - value: archivebox
                                         description: archivebox
-                                      - value: scheduler
-                                        description: scheduler
-                                      - value: sonic
-                                        description: sonic
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -278,7 +292,7 @@ questions:
       attrs:
         - variable: data
           label: Data Storage
-          description: Stores all archived data, configuration, and the SQLite database.
+          description: Stores archived data, browser profiles, search index, configuration, and the SQLite database. Use local storage; do not place the database on an SMB or NFS mount.
           schema:
             type: dict
             attrs:
@@ -319,82 +333,6 @@ questions:
                         required: true
                         hidden: true
                         default: "data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: sonic_data
-          label: Sonic Search Data Storage
-          description: Stores the Sonic full-text search index.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "sonic_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -620,10 +558,6 @@ questions:
                         enum:
                           - value: archivebox
                             description: archivebox
-                          - value: scheduler
-                            description: scheduler
-                          - value: sonic
-                            description: sonic
 
   - variable: resources
     label: ""
