@@ -33,64 +33,29 @@ questions:
             enum:
               - value: postgres_18_image
                 description: Postgres 18
+        - variable: db_password
+          label: Database Password
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
         - variable: admin_username
           label: Admin Username
-          description: |
-            The username you sign in to the admin panel with, at /admin.html.
+          description: The username you sign in to the admin panel with.
           schema:
             type: string
             default: "admin"
             required: true
         - variable: admin_password
           label: Admin Password
-          description: |
-            The password for the admin panel. At least 12 characters.</br>
-            Stored Argon2id-hashed; signing in sets an HttpOnly session cookie
-            that lasts 8 hours and renews while you work.
+          description: The password for the admin panel.
           schema:
             type: string
             default: ""
-            required: true
             min_length: 12
-            private: true
-        - variable: db_password
-          label: Database Password
-          description: The password for the KeePass DeltaSync database.
-          schema:
-            type: string
-            default: ""
             required: true
             private: true
-        - variable: log_level
-          label: Log Level
-          description: |
-            INFO logs authentication, enrollment and admin events.</br>
-            DEBUG additionally logs every API call.
-          schema:
-            type: string
-            default: INFO
-            required: true
-            enum:
-              - value: INFO
-                description: INFO
-              - value: DEBUG
-                description: DEBUG
-        - variable: audit_retention_days
-          label: Audit Log Retention (in days)
-          description: Audit log rows are deleted after this many days.
-          schema:
-            type: int
-            default: 30
-            required: true
-            min: 1
-        - variable: enrollment_token_ttl_hours
-          label: Enrollment Token TTL (in hours)
-          description: How long an enrollment token stays valid before it expires.
-          schema:
-            type: int
-            default: 24
-            required: true
-            min: 1
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -146,7 +111,8 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30490
+                  default: 30498
+                  show_if: [["bind_mode", "=", "published"]]
                   min: 1
                   max: 65535
                   required: true
@@ -264,9 +230,6 @@ questions:
       attrs:
         - variable: postgres_data
           label: KeePass DeltaSync Postgres Data Storage
-          description: |
-            The path to store the Postgres data.</br>
-            This holds every synced (encrypted) entry, so back it up.
           schema:
             type: dict
             attrs:
@@ -352,7 +315,162 @@ questions:
                         type: boolean
                         default: false
                         show_if: [["acl_enable", "=", false]]
-
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
   - variable: labels
     label: ""
     group: Labels Configuration
