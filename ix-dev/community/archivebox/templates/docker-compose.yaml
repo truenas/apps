@@ -8,29 +8,20 @@
 {% do archivebox.add_caps(["CHOWN", "SETGID", "SETUID", "FOWNER", "DAC_OVERRIDE"]) %}
 {% do archivebox.set_shm_size_mb(1024) %}
 {% do archivebox.environment.add_env("DATA_DIR", values.consts.data_path) %}
-{% do archivebox.environment.add_env("BASE_URL", values.archivebox.base_url) %}
-{% do archivebox.environment.add_env("SERVER_SECURITY_MODE", values.archivebox.server_security_mode) %}
-{% do archivebox.environment.add_env("PUBLIC_INDEX", values.archivebox.public_index) %}
-{% do archivebox.environment.add_env("PERMISSIONS", values.archivebox.permissions) %}
-{% do archivebox.environment.add_env("PUBLIC_ADD_VIEW", values.archivebox.public_add_view) %}
-{% do archivebox.environment.add_env("ADMIN_USERNAME", values.archivebox.admin_username) %}
-{% do archivebox.environment.add_env("ADMIN_PASSWORD", values.archivebox.admin_password) %}
-{% do archivebox.environment.add_env("TIMEOUT", values.archivebox.timeout) %}
-{% do archivebox.environment.add_env("ARCHIVEDOTORG_ENABLED", values.archivebox.save_archive_dot_org) %}
+{% if values.archivebox.base_url %}
+  {% do archivebox.environment.add_env("BASE_URL", values.archivebox.base_url) %}
+{% endif %}
+{% if values.archivebox.server_security_mode != "auto" %}
+  {% do archivebox.environment.add_env("SERVER_SECURITY_MODE", values.archivebox.server_security_mode) %}
+{% endif %}
 {% do archivebox.environment.add_user_envs(values.archivebox.additional_envs) %}
 
 {# The main server owns scheduled crawls and starts its local search backend. #}
 {% do archivebox.set_command(["server", "--init", "0.0.0.0:%d"|format(values.consts.internal_web_port)]) %}
-{% do archivebox.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/health/"}) %}
+{% do archivebox.healthcheck.use_built_in() %}
 {% do archivebox.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% do archivebox.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
-
-{# Override the image's nested VOLUME so browser sessions survive recreation. #}
-{% do archivebox.add_storage("/data/personas", {
-  "type": "host_path",
-  "host_path_config": {"path": "%s/personas"|format(tpl.funcs.get_host_path(values.storage.data)), "create_host_path": true}
-}) %}
 
 {% for store in values.storage.additional_storage %}
   {% do archivebox.add_storage(store.mount_path, store) %}
