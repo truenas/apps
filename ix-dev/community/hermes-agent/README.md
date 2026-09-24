@@ -2,7 +2,7 @@
 
 [Hermes-Agent](https://hermes-agent.nousresearch.com/) is the self-improving AI agent built by Nous Research.
 
-## Additional Ports
+## A2A (Agent2Agent)
 
-Use **Additional Ports** to publish or expose listeners that have no dedicated port field, such as the A2A (Agent2Agent) server (port 9900 by default).
-`Container Port` must be the port the listener binds to inside the container; a published extra port usually also needs matching environment variables (for A2A: `A2A_PORT`, `A2A_HOST=0.0.0.0`, `A2A_PEER_TOKENS`) set under **Additional Environment Variables**.
+Set **A2A Port** to publish or expose the Hermes A2A server; it is disabled by default.
+Hermes only accepts remote A2A peers when a token is configured, so also set `A2A_PEER_TOKENS` (or `A2A_BEARER_TOKEN`) under **Additional Environment Variables**; without a token the server stays bound to localhost inside the container.

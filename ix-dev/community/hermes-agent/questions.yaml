@@ -275,79 +275,53 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-        - variable: additional_ports
-          label: Additional Ports
-          description: |
-            Extra ports to publish or expose on the Hermes-Agent container.</br>
-            Use this for listeners that do not have a field of their own above,
-            for example the A2A (Agent2Agent) server, which listens on port 9900 by default.</br>
-            Set the matching environment variables under Additional Environment Variables,
-            for example A2A_PORT, A2A_HOST=0.0.0.0 and A2A_PEER_TOKENS.
+        - variable: a2a_port
+          label: A2A Port
           schema:
-            type: list
-            default: []
-            items:
-              - variable: port
-                label: Port
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode for the A2A (Agent2Agent) server.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The A2A server is disabled.</br>
+                  Note: Hermes only accepts remote A2A peers when a token is set
+                  (for example A2A_PEER_TOKENS under Additional Environment Variables), otherwise it binds to localhost only.
                 schema:
-                  type: dict
-                  attrs:
-                    - variable: bind_mode
-                      label: Port Bind Mode
-                      description: |
-                        The port bind mode.</br>
-                        - Publish: The port will be published on the host for external access.</br>
-                        - Expose: The port will be exposed for inter-container communication.</br>
-                      schema:
-                        type: string
-                        default: "published"
-                        enum:
-                          - value: "published"
-                            description: Publish port on the host for external access
-                          - value: "exposed"
-                            description: Expose port for inter-container communication
-                    - variable: port_number
-                      label: Port Number
-                      description: The port on the host.
-                      schema:
-                        type: int
-                        min: 1
-                        max: 65535
-                        required: true
-                    - variable: container_port
-                      label: Container Port
-                      description: The port the application listens on inside the container.
-                      schema:
-                        type: int
-                        min: 1
-                        max: 65535
-                        required: true
-                    - variable: protocol
-                      label: Protocol
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30492
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
                       schema:
                         type: string
                         required: true
-                        default: "tcp"
-                        enum:
-                          - value: "tcp"
-                            description: TCP
-                          - value: "udp"
-                            description: UDP
-                    - variable: host_ips
-                      label: Host IPs
-                      description: IPs on the host to bind this port
-                      schema:
-                        type: list
-                        show_if: [["bind_mode", "=", "published"]]
-                        default: []
-                        items:
-                          - variable: host_ip
-                            label: Host IP
-                            schema:
-                              type: string
-                              required: true
-                              $ref:
-                                - definitions/node_bind_ip
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: networks
           label: Networks
           description: The docker networks to join
