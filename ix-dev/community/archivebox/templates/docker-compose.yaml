@@ -3,7 +3,6 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{# The library supplies PUID/PGID from run_as; the entrypoint drops privileges. #}
 {% do archivebox.set_user(0, 0) %}
 {% do archivebox.add_caps(["CHOWN", "SETGID", "SETUID", "FOWNER", "DAC_OVERRIDE"]) %}
 {% do archivebox.set_shm_size_mb(1024) %}
@@ -16,10 +15,9 @@
 {% endif %}
 {% do archivebox.environment.add_user_envs(values.archivebox.additional_envs) %}
 
-{# The main server owns scheduled crawls and starts its local search backend. #}
-{% do archivebox.set_command(["server", "--init", "0.0.0.0:%d"|format(values.consts.internal_web_port)]) %}
+{% do archivebox.set_command(["server", "--init", "0.0.0.0:%d"|format(values.network.web_port.port_number)]) %}
 {% do archivebox.healthcheck.use_built_in() %}
-{% do archivebox.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do archivebox.add_port(values.network.web_port) %}
 {% do archivebox.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
