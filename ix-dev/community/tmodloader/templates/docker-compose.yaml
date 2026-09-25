@@ -1,0 +1,30 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set c1 = tpl.add_container(values.consts.tmodloader_container_name, "image") %}
+
+{# The image requires root for ownership repair and drops to tml (1000:1000). #}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.set_grace_period(120) %}
+{% do c1.healthcheck.use_built_in() %}
+
+{% do c1.environment.add_env("TMOD_PORT", 7777) %}
+{% do c1.environment.add_env("TMOD_WEB_ENABLED", "1" if values.tmodloader.web_enabled else "0") %}
+{% do c1.environment.add_env("TMOD_CONFIG_SOURCE", values.tmodloader.config_source if values.tmodloader.web_enabled else "env") %}
+{% do c1.environment.add_env("TMOD_PASS", values.tmodloader.password) %}
+{% do c1.environment.add_env("TMOD_USECONFIGFILE", "No") %}
+{% do c1.environment.add_env("TMOD_SHUTDOWN_DELAY", 3) %}
+{% do c1.environment.add_env("TMOD_SHUTDOWN_TIMEOUT", 90) %}
+{% do c1.environment.add_user_envs(values.tmodloader.additional_envs) %}
+
+{% do c1.add_port(values.network.server_port, {"container_port": 7777}) %}
+{% if values.tmodloader.web_enabled %}
+  {% do c1.add_port(values.network.web_port, {"container_port": 8080}) %}
+  {% do tpl.portals.add(values.network.web_port) %}
+  {% do tpl.notes.add_info("First run: find the one-time setup code in application logs, open the WebUI and choose an admin token of at least 8 characters. TrueNAS shows the app as Deploying until first-time WebUI setup is complete and the game server finishes starting. Open the WebUI while the app is Deploying to complete setup. HTTP requires a trusted RFC 1918 or loopback client. Other clients require an HTTPS reverse proxy configured per the upstream documentation.") %}
+{% endif %}
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do c1.add_storage("/backups", values.storage.backups) %}
+{% do tpl.notes.add_info("The container starts as root to repair ownership of /data and /backups, then drops to UID/GID 1000. Use dedicated datasets. First startup downloads tModLoader and .NET; runtime updates are enabled by default independently of the pinned container version. Allocate extra disk space for update checkpoints and backups.") %}
+{% do tpl.notes.add_info("In WebUI settings mode, saved dashboard values override environment settings after first boot. Use environment mode to manage settings through the app form. World size, seed, difficulty and evil affect newly generated worlds only. Connect players to the configured host Game Port.") %}
+{% do tpl.notes.add_info("When WebUI is disabled, settings are environment-managed. Keep dashboard shutdown delay plus shutdown timeout below 120 seconds with room for cleanup. Stop this app before rebooting TrueNAS if your world needs the full save window; host shutdown may allow only 60 seconds.") %}
+{{ tpl.render() | tojson }}
