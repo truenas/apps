@@ -103,13 +103,14 @@ class Notes:
             "/var/run/docker.sock": "Docker Socket",
             "/var/run/utmp": "UTMP",
             "/var/run/dbus": "DBus Socket",
+            "/run/dbus": "DBus Socket",
             "/run/udev": "Udev Socket",
         }
         if hm in mapping:
             return f"{mapping[hm]} ({hm})", True
 
         hm = hm + "/"
-        starters = ("/dev/", "/proc/", "/sys/", "/etc/", "/lib/")
+        starters = ("/dev/", "/proc/", "/sys/", "/etc/", "/lib/", "/run/udev/")
         if any(hm.startswith(s) for s in starters):
             return hm.rstrip("/"), True
 

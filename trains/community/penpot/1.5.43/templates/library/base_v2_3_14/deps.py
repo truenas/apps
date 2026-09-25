@@ -4,6 +4,7 @@ if TYPE_CHECKING:
     from render import Render
 
 try:
+    from .deps_chromadb import ChromaContainer, ChromaConfig
     from .deps_cron import CronContainer, CronConfig
     from .deps_elastic import ElasticSearchContainer, ElasticConfig
     from .deps_guacd import GuacdContainer, GuacdConfig
@@ -17,6 +18,7 @@ try:
     from .deps_solr import SolrContainer, SolrConfig
     from .deps_tika import TikaContainer, TikaConfig
 except ImportError:
+    from deps_chromadb import ChromaContainer, ChromaConfig
     from deps_cron import CronContainer, CronConfig
     from deps_elastic import ElasticSearchContainer, ElasticConfig
     from deps_guacd import GuacdContainer, GuacdConfig
@@ -70,3 +72,6 @@ class Deps:
 
     def cron(self, name: str, image: str, config: CronConfig):
         return CronContainer(self._render_instance, name, image, config)
+
+    def chromadb(self, name: str, image: str, config: ChromaConfig, perms_instance: PermsContainer):
+        return ChromaContainer(self._render_instance, name, image, config, perms_instance)
