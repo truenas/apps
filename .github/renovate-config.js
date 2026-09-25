@@ -118,6 +118,11 @@ module.exports = {
       groupName: "digest-updates",
       labels: ["digest"],
       fetchChangeLogs: "off",
+      // Only create/update the PR on mondays, it is merged weekly.
+      // updateNotScheduled: false, so the open PR is not updated on the other days either.
+      // https://docs.renovatebot.com/configuration-options/#schedule
+      schedule: ["* * * * 1"],
+      updateNotScheduled: false,
     },
     // Custom versioning matching
     // https://docs.renovatebot.com/modules/versioning/regex/#rangesconstraints
