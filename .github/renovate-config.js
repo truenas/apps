@@ -309,7 +309,7 @@ module.exports = {
     customVersioning(
       // v1.52.0-jammy
       // The distro is captured as "compatibility", so a jammy pin never updates to a noble tag
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<compatibility>noble|jammy))?$",
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<compatibility>resolute|noble|jammy))?$",
       ["mcr.microsoft.com/playwright"],
     ),
     customVersioning(
