@@ -820,7 +820,15 @@ class AppVersionManager:
             raise FileNotFoundError(f"App values file not found: {values_path}")
 
         values_config = self.file_cache.read_yaml_file(values_path)
-        return values_config["images"]["image"]["tag"]
+        # "images.image" is the main image of the app, its tag is used as the app_version
+        image = (values_config.get("images") or {}).get("image")
+        if not isinstance(image, dict):
+            raise ValueError(f"Missing [images.image] in {values_path}, it is required for the app_version")
+        tag = image.get("tag")
+        if not tag or not isinstance(tag, str):
+            raise ValueError(f"Missing or non-string [images.image.tag] in {values_path}")
+        # Drop the digest pin (tag@sha256:...), it is not part of the version
+        return tag.split("@")[0]
 
     def increment_patch_version(self, version: str) -> str:
         """Increment the patch version number."""

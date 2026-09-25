@@ -121,6 +121,8 @@ def replace_platform_in_service(svc):
     repo = image.split(":")[0]
     if repo in CHANGE_PLATFORM_FOR_IMAGES:
         svc_copy["platform"] = "linux/arm64"
+        # Drop the digest pin (repo:tag@sha256:...), it might not include an arm64 image
+        svc_copy["image"] = image.split("@")[0]
     return svc_copy
 
 
