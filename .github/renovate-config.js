@@ -34,7 +34,8 @@ module.exports = {
       matchStrings: [
         imageLines(
           /(?<depName>[^\s]+)/.source,
-          /["']?(?<currentValue>[^\s"'@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?["']?/.source,
+          /["']?(?<currentValue>[^\s"'@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?["']?/
+            .source,
         ),
       ],
       // Needed to add a digest to a tag that has none (pinDigest).
@@ -52,6 +53,9 @@ module.exports = {
     {
       matchManagers: ["custom.regex"],
       matchDatasources: ["docker"],
+      // Pin every image to its digest (tag@sha256:...). Scoped here so gh-actions are not pinned.
+      // https://docs.renovatebot.com/configuration-options/#pindigests
+      pinDigests: false,
       postUpgradeTasks: {
         // What to "git add" after the commands are run
         fileFilters: [
