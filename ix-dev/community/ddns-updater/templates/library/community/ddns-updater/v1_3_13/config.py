@@ -186,7 +186,6 @@ providers_schema: Dict[str, ProviderSchema] = {
             ProviderField("ttl", "gandi_ttl", FieldType.INTEGER),
         ],
         combos=[
-            ProviderCombo([ProviderField("key", "gandi_key")]),
             ProviderCombo([ProviderField("personal_access_token", "gandi_personal_access_token")]),
         ],
     ),
