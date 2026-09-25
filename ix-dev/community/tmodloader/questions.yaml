@@ -1,0 +1,453 @@
+groups:
+- description: Configure tModLoader Configuration
+  name: tModLoader Configuration
+- description: Configure Network Configuration
+  name: Network Configuration
+- description: Configure Storage Configuration
+  name: Storage Configuration
+- description: Configure Labels Configuration
+  name: Labels Configuration
+- description: Configure Resources Configuration
+  name: Resources Configuration
+questions:
+- group: tModLoader Configuration
+  label: ''
+  schema:
+    attrs:
+    - description: On first launch, read the one-time setup code in application logs and complete WebUI
+        setup. TrueNAS shows the app as Deploying until first-time WebUI setup is complete and the game
+        server finishes starting. Open the WebUI while the app is Deploying to complete setup. HTTP requires
+        an RFC 1918 or loopback client; use HTTPS through a trusted reverse proxy for other clients.
+      label: Enable WebUI
+      schema:
+        default: true
+        type: boolean
+      variable: web_enabled
+    - description: 'WebUI: environment values seed initial settings; saved WebUI values win afterward.
+        Environment: manage settings through Additional Environment Variables. World generation options
+        only affect new worlds.'
+      label: Settings Management
+      schema:
+        default: web
+        enum:
+        - description: WebUI
+          value: web
+        - description: Environment
+          value: env
+        required: true
+        type: string
+        show_if:
+        - - web_enabled
+          - '='
+          - true
+      variable: config_source
+    - description: Separate from the admin token. Empty disables the game password. In WebUI mode, a saved
+        game password overrides this value.
+      label: Initial Game Password
+      schema:
+        default: ''
+        private: true
+        type: string
+      variable: password
+    - description: Use documented TMOD_* variables for world name, size, difficulty, evil, mods, updates,
+        backups and proxy settings. Template-managed ports, WebUI switch, settings source, password and
+        shutdown timing cannot be overridden.
+      label: Additional Environment Variables
+      schema:
+        default: []
+        items:
+        - label: Environment Variable
+          schema:
+            attrs:
+            - label: Name
+              schema:
+                required: true
+                type: string
+              variable: name
+            - label: Value
+              schema:
+                type: string
+              variable: value
+            type: dict
+          variable: env
+        type: list
+      variable: additional_envs
+    type: dict
+  variable: tmodloader
+- group: Network Configuration
+  label: ''
+  schema:
+    attrs:
+    - description: Host port; the container port is fixed at 7777.
+      label: Game Port
+      schema:
+        attrs:
+        - description: 'The port bind mode.</br>
+
+            - Publish: The port will be published on the host for external access.</br>
+
+            - Expose: The port will be exposed for inter-container communication.</br>
+
+            - None: The port will not be exposed or published.</br>
+
+            Note: If the Dockerfile defines an EXPOSE directive,
+
+            the port will still be exposed for inter-container communication regardless of this setting.
+
+            '
+          label: Port Bind Mode
+          schema:
+            default: published
+            enum:
+            - description: Publish port on the host for external access
+              value: published
+            - description: Expose port for inter-container communication
+              value: exposed
+            - description: None
+              value: ''
+            type: string
+          variable: bind_mode
+        - label: Port Number
+          schema:
+            default: 30505
+            max: 65535
+            min: 1
+            required: true
+            type: int
+          variable: port_number
+        - description: IPs on the host to bind this port
+          label: Host IPs
+          schema:
+            default: []
+            items:
+            - label: Host IP
+              schema:
+                $ref:
+                - definitions/node_bind_ip
+                required: true
+                type: string
+              variable: host_ip
+            show_if:
+            - - bind_mode
+              - '='
+              - published
+            type: list
+          variable: host_ips
+        type: dict
+      variable: server_port
+    - description: Host port; the container port is fixed at 8080. Only used when WebUI is enabled.
+      label: WebUI Port
+      schema:
+        attrs:
+        - description: 'The port bind mode.</br>
+
+            - Publish: The port will be published on the host for external access.</br>
+
+            - Expose: The port will be exposed for inter-container communication.</br>
+
+            - None: The port will not be exposed or published.</br>
+
+            Note: If the Dockerfile defines an EXPOSE directive,
+
+            the port will still be exposed for inter-container communication regardless of this setting.
+
+            '
+          label: Port Bind Mode
+          schema:
+            default: published
+            enum:
+            - description: Publish port on the host for external access
+              value: published
+            - description: Expose port for inter-container communication
+              value: exposed
+            - description: None
+              value: ''
+            type: string
+          variable: bind_mode
+        - label: Port Number
+          schema:
+            default: 30504
+            max: 65535
+            min: 1
+            required: true
+            type: int
+          variable: port_number
+        - description: IPs on the host to bind this port
+          label: Host IPs
+          schema:
+            default: []
+            items:
+            - label: Host IP
+              schema:
+                $ref:
+                - definitions/node_bind_ip
+                required: true
+                type: string
+              variable: host_ip
+            show_if:
+            - - bind_mode
+              - '='
+              - published
+            type: list
+          variable: host_ips
+        type: dict
+      variable: web_port
+    type: dict
+  variable: network
+- group: Storage Configuration
+  label: ''
+  schema:
+    attrs:
+    - description: Use a dedicated dataset. Startup repairs ownership to UID/GID 1000. Existing files
+        in this directory may change ownership. Allow traversal and read/write access for UID/GID 1000;
+        restrictive ACLs may prevent startup.
+      label: tModLoader Data Storage
+      schema:
+        attrs:
+        - description: 'ixVolume: Is dataset created automatically by the system.</br>
+
+            Host Path: Is a path that already exists on the system.
+
+            '
+          label: Type
+          schema:
+            default: ix_volume
+            enum:
+            - description: Host Path (Path that already exists on the system)
+              value: host_path
+            - description: ixVolume (Dataset created automatically by the system)
+              value: ix_volume
+            required: true
+            type: string
+          variable: type
+        - description: The configuration for the ixVolume dataset.
+          label: ixVolume Configuration
+          schema:
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - description: Enable ACL for the storage.
+              label: Enable ACL
+              schema:
+                default: false
+                type: boolean
+              variable: acl_enable
+            - description: The name of the dataset to use for storage.
+              label: Dataset Name
+              schema:
+                default: data
+                hidden: true
+                required: true
+                type: string
+              variable: dataset_name
+            - label: ACL Configuration
+              schema:
+                attrs: []
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                type: dict
+              variable: acl_entries
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            type: dict
+          variable: ix_volume_config
+        - label: Host Path Configuration
+          schema:
+            attrs:
+            - description: Enable ACL for the storage.
+              label: Enable ACL
+              schema:
+                default: false
+                type: boolean
+              variable: acl_enable
+            - label: ACL Configuration
+              schema:
+                $ref:
+                - normalize/acl
+                attrs: []
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                type: dict
+              variable: acl
+            - description: The host path to use for storage.
+              label: Host Path
+              schema:
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+                type: hostpath
+              variable: path
+            show_if:
+            - - type
+              - '='
+              - host_path
+            type: dict
+          variable: host_path_config
+        type: dict
+      variable: data
+    - description: Use a dedicated dataset. Startup repairs ownership to UID/GID 1000. Existing files
+        in this directory may change ownership. Allow traversal and read/write access for UID/GID 1000;
+        restrictive ACLs may prevent startup.
+      label: tModLoader Backups Storage
+      schema:
+        attrs:
+        - description: 'ixVolume: Is dataset created automatically by the system.</br>
+
+            Host Path: Is a path that already exists on the system.
+
+            '
+          label: Type
+          schema:
+            default: ix_volume
+            enum:
+            - description: Host Path (Path that already exists on the system)
+              value: host_path
+            - description: ixVolume (Dataset created automatically by the system)
+              value: ix_volume
+            required: true
+            type: string
+          variable: type
+        - description: The configuration for the ixVolume dataset.
+          label: ixVolume Configuration
+          schema:
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - description: Enable ACL for the storage.
+              label: Enable ACL
+              schema:
+                default: false
+                type: boolean
+              variable: acl_enable
+            - description: The name of the dataset to use for storage.
+              label: Dataset Name
+              schema:
+                default: backups
+                hidden: true
+                required: true
+                type: string
+              variable: dataset_name
+            - label: ACL Configuration
+              schema:
+                attrs: []
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                type: dict
+              variable: acl_entries
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            type: dict
+          variable: ix_volume_config
+        - label: Host Path Configuration
+          schema:
+            attrs:
+            - description: Enable ACL for the storage.
+              label: Enable ACL
+              schema:
+                default: false
+                type: boolean
+              variable: acl_enable
+            - label: ACL Configuration
+              schema:
+                $ref:
+                - normalize/acl
+                attrs: []
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                type: dict
+              variable: acl
+            - description: The host path to use for storage.
+              label: Host Path
+              schema:
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+                type: hostpath
+              variable: path
+            show_if:
+            - - type
+              - '='
+              - host_path
+            type: dict
+          variable: host_path_config
+        type: dict
+      variable: backups
+    type: dict
+  variable: storage
+- group: Labels Configuration
+  label: ''
+  schema:
+    default: []
+    items:
+    - label: Label
+      schema:
+        attrs:
+        - label: Key
+          schema:
+            required: true
+            type: string
+          variable: key
+        - label: Value
+          schema:
+            required: true
+            type: string
+          variable: value
+        - description: Containers where the label should be applied
+          label: Containers
+          schema:
+            items:
+            - label: Container
+              schema:
+                enum:
+                - description: tmodloader
+                  value: tmodloader
+                required: true
+                type: string
+              variable: container
+            type: list
+          variable: containers
+        type: dict
+      variable: label
+    type: list
+  variable: labels
+- group: Resources Configuration
+  label: ''
+  schema:
+    attrs:
+    - label: Limits
+      schema:
+        attrs:
+        - description: CPUs limit for tModLoader.
+          label: CPUs
+          schema:
+            default: 2
+            required: true
+            type: int
+          variable: cpus
+        - description: Memory limit for tModLoader.
+          label: Memory (in MB)
+          schema:
+            default: 4096
+            required: true
+            type: int
+          variable: memory
+        type: dict
+      variable: limits
+    type: dict
+  variable: resources
