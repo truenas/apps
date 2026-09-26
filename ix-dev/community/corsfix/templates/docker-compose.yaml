@@ -1,0 +1,90 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set corsfix_net = tpl.networks.create_internal("corsfix-net") %}
+
+{% do tpl.funcs.must_match_regex(values.corsfix.dashboard_url, "^https?://[^/?#@]+/?$") %}
+{% do tpl.funcs.must_match_regex(values.corsfix.proxy_url, "^https?://[^/?#@]+/?$") %}
+{% set app_url = tpl.funcs.url_to_dict(values.corsfix.dashboard_url, True) %}
+{% set proxy_url = tpl.funcs.url_to_dict(values.corsfix.proxy_url, True) %}
+{% if app_url.scheme not in ["http", "https"] or app_url.path not in ["", "/"] %}
+  {% do tpl.funcs.fail("Dashboard URL must be an http(s) origin without a path") %}
+{% endif %}
+{% if proxy_url.scheme not in ["http", "https"] or proxy_url.path not in ["", "/"] %}
+  {% do tpl.funcs.fail("Proxy URL must be an http(s) origin without a path") %}
+{% endif %}
+{% if app_url.scheme != "https" and app_url.host not in ["localhost", "127.0.0.1", "[::1]"] %}
+  {% do tpl.funcs.fail("Dashboard URL must use HTTPS outside localhost testing") %}
+{% endif %}
+{% if proxy_url.scheme != "https" and proxy_url.host not in ["localhost", "127.0.0.1", "[::1]"] %}
+  {% do tpl.funcs.fail("Proxy URL must use HTTPS outside localhost testing") %}
+{% endif %}
+{% if app_url.netloc == proxy_url.netloc %}
+  {% do tpl.funcs.fail("Dashboard and proxy must use separate public origins") %}
+{% endif %}
+{% do tpl.funcs.must_match_regex(values.corsfix.kek_version_1, "^[A-Za-z0-9+/]{43}=$") %}
+
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set mongo_config = {
+  "user": values.consts.mongodb_user,
+  "password": values.corsfix.mongodb_password,
+  "database": values.consts.mongodb_database,
+  "volume": values.storage.mongodb_data,
+} %}
+{% set mongodb = tpl.deps.mongodb(values.consts.mongodb_container_name, "mongodb_image", mongo_config, perms) %}
+{% do mongodb.container.add_network(corsfix_net) %}
+{% do mongodb.container.set_command(["--wiredTigerCacheSizeGB", "0.25"]) %}
+
+{% set redis_config = {
+  "password": values.corsfix.redis_password,
+  "volume": values.storage.redis_data,
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perms) %}
+{% do redis.container.add_network(corsfix_net) %}
+{% do redis.container.set_command(["--port", "6379", "--requirepass", values.corsfix.redis_password, "--appendonly", "yes"]) %}
+
+{% set mongo_uri = mongodb.get_url("mongodb") ~ "?authSource=admin" %}
+{% set redis_uri = redis.get_url("redis") %}
+
+{% set app = tpl.add_container(values.consts.app_container_name, "image") %}
+{% do app.add_network(corsfix_net) %}
+{% do app.set_user(1001, 1001) %}
+{% do app.healthcheck.set_test("node", {"port": values.consts.app_port, "path": "/api/auth/session"}) %}
+{% do app.healthcheck.set_start_period(90) %}
+{% do app.depends.add_dependency(values.consts.mongodb_container_name, "service_healthy") %}
+{% do app.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do app.environment.add_env("MONGODB_URI", mongo_uri) %}
+{% do app.environment.add_env("REDIS_URI", redis_uri) %}
+{% do app.environment.add_env("KEK_VERSION", "KEK_VERSION_1") %}
+{% do app.environment.add_env("KEK_VERSION_1", values.corsfix.kek_version_1) %}
+{% do app.environment.add_env("AUTH_SECRET", values.corsfix.auth_secret) %}
+{% do app.environment.add_env("AUTH_TRUST_HOST", "true") %}
+{% do app.environment.add_env("AUTH_URL", values.corsfix.dashboard_url.rstrip("/")) %}
+{% do app.environment.add_env("PROXY_DOMAIN", proxy_url.netloc) %}
+{% do app.environment.add_env("DISABLE_SIGNUP", values.corsfix.disable_signup) %}
+{% do app.add_port(values.network.dashboard_port, {"container_port": values.consts.app_port}) %}
+
+{% set proxy = tpl.add_container(values.consts.proxy_container_name, "proxy_image") %}
+{% do proxy.add_network(corsfix_net) %}
+{% do proxy.set_user(1001, 1001) %}
+{% do proxy.healthcheck.set_test("node", {"port": values.consts.proxy_port, "path": "/up"}) %}
+{% do proxy.healthcheck.set_start_period(90) %}
+{% do proxy.depends.add_dependency(values.consts.mongodb_container_name, "service_healthy") %}
+{% do proxy.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do proxy.environment.add_env("MONGODB_URI", mongo_uri) %}
+{% do proxy.environment.add_env("REDIS_URI", redis_uri) %}
+{% do proxy.environment.add_env("KEK_VERSION_1", values.corsfix.kek_version_1) %}
+{% do proxy.environment.add_env("APP_DOMAIN", app_url.host_no_brackets if app_url.host_no_brackets else app_url.host) %}
+{% do proxy.environment.add_env("RPM", values.corsfix.rpm) %}
+{% do proxy.environment.add_env("ALLOWED_ORIGINS", values.corsfix.allowed_origins) %}
+{% do proxy.environment.add_env("ALLOWED_TARGETS", values.corsfix.allowed_targets) %}
+{% do proxy.add_port(values.network.proxy_port, {"container_port": values.consts.proxy_port}) %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do mongodb.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.dashboard_port, {"name": "Dashboard", "scheme": app_url.scheme, "host": app_url.host, "port": app_url.port or (443 if app_url.scheme == "https" else 80)}) %}
+{% do tpl.portals.add(values.network.proxy_port, {"name": "Proxy", "scheme": proxy_url.scheme, "host": proxy_url.host, "port": proxy_url.port or (443 if proxy_url.scheme == "https" else 80), "path": "/up"}) %}
+
+{{ tpl.render() | tojson }}
