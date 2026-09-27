@@ -39,6 +39,10 @@ if command -v wget >/dev/null; then wget -q --spider http://127.0.0.1:{{ port }}
 {% do c1.environment.add_env("SIGNALDB__WAL__WAL_DIR", values.consts.wal_path) %}
 {% do c1.environment.add_env("SIGNALDB__STORAGE__DSN", "file://%s" | format(values.consts.signal_data_path)) %}
 
+{% set memory_mb = values.resources.limits.memory %}
+{% do c1.environment.add_env("SIGNALDB__QUERIER__MEMORY_LIMIT_MB", memory_mb // 2) %}
+{% do c1.environment.add_env("SIGNALDB__COMPACTOR__MEMORY_LIMIT_MB", [512, memory_mb // 8] | min) %}
+
 {# The first tenant, its dataset and its ingest/query API key can only be
    expressed as a [[auth.tenants]] array-of-tables, which SignalDB's config
    loader only reads from a TOML file (no env var covers array-of-tables).
