@@ -169,6 +169,42 @@ questions:
                 schema:
                   type: string
                   default: ""
+        - variable: mcp
+          label: MCP Server
+          schema:
+            type: dict
+            attrs:
+              - variable: enabled
+                label: Enable MCP Server
+                description: |
+                  Runs SignalDB's Model Context Protocol server as a second container,
+                  so AI agents can query your telemetry. Clients authenticate with a
+                  SignalDB API key.
+                schema:
+                  type: boolean
+                  default: false
+              - variable: public_url
+                label: Public MCP URL
+                description: Public URL of the MCP endpoint, e.g. https://mcp.example.com/mcp
+                schema:
+                  type: string
+                  default: ""
+                  show_if: [["enabled", "=", true]]
+              - variable: allowed_hosts
+                label: Allowed Hosts
+                description: |
+                  Host headers the MCP server accepts besides loopback, e.g. 192.168.1.10:30507
+                  or mcp.example.com. The host of the Public MCP URL is added automatically.
+                schema:
+                  type: list
+                  default: []
+                  show_if: [["enabled", "=", true]]
+                  items:
+                    - variable: host
+                      label: Host
+                      schema:
+                        type: string
+                        required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -344,6 +380,54 @@ questions:
                 schema:
                   type: int
                   default: 30506
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: mcp_port
+          label: MCP Port
+          description: Port for the MCP server. Only used when the MCP server is enabled.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30507
                   min: 1
                   max: 65535
                   required: true
