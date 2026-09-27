@@ -14,7 +14,12 @@
 
 {% do c1.add_network(signaldb_net) %}
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/health"}) %}
+{# The stable image is Alpine (busybox wget, no bash); the glibc image is
+   Debian slim (bash, no wget). The checks work on either. #}
+{% macro http_health(port, path) -%}
+if command -v wget >/dev/null; then wget -q --spider http://127.0.0.1:{{ port }}{{ path }}; else bash -c 'exec 3<>/dev/tcp/127.0.0.1/{{ port }} && printf "GET {{ path }} HTTP/1.0\r\n\r\n" >&3 && head -n1 <&3 | grep -q " 200 "'; fi
+{%- endmacro %}
+{% do c1.healthcheck.set_custom_test(http_health(values.consts.internal_web_port, "/health")) %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
