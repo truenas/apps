@@ -25,6 +25,8 @@
 {% do c1.environment.add_env("SIGNALDB_DISCOVERY_DSN", pg_url) %}
 {% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_TYPE", "sql") %}
 {% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_URI", pg_url) %}
+{% do c1.environment.add_env("SIGNALDB__WAL__WAL_DIR", values.consts.wal_path) %}
+{% do c1.environment.add_env("SIGNALDB__STORAGE__DSN", "file://%s" | format(values.consts.signal_data_path)) %}
 
 {# The first tenant, its dataset and its ingest/query API key can only be
    expressed as a [[auth.tenants]] array-of-tables, which SignalDB's config
@@ -63,6 +65,10 @@ is_default = true
 
 {% do c1.add_storage("/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+{% do c1.add_storage(values.consts.wal_path, values.storage.wal) %}
+{% do perm_container.add_or_skip_action("wal", values.storage.wal, perms_config) %}
+{% do c1.add_storage(values.consts.signal_data_path, values.storage.signal_data) %}
+{% do perm_container.add_or_skip_action("signal_data", values.storage.signal_data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
