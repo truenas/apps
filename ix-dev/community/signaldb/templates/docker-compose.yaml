@@ -35,12 +35,17 @@ if command -v wget >/dev/null; then ! wget -q -O /dev/null http://127.0.0.1:{{ p
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% set pg_url = postgres.get_url("postgres") %}
-{% do c1.environment.add_env("SIGNALDB_DATABASE_DSN", pg_url) %}
-{% do c1.environment.add_env("SIGNALDB_DISCOVERY_DSN", pg_url) %}
-{% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_TYPE", "sql") %}
-{% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_URI", pg_url) %}
-{% do c1.environment.add_env("SIGNALDB__WAL__WAL_DIR", values.consts.wal_path) %}
-{% do c1.environment.add_env("SIGNALDB__STORAGE__DSN", "file://%s" | format(values.consts.signal_data_path)) %}
+{% set shared_env = {
+  "SIGNALDB_DATABASE_DSN": pg_url,
+  "SIGNALDB_DISCOVERY_DSN": pg_url,
+  "SIGNALDB__SCHEMA__CATALOG_TYPE": "sql",
+  "SIGNALDB__SCHEMA__CATALOG_URI": pg_url,
+  "SIGNALDB__WAL__WAL_DIR": values.consts.wal_path,
+  "SIGNALDB__STORAGE__DSN": "file://%s" | format(values.consts.signal_data_path),
+} %}
+{% for key, value in shared_env.items() %}
+  {% do c1.environment.add_env(key, value) %}
+{% endfor %}
 
 {% set memory_mb = values.resources.limits.memory %}
 {% do c1.environment.add_env("SIGNALDB__QUERIER__MEMORY_LIMIT_MB", memory_mb // 2) %}
@@ -111,6 +116,47 @@ is_default = true
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
+
+{# Extra instances register in the shared discovery database, where the
+   main container's router and acceptor find them. Only those two dial
+   other services, and both run in the main container. #}
+{% set extra_services = [
+  {"kind": "querier", "count": values.scaling.extra_queriers, "port": values.consts.internal_querier_flight_port},
+  {"kind": "writer", "count": values.scaling.extra_writers, "port": values.consts.internal_writer_flight_port},
+  {"kind": "compactor", "count": values.scaling.extra_compactors, "port": values.consts.internal_compactor_metrics_port},
+] %}
+{% for svc in extra_services %}
+  {% for i in range(1, svc.count + 1) %}
+    {% set name = "%s-%d" | format(svc.kind, i) %}
+    {% set extra = tpl.add_container(name, values.signaldb.image_selector) %}
+    {% do extra.set_user(values.run_as.user, values.run_as.group) %}
+    {% do extra.add_network(signaldb_net) %}
+    {% do extra.depends.add_dependency(values.consts.signaldb_container_name, "service_healthy") %}
+    {% for key, value in shared_env.items() %}
+      {% do extra.environment.add_env(key, value) %}
+    {% endfor %}
+    {% do extra.configs.add("signaldb-config", tenant_toml, "/data/signaldb.toml", "0644") %}
+    {% do extra.add_storage("/data", values.storage.data) %}
+    {% do extra.add_storage(values.consts.signal_data_path, values.storage.signal_data) %}
+    {% if svc.kind == "querier" %}
+      {% do extra.set_command(["querier", "--flight-port", svc.port | string]) %}
+      {% do extra.environment.add_env("QUERIER_ADVERTISE_ADDR", "%s:%d" | format(name, svc.port)) %}
+      {% do extra.environment.add_env("SIGNALDB__QUERIER__MEMORY_LIMIT_MB", memory_mb * 3 // 4) %}
+      {% do extra.healthcheck.set_custom_test(listening_health(svc.port)) %}
+    {% elif svc.kind == "writer" %}
+      {% do extra.set_command(["writer", "--flight-port", svc.port | string]) %}
+      {% do extra.environment.add_env("WRITER_ADVERTISE_ADDR", "%s:%d" | format(name, svc.port)) %}
+      {% do extra.environment.add_env("WRITER_WAL_DIR", "%s/%s" | format(values.consts.wal_path, name)) %}
+      {% do extra.add_storage(values.consts.wal_path, values.storage.wal) %}
+      {% do extra.healthcheck.set_custom_test(listening_health(svc.port)) %}
+    {% else %}
+      {% do extra.set_command(["compactor"]) %}
+      {% do extra.environment.add_env("SIGNALDB__COMPACTOR__MEMORY_LIMIT_MB", memory_mb // 2) %}
+      {% do extra.healthcheck.set_custom_test(http_health(svc.port, "/health")) %}
+    {% endif %}
+    {% do extra.environment.add_user_envs(values.signaldb.additional_envs) %}
+  {% endfor %}
+{% endfor %}
 
 {% if values.signaldb.mcp.enabled %}
   {% set mcp = tpl.add_container(values.consts.mcp_container_name, values.signaldb.image_selector) %}
