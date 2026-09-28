@@ -71,6 +71,13 @@ module.exports = {
       },
     },
     {
+      // Never pin quay.io images. Quay garbage-collects manifests that are no longer
+      // referenced by a tag, so a pinned digest disappears once its tag moves.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["quay.io/**"],
+      pinDigests: false,
+    },
+    {
       matchManagers: ["github-actions"],
       addLabels: ["actions"],
       groupName: "gh-actions",
