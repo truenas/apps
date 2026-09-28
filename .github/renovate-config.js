@@ -71,6 +71,13 @@ module.exports = {
       },
     },
     {
+      // Never pin quay.io images. Quay garbage-collects manifests that are no longer
+      // referenced by a tag, so a pinned digest disappears once its tag moves.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["quay.io/**"],
+      pinDigests: false,
+    },
+    {
       matchManagers: ["github-actions"],
       addLabels: ["actions"],
       groupName: "gh-actions",
@@ -308,7 +315,8 @@ module.exports = {
     ),
     customVersioning(
       // v1.52.0-jammy
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>(noble|jammy)))?$",
+      // The distro is captured as "compatibility", so a jammy pin never updates to a noble tag
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<compatibility>resolute|noble|jammy))?$",
       ["mcr.microsoft.com/playwright"],
     ),
     customVersioning(
