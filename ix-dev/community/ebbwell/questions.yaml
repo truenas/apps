@@ -22,14 +22,15 @@ questions:
         - variable: app_url
           label: Public URL
           description: |
-            The HTTPS address users open, as served by your reverse proxy (for example https://ebbwell.example.com).</br>
-            It must match the redirect URI registered at your OpenID Connect provider: &lt;Public URL&gt;/auth/callback
+            The address users open. With a reverse proxy, its HTTPS address (for example https://ebbwell.example.com):</br>
+            passwords are then never accepted through that domain when sign-in is limited to the local network.</br>
+            For a LAN-only install without a domain, the NAS address (for example http://192.168.1.10:30504).
           schema:
             type: string
             default: ""
             required: true
-            valid_chars: "^https://[^/]+$"
-            valid_chars_error: Must be an https:// address without a trailing path.
+            valid_chars: "^https?://[^/]+$"
+            valid_chars_error: Must be an http:// or https:// address without a trailing path.
         - variable: data_encryption_key
           label: Data Encryption Key
           description: |
@@ -42,31 +43,96 @@ questions:
             private: true
             min_length: 44
             max_length: 44
-        - variable: oidc_issuer
-          label: OpenID Connect Issuer URL
-          description: For Authentik, https://auth.example.com/application/o/&lt;slug&gt;/
+        - variable: local_login
+          label: Password Sign-in (Local Accounts)
+          description: |
+            Where local accounts (username + password) may sign in.</br>
+            Local network only: from your LAN by the NAS address, never through the public domain (recommended).</br>
+            Everywhere: also through the public domain from the internet (not recommended).
           schema:
             type: string
+            default: "local-network"
+            required: true
+            enum:
+              - value: "disabled"
+                description: Disabled (single sign-on only)
+              - value: "local-network"
+                description: Local network only, never through the public domain
+              - value: "everywhere"
+                description: Everywhere (not recommended)
+        - variable: local_networks
+          label: Local Networks
+          description: Comma-separated networks (CIDR) considered local.
+          schema:
+            type: string
+            show_if: [["local_login", "=", "local-network"]]
+            default: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,::1/128,fc00::/7,fe80::/10"
+            required: true
+        - variable: admin_username
+          label: First Administrator Username (Optional)
+          description: Local administrator created at startup if it doesn't exist yet. Leave empty to skip.
+          schema:
+            type: string
+            default: "admin"
+            valid_chars: "^([a-z0-9][a-z0-9._-]{2,31})?$"
+            valid_chars_error: 3 to 32 lowercase letters, digits, dot, dash or underscore.
+        - variable: admin_password
+          label: First Administrator Password (Optional)
+          description: Used only to create that administrator. You can clear it after the first sign-in.
+          schema:
+            type: string
+            default: ""
+            private: true
+            max_length: 128
+        - variable: oidc_enabled
+          label: Enable Single Sign-On (OpenID Connect)
+          description: Sign in with Authentik, Authelia, Keycloak, Pocket ID... Requires an https:// Public URL.
+          schema:
+            type: boolean
+            default: false
+        - variable: oidc_issuer
+          label: OpenID Connect Issuer URL
+          description: "For Authentik, https://auth.example.com/application/o/&lt;slug&gt;/ (redirect URI to register: &lt;Public URL&gt;/auth/callback)"
+          schema:
+            type: string
+            show_if: [["oidc_enabled", "=", true]]
             default: ""
             required: true
         - variable: oidc_client_id
           label: OpenID Connect Client ID
           schema:
             type: string
+            show_if: [["oidc_enabled", "=", true]]
             default: ""
             required: true
         - variable: oidc_client_secret
           label: OpenID Connect Client Secret
           schema:
             type: string
+            show_if: [["oidc_enabled", "=", true]]
             default: ""
             required: true
             private: true
+        - variable: oidc_provider_name
+          label: Sign-in Button Label
+          schema:
+            type: string
+            show_if: [["oidc_enabled", "=", true]]
+            default: "single sign-on"
+            required: true
         - variable: oidc_allowed_groups
           label: Allowed Groups (Optional)
           description: Comma-separated groups (from the "groups" claim) allowed to sign in. Empty allows every user of the provider.
           schema:
             type: string
+            show_if: [["oidc_enabled", "=", true]]
+            default: ""
+        - variable: oidc_admin_groups
+          label: Administrator Groups (Optional)
+          description: Comma-separated groups whose members are Ebbwell administrators.
+          schema:
+            type: string
+            show_if: [["oidc_enabled", "=", true]]
             default: ""
         - variable: trust_proxy
           label: Trusted Proxies

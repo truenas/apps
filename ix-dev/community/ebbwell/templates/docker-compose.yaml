@@ -1,5 +1,15 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% if not values.ebbwell.oidc_enabled and values.ebbwell.local_login == "disabled" %}
+  {% do tpl.funcs.fail("Nobody could sign in: enable Single Sign-On or allow password sign-in for local accounts.") %}
+{% endif %}
+{% if values.ebbwell.oidc_enabled and not values.ebbwell.app_url.startswith("https://") %}
+  {% do tpl.funcs.fail("Single Sign-On requires an https:// Public URL.") %}
+{% endif %}
+{% if values.ebbwell.admin_password and values.ebbwell.admin_password | length < 10 %}
+  {% do tpl.funcs.fail("The first administrator password must be at least 10 characters.") %}
+{% endif %}
+
 {% set c1 = tpl.add_container(values.consts.ebbwell_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
@@ -13,10 +23,22 @@
 {% do c1.environment.add_env("DATA_DIR", "/data") %}
 {% do c1.environment.add_env("APP_URL", values.ebbwell.app_url) %}
 {% do c1.environment.add_env("DATA_ENCRYPTION_KEY", values.ebbwell.data_encryption_key) %}
-{% do c1.environment.add_env("OIDC_ISSUER", values.ebbwell.oidc_issuer) %}
-{% do c1.environment.add_env("OIDC_CLIENT_ID", values.ebbwell.oidc_client_id) %}
-{% do c1.environment.add_env("OIDC_CLIENT_SECRET", values.ebbwell.oidc_client_secret) %}
-{% do c1.environment.add_env("OIDC_ALLOWED_GROUPS", values.ebbwell.oidc_allowed_groups) %}
+{% do c1.environment.add_env("LOCAL_LOGIN", values.ebbwell.local_login) %}
+{% if values.ebbwell.local_login == "local-network" %}
+  {% do c1.environment.add_env("LOCAL_NETWORKS", values.ebbwell.local_networks) %}
+{% endif %}
+{% if values.ebbwell.admin_username and values.ebbwell.admin_password %}
+  {% do c1.environment.add_env("ADMIN_USERNAME", values.ebbwell.admin_username) %}
+  {% do c1.environment.add_env("ADMIN_PASSWORD", values.ebbwell.admin_password) %}
+{% endif %}
+{% if values.ebbwell.oidc_enabled %}
+  {% do c1.environment.add_env("OIDC_ISSUER", values.ebbwell.oidc_issuer) %}
+  {% do c1.environment.add_env("OIDC_CLIENT_ID", values.ebbwell.oidc_client_id) %}
+  {% do c1.environment.add_env("OIDC_CLIENT_SECRET", values.ebbwell.oidc_client_secret) %}
+  {% do c1.environment.add_env("OIDC_PROVIDER_NAME", values.ebbwell.oidc_provider_name) %}
+  {% do c1.environment.add_env("OIDC_ALLOWED_GROUPS", values.ebbwell.oidc_allowed_groups) %}
+  {% do c1.environment.add_env("OIDC_ADMIN_GROUPS", values.ebbwell.oidc_admin_groups) %}
+{% endif %}
 {% do c1.environment.add_env("TRUST_PROXY", values.ebbwell.trust_proxy) %}
 {% do c1.environment.add_env("BACKUP_RETENTION_DAYS", values.ebbwell.backup_retention_days) %}
 {% do c1.environment.add_env("NODE_ENV", "production") %}
@@ -37,9 +59,17 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{# Ebbwell only works at its public HTTPS address (cookies, OIDC redirect, installable app). #}
-{% set public_host = values.ebbwell.app_url.split("://")[1].split("/")[0] %}
-{% set public_port = public_host.split(":")[1] | int if ":" in public_host else 443 %}
-{% do tpl.portals.add(values.network.web_port, {"scheme": "https", "host": public_host.split(":")[0], "port": public_port}) %}
+{% if values.ebbwell.app_url.startswith("https://") %}
+  {# The public HTTPS address (cookies, OIDC redirect, installable app). #}
+  {% set public_host = values.ebbwell.app_url.split("://")[1].split("/")[0] %}
+  {% set public_port = public_host.split(":")[1] | int if ":" in public_host else 443 %}
+  {% do tpl.portals.add(values.network.web_port, {"scheme": "https", "host": public_host.split(":")[0], "port": public_port}) %}
+  {% if values.ebbwell.local_login != "disabled" %}
+    {# Direct NAS address, where local accounts sign in with a password. #}
+    {% do tpl.portals.add(values.network.web_port, {"name": "Local Sign-in"}) %}
+  {% endif %}
+{% else %}
+  {% do tpl.portals.add(values.network.web_port) %}
+{% endif %}
 
 {{ tpl.render() | tojson }}

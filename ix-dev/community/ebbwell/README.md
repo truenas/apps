@@ -4,5 +4,6 @@
 It is an installable web app (iPhone, Android, desktop) with symptothermal rules, encrypted storage, reminders,
 an app lock and partner sharing.
 
-Ebbwell signs users in with an OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket ID, ...). It must be
-reached over HTTPS through a reverse proxy at the URL set in **Public URL**.
+Users sign in with local accounts (by default only from the local network, never through the public domain)
+and/or an OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket ID, ...). Reminders, the installable app
+and biometrics need the HTTPS address served by a reverse proxy.
