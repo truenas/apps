@@ -55,7 +55,7 @@ module.exports = {
       matchDatasources: ["docker"],
       // Pin every image to its digest (tag@sha256:...). Scoped here so gh-actions are not pinned.
       // https://docs.renovatebot.com/configuration-options/#pindigests
-      pinDigests: false,
+      pinDigests: true,
       postUpgradeTasks: {
         // What to "git add" after the commands are run
         fileFilters: [
