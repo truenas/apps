@@ -19,6 +19,7 @@ class IxStorageTmpfsConfig(TypedDict):
     mode: NotRequired[str]
     uid: NotRequired[int]
     gid: NotRequired[int]
+    exec: NotRequired[bool]
 
 
 class AclConfig(TypedDict, total=False):

@@ -548,6 +548,28 @@ def test_tmpfs_volume(mock_values):
     ]
 
 
+def test_tmpfs_exec(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage("/run", {"type": "tmpfs", "tmpfs_config": {"exec": True, "uid": 568, "gid": 568}})
+    c1.add_storage("/some/path", {"type": "tmpfs", "tmpfs_config": {"exec": False}})
+    output = render.render()
+    assert output["services"]["test_container"]["tmpfs"] == [
+        "/run:exec,gid=568,uid=568",
+        "/some/path",
+    ]
+
+
+def test_tmpfs_invalid_exec(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    vol_config = {"type": "tmpfs", "tmpfs_config": {"exec": "yes"}}
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", vol_config)
+
+
 def test_add_tmpfs_with_existing_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
