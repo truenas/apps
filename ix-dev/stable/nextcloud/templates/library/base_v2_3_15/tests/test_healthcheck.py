@@ -485,3 +485,36 @@ def test_node_healthcheck_invalid_path(mock_values):
     c1 = render.add_container("test_container", "test_image")
     with pytest.raises(Exception):
         c1.healthcheck.set_test("node", {"port": 8080, "path": "no-leading-slash"})
+
+
+def test_node_tcp_healthcheck(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("node_tcp", {"port": 8080})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "node",
+        "-e",
+        "require('net').connect(8080, \"127.0.0.1\", () => process.exit(0)).on('error', () => process.exit(1));",
+    ]
+
+
+def test_node_tcp_healthcheck_custom_binary_and_host(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test("node_tcp", {"port": 3000, "host": "0.0.0.0", "binary": "/usr/local/bin/node"})
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"] == [
+        "CMD",
+        "/usr/local/bin/node",
+        "-e",
+        "require('net').connect(3000, \"0.0.0.0\", () => process.exit(0)).on('error', () => process.exit(1));",
+    ]
+
+
+def test_node_tcp_healthcheck_missing_port(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.healthcheck.set_test("node_tcp", {})
