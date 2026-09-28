@@ -52,7 +52,7 @@ class MeilisearchContainer:
 
         c.environment.add_env("MEILI_HTTP_ADDR", f"0.0.0.0:{self.get_port()}")
         c.environment.add_env("MEILI_NO_ANALYTICS", True)
-        c.environment.add_env("MEILI_EXPERIMENTAL_DUMPLESS_UPGRADE", True)
+        c.environment.add_env("MEILI_UPGRADE_DB", True)
         c.environment.add_env("MEILI_MASTER_KEY", config["master_key"])
 
         perms_instance.add_or_skip_action(
