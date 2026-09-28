@@ -1,0 +1,50 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set modes = ["player", "subtitles", "both"] %}
+{% if values.mode not in modes %}
+  {% do tpl.funcs.fail("Choose Player, Subtitles, or Both") %}
+{% endif %}
+{% if not values.storage.media.host_path_config.path %}
+  {% do tpl.funcs.fail("Select an existing media dataset") %}
+{% endif %}
+{% if values.mode == "both" and values.network.player_port.port_number == values.network.subtitles_port.port_number %}
+  {% do tpl.funcs.fail("Player and Subtitles need different HTTPS ports") %}
+{% endif %}
+
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set containers = [] %}
+{% for app in ["player", "subtitles"] %}
+  {% if values.mode in [app, "both"] %}
+    {% set port = 38127 if app == "player" else 38128 %}
+    {% set port_config = values.network.player_port if app == "player" else values.network.subtitles_port %}
+    {% set c = tpl.add_container(app, app ~ "_image") %}
+    {% do containers.append(c) %}
+    {% do c.set_user(10001, 10001) %}
+    {% do c.set_init(true) %}
+    {% do c.set_read_only(true) %}
+    {% do c.set_grace_period(30) %}
+    {% do c.healthcheck.set_custom_test(["CMD", "kinosail", "healthcheck"]) %}
+    {% do c.healthcheck.set_timeout(15) %}
+    {% do c.healthcheck.set_retries(3) %}
+    {% do c.add_port(port_config, {"container_port": port}) %}
+    {% do c.environment.add_env("KINOSAIL_DATA_DIR", "/config") %}
+    {% do c.environment.add_env("KINOSAIL_CACHE_DIR", "/cache") %}
+    {% do c.environment.add_env("KINOSAIL_MEDIA_DIR", "/media") %}
+    {% do c.environment.add_env("KINOSAIL_BACKUP_DIR", "/backups") %}
+    {% do c.add_storage("/media", dict(values.storage.media, read_only=(app == "player"))) %}
+    {% for name in ["config", "cache", "backups"] %}
+      {% set data = values.storage[app ~ "_" ~ name] %}
+      {% do c.add_storage("/" ~ name, data) %}
+      {% do perms.add_or_skip_action(app ~ "-" ~ name, data, {"uid": 10001, "gid": 10001, "mode": "check"}) %}
+    {% endfor %}
+    {% do c.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 256, "mode": "0700", "uid": 10001, "gid": 10001}}) %}
+    {% do c.add_storage("/run", {"type": "tmpfs", "tmpfs_config": {"size": 16, "mode": "0700", "uid": 10001, "gid": 10001}}) %}
+    {% do tpl.portals.add(port_config, {"scheme": "https", "name": "Player" if app == "player" else "Subtitles"}) %}
+  {% endif %}
+{% endfor %}
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% for c in containers %}
+    {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endfor %}
+{% endif %}
+{{ tpl.render() | tojson }}
