@@ -1,13 +1,12 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% if not values.ebbwell.oidc_enabled and values.ebbwell.local_login == "disabled" %}
-  {% do tpl.funcs.fail("Nobody could sign in: enable Single Sign-On or allow password sign-in for local accounts.") %}
+{# Single sign-on is configured through additional environment variables (OIDC_*). #}
+{% set oidc = values.ebbwell.additional_envs | selectattr("name", "equalto", "OIDC_ISSUER") | list | length > 0 %}
+{% if not oidc and values.ebbwell.local_login == "disabled" %}
+  {% do tpl.funcs.fail("Nobody could sign in: allow password sign-in for local accounts, or set up single sign-on (OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET in Additional Environment Variables).") %}
 {% endif %}
-{% if values.ebbwell.oidc_enabled and not values.ebbwell.app_url.startswith("https://") %}
-  {% do tpl.funcs.fail("Single Sign-On requires an https:// Public URL.") %}
-{% endif %}
-{% if values.ebbwell.admin_password and values.ebbwell.admin_password | length < 10 %}
-  {% do tpl.funcs.fail("The first administrator password must be at least 10 characters.") %}
+{% if oidc and not values.ebbwell.app_url.startswith("https://") %}
+  {% do tpl.funcs.fail("Single sign-on requires an https:// Public URL.") %}
 {% endif %}
 
 {% set c1 = tpl.add_container(values.consts.ebbwell_container_name, "image") %}
@@ -26,21 +25,11 @@
 {% do c1.environment.add_env("LOCAL_LOGIN", values.ebbwell.local_login) %}
 {% if values.ebbwell.local_login != "disabled" %}
   {% do c1.environment.add_env("LOCAL_2FA", values.ebbwell.local_2fa) %}
-{% endif %}
-{% if values.ebbwell.local_login == "local-network" %}
-  {% do c1.environment.add_env("LOCAL_NETWORKS", values.ebbwell.local_networks) %}
-{% endif %}
-{% if values.ebbwell.admin_username and values.ebbwell.admin_password %}
   {% do c1.environment.add_env("ADMIN_USERNAME", values.ebbwell.admin_username) %}
   {% do c1.environment.add_env("ADMIN_PASSWORD", values.ebbwell.admin_password) %}
 {% endif %}
-{% if values.ebbwell.oidc_enabled %}
-  {% do c1.environment.add_env("OIDC_ISSUER", values.ebbwell.oidc_issuer) %}
-  {% do c1.environment.add_env("OIDC_CLIENT_ID", values.ebbwell.oidc_client_id) %}
-  {% do c1.environment.add_env("OIDC_CLIENT_SECRET", values.ebbwell.oidc_client_secret) %}
-  {% do c1.environment.add_env("OIDC_PROVIDER_NAME", values.ebbwell.oidc_provider_name) %}
-  {% do c1.environment.add_env("OIDC_ALLOWED_GROUPS", values.ebbwell.oidc_allowed_groups) %}
-  {% do c1.environment.add_env("OIDC_ADMIN_GROUPS", values.ebbwell.oidc_admin_groups) %}
+{% if values.ebbwell.local_login == "local-network" %}
+  {% do c1.environment.add_env("LOCAL_NETWORKS", values.ebbwell.local_networks | join(",")) %}
 {% endif %}
 {% do c1.environment.add_env("TRUST_PROXY", values.ebbwell.trust_proxy) %}
 {% do c1.environment.add_env("BACKUP_RETENTION_DAYS", values.ebbwell.backup_retention_days) %}

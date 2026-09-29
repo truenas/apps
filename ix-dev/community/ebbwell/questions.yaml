@@ -75,78 +75,48 @@ questions:
                 description: Required for every local account
         - variable: local_networks
           label: Local Networks
-          description: Comma-separated networks (CIDR) considered local.
+          description: Networks (CIDR) considered local.
           schema:
-            type: string
+            type: list
             show_if: [["local_login", "=", "local-network"]]
-            default: "127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,::1/128,fc00::/7,fe80::/10"
-            required: true
+            default:
+              - 127.0.0.0/8
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+              - ::1/128
+              - fc00::/7
+              - fe80::/10
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: string
+                  required: true
         - variable: admin_username
-          label: First Administrator Username (Optional)
-          description: Local administrator created at startup if it doesn't exist yet. Leave empty to skip.
+          label: Administrator Username
+          description: Local administrator, created at startup if it doesn't exist yet. It creates the other local accounts.
           schema:
             type: string
+            show_if: [["local_login", "!=", "disabled"]]
             default: "admin"
-            valid_chars: "^([a-z0-9][a-z0-9._-]{2,31})?$"
+            required: true
+            valid_chars: "^[a-z0-9][a-z0-9._-]{2,31}$"
             valid_chars_error: 3 to 32 lowercase letters, digits, dot, dash or underscore.
         - variable: admin_password
-          label: First Administrator Password (Optional)
-          description: Used only to create that administrator. You can clear it after the first sign-in.
+          label: Administrator Password
+          description: |
+            Initial password of that administrator, used only when the account is created.</br>
+            Later changes here have no effect: change the password in Ebbwell.
           schema:
             type: string
+            show_if: [["local_login", "!=", "disabled"]]
             default: ""
+            required: true
             private: true
+            min_length: 10
             max_length: 128
-        - variable: oidc_enabled
-          label: Enable Single Sign-On (OpenID Connect)
-          description: Sign in with Authentik, Authelia, Keycloak, Pocket ID... Requires an https:// Public URL.
-          schema:
-            type: boolean
-            default: false
-        - variable: oidc_issuer
-          label: OpenID Connect Issuer URL
-          description: "For Authentik, https://auth.example.com/application/o/&lt;slug&gt;/ (redirect URI to register: &lt;Public URL&gt;/auth/callback)"
-          schema:
-            type: string
-            show_if: [["oidc_enabled", "=", true]]
-            default: ""
-            required: true
-        - variable: oidc_client_id
-          label: OpenID Connect Client ID
-          schema:
-            type: string
-            show_if: [["oidc_enabled", "=", true]]
-            default: ""
-            required: true
-        - variable: oidc_client_secret
-          label: OpenID Connect Client Secret
-          schema:
-            type: string
-            show_if: [["oidc_enabled", "=", true]]
-            default: ""
-            required: true
-            private: true
-        - variable: oidc_provider_name
-          label: Sign-in Button Label
-          schema:
-            type: string
-            show_if: [["oidc_enabled", "=", true]]
-            default: "single sign-on"
-            required: true
-        - variable: oidc_allowed_groups
-          label: Allowed Groups (Optional)
-          description: Comma-separated groups (from the "groups" claim) allowed to sign in. Empty allows every user of the provider.
-          schema:
-            type: string
-            show_if: [["oidc_enabled", "=", true]]
-            default: ""
-        - variable: oidc_admin_groups
-          label: Administrator Groups (Optional)
-          description: Comma-separated groups whose members are Ebbwell administrators.
-          schema:
-            type: string
-            show_if: [["oidc_enabled", "=", true]]
-            default: ""
         - variable: trust_proxy
           label: Trusted Proxies
           description: Addresses of your reverse proxy (IPs, CIDRs or loopback / linklocal / uniquelocal), used to see real client IPs.
@@ -165,7 +135,9 @@ questions:
             required: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Ebbwell.
+          description: |
+            Configure additional environment variables for Ebbwell.</br>
+            Single sign-on (OpenID Connect) is set up here: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, ...
           schema:
             type: list
             default: []
@@ -652,5 +624,5 @@ questions:
                 description: Memory limit for Ebbwell.
                 schema:
                   type: int
-                  default: 512
+                  default: 4096
                   required: true
