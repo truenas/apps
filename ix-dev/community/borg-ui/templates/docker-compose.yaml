@@ -25,30 +25,20 @@
   {% do c1.environment.add_env("PUBLIC_BASE_URL", values.borgui.public_base_url) %}
 {% endif %}
 
-{# Optional Redis archive-browsing cache. Off by default: Borg UI falls back to an in-memory cache when REDIS_HOST=disabled. #}
-{% if values.borgui.enable_redis %}
-  {% set redis_config = {
-    "password": values.borgui.redis_password,
-    "volume": {"type": "temporary", "volume_config": {"volume_name": "redis-data"}},
-  } %}
-  {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
-  {% do c1.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
-  {% do c1.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% else %}
-  {% do c1.environment.add_env("REDIS_HOST", "disabled") %}
-{% endif %}
+{# No Redis: Borg UI uses its in-memory archive-browsing cache (it defaults to localhost Redis otherwise). #}
+{% do c1.environment.add_env("REDIS_HOST", "disabled") %}
 
 {# Optional FUSE access: only for archive mounting (borg mount), SSHFS pull-mode source backups and SSH restore destinations. #}
 {% if values.borgui.enable_fuse %}
   {% do c1.add_caps(["SYS_ADMIN"]) %}
-  {% do c1.devices.add_device("/dev/fuse", "/dev/fuse", allow_disallowed=True) %}
+  {% do c1.devices.add_device("/dev/fuse", "/dev/fuse") %}
   {% do c1.add_security_opt("apparmor", "unconfined") %}
   {% do c1.environment.add_env("BORG_FUSE_IMPL", "pyfuse3") %}
 {% endif %}
 
 {# Optional Docker socket for pre/post backup hook scripts that stop/start other containers. #}
 {% if values.borgui.mount_docker_socket %}
-  {% do c1.add_docker_socket(read_only=False) %}
+  {% do c1.add_docker_socket() %}
 {% endif %}
 
 {% do c1.environment.add_user_envs(values.borgui.additional_envs) %}
@@ -76,9 +66,6 @@
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% if values.borgui.enable_redis %}
-    {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-  {% endif %}
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
