@@ -2,19 +2,13 @@
 
 {% set c1 = tpl.add_container(values.consts.tmodloader_container_name, "image") %}
 
-{# The image requires root for ownership repair and drops to tml (1000:1000). #}
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
 {% do c1.set_grace_period(120) %}
 {% do c1.healthcheck.set_custom_test(["CMD", "/usr/local/bin/healthcheck"]) %}
-{% do c1.healthcheck.set_interval(30) %}
-{% do c1.healthcheck.set_timeout(5) %}
-{% do c1.healthcheck.set_start_period(1800) %}
-{% do c1.healthcheck.set_start_interval(30) %}
-{% do c1.healthcheck.set_retries(3) %}
 
-{% do c1.environment.add_env("TMOD_PORT", 7777) %}
-{% do c1.environment.add_env("TMOD_WEB_ENABLED", "1" if values.tmodloader.web_enabled else "0") %}
+{% do c1.environment.add_env("TMOD_PORT", values.network.server_port.port_number) %}
+{% do c1.environment.add_env("TMOD_WEB_ENABLED", "1" if values.network.web_port.bind_mode else "0") %}
 {% do c1.environment.add_env("TMOD_CONFIG_SOURCE", values.tmodloader.config_source if values.tmodloader.web_enabled else "env") %}
 {% do c1.environment.add_env("TMOD_PASS", values.tmodloader.password) %}
 {% do c1.environment.add_env("TMOD_USECONFIGFILE", "No") %}
@@ -22,17 +16,17 @@
 {% do c1.environment.add_env("TMOD_SHUTDOWN_TIMEOUT", 90) %}
 {% do c1.environment.add_user_envs(values.tmodloader.additional_envs) %}
 
-{% do c1.add_port(values.network.server_port, {"container_port": 7777}) %}
-{% if values.tmodloader.web_enabled %}
+{% do c1.add_port(values.network.server_port) %}
+{% if values.network.web_port.bind_mode %}
   {% do c1.add_port(values.network.web_port, {"container_port": 8080}) %}
   {% do tpl.portals.add(values.network.web_port) %}
 {% endif %}
 
-{% if values.tmodloader.web_enabled and values.tmodloader.config_source == "web" %}
-  {% do tpl.notes.add_info("Saved WebUI settings take precedence over environment variables. To manage settings through the TrueNAS app configuration, select Environment under Settings Management. See [configuration modes](https://github.com/Crosis47/tmodloader/wiki/Configuration#choose-who-manages-settings).") %}
-{% endif %}
-
 {% do c1.add_storage("/data", values.storage.data) %}
 {% do c1.add_storage("/backups", values.storage.backups) %}
+
+{% if values.network.web_port.bind_mode and values.tmodloader.config_source == "web" %}
+  {% do tpl.notes.add_info("Saved WebUI settings take precedence over environment variables. To manage settings through the TrueNAS app configuration, select Environment under Settings Management. See [configuration modes](https://github.com/Crosis47/tmodloader/wiki/Configuration#choose-who-manages-settings).") %}
+{% endif %}
 
 {{ tpl.render() | tojson }}
