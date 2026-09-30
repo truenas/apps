@@ -347,8 +347,8 @@ module.exports = {
       ["wger/server"],
     ),
     customVersioning(
-      // 15-vectorchord0.3.0
-      "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      // 18-vectorchord0.3.0
+      "^18-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/immich-app/postgres"],
     ),
     customVersioning(
