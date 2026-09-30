@@ -1,0 +1,49 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.naswarden_container_name, "image") %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz"}) %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("TRUENAS_HOST", values.naswarden.truenas_host) %}
+{% do c1.environment.add_env("TRUENAS_API_KEY", values.naswarden.truenas_api_key) %}
+{% do c1.environment.add_env("TRUENAS_TLS", "true" if values.naswarden.truenas_tls else "false") %}
+{% do c1.environment.add_env("TRUENAS_INSECURE_TLS", "true" if values.naswarden.truenas_tls and values.naswarden.truenas_insecure_tls else "false") %}
+
+{% if values.naswarden.incus_url %}
+  {% do c1.environment.add_env("INCUS_URL", values.naswarden.incus_url) %}
+  {% do c1.environment.add_env("INCUS_CLIENT_CERT", values.naswarden.incus_client_cert) %}
+  {% do c1.environment.add_env("INCUS_CLIENT_KEY", values.naswarden.incus_client_key) %}
+  {% do c1.environment.add_env("INCUS_INSECURE_TLS", "true" if values.naswarden.incus_insecure_tls else "false") %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.naswarden.additional_envs) %}
+
+{# Docker stacks/containers: NasWarden only ever talks to a read-only socket proxy, never to the socket #}
+{% if values.naswarden.docker_stats %}
+  {% set proxy = tpl.add_container(values.consts.docker_proxy_container_name, "docker_proxy_image") %}
+  {% do proxy.healthcheck.set_test("netcat", {"port": values.consts.docker_proxy_port}) %}
+  {% do proxy.environment.add_env("CONTAINERS", 1) %}
+  {% do proxy.add_docker_socket() %}
+  {# Github Actions Docker Group #}
+  {% if values.ci %}{% do proxy.add_group(118) %}{% endif %}
+
+  {% do c1.environment.add_env("DOCKER_PROXY_URL", "http://%s:%d"|format(values.consts.docker_proxy_container_name, values.consts.docker_proxy_port)) %}
+  {% do c1.depends.add_dependency(values.consts.docker_proxy_container_name, "service_healthy") %}
+{% endif %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{% do tpl.notes.add_info("Create the API key under <b>Credentials -> Users</b>: open the user and choose <b>Access -> View API Keys</b> and add a key. Use a user with the <b>Readonly Admin</b> role. If the dashboard shows an error banner, check the TrueNAS host, the API key and the TLS settings.") %}
+{% if values.naswarden.docker_stats %}
+  {% do tpl.notes.add_warning("A read-only Docker socket proxy runs next to NasWarden so it can list containers. NasWarden itself has no access to the Docker socket.") %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
