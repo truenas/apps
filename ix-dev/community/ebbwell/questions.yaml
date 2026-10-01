@@ -26,11 +26,9 @@ questions:
             passwords are then never accepted through that domain when sign-in is limited to the local network.</br>
             For a LAN-only install without a domain, the NAS address (for example http://192.168.1.10:30504).
           schema:
-            type: string
+            type: uri
             default: ""
             required: true
-            valid_chars: "^https?://[^/]+$"
-            valid_chars_error: Must be an http:// or https:// address without a trailing path.
         - variable: data_encryption_key
           label: Data Encryption Key
           description: |
@@ -47,19 +45,20 @@ questions:
           label: Password Sign-in (Local Accounts)
           description: |
             Where local accounts (username + password) may sign in.</br>
-            Local network only: from your LAN by the NAS address, never through the public domain (recommended).</br>
-            Everywhere: also through the public domain from the internet (not recommended).
+            - Disabled: Only single sign-on is available.</br>
+            - Local Network: Sign-in from your LAN by the NAS address, never through the public domain (recommended).</br>
+            - Everywhere: Sign-in also through the public domain from the internet (not recommended).
           schema:
             type: string
             default: "local-network"
             required: true
             enum:
               - value: "disabled"
-                description: Disabled (single sign-on only)
+                description: Disabled
               - value: "local-network"
-                description: Local network only, never through the public domain
+                description: Local Network
               - value: "everywhere"
-                description: Everywhere (not recommended)
+                description: Everywhere
         - variable: local_2fa
           label: Two-Factor Authentication (Local Accounts)
           description: Authenticator-app codes for local accounts. Required forces every local user to set it up at next sign-in.
@@ -93,6 +92,7 @@ questions:
                 label: Network
                 schema:
                   type: string
+                  default: ""
                   required: true
         - variable: admin_username
           label: Administrator Username
@@ -106,24 +106,32 @@ questions:
             valid_chars_error: 3 to 32 lowercase letters, digits, dot, dash or underscore.
         - variable: admin_password
           label: Administrator Password
-          description: |
-            Initial password of that administrator, used only when the account is created.</br>
-            Later changes here have no effect: change the password in Ebbwell.
+          description: Initial password of that administrator, used only when the account is created.
           schema:
             type: string
             show_if: [["local_login", "!=", "disabled"]]
             default: ""
             required: true
             private: true
+            immutable: true
             min_length: 10
             max_length: 128
         - variable: trust_proxy
           label: Trusted Proxies
           description: Addresses of your reverse proxy (IPs, CIDRs or loopback / linklocal / uniquelocal), used to see real client IPs.
           schema:
-            type: string
-            default: "loopback,uniquelocal"
+            type: list
             required: true
+            default:
+              - loopback
+              - uniquelocal
+            items:
+              - variable: proxy
+                label: Proxy
+                schema:
+                  type: string
+                  default: ""
+                  required: true
         - variable: backup_retention_days
           label: Backup Retention (Days)
           description: Daily encrypted database backups are kept in the data storage for this many days. 0 disables them.
