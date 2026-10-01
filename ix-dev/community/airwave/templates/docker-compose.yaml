@@ -3,7 +3,7 @@
 {% set airwave_net = tpl.networks.create_internal("airwave-net") %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set server = tpl.add_container(values.consts.server_container_name, "image") %}
 {% do server.add_network(airwave_net) %}
@@ -14,42 +14,34 @@
 {% set web_url = values.airwave.web_public_url.rstrip("/") %}
 {% set tvweb_url = (values.airwave.tvweb_public_url | default("", true)).rstrip("/") %}
 
-{# Database — plain Postgres via the shared dependency. The URL is built to match Airwave's compose exactly
-   (Prisma reads DATABASE_URL; the workflow engine reads the same URL without the ?schema suffix). #}
+{% set server_port = values.network.server_port.port_number %}
+{% set web_port = values.network.web_port.port_number %}
+
+{# Database — plain Postgres via the shared dependency. get_url builds the connection string (encodes the
+   password, adds host/port/sslmode). Prisma defaults to the public schema, so no extra query param. #}
 {% set pg_config = {"user": values.consts.db_user, "password": values.airwave.db_password, "database": values.consts.db_name, "volume": values.storage.postgres_data} %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.airwave.postgres_image_selector, pg_config, perm_container) %}
 {% do postgres.container.add_network(airwave_net) %}
-{% set db_url = "postgresql://%s:%s@%s:5432/%s"|format(values.consts.db_user, values.airwave.db_password, values.consts.postgres_container_name, values.consts.db_name) %}
+{% set db_url = postgres.get_url("postgresql") %}
 
 {# ── Server (API + TV REST) ─────────────────────────────────────────────────────────────────────────── #}
-{# The image starts as root and gosu-drops to PUID/PGID, so it needs the chown/setuid caps. #}
-{% do server.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID"]) %}
+{# Run as the configured user. The image's entrypoint detects a non-root start and skips its root-only
+   setup, so no PUID/PGID or capabilities are needed. #}
+{% do server.set_user(values.run_as.user, values.run_as.group) %}
+{% do server.environment.remove_auto_env("PUID") %}
+{% do server.environment.remove_auto_env("PGID") %}
 {% do server.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do server.healthcheck.set_test("curl", {"port": values.consts.server_port, "path": "/api/health"}) %}
+{% do server.healthcheck.set_test("curl", {"port": server_port, "path": "/api/health"}) %}
 
 {% do server.environment.add_env("CG_ROLE", "server") %}
-{% do server.environment.add_env("PORT", values.consts.server_port) %}
-{% do server.environment.add_env("DATABASE_URL", db_url ~ "?schema=public") %}
+{% do server.environment.add_env("PORT", server_port) %}
+{% do server.environment.add_env("DATABASE_URL", db_url) %}
 {% do server.environment.add_env("BETTER_AUTH_SECRET", values.airwave.better_auth_secret) %}
 {% do server.environment.add_env("BETTER_AUTH_URL", server_url) %}
 {% do server.environment.add_env("CORS_ORIGIN", web_url) %}
 {% do server.environment.add_env("TV_APP_ORIGIN", tvweb_url if values.airwave.enable_tvweb else "") %}
-{% if values.airwave.extra_cors_origins %}
-  {% do server.environment.add_env("EXTRA_CORS_ORIGINS", values.airwave.extra_cors_origins) %}
-{% endif %}
 {% do server.environment.add_env("ADMIN_EMAIL", values.airwave.admin_email) %}
 {% do server.environment.add_env("ADMIN_PASSWORD", values.airwave.admin_password) %}
-{% if values.airwave.plex_client_identifier %}
-  {% do server.environment.add_env("PLEX_CLIENT_IDENTIFIER", values.airwave.plex_client_identifier) %}
-{% endif %}
-{% if values.airwave.google_client_id %}
-  {% do server.environment.add_env("GOOGLE_CLIENT_ID", values.airwave.google_client_id) %}
-  {% do server.environment.add_env("GOOGLE_CLIENT_SECRET", values.airwave.google_client_secret) %}
-{% endif %}
-{% if values.airwave.github_client_id %}
-  {% do server.environment.add_env("GITHUB_CLIENT_ID", values.airwave.github_client_id) %}
-  {% do server.environment.add_env("GITHUB_CLIENT_SECRET", values.airwave.github_client_secret) %}
-{% endif %}
 {% if values.airwave.enable_workflow %}
   {% do server.environment.add_env("WORKFLOW_ENABLED", "1") %}
   {% do server.environment.add_env("WORKFLOW_TARGET_WORLD", "@workflow/world-postgres") %}
@@ -57,41 +49,43 @@
   {% do server.environment.add_env("WORKFLOW_POSTGRES_URL", db_url) %}
 {% endif %}
 {% do server.environment.add_env("BUMPER_MUSIC_DIR", values.consts.bumper_music_path) %}
-{% do server.environment.add_env("PUID", values.consts.run_as_user) %}
-{% do server.environment.add_env("PGID", values.consts.run_as_group) %}
+{# Optional env (Plex client id, OAuth, extra CORS, …) are set here rather than as dedicated form fields. #}
 {% do server.environment.add_user_envs(values.airwave.additional_envs) %}
 
-{% do server.add_port(values.network.server_port, {"container_port": values.consts.server_port}) %}
+{% do server.add_port(values.network.server_port, {"container_port": server_port}) %}
 
 {% do server.add_storage(values.consts.bumper_music_path, values.storage.bumper_music) %}
+{% do perm_container.add_or_skip_action("bumper_music", values.storage.bumper_music, perms_config) %}
 {% for store in values.storage.additional_storage %}
   {% do server.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action("store_" ~ loop.index0, store, perms_config) %}
 {% endfor %}
 
 {# ── Admin web (SPA) ────────────────────────────────────────────────────────────────────────────────── #}
-{% do web.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID"]) %}
+{% do web.set_user(values.run_as.user, values.run_as.group) %}
+{% do web.environment.remove_auto_env("PUID") %}
+{% do web.environment.remove_auto_env("PGID") %}
 {% do web.depends.add_dependency(values.consts.server_container_name, "service_started") %}
-{% do web.healthcheck.set_test("curl", {"port": values.consts.web_port, "path": "/"}) %}
+{% do web.healthcheck.set_test("curl", {"port": web_port, "path": "/"}) %}
 {% do web.environment.add_env("CG_ROLE", "web") %}
-{% do web.environment.add_env("WEB_PORT", values.consts.web_port) %}
+{% do web.environment.add_env("WEB_PORT", web_port) %}
 {% do web.environment.add_env("VITE_SERVER_URL", server_url) %}
-{% do web.environment.add_env("PUID", values.consts.run_as_user) %}
-{% do web.environment.add_env("PGID", values.consts.run_as_group) %}
-{% do web.add_port(values.network.web_port, {"container_port": values.consts.web_port}) %}
+{% do web.add_port(values.network.web_port, {"container_port": web_port}) %}
 
 {# ── Optional TV web player ─────────────────────────────────────────────────────────────────────────── #}
 {% if values.airwave.enable_tvweb %}
+  {% set tvweb_port = values.network.tvweb_port.port_number %}
   {% set tvweb = tpl.add_container(values.consts.tvweb_container_name, "image") %}
   {% do tvweb.add_network(airwave_net) %}
-  {% do tvweb.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID"]) %}
+  {% do tvweb.set_user(values.run_as.user, values.run_as.group) %}
+  {% do tvweb.environment.remove_auto_env("PUID") %}
+  {% do tvweb.environment.remove_auto_env("PGID") %}
   {% do tvweb.depends.add_dependency(values.consts.server_container_name, "service_started") %}
-  {% do tvweb.healthcheck.set_test("curl", {"port": values.consts.tvweb_port, "path": "/"}) %}
+  {% do tvweb.healthcheck.set_test("curl", {"port": tvweb_port, "path": "/"}) %}
   {% do tvweb.environment.add_env("CG_ROLE", "tvweb") %}
-  {% do tvweb.environment.add_env("TV_WEB_PORT", values.consts.tvweb_port) %}
+  {% do tvweb.environment.add_env("TV_WEB_PORT", tvweb_port) %}
   {% do tvweb.environment.add_env("VITE_SERVER_URL", (values.airwave.tv_server_url | default("", true)) or server_url) %}
-  {% do tvweb.environment.add_env("PUID", values.consts.run_as_user) %}
-  {% do tvweb.environment.add_env("PGID", values.consts.run_as_group) %}
-  {% do tvweb.add_port(values.network.tvweb_port, {"container_port": values.consts.tvweb_port}) %}
+  {% do tvweb.add_port(values.network.tvweb_port, {"container_port": tvweb_port}) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
