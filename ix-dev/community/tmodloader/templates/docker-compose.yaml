@@ -1,0 +1,64 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.tmodloader_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.set_grace_period(120) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/usr/local/bin/healthcheck", "--container"]) %}
+
+{% do c1.healthcheck.set_start_period(60) %}
+
+{% do c1.environment.add_env("TMOD_WEB_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("TMOD_PORT", values.network.server_port.port_number) %}
+{% do c1.environment.add_env("TMOD_WEB_ENABLED", "1" if values.network.web_port.bind_mode else "0") %}
+{% if values.network.web_port.bind_mode %}
+  {% if values.network.web_port.get("origin") %}
+    {% do c1.environment.add_env("TMOD_WEB_ORIGIN", values.network.web_port.origin) %}
+  {% endif %}
+  {% if values.network.web_port.get("trusted_proxy") %}
+    {% do c1.environment.add_env("TMOD_WEB_TRUSTED_PROXY", values.network.web_port.trusted_proxy) %}
+  {% endif %}
+{% endif %}
+{% do c1.environment.add_env("TMOD_USECONFIGFILE", "No") %}
+{% do c1.environment.add_env("TMOD_SHUTDOWN_DELAY", 3) %}
+{% do c1.environment.add_env("TMOD_SHUTDOWN_TIMEOUT", 90) %}
+{% if not values.network.web_port.bind_mode %}
+  {% set game = values.network.web_port.game_settings %}
+  {% do c1.environment.add_env("TMOD_WORLDNAME", game.world_name) %}
+  {% do c1.environment.add_env("TMOD_WORLDSIZE", game.world_size) %}
+  {% do c1.environment.add_env("TMOD_DIFFICULTY", game.world_difficulty) %}
+  {% do c1.environment.add_env("TMOD_MAXPLAYERS", game.max_players) %}
+  {% do c1.environment.add_env("TMOD_PASS", game.password) %}
+  {% do c1.environment.add_env("TMOD_MODS", game.mods) %}
+  {% do c1.environment.add_env("TMOD_LOG_LEVEL", game.log_level) %}
+  {% if game.world_difficulty == "3" %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_SETFROZEN", game.journey.setfrozen) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_SETDAWN", game.journey.setdawn) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_SETNOON", game.journey.setnoon) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_SETDUSK", game.journey.setdusk) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_SETMIDNIGHT", game.journey.setmidnight) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_GODMODE", game.journey.godmode) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_WIND_STRENGTH", game.journey.wind_strength) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_RAIN_STRENGTH", game.journey.rain_strength) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_TIME_SPEED", game.journey.time_speed) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_RAIN_FROZEN", game.journey.rain_frozen) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_WIND_FROZEN", game.journey.wind_frozen) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_PLACEMENT_RANGE", game.journey.placement_range) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_SET_DIFFICULTY", game.journey.set_difficulty) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_BIOME_SPREAD", game.journey.biome_spread) %}
+    {% do c1.environment.add_env("TMOD_JOURNEY_SPAWN_RATE", game.journey.spawn_rate) %}
+  {% endif %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.tmodloader.additional_envs) %}
+
+{% do c1.add_port(values.network.server_port) %}
+{% if values.network.web_port.bind_mode %}
+  {% do c1.add_port(values.network.web_port) %}
+  {% do tpl.portals.add(values.network.web_port) %}
+{% endif %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do c1.add_storage("/backups", values.storage.backups) %}
+
+{{ tpl.render() | tojson }}
