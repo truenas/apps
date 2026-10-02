@@ -7,7 +7,11 @@
 
 {% set server_url = values.airwave.server_public_url.rstrip("/") %}
 {% set web_url = values.airwave.web_public_url.rstrip("/") %}
-{% set tvweb_url = (values.airwave.tvweb_public_url | default("", true)).rstrip("/") %}
+{% set tvweb_enabled = values.network.tvweb_port.bind_mode != "" %}
+{% set tvweb_url = (values.airwave.tvweb_public_url or "").rstrip("/") %}
+{% if tvweb_enabled and not tvweb_url %}
+  {% do tpl.funcs.fail("TV Web Player URL is required when the TV Web Player Port bind mode is not None.") %}
+{% endif %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -30,7 +34,11 @@
 {% do server.environment.add_env("BETTER_AUTH_SECRET", values.airwave.better_auth_secret) %}
 {% do server.environment.add_env("BETTER_AUTH_URL", server_url) %}
 {% do server.environment.add_env("CORS_ORIGIN", web_url) %}
-{% do server.environment.add_env("TV_APP_ORIGIN", tvweb_url if values.airwave.enable_tvweb else "") %}
+{% do server.environment.add_env("TV_APP_ORIGIN", tvweb_url if tvweb_enabled else "") %}
+{% do server.environment.add_env("AIRWAVE_WEB_ORIGIN", "http://%s:%d"|format(values.consts.web_container_name, values.network.web_port.port_number)) %}
+{% if tvweb_enabled %}
+  {% do server.environment.add_env("AIRWAVE_TVWEB_ORIGIN", "http://%s:%d"|format(values.consts.tvweb_container_name, values.network.tvweb_port.port_number)) %}
+{% endif %}
 {% do server.environment.add_env("ADMIN_EMAIL", values.airwave.admin_email) %}
 {% do server.environment.add_env("ADMIN_PASSWORD", values.airwave.admin_password) %}
 {% do server.environment.add_env("BUMPER_MUSIC_DIR", values.consts.bumper_music_path) %}
@@ -62,7 +70,7 @@
 {% do web.environment.add_env("VITE_SERVER_URL", server_url) %}
 {% do web.add_port(values.network.web_port) %}
 
-{% if values.airwave.enable_tvweb %}
+{% if tvweb_enabled %}
   {% set tvweb = tpl.add_container(values.consts.tvweb_container_name, "image") %}
   {% do tvweb.add_network(airwave_net) %}
   {% do tvweb.set_user(values.run_as.user, values.run_as.group) %}
@@ -70,7 +78,7 @@
   {% do tvweb.healthcheck.set_test("curl", {"port": values.network.tvweb_port.port_number}) %}
   {% do tvweb.environment.add_env("CG_ROLE", "tvweb") %}
   {% do tvweb.environment.add_env("TV_WEB_PORT", values.network.tvweb_port.port_number) %}
-  {% do tvweb.environment.add_env("VITE_SERVER_URL", (values.airwave.tv_server_url | default("", true)) or server_url) %}
+  {% do tvweb.environment.add_env("VITE_SERVER_URL", values.airwave.tv_server_url or server_url) %}
   {% do tvweb.add_port(values.network.tvweb_port) %}
 {% endif %}
 
@@ -82,7 +90,7 @@
 
 {% do tpl.portals.add(values.network.web_port, {"name": "Admin"}) %}
 {% do tpl.portals.add(values.network.server_port, {"name": "API"}) %}
-{% if values.airwave.enable_tvweb %}
+{% if tvweb_enabled %}
   {% do tpl.portals.add(values.network.tvweb_port, {"name": "TV Player"}) %}
 {% endif %}
 
