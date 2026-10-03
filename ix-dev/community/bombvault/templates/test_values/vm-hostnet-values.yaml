@@ -1,0 +1,58 @@
+# Second scenario, covering the branches basic-values.yaml never renders:
+# host networking, a libvirt URI (the form TrueNAS actually needs, naming the
+# non-default socket), an explicit self-container name, and a backup time cap.
+resources:
+  limits:
+    cpus: 2
+    memory: 4096
+
+TZ: Europe/Berlin
+
+bombvault:
+  # Not a real secret: 64 hex characters, the length the schema requires.
+  app_key: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  http_only: true
+  backup_max_hours: 12
+  self_container_name: ix-bombvault-bombvault-1
+  additional_envs:
+    - name: BOMBVAULT_EXTRA
+      value: "1"
+
+vm_backup:
+  # TrueNAS runs libvirtd on a non-default socket, so the URI has to name it.
+  libvirt_uri: qemu+ssh://root@192.0.2.10/system?socket=/run/truenas_libvirt/libvirt-sock
+  libvirt_host: 192.0.2.10
+  libvirt_ssh_user: root
+  libvirt_ssh_port: 22
+
+network:
+  host_network: true
+  web_port:
+    bind_mode: published
+    port_number: 30443
+    host_ips: []
+  http_port:
+    bind_mode: published
+    port_number: 30300
+    host_ips: []
+
+ix_volumes:
+  config: /opt/tests/mnt/bombvault/config
+
+storage:
+  config:
+    type: ix_volume
+    ix_volume_config:
+      dataset_name: config
+      create_host_path: true
+  host_data: /opt/tests/mnt/bombvault/hostdata
+  host_data_create: true
+  additional_storage:
+    - type: host_path
+      read_only: true
+      mount_path: /extra
+      host_path_config:
+        path: /opt/tests/mnt/bombvault/extra
+        create_host_path: true
+
+labels: []
