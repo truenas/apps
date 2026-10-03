@@ -1,0 +1,476 @@
+groups:
+  - name: CloudGate Configuration
+    description: Configure CloudGate
+  - name: Network Configuration
+    description: Configure Network for CloudGate
+  - name: Storage Configuration
+    description: Configure Storage for CloudGate
+  - name: Labels Configuration
+    description: Configure Labels for CloudGate
+  - name: Resources Configuration
+    description: Configure Resources for CloudGate
+
+questions:
+  - variable: TZ
+    group: CloudGate Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
+  - variable: cloudgate
+    label: ""
+    group: CloudGate Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: |
+            All CloudGate settings are optional — an admin account and every
+            secret are generated on first boot. Use this only to override a
+            default, for example CLOUDGATE_INITIAL_ADMIN_EMAIL. See
+            https://github.com/Elias02345/CloudGate/blob/main/.env.example
+            for the full list.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port
+          description: Port for the CloudGate admin web UI (container port 8080).
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30492
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: additional_ports
+          label: Additional Ports (advanced)
+          description: |
+            Only needed for CloudGate's optional local nginx reverse-proxy
+            mode (per host, "via Cloudflare Tunnel" or "local nginx reverse
+            proxy" — see the README). That mode listens on 80/443 inside the
+            container; add them here if you use it. Leave empty otherwise —
+            CloudGate does not need 80/443 for Cloudflare Tunnel routing.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: port
+                label: Port
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: bind_mode
+                      label: Port Bind Mode
+                      schema:
+                        type: string
+                        default: "published"
+                        enum:
+                          - value: "published"
+                            description: Publish port on the host for external access
+                          - value: "exposed"
+                            description: Expose port for inter-container communication
+                    - variable: port_number
+                      label: Port Number
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: container_port
+                      label: Container Port
+                      schema:
+                        type: int
+                        min: 1
+                        max: 65535
+                        required: true
+                    - variable: protocol
+                      label: Protocol
+                      schema:
+                        type: string
+                        required: true
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
+                    - variable: host_ips
+                      label: Host IPs
+                      description: IPs on the host to bind this port
+                      schema:
+                        type: list
+                        show_if: [["bind_mode", "=", "published"]]
+                        default: []
+                        items:
+                          - variable: host_ip
+                            label: Host IP
+                            schema:
+                              type: string
+                              required: true
+                              $ref:
+                                - definitions/node_bind_ip
+
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: CloudGate Data Storage
+          description: |
+            Stores everything CloudGate persists: generated secrets, the
+            SQLite database, and Cloudflare/nginx state. Losing this loses
+            the encryption key — and with it, every encrypted secret in the
+            database.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: cloudgate
+                            description: cloudgate
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for CloudGate.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for CloudGate.
+                schema:
+                  type: int
+                  default: 1024
+                  required: true
