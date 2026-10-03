@@ -1,0 +1,161 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set plmail_net = tpl.networks.create_internal("plmail-net") %}
+
+{# Mints the generated secrets and lays out the data directory, then exits. #}
+{% set secrets = tpl.add_container(values.consts.secrets_container_name, "image") %}
+{% set web = tpl.add_container(values.consts.plmail_container_name, "image") %}
+{# Everything that is not the web server: the IMAP supervisor, one consumer per
+   queue, the scheduler and the Mercure hub, kept running by app:work. #}
+{% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
+{% set postgres = tpl.add_container(values.consts.postgres_container_name, "postgres_image") %}
+
+{% set app_containers = [web, worker] %}
+
+{% set secrets_dir = "%s/secrets"|format(values.consts.data_path) %}
+
+{% for c in [secrets, postgres, web] %}
+  {% do c.add_network(plmail_net) %}
+{% endfor %}
+{# The worker runs the hub, so it answers to the name the web container's
+   proxy and MERCURE_URL look for. #}
+{% do worker.add_network(plmail_net, {"aliases": [values.consts.mercure_alias]}) %}
+
+{# Every image here starts as root. #}
+{% for c in [secrets, postgres] + app_containers %}
+  {% do c.set_user(0, 0) %}
+{% endfor %}
+
+{# -- secrets-init -- #}
+{% do secrets.restart.set_policy("on-failure", 1) %}
+{% do secrets.healthcheck.disable() %}
+{% do secrets.remove_devices() %}
+{% do secrets.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER"]) %}
+{% do secrets.set_entrypoint(["/bin/sh", "-c"]) %}
+{# Postgres drops from root to its own user and has to traverse the mount root,
+   which a dataset with the Apps preset (770 apps:apps) does not allow it to. #}
+{% do secrets.set_command(["
+set -eu
+mkdir -p %(data)s/secrets %(data)s/postgres %(data)s/attachments %(data)s/raw %(data)s/uploads
+chown -R %(uid)d:%(gid)d %(data)s/postgres
+chmod o+x %(data)s || setfacl -m u:%(uid)d:--x %(data)s || true
+exec generate-secrets
+"|format(data=values.consts.data_path, uid=values.consts.postgres_uid, gid=values.consts.postgres_gid)]) %}
+{% do secrets.environment.add_env("APP_SECRETS_DIR", secrets_dir) %}
+{% do secrets.add_storage(values.consts.data_path, values.storage.data) %}
+
+{# -- plMail image: web and worker -- #}
+{# Defaults the user may replace through Additional Environment Variables.
+   Blank is deliberate: it is what makes plMail generate the value, or ask
+   for it on the setup screen, instead of using the image's placeholder. #}
+{# The cookie name is the exception to "blank": plMail's default carries the
+   __Secure- prefix, which a browser drops unless it arrived over HTTPS, and
+   an app here is opened on http://ip:port first. Without the prefix the
+   cookie works on both. #}
+{% set overridable_envs = {
+  "APP_PUBLIC_URL": "",
+  "MERCURE_PUBLIC_URL": "",
+  "MERCURE_COOKIE_NAME": "mercure_access_token",
+  "TRUSTED_PROXIES": "",
+  "VAPID_SUBJECT": "mailto:you@yourdomain.com",
+  "VAPID_PUBLIC_KEY": "",
+  "VAPID_PRIVATE_KEY": "",
+  "GOOGLE_OAUTH_CLIENT_ID": "",
+  "GOOGLE_OAUTH_CLIENT_SECRET": "",
+  "GMAIL_PUBSUB_TOPIC": "projects/your-project-id/topics/gmail-push",
+  "GMAIL_PUBSUB_VERIFICATION_TOKEN": "",
+  "MICROSOFT_OAUTH_CLIENT_ID": "",
+  "MICROSOFT_OAUTH_CLIENT_SECRET": "",
+  "MICROSOFT_OAUTH_TENANT": "common",
+  "MAILER_DSN": "null://null",
+} %}
+{% set user_env_names = values.plmail.additional_envs | map(attribute="name") | list %}
+
+{% for c in app_containers %}
+  {% do c.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER"]) %}
+  {% do c.environment.add_env("APP_ENV", "prod") %}
+  {% do c.environment.add_env("APP_STORAGE_DIR", "var/data") %}
+  {% do c.environment.add_env("APP_SECRETS_DIR", secrets_dir) %}
+  {% do c.environment.add_env("APP_SECRETS_FILE", "%s/generated.env"|format(secrets_dir)) %}
+  {# Left blank so the generated values in the data storage are used. #}
+  {% do c.environment.add_env("APP_SECRET", "") %}
+  {% do c.environment.add_env("APP_ENCRYPTION_KEY", "") %}
+  {% do c.environment.add_env("MERCURE_JWT_SECRET", "") %}
+  {% do c.environment.add_env("DATABASE_URL", "") %}
+  {% do c.environment.add_env("POSTGRES_HOST", values.consts.postgres_container_name) %}
+  {% do c.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
+  {% do c.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+  {% do c.environment.add_env("MESSENGER_TRANSPORT_DSN", "doctrine://default?auto_setup=0") %}
+  {% do c.environment.add_env("MERCURE_URL", "http://%s/.well-known/mercure"|format(values.consts.mercure_alias)) %}
+  {% for name, value in overridable_envs.items() %}
+    {% if name not in user_env_names %}
+      {% do c.environment.add_env(name, value) %}
+    {% endif %}
+  {% endfor %}
+  {% do c.environment.add_user_envs(values.plmail.additional_envs) %}
+
+  {% do c.add_storage(values.consts.data_path, values.storage.data) %}
+  {% do c.depends.add_dependency(values.consts.secrets_container_name, "service_completed_successfully") %}
+  {% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% endfor %}
+
+{# Plain HTTP on :80, TLS belongs to the reverse proxy in front. #}
+{% do web.add_caps(["NET_BIND_SERVICE"]) %}
+{% do web.environment.add_env("APP_CONTAINER_NAME", "web") %}
+{% do web.environment.add_env("SERVER_NAME", ":%d"|format(values.consts.internal_http_port)) %}
+{% do web.healthcheck.set_test("curl", {"port": values.consts.internal_http_port, "path": "/healthz"}) %}
+{# Migrations run before the server answers. #}
+{% do web.healthcheck.set_start_period(120) %}
+{% do web.add_storage("/data", {"type": "volume", "volume_config": {"volume_name": "caddy-data"}}) %}
+{% do web.add_storage("/config", {"type": "volume", "volume_config": {"volume_name": "caddy-config"}}) %}
+{% do web.add_port(values.network.web_port, {"container_port": values.consts.internal_http_port}) %}
+
+{# The hub listens on :80 inside the worker. #}
+{% do worker.add_caps(["NET_BIND_SERVICE"]) %}
+{% do worker.environment.add_env("APP_CONTAINER_NAME", "worker") %}
+{% do worker.set_command(["php", "bin/console", "app:work"]) %}
+{# Reaps the IMAP supervisor's children should it die hard. #}
+{% do worker.set_init(true) %}
+{# Longer than the 25s app:work gives every process to finish the message in hand. #}
+{% do worker.set_grace_period(30) %}
+{# No HTTP server of its own to probe; liveness reaches /healthz through heartbeats. #}
+{% do worker.healthcheck.disable() %}
+{% do worker.add_storage("/data", {"type": "volume", "volume_config": {"volume_name": "mercure-data"}}) %}
+{% do worker.add_storage("/config", {"type": "volume", "volume_config": {"volume_name": "mercure-config"}}) %}
+
+{# -- database -- #}
+{# Not tpl.deps.postgres: that needs the password at render time, and this one
+   is generated into the data storage by secrets-init on first start. #}
+{% do postgres.remove_devices() %}
+{% do postgres.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do postgres.set_shm_size_mb(256) %}
+{% do postgres.set_command([
+  "postgres",
+  "-c", "shared_preload_libraries=pg_stat_statements",
+  "-c", "pg_stat_statements.track=top",
+]) %}
+{% do postgres.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+{% do postgres.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
+{% do postgres.environment.add_env("POSTGRES_PASSWORD_FILE", "%s/secrets/postgres_password"|format(values.consts.shared_path)) %}
+{% do postgres.environment.add_env("PGDATA", "%s/postgres"|format(values.consts.shared_path)) %}
+{% do postgres.healthcheck.set_custom_test(["CMD", "pg_isready", "-d", values.consts.db_name, "-U", values.consts.db_user]) %}
+{% do postgres.healthcheck.set_start_period(60) %}
+{% do postgres.depends.add_dependency(values.consts.secrets_container_name, "service_completed_successfully") %}
+{% do postgres.add_storage(values.consts.shared_path, values.storage.data) %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{% do tpl.notes.set_body("
+## First start
+
+Open the Web UI and follow the setup screen. It asks for the public URL and creates the first user.
+plMail serves plain HTTP; put a reverse proxy in front of it for TLS.
+
+## Backup
+
+Everything is in the data storage chosen at install: the database, attachments and the `secrets`
+folder. The key in `secrets/generated.env` encrypts every stored mailbox password and OAuth token.
+Without it they cannot be recovered, so back the storage up or snapshot the dataset.
+") %}
+
+{{ tpl.render() | tojson }}
