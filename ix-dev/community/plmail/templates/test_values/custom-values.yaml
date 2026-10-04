@@ -1,0 +1,49 @@
+resources:
+  limits:
+    cpus: 2.0
+    memory: 4096
+
+TZ: Etc/UTC
+
+plmail:
+  postgres_image_selector: postgres_18_image
+  # Characters that have to survive being put into the database URL.
+  db_password: "s3cr&t/p@ss+w%rd"
+  additional_envs:
+    - name: APP_PUBLIC_URL
+      value: http://localhost:8081
+    - name: VAPID_SUBJECT
+      value: mailto:admin@example.com
+
+run_as:
+  user: 1000
+  group: 1000
+
+network:
+  web_port:
+    bind_mode: published
+    port_number: 8081
+  networks: []
+
+ix_volumes:
+  data: /opt/tests/mnt/plmail/custom-data
+  extra: /opt/tests/mnt/plmail/custom-extra
+
+storage:
+  data:
+    type: ix_volume
+    ix_volume_config:
+      dataset_name: data
+      create_host_path: true
+  postgres_data:
+    type: host_path
+    host_path_config:
+      path: /opt/tests/mnt/plmail/custom-postgres
+      create_host_path: true
+      auto_permissions: true
+  additional_storage:
+    - type: ix_volume
+      mount_path: /mnt/extra
+      ix_volume_config:
+        dataset_name: extra
+        create_host_path: true
