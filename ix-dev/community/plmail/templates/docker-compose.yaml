@@ -34,7 +34,7 @@
   {% do c.environment.add_env("APP_SECRETS_DIR", "%s/secrets"|format(values.consts.data_path)) %}
   {% do c.environment.add_env("APP_SECRETS_FILE", "%s/secrets/generated.env"|format(values.consts.data_path)) %}
   {% do c.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
-  {% do c.environment.add_env("MERCURE_URL", "http://%s/.well-known/mercure"|format(values.consts.worker_container_name)) %}
+  {% do c.environment.add_env("MERCURE_URL", "http://%s:%d/.well-known/mercure"|format(values.consts.worker_container_name, values.consts.internal_mercure_port)) %}
   {% do c.environment.add_user_envs(values.plmail.additional_envs) %}
 
   {% do c.add_storage(values.consts.data_path, values.storage.data) %}
@@ -44,19 +44,19 @@
 {% endfor %}
 
 {% do web.environment.add_env("APP_CONTAINER_NAME", "web") %}
-{% do web.environment.add_env("SERVER_NAME", ":%d"|format(values.consts.internal_http_port)) %}
-{% do web.environment.add_env("MERCURE_UPSTREAM", "%s:%d"|format(values.consts.worker_container_name, values.consts.internal_http_port)) %}
-{% do web.healthcheck.set_test("curl", {"port": values.consts.internal_http_port, "path": "/healthz"}) %}
+{% do web.environment.add_env("SERVER_NAME", ":%d"|format(values.network.web_port.port_number)) %}
+{% do web.environment.add_env("MERCURE_UPSTREAM", "%s:%d"|format(values.consts.worker_container_name, values.consts.internal_mercure_port)) %}
+{% do web.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/healthz"}) %}
 {% do web.healthcheck.set_start_period(120) %}
 {% do web.add_storage("/data", {"type": "volume", "volume_config": {"volume_name": "caddy-data"}}) %}
 {% do web.add_storage("/config", {"type": "volume", "volume_config": {"volume_name": "caddy-config"}}) %}
-{% do web.add_port(values.network.web_port, {"container_port": values.consts.internal_http_port}) %}
+{% do web.add_port(values.network.web_port) %}
 
 {% do worker.environment.add_env("APP_CONTAINER_NAME", "worker") %}
 {% do worker.set_command(["php", "bin/console", "app:work"]) %}
 {% do worker.set_init(true) %}
 {% do worker.set_grace_period(30) %}
-{% do worker.healthcheck.set_test("curl", {"port": values.consts.internal_http_port, "path": "/robots.txt"}) %}
+{% do worker.healthcheck.set_test("curl", {"port": values.consts.internal_mercure_port, "path": "/robots.txt"}) %}
 {% do worker.healthcheck.set_start_period(120) %}
 {% do worker.add_storage("/data", {"type": "volume", "volume_config": {"volume_name": "mercure-data"}}) %}
 {% do worker.add_storage("/config", {"type": "volume", "volume_config": {"volume_name": "mercure-config"}}) %}
