@@ -15,7 +15,6 @@
   "volume": values.storage.postgres_data,
   "additional_options": {
     "shared_preload_libraries": "pg_stat_statements",
-    "pg_stat_statements.track": "top",
   },
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.plmail.postgres_image_selector, pg_config, perm_container) %}
@@ -57,7 +56,8 @@
 {% do worker.set_command(["php", "bin/console", "app:work"]) %}
 {% do worker.set_init(true) %}
 {% do worker.set_grace_period(30) %}
-{% do worker.healthcheck.disable() %}
+{% do worker.healthcheck.set_test("curl", {"port": values.consts.internal_http_port, "path": "/robots.txt"}) %}
+{% do worker.healthcheck.set_start_period(120) %}
 {% do worker.add_storage("/data", {"type": "volume", "volume_config": {"volume_name": "mercure-data"}}) %}
 {% do worker.add_storage("/config", {"type": "volume", "volume_config": {"volume_name": "mercure-config"}}) %}
 
