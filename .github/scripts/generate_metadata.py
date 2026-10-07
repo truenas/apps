@@ -45,6 +45,10 @@ class Config:
     # Special apps excluded from test train
     EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
 
+    # Registries that garbage-collect manifests no longer referenced by a tag,
+    # so a digest pin (tag@sha256:...) breaks once the tag moves
+    NO_DIGEST_PIN_REGISTRIES = ("quay.io/",)
+
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -459,7 +463,9 @@ class AppDiscoveryService:
         test_value_files = []
 
         if test_values_path.exists():
-            test_value_files = [f.name for f in test_values_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
+            test_value_files = sorted(
+                f.name for f in test_values_path.iterdir() if f.is_file() and f.suffix == ".yaml"
+            )
 
         if not test_value_files:
             logger.warning(f"No test values found for {app_path}")
@@ -800,6 +806,29 @@ class AppQuestionsValidator:
         check_network()
 
 
+class AppImagesValidator:
+    """Validates the images defined in ix_values.yaml."""
+
+    def __init__(self, file_cache: FileSystemCache):
+        self.file_cache = file_cache
+
+    def validate_digest_pins(self, app_manifest: AppManifest) -> None:
+        """Fail on digest pinned images from registries that prune untagged manifests."""
+        values_path = app_manifest.path / Config.APP_VALUES_FILE
+        if not values_path.exists():
+            return
+
+        values_config = self.file_cache.read_yaml_file(values_path)
+        for name, image in (values_config.get("images") or {}).items():
+            repo = image.get("repository", "")
+            tag = str(image.get("tag", ""))
+            if repo.startswith(Config.NO_DIGEST_PIN_REGISTRIES) and "@" in tag:
+                raise ValueError(
+                    f"Image [{name}] ({repo}) must not be pinned to a digest in {values_path}. "
+                    f"Registries {list(Config.NO_DIGEST_PIN_REGISTRIES)} prune manifests that are no longer tagged."
+                )
+
+
 class AppVersionManager:
     """Manages app version information and updates."""
 
@@ -820,7 +849,15 @@ class AppVersionManager:
             raise FileNotFoundError(f"App values file not found: {values_path}")
 
         values_config = self.file_cache.read_yaml_file(values_path)
-        return values_config["images"]["image"]["tag"]
+        # "images.image" is the main image of the app, its tag is used as the app_version
+        image = (values_config.get("images") or {}).get("image")
+        if not isinstance(image, dict):
+            raise ValueError(f"Missing [images.image] in {values_path}, it is required for the app_version")
+        tag = image.get("tag")
+        if not tag or not isinstance(tag, str):
+            raise ValueError(f"Missing or non-string [images.image.tag] in {values_path}")
+        # Drop the digest pin (tag@sha256:...), it is not part of the version
+        return tag.split("@")[0]
 
     def increment_patch_version(self, version: str) -> str:
         """Increment the patch version number."""
@@ -1011,9 +1048,43 @@ class TrueNASAppCapabilityManager:
         self.compose_renderer = DockerComposeRenderer()
         self.compose_analyzer = DockerComposeAnalyzer()
         self.questions_validator = AppQuestionsValidator(self.file_cache)
+        self.images_validator = AppImagesValidator(self.file_cache)
         self.version_manager = AppVersionManager(self.file_cache, should_bump_versions)
         self.metadata_updater = AppMetadataUpdater(self.file_cache, self.version_manager)
         self.capability_registry = DockerCapabilityRegistry()
+
+    @staticmethod
+    def select_service_user(service_name: str, user_values: List[Tuple[int, int]]) -> Tuple[int, int]:
+        """Pick the user to report for a service from the values of all test configurations."""
+        # If all test values have the same user, use that
+        if len(set(user_values)) == 1:
+            return user_values[0]
+
+        # 568 only differs across test values when it comes from a user-configurable
+        # run_as, so the service can run as any user (root included, if the user picks it)
+        if (568, 568) in user_values:
+            return (568, 568)
+
+        uids = [uid for uid, _ in user_values]
+        gids = [gid for _, gid in user_values]
+
+        # If at least one test value has user 0 (root) or group 0 (root), the service runs as root
+        if 0 in uids or 0 in gids:
+            # Prefer entry with both uid=0 and gid=0, then uid=0, then gid=0
+            for matches in (
+                lambda uid, gid: uid == 0 and gid == 0,
+                lambda uid, gid: uid == 0,
+                lambda uid, gid: gid == 0,
+            ):
+                for uid, gid in user_values:
+                    if matches(uid, gid):
+                        return (uid, gid)
+
+        # If test values have different non-root users, use the most common one
+        # (lowest uid/gid on ties). This shouldn't normally happen, but we handle it
+        selected = min(set(user_values), key=lambda value: (-user_values.count(value), value))
+        logger.warning(f"Service {service_name} has inconsistent user values: {user_values}, using {selected}")
+        return selected
 
     def analyze_single_app(self, app_manifest: AppManifest) -> AppAnalysisResult:
         """Analyze a single app across all its test configurations."""
@@ -1079,42 +1150,10 @@ class TrueNASAppCapabilityManager:
                 continue
 
         # Determine final user for each service based on all test configurations
-        final_service_users = {}
-        for service_name, user_values in service_user_values.items():
-            uids = [uid for uid, _ in user_values]
-            gids = [gid for _, gid in user_values]
-
-            # If at least one test value has user 0 (root) or group 0 (root), the service runs as root
-            if 0 in uids or 0 in gids:
-                # Prefer entry with both uid=0 and gid=0
-                root_entry = None
-                for uid, gid in user_values:
-                    if uid == 0 and gid == 0:
-                        root_entry = (uid, gid)
-                        break
-                # If no (0,0), find entry with uid=0
-                if root_entry is None:
-                    for uid, gid in user_values:
-                        if uid == 0:
-                            root_entry = (uid, gid)
-                            break
-                # If no uid=0, find entry with gid=0
-                if root_entry is None:
-                    for uid, gid in user_values:
-                        if gid == 0:
-                            root_entry = (uid, gid)
-                            break
-                final_service_users[service_name] = root_entry
-            # If all test values have the same non-root user, use that
-            elif len(set(user_values)) == 1:
-                final_service_users[service_name] = user_values[0]
-            # If test values have different non-root users, use the first one
-            # (this shouldn't normally happen, but we handle it)
-            else:
-                logger.warning(
-                    f"Service {service_name} has inconsistent user values: {user_values}, using {user_values[0]}"
-                )
-                final_service_users[service_name] = user_values[0]
+        final_service_users = {
+            service_name: self.select_service_user(service_name, user_values)
+            for service_name, user_values in service_user_values.items()
+        }
 
         # Get current app version
         current_version = self.version_manager.get_current_app_version(app_manifest)
@@ -1139,6 +1178,9 @@ class TrueNASAppCapabilityManager:
 
             # Validate questions configuration
             self.questions_validator.validate_container_labels_section(app_manifest, analysis_result.service_names)
+
+            # Validate images (no digest pins on registries that prune untagged manifests)
+            self.images_validator.validate_digest_pins(app_manifest)
 
             # Update metadata
             self.metadata_updater.update_app_metadata(
