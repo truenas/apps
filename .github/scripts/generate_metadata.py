@@ -463,7 +463,9 @@ class AppDiscoveryService:
         test_value_files = []
 
         if test_values_path.exists():
-            test_value_files = [f.name for f in test_values_path.iterdir() if f.is_file() and f.suffix == ".yaml"]
+            test_value_files = sorted(
+                f.name for f in test_values_path.iterdir() if f.is_file() and f.suffix == ".yaml"
+            )
 
         if not test_value_files:
             logger.warning(f"No test values found for {app_path}")
@@ -1051,6 +1053,39 @@ class TrueNASAppCapabilityManager:
         self.metadata_updater = AppMetadataUpdater(self.file_cache, self.version_manager)
         self.capability_registry = DockerCapabilityRegistry()
 
+    @staticmethod
+    def select_service_user(service_name: str, user_values: List[Tuple[int, int]]) -> Tuple[int, int]:
+        """Pick the user to report for a service from the values of all test configurations."""
+        # If all test values have the same user, use that
+        if len(set(user_values)) == 1:
+            return user_values[0]
+
+        # 568 only differs across test values when it comes from a user-configurable
+        # run_as, so the service can run as any user (root included, if the user picks it)
+        if (568, 568) in user_values:
+            return (568, 568)
+
+        uids = [uid for uid, _ in user_values]
+        gids = [gid for _, gid in user_values]
+
+        # If at least one test value has user 0 (root) or group 0 (root), the service runs as root
+        if 0 in uids or 0 in gids:
+            # Prefer entry with both uid=0 and gid=0, then uid=0, then gid=0
+            for matches in (
+                lambda uid, gid: uid == 0 and gid == 0,
+                lambda uid, gid: uid == 0,
+                lambda uid, gid: gid == 0,
+            ):
+                for uid, gid in user_values:
+                    if matches(uid, gid):
+                        return (uid, gid)
+
+        # If test values have different non-root users, use the most common one
+        # (lowest uid/gid on ties). This shouldn't normally happen, but we handle it
+        selected = min(set(user_values), key=lambda value: (-user_values.count(value), value))
+        logger.warning(f"Service {service_name} has inconsistent user values: {user_values}, using {selected}")
+        return selected
+
     def analyze_single_app(self, app_manifest: AppManifest) -> AppAnalysisResult:
         """Analyze a single app across all its test configurations."""
         if not app_manifest.test_value_files:
@@ -1115,42 +1150,10 @@ class TrueNASAppCapabilityManager:
                 continue
 
         # Determine final user for each service based on all test configurations
-        final_service_users = {}
-        for service_name, user_values in service_user_values.items():
-            uids = [uid for uid, _ in user_values]
-            gids = [gid for _, gid in user_values]
-
-            # If at least one test value has user 0 (root) or group 0 (root), the service runs as root
-            if 0 in uids or 0 in gids:
-                # Prefer entry with both uid=0 and gid=0
-                root_entry = None
-                for uid, gid in user_values:
-                    if uid == 0 and gid == 0:
-                        root_entry = (uid, gid)
-                        break
-                # If no (0,0), find entry with uid=0
-                if root_entry is None:
-                    for uid, gid in user_values:
-                        if uid == 0:
-                            root_entry = (uid, gid)
-                            break
-                # If no uid=0, find entry with gid=0
-                if root_entry is None:
-                    for uid, gid in user_values:
-                        if gid == 0:
-                            root_entry = (uid, gid)
-                            break
-                final_service_users[service_name] = root_entry
-            # If all test values have the same non-root user, use that
-            elif len(set(user_values)) == 1:
-                final_service_users[service_name] = user_values[0]
-            # If test values have different non-root users, use the first one
-            # (this shouldn't normally happen, but we handle it)
-            else:
-                logger.warning(
-                    f"Service {service_name} has inconsistent user values: {user_values}, using {user_values[0]}"
-                )
-                final_service_users[service_name] = user_values[0]
+        final_service_users = {
+            service_name: self.select_service_user(service_name, user_values)
+            for service_name, user_values in service_user_values.items()
+        }
 
         # Get current app version
         current_version = self.version_manager.get_current_app_version(app_manifest)
