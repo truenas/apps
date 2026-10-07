@@ -1,0 +1,401 @@
+groups:
+  - name: Frpc Configuration
+    description: Configure Frpc
+  - name: User and Group Configuration
+    description: Configure User and Group for Frpc
+  - name: Network Configuration
+    description: Configure Network for Frpc
+  - name: Storage Configuration
+    description: Configure Storage for Frpc
+  - name: Labels Configuration
+    description: Configure Labels for Frpc
+  - name: Resources Configuration
+    description: Configure Resources for Frpc
+
+questions:
+  - variable: frpc
+    label: ""
+    group: Frpc Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: custom_toml
+          label: Custom TOML Configuration
+          description: |
+            Provide the full frpc configuration (TOML) yourself.</br>
+            Use this if you already have a working frpc.toml (advanced proxy setups,
+            stcp/sudp visitors, plugins, multiple proxies, etc).</br>
+            When enabled, the wizard fields below are not rendered.
+          schema:
+            type: boolean
+            default: false
+        - variable: custom_toml_text
+          label: Custom TOML
+          description: The full contents of frpc.toml.
+          schema:
+            type: text
+            default: ""
+            required: true
+            show_if: [["custom_toml", "=", true]]
+        - variable: server_addr
+          label: Server Address
+          description: |
+            Address of the frps server.</br>
+            Same as `serverAddr` in frpc.toml.
+          schema:
+            type: string
+            required: true
+            show_if: [["custom_toml", "=", false]]
+        - variable: server_port
+          label: Server Port
+          description: |
+            Port of the frps server.</br>
+            Same as `serverPort` in frpc.toml.
+          schema:
+            type: int
+            default: 7000
+            min: 1
+            max: 65535
+            required: true
+            show_if: [["custom_toml", "=", false]]
+        - variable: login_user
+          label: Login User
+          description: |
+            frps authentication user.</br>
+            Same as `loginUser` in frpc.toml. Leave empty if the server does not require it.
+          schema:
+            type: string
+            default: ""
+            show_if: [["custom_toml", "=", false]]
+        - variable: auth_token
+          label: Auth Token
+          description: |
+            frps authentication token.</br>
+            Same as `auth.token` in frpc.toml. Leave empty if the server does not require it.
+          schema:
+            type: string
+            default: ""
+            private: true
+            show_if: [["custom_toml", "=", false]]
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Frpc files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Frpc files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network.</br>
+            Recommended: frpc connects outbound to the frps server, and visitor
+            proxies (remotePort) become reachable directly on the TrueNAS host.
+          schema:
+            type: boolean
+            default: true
+        - variable: web_server
+          label: Enable Web UI
+          description: |
+            Enable the frpc web server (dashboard) so proxies can be viewed and
+            managed in the browser.</br>
+            Same as the `webServer` section in frpc.toml.
+          schema:
+            type: boolean
+            default: false
+        - variable: web_port
+          label: Web UI Port
+          schema:
+            type: dict
+            show_if: [["web_server", "=", true]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 7400
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: web_server_user
+          label: Web UI User
+          description: Web server basic auth user (`webServer.user`).
+          schema:
+            type: string
+            default: "admin"
+            required: true
+            show_if: [["web_server", "=", true]]
+        - variable: web_server_password
+          label: Web UI Password
+          description: Web server basic auth password (`webServer.password`).
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+            show_if: [["web_server", "=", true]]
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: additional_storage
+          label: Additional Storage
+          description: |
+            Optional. Mount an existing directory holding your own frpc.toml,
+            logs, or a Unix socket to expose (mount it and reference it from the TOML).
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "host_path"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - normalize/acl
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: frpc
+                            description: frpc
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPUs limit for Frpc.
+                schema:
+                  type: int
+                  default: 1
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for Frpc.
+                schema:
+                  type: int
+                  default: 256
+                  required: true
