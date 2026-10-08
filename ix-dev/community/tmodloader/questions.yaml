@@ -1,52 +1,23 @@
 groups:
-  - name: Server Setup
-    description: |
-      Choose server management. Set world options if WebUI is disabled.
-
-      Important: If enabled, open the WebUI after installation and use the setup code from the app logs.
-
-      Variables and defaults:
-      https://github.com/Crosis47/tmodloader/wiki/Configuration#defaults-reference
+  - name: tModLoader Configuration
+    description: Configure tModLoader
+  - name: User and Group Configuration
+    description: Configure User and Group for tModLoader
   - name: Network Configuration
-    description: |
-      Configure game and WebUI access. Network and proxy guide:
-      https://github.com/Crosis47/tmodloader/wiki/Networking-and-Access
+    description: Configure Network for tModLoader
   - name: Storage Configuration
-    description: |
-      Choose storage for data and backups. Folder reference:
-      https://github.com/Crosis47/tmodloader/wiki/Updates-and-Storage#persistent-folders
+    description: Configure Storage for tModLoader
   - name: Labels Configuration
     description: Configure Labels for tModLoader
   - name: Resources Configuration
     description: Configure Resources for tModLoader
 
 questions:
-  - variable: server_management
-    label: Server Management
-    group: Server Setup
-    description: |
-      Choose how to configure the game server.</br>
-      Direct access publishes the WebUI on the TrueNAS host. Shared network access requires a Docker network shared with your reverse proxy.</br>
-      Environment variables disables the WebUI and reveals the initial world settings. Other game options can be set in Additional Environment Variables.
-    schema:
-      type: string
-      default: published
-      required: true
-      enum:
-        - value: published
-          description: WebUI - Direct Access
-        - value: exposed
-          description: WebUI - Shared Docker Network
-        - value: headless
-          description: Environment Variables - WebUI Disabled
-
-  - variable: game_settings
-    label: Initial World Settings
-    group: Server Setup
-    description: Used only when the WebUI is disabled. Size and difficulty apply only when creating a new world.
+  - variable: tModLoader
+    label: ""
+    group: tModLoader Configuration
     schema:
       type: dict
-      show_if: [["server_management", "=", "headless"]]
       attrs:
         - variable: world_name
           label: World Name
@@ -59,39 +30,32 @@ questions:
           label: World Size
           description: Only applies to newly generated worlds.
           schema:
-            type: string
-            default: "1"
+            type: int
+            default: 1
             required: true
             enum:
-              - value: "1"
+              - value: 1
                 description: Small
-              - value: "2"
+              - value: 2
                 description: Medium
-              - value: "3"
+              - value: 3
                 description: Large
         - variable: world_difficulty
           label: World Difficulty
           description: Only applies to newly generated worlds.
           schema:
-            type: string
-            default: "0"
+            type: int
+            default: 0
             required: true
             enum:
-              - value: "0"
+              - value: 0
                 description: Classic
-              - value: "1"
+              - value: 1
                 description: Expert
-              - value: "2"
+              - value: 2
                 description: Master
-              - value: "3"
+              - value: 3
                 description: Journey
-
-  - variable: tmodloader
-    label: ""
-    group: Server Setup
-    schema:
-      type: dict
-      attrs:
         - variable: additional_envs
           label: Additional Environment Variables
           description: |
@@ -117,120 +81,112 @@ questions:
                       schema:
                         type: string
 
-  - variable: server_port
-    label: Game Server Access
-    group: Network Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: bind_mode
-          label: Port Bind Mode
-          description: |
-            The port bind mode.</br>
-            - Publish: The port will be published on the host for external access.</br>
-            - Expose: The port will be exposed for inter-container communication.</br>
-          schema:
-            type: string
-            default: "published"
-            enum:
-              - value: "published"
-                description: Publish port on the host for external access
-              - value: "exposed"
-                description: Expose port for inter-container communication
-        - variable: port_number
-          label: Port Number
-          schema:
-            type: int
-            default: 30522
-            min: 1
-            max: 65535
-            required: true
-        - variable: host_ips
-          label: Host IPs
-          description: IPs on the host to bind this port
-          schema:
-            type: list
-            show_if: [["bind_mode", "=", "published"]]
-            default: []
-            items:
-              - variable: host_ip
-                label: Host IP
-                schema:
-                  type: string
-                  required: true
-                  $ref:
-                    - definitions/node_bind_ip
-
-  - variable: web_port
-    group: Network Configuration
-    label: WebUI Access
-    description: |
-      On first launch, open the WebUI and enter the one-time setup code from application logs.</br>
-      HTTP access requires a private-network or loopback client; use an HTTPS reverse proxy for other clients.
-    schema:
-      type: dict
-      show_if: [["server_management", "!=", "headless"]]
-      attrs:
-        - variable: port_number
-          label: Port Number
-          schema:
-            type: int
-            default: 30523
-            min: 1
-            max: 65535
-            required: true
-        - variable: host_ips
-          label: Host IPs
-          description: Used only for direct access. Leave empty to bind all host addresses. Ignored for shared Docker network access.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: host_ip
-                label: Host IP
-                schema:
-                  type: string
-                  required: true
-                  $ref:
-                    - definitions/node_bind_ip
-
-
-        - variable: origin
-          label: WebUI Origin (Optional)
-          description: |
-            Leave empty when accessing the WebUI by IP address. For a hostname or reverse proxy,
-            enter the browser-facing origin, including http:// or https:// and any non-default port
-            (for example, https://terraria.example.com). Do not include a path, query, or credentials.
-            This does not change the listening port or enable HTTPS.
-          schema:
-            type: string
-            default: ""
-        - variable: trusted_proxy
-          label: Trusted Proxy (IP Address or Service Name)
-          description: |
-            Optional. Leave empty for direct access without a reverse proxy.
-            Enter the proxy's IPv4/IPv6 address as seen by this container, or its service name/network alias
-            on a shared Docker network (for example, reverse-proxy). Do not enter your browser's IP,
-            a URL, port, subnet, wildcard, or list of addresses.
-            For service names, join the proxy's network using Networks below and use a name you control.
-            Only connections from the configured IP or currently resolved addresses may supply forwarded headers;
-            failed DNS lookups do not grant trust. The proxy must overwrite X-Forwarded-For with one client IP
-            and X-Forwarded-Proto with http or https, and preserve the browser Host header.
-          schema:
-            type: string
-            default: ""
-
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
+        - variable: server_port
+          label: Game Server Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30522
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30523
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: networks
           label: Networks
-          description: Join existing Docker networks for game server or WebUI access, such as a shared network with a reverse proxy.
+          description: The docker networks to join
           schema:
             type: list
+            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -310,11 +266,17 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
-
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -322,8 +284,10 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: tModLoader Data Storage
-          description: Stores worlds, mods, mod configuration, downloaded server runtimes, dashboard settings, and logs at /data. Use a dedicated dataset.
+          label: Data Storage
+          description: |
+            Stores worlds, mods, mod configuration, downloaded server runtimes, dashboard settings, and logs.</br>
+            See https://github.com/Crosis47/tmodloader/wiki/Updates-and-Storage#persistent-folders
           schema:
             type: dict
             attrs:
@@ -398,8 +362,10 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: backups
-          label: tModLoader Backups Storage
-          description: Stores backup archives created by the container at /backups. Use a dedicated dataset.
+          label: Backup Storage
+          description: |
+            Stores backup archives created by the container.</br>
+            See https://github.com/Crosis47/tmodloader/wiki/Updates-and-Storage#persistent-folders
           schema:
             type: dict
             attrs:
@@ -473,7 +439,162 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-
+        - variable: additional_storage
+          label: Additional Storage
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storage_entry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
   - variable: labels
     label: ""
     group: Labels Configuration
