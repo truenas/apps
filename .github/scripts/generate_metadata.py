@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-TrueNAS Apps Capability Manager
+TrueNAS Apps metadata generator
 
-This script analyzes Docker Compose configurations for TrueNAS apps and updates
-their metadata with capability requirements extracted from rendered templates.
+Renders each app with every one of its test values and updates its app.yaml with the
+capabilities and users (run_as_context) of the resulting containers. Also validates
+parts of the app's questions.yaml, ix_values.yaml and app.yaml along the way.
 """
 
 # /// script
@@ -13,1257 +14,740 @@ their metadata with capability requirements extracted from rendered templates.
 # ]
 # ///
 
+import argparse
+import logging
 import os
 import re
-import sys
-import yaml
 import shlex
-import logging
-import argparse
 import subprocess
-from pathlib import Path
-from typing import Any, Dict, List, Set, Optional, Tuple
+import sys
+from collections import defaultdict
 from dataclasses import dataclass
+from pathlib import Path
 
+import yaml
 
-# Global configuration
-class Config:
-    CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
-    PLATFORM = "linux/amd64"
+CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
+PLATFORM = "linux/amd64"
 
-    RE_VAR_NAME = r"^[a-z0-9_]+$"
+APPS_ROOT_DIR = Path("ix-dev")
+TEST_VALUES_DIR = "templates/test_values"
+RENDERED_COMPOSE_PATH = "templates/rendered/docker-compose.yaml"
+APP_METADATA_FILE = "app.yaml"
+APP_VALUES_FILE = "ix_values.yaml"
+QUESTIONS_FILE = "questions.yaml"
 
-    # Directory structure
-    APPS_ROOT_DIR = "ix-dev"
-    TEST_VALUES_DIR = "templates/test_values"
-    RENDERED_COMPOSE_PATH = "templates/rendered/docker-compose.yaml"
+# Special apps excluded from test train
+EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
 
-    # File names
-    APP_METADATA_FILE = "app.yaml"
-    APP_VALUES_FILE = "ix_values.yaml"
-    QUESTIONS_FILE = "questions.yaml"
+# Registries that garbage-collect manifests no longer referenced by a tag,
+# so a digest pin (tag@sha256:...) breaks once the tag moves
+NO_DIGEST_PIN_REGISTRIES = ("quay.io/",)
 
-    # Special apps excluded from test train
-    EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
+# libyaml-backed loader is much faster; fall back if PyYAML was built without it
+YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
-    # Registries that garbage-collect manifests no longer referenced by a tag,
-    # so a digest pin (tag@sha256:...) breaks once the tag moves
-    NO_DIGEST_PIN_REGISTRIES = ("quay.io/",)
+RE_VAR_NAME = re.compile(r"^[a-z0-9_]+$")
+# Existing variable names that predate the naming rule
+VAR_NAME_EXCEPTIONS = {
+    "TZ",
+    "storageEntry",
+    "publicIpDnsProviderEntry",
+    "jenkinsJavaOpt",
+    "jenkinsOption",
+    "aspellDict",
+    "trustedProxy",
+    "extraParam",
+}
 
-    # libyaml-backed loader is much faster; fall back if PyYAML was built without it
-    YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+MEDIA_BASE_URL = "https://media.sys.truenas.net/apps"
+MAINTAINERS = [{"email": "dev@truenas.com", "name": "truenas", "url": "https://www.truenas.com/"}]
 
+# The default "apps" user/group, also used by apps that let the user pick the user to run as
+APPS_ID = 568
 
-# Setup logging
+CAPABILITY_DESCRIPTIONS = {
+    "AUDIT_CONTROL": "able to control audit subsystem configuration",
+    "AUDIT_READ": "able to read audit log entries",
+    "AUDIT_WRITE": "able to write records to audit log",
+    "BLOCK_SUSPEND": "able to block system suspend operations",
+    "BPF": "able to use Berkeley Packet Filter programs",
+    "CHECKPOINT_RESTORE": "able to use checkpoint/restore functionality",
+    "CHOWN": "able to change file ownership arbitrarily",
+    "DAC_OVERRIDE": "able to bypass file permission checks",
+    "DAC_READ_SEARCH": "able to bypass read/execute permission checks",
+    "FOWNER": "able to bypass permission checks for file operations",
+    "FSETID": "able to preserve set-user-ID and set-group-ID bits",
+    "IPC_LOCK": "able to lock memory segments in RAM",
+    "IPC_OWNER": "able to bypass permission checks for IPC operations",
+    "KILL": "able to send signals to any process",
+    "LEASE": "able to establish file leases",
+    "LINUX_IMMUTABLE": "able to set immutable and append-only file attributes",
+    "MAC_ADMIN": "able to configure Mandatory Access Control",
+    "MAC_OVERRIDE": "able to override Mandatory Access Control restrictions",
+    "MKNOD": "able to create special files using mknod()",
+    "NET_ADMIN": "able to perform network administration tasks",
+    "NET_BIND_SERVICE": "able to bind to privileged ports (< 1024)",
+    "NET_BROADCAST": "able to make socket broadcasts",
+    "NET_RAW": "able to use raw and packet sockets",
+    "PERFMON": "able to access performance monitoring interfaces",
+    "SETFCAP": "able to set file capabilities on other files",
+    "SETGID": "able to change group ID of processes",
+    "SETPCAP": "able to transfer capabilities between processes",
+    "SETUID": "able to change user ID of processes",
+    "SYS_ADMIN": "able to perform system administration operations",
+    "SYS_BOOT": "able to reboot and load/unload kernel modules",
+    "SYS_CHROOT": "able to use chroot() system call",
+    "SYS_MODULE": "able to load and unload kernel modules",
+    "SYS_NICE": "able to modify process scheduling priority",
+    "SYS_PACCT": "able to configure process accounting",
+    "SYS_PTRACE": "able to trace and control other processes",
+    "SYS_RAWIO": "able to perform raw I/O operations",
+    "SYS_RESOURCE": "able to override resource limits",
+    "SYS_TIME": "able to set system clock and real-time clock",
+    "SYS_TTY_CONFIG": "able to configure TTY devices",
+    "SYSLOG": "able to perform privileged syslog operations",
+    "WAKE_ALARM": "able to trigger system wake alarms",
+}
+
+# Service names whose title can't be derived from the name itself
+SERVICE_TITLES = {
+    "dssystem": "DS System",
+    "npm": "Nginx Proxy Manager",
+    "npmplus": "Nginx Proxy Manager Plus",
+    "omada": "Omada Controller",
+    "lms": "Lyrion Media Server",
+}
+
+# Host ids that are the same user and group name
+COMMON_ID_NAMES = {
+    0: "root",
+    1: "daemon",
+    2: "bin",
+    3: "sys",
+    7: "lp",
+    8: "mail",
+    9: "news",
+    10: "uucp",
+    13: "proxy",
+    33: "www-data",
+    34: "backup",
+    38: "list",
+    39: "irc",
+    41: "gnats",
+    101: "systemd-timesync",
+    568: "apps",
+    666: "webdav",
+    950: "truenas_admin",
+    986: "libvirt-qemu",
+    998: "polkitd",
+}
+
+USER_NAMES = {
+    4: "sync",
+    5: "games",
+    6: "man",
+    100: "_apt",
+    102: "systemd-network",
+    103: "systemd-resolve",
+    104: "messagebus",
+    105: "avahi",
+    106: "_rpc",
+    107: "statd",
+    108: "consul",
+    109: "nvpd",
+    110: "nslcd",
+    111: "sshd",
+    112: "systemd-coredump",
+    113: "Debian-snmp",
+    114: "ntp",
+    115: "Debian-exim",
+    116: "tftp",
+    117: "sssd",
+    118: "tcpdump",
+    120: "proftpd",
+    121: "ftp",
+    122: "nut",
+    123: "dnsmasq",
+    124: "ladvd",
+    125: "nova",
+    126: "haproxy",
+    127: "uuidd",
+    128: "ntpsec",
+    129: "tss",
+    130: "iperf3",
+    131: "_chrony",
+    999: "netdata",
+    65534: "nobody",
+    **COMMON_ID_NAMES,
+}
+
+GROUP_NAMES = {
+    4: "adm",
+    5: "tty",
+    6: "disk",
+    12: "man",
+    14: "ftp",
+    15: "kmem",
+    20: "dialout",
+    21: "fax",
+    22: "voice",
+    24: "cdrom",
+    25: "floppy",
+    26: "tape",
+    27: "sudo",
+    29: "audio",
+    30: "dip",
+    37: "operator",
+    40: "src",
+    42: "shadow",
+    43: "utmp",
+    44: "video",
+    45: "sasl",
+    46: "plugdev",
+    50: "staff",
+    60: "games",
+    100: "users",
+    102: "systemd-journal",
+    103: "systemd-network",
+    104: "systemd-resolve",
+    105: "input",
+    106: "kvm",
+    107: "render",
+    108: "crontab",
+    109: "netdev",
+    110: "ssh",
+    111: "messagebus",
+    112: "avahi",
+    113: "consul",
+    114: "nvpd",
+    115: "nslcd",
+    116: "systemd-coredump",
+    117: "Debian-snmp",
+    118: "ssl-cert",
+    119: "ntp",
+    120: "Debian-exim",
+    121: "tftp",
+    122: "sssd",
+    123: "tcpdump",
+    124: "rdma",
+    126: "nut",
+    127: "ladvd",
+    128: "libvirt",
+    129: "nova",
+    130: "haproxy",
+    131: "uuidd",
+    132: "i2c",
+    133: "sgx",
+    134: "_ssh",
+    135: "ntpsec",
+    136: "tss",
+    137: "iperf3",
+    138: "_chrony",
+    544: "builtin_administrators",
+    545: "builtin_users",
+    546: "builtin_guests",
+    951: "truenas_readonly_administrators",
+    952: "truenas_sharing_administrators",
+    995: "incus-admin",
+    996: "incus",
+    997: "netdata",
+    999: "docker",
+    65534: "nogroup",
+    **COMMON_ID_NAMES,
+}
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class DockerCapability:
-    """Represents a Docker capability with its human-readable description."""
-
-    name: str
-    description: str
-
-    def to_dict(self) -> Dict[str, str]:
-        return {"description": self.description, "name": self.name}
-
-
 @dataclass
-class AppAnalysisResult:
-    """Results from analyzing an app's Docker compose configurations."""
-
-    capabilities: List[DockerCapability]
-    service_names: List[str]
-    app_version: str
-    service_users: Dict[str, Tuple[int, int]]  # Maps service name to (uid, gid)
-
-
-@dataclass
-class AppManifest:
-    """Represents an app's basic information and test configurations."""
-
-    path: Path
-    name: str
+class App:
     train: str
-    test_value_files: List[str]
-
-
-class DockerCapabilityRegistry:
-    """Registry of Docker capabilities with their descriptions."""
-
-    _CAPABILITY_DESCRIPTIONS = {
-        "AUDIT_CONTROL": "able to control audit subsystem configuration",
-        "AUDIT_READ": "able to read audit log entries",
-        "AUDIT_WRITE": "able to write records to audit log",
-        "BLOCK_SUSPEND": "able to block system suspend operations",
-        "BPF": "able to use Berkeley Packet Filter programs",
-        "CHECKPOINT_RESTORE": "able to use checkpoint/restore functionality",
-        "CHOWN": "able to change file ownership arbitrarily",
-        "DAC_OVERRIDE": "able to bypass file permission checks",
-        "DAC_READ_SEARCH": "able to bypass read/execute permission checks",
-        "FOWNER": "able to bypass permission checks for file operations",
-        "FSETID": "able to preserve set-user-ID and set-group-ID bits",
-        "IPC_LOCK": "able to lock memory segments in RAM",
-        "IPC_OWNER": "able to bypass permission checks for IPC operations",
-        "KILL": "able to send signals to any process",
-        "LEASE": "able to establish file leases",
-        "LINUX_IMMUTABLE": "able to set immutable and append-only file attributes",
-        "MAC_ADMIN": "able to configure Mandatory Access Control",
-        "MAC_OVERRIDE": "able to override Mandatory Access Control restrictions",
-        "MKNOD": "able to create special files using mknod()",
-        "NET_ADMIN": "able to perform network administration tasks",
-        "NET_BIND_SERVICE": "able to bind to privileged ports (< 1024)",
-        "NET_BROADCAST": "able to make socket broadcasts",
-        "NET_RAW": "able to use raw and packet sockets",
-        "PERFMON": "able to access performance monitoring interfaces",
-        "SETFCAP": "able to set file capabilities on other files",
-        "SETGID": "able to change group ID of processes",
-        "SETPCAP": "able to transfer capabilities between processes",
-        "SETUID": "able to change user ID of processes",
-        "SYS_ADMIN": "able to perform system administration operations",
-        "SYS_BOOT": "able to reboot and load/unload kernel modules",
-        "SYS_CHROOT": "able to use chroot() system call",
-        "SYS_MODULE": "able to load and unload kernel modules",
-        "SYS_NICE": "able to modify process scheduling priority",
-        "SYS_PACCT": "able to configure process accounting",
-        "SYS_PTRACE": "able to trace and control other processes",
-        "SYS_RAWIO": "able to perform raw I/O operations",
-        "SYS_RESOURCE": "able to override resource limits",
-        "SYS_TIME": "able to set system clock and real-time clock",
-        "SYS_TTY_CONFIG": "able to configure TTY devices",
-        "SYSLOG": "able to perform privileged syslog operations",
-        "WAKE_ALARM": "able to trigger system wake alarms",
-    }
-
-    _RENAME_MAPPINGS = {
-        "dssystem": "DS System",
-        "npm": "Nginx Proxy Manager",
-        "npmplus": "Nginx Proxy Manager Plus",
-        "omada": "Omada Controller",
-        "lms": "Lyrion Media Server",
-    }
-
-    _USER_MAPPINGS = {
-        4: "sync",
-        5: "games",
-        6: "man",
-        100: "_apt",
-        102: "systemd-network",
-        103: "systemd-resolve",
-        104: "messagebus",
-        105: "avahi",
-        106: "_rpc",
-        107: "statd",
-        108: "consul",
-        109: "nvpd",
-        110: "nslcd",
-        111: "sshd",
-        112: "systemd-coredump",
-        113: "Debian-snmp",
-        114: "ntp",
-        115: "Debian-exim",
-        116: "tftp",
-        117: "sssd",
-        118: "tcpdump",
-        120: "proftpd",
-        121: "ftp",
-        122: "nut",
-        123: "dnsmasq",
-        124: "ladvd",
-        125: "nova",
-        126: "haproxy",
-        127: "uuidd",
-        128: "ntpsec",
-        129: "tss",
-        130: "iperf3",
-        131: "_chrony",
-        999: "netdata",
-        65534: "nobody",
-    }
-
-    _GROUP_MAPPINGS = {
-        4: "adm",
-        5: "tty",
-        6: "disk",
-        12: "man",
-        14: "ftp",
-        15: "kmem",
-        20: "dialout",
-        21: "fax",
-        22: "voice",
-        24: "cdrom",
-        25: "floppy",
-        26: "tape",
-        27: "sudo",
-        29: "audio",
-        30: "dip",
-        37: "operator",
-        40: "src",
-        42: "shadow",
-        43: "utmp",
-        44: "video",
-        45: "sasl",
-        46: "plugdev",
-        50: "staff",
-        60: "games",
-        100: "users",
-        102: "systemd-journal",
-        103: "systemd-network",
-        104: "systemd-resolve",
-        105: "input",
-        106: "kvm",
-        107: "render",
-        108: "crontab",
-        109: "netdev",
-        110: "ssh",
-        111: "messagebus",
-        112: "avahi",
-        113: "consul",
-        114: "nvpd",
-        115: "nslcd",
-        116: "systemd-coredump",
-        117: "Debian-snmp",
-        118: "ssl-cert",
-        119: "ntp",
-        120: "Debian-exim",
-        121: "tftp",
-        122: "sssd",
-        123: "tcpdump",
-        124: "rdma",
-        126: "nut",
-        127: "ladvd",
-        128: "libvirt",
-        129: "nova",
-        130: "haproxy",
-        131: "uuidd",
-        132: "i2c",
-        133: "sgx",
-        134: "_ssh",
-        135: "ntpsec",
-        136: "tss",
-        137: "iperf3",
-        138: "_chrony",
-        544: "builtin_administrators",
-        545: "builtin_users",
-        546: "builtin_guests",
-        951: "truenas_readonly_administrators",
-        952: "truenas_sharing_administrators",
-        995: "incus-admin",
-        996: "incus",
-        997: "netdata",
-        999: "docker",
-        65534: "nogroup",
-    }
-
-    _COMMON_UID_GID_MAPPINGS = {
-        0: "root",
-        1: "daemon",
-        2: "bin",
-        3: "sys",
-        7: "lp",
-        8: "mail",
-        9: "news",
-        10: "uucp",
-        13: "proxy",
-        33: "www-data",
-        34: "backup",
-        38: "list",
-        39: "irc",
-        41: "gnats",
-        101: "systemd-timesync",
-        568: "apps",
-        666: "webdav",
-        950: "truenas_admin",
-        986: "libvirt-qemu",
-        998: "polkitd",
-    }
-
-    @staticmethod
-    def service_name_to_title(service_name: str) -> str:
-        """Convert a service name to a human-readable title."""
-        return service_name.replace("-", " ").replace("_", " ").title()
-
-    @staticmethod
-    def hash_service_name(service_name: str) -> str:
-        """Hash a service name to a short, unique identifier."""
-        return service_name.lower().replace("_", "").replace("-", "").replace(" ", "")
-
-    @classmethod
-    def uid_to_user_name(cls, uid: int) -> str:
-        """Convert a UID to a human-readable user name."""
-        if uid in cls._COMMON_UID_GID_MAPPINGS:
-            return f"Host user is [{cls._COMMON_UID_GID_MAPPINGS[uid]}]"
-        elif uid in cls._USER_MAPPINGS:
-            return f"Host user is [{cls._USER_MAPPINGS[uid]}]"
-        else:
-            # log warning
-            logger.warning(f"Unknown UID: {uid}")
-            return f"Host user is [unknown ({uid})]"
-
-    @classmethod
-    def gid_to_group_name(cls, gid: int) -> str:
-        """Convert a GID to a human-readable group name."""
-        if gid in cls._COMMON_UID_GID_MAPPINGS:
-            return f"Host group is [{cls._COMMON_UID_GID_MAPPINGS[gid]}]"
-        elif gid in cls._GROUP_MAPPINGS:
-            return f"Host group is [{cls._GROUP_MAPPINGS[gid]}]"
-        else:
-            # log warning
-            logger.warning(f"Unknown GID: {gid}")
-            return f"Host group is [unknown ({gid})]"
-
-    @classmethod
-    def create_capability_description(cls, capability_name: str, service_names: List[str], title: str) -> str:
-        """Create a human-readable description for a capability and its services."""
-        if capability_name not in cls._CAPABILITY_DESCRIPTIONS:
-            raise ValueError(f"Unknown capability: {capability_name}")
-
-        if not service_names:
-            raise ValueError(f"No services provided for capability: {capability_name}")
-        clean_service_names = set()
-        for name in service_names:
-            parts = name.split("-")
-            if parts[-1].isnumeric():
-                name = "-".join(parts[:-1])
-            clean_service_names.add(name)
-
-        formatted_services = []
-        for name in clean_service_names:
-            if cls.hash_service_name(name) == cls.hash_service_name(title):
-                formatted_services.append(title)
-            elif name.lower() in cls._RENAME_MAPPINGS:
-                formatted_services.append(cls._RENAME_MAPPINGS[name.lower()])
-            else:
-                formatted_services.append(cls.service_name_to_title(name))
-
-        base_description = cls._CAPABILITY_DESCRIPTIONS[capability_name]
-
-        if len(formatted_services) == 1:
-            return f"{formatted_services[0]} is {base_description}"
-        else:
-            return f"{', '.join(sorted(formatted_services))} are {base_description}"
-
-
-class FileSystemCache:
-    """Simple file system cache to avoid repeated file reads."""
-
-    def __init__(self):
-        self._yaml_cache = {}
-
-    def read_yaml_file(self, file_path: Path) -> Dict:
-        """Read and cache YAML file contents."""
-        # Convert to string for hashing
-        file_key = str(file_path)
-
-        # Check if file is cached and still valid
-        if file_key in self._yaml_cache:
-            cached_data, cached_mtime = self._yaml_cache[file_key]
-            try:
-                current_mtime = file_path.stat().st_mtime
-                if current_mtime == cached_mtime:
-                    return cached_data
-            except OSError:
-                # File might have been deleted, remove from cache
-                del self._yaml_cache[file_key]
-
-        # Read and cache the file
-        try:
-            with open(file_path, "r") as f:
-                data = yaml.load(f, Loader=Config.YAML_LOADER)
-
-            # Ensure we have a dict
-            if not isinstance(data, dict):
-                raise ValueError(f"YAML file {file_path} must contain a dictionary at root level, got {type(data)}")
-
-            # Cache with modification time
-            mtime = file_path.stat().st_mtime
-            self._yaml_cache[file_key] = (data, mtime)
-            return data
-
-        except (IOError, yaml.YAMLError) as e:
-            raise RuntimeError(f"Failed to read YAML file {file_path}") from e
-
-    def write_yaml_file(self, file_path: Path, data: Dict) -> None:
-        """Write YAML data to file and invalidate cache."""
-        try:
-            with open(file_path, "w") as f:
-                yaml.dump(data, f, default_flow_style=False, sort_keys=False)
-
-            # Remove from cache since file was modified
-            file_key = str(file_path)
-            if file_key in self._yaml_cache:
-                del self._yaml_cache[file_key]
-
-        except IOError as e:
-            raise RuntimeError(f"Failed to write YAML file {file_path}") from e
-
-    def clear_cache(self) -> None:
-        """Clear all cached data."""
-        self._yaml_cache.clear()
-
-
-class AppDiscoveryService:
-    """Service for discovering and validating TrueNAS apps."""
-
-    def __init__(self, apps_root_dir: str = Config.APPS_ROOT_DIR):
-        self.apps_root_path = Path(apps_root_dir)
-
-    def discover_all_apps(self) -> List[AppManifest]:
-        """Discover all valid apps across all trains."""
-        if not self.apps_root_path.exists():
-            logger.error(f"Apps root directory {self.apps_root_path} does not exist")
-            return []
-
-        all_apps = []
-        for train_path in self.apps_root_path.iterdir():
-            if not train_path.is_dir():
-                continue
-
-            train_name = train_path.name
-            logger.info(f"Scanning train: {train_name}")
-
-            train_apps = self._discover_apps_in_train(train_path, train_name)
-            all_apps.extend(train_apps)
-
-        logger.info(f"Discovered {len(all_apps)} apps total")
-        return all_apps
-
-    def discover_single_app(self, train_name: str, app_name: str) -> Optional[AppManifest]:
-        """Discover a specific app by train and name."""
-        app_path = self.apps_root_path / train_name / app_name
-        return self._create_app_manifest(app_path, train_name)
-
-    def _discover_apps_in_train(self, train_path: Path, train_name: str) -> List[AppManifest]:
-        """Discover all apps within a specific train."""
-        apps = []
-        for app_path in train_path.iterdir():
-            if not app_path.is_dir():
-                continue
-
-            app_manifest = self._create_app_manifest(app_path, train_name)
-            if app_manifest:
-                apps.append(app_manifest)
-
-        return apps
-
-    def _create_app_manifest(self, app_path: Path, train_name: str) -> Optional[AppManifest]:
-        """Create an AppManifest for a single app directory."""
-        app_name = app_path.name
-
-        # Skip excluded apps in test train
-        if train_name == "test" and app_name in Config.EXCLUDED_TEST_APPS:
-            logger.debug(f"Skipping excluded test app: {app_name}")
-            return None
-
-        # Validate required files exist
-        if not (app_path / Config.APP_METADATA_FILE).exists():
-            logger.warning(f"Skipping {app_path}: missing {Config.APP_METADATA_FILE}")
-            return None
-
-        # Find test value files
-        test_values_path = app_path / Config.TEST_VALUES_DIR
-        test_value_files = []
-
-        if test_values_path.exists():
-            test_value_files = sorted(
-                f.name for f in test_values_path.iterdir() if f.is_file() and f.suffix == ".yaml"
-            )
-
-        if not test_value_files:
-            logger.warning(f"No test values found for {app_path}")
-
-        logger.debug(f"Found app: {app_path} with {len(test_value_files)} test configurations")
-        return AppManifest(path=app_path, name=app_name, train=train_name, test_value_files=test_value_files)
-
-
-class DockerComposeRenderer:
-    """Handles rendering TrueNAS apps using Docker container."""
-
-    def __init__(self, container_image: str = Config.CONTAINER_IMAGE, platform: str = Config.PLATFORM):
-        self.container_image = container_image
-        self.platform = platform
-
-    def render_app_with_values(self, app_manifest: AppManifest, test_values_filename: str) -> Dict:
-        """Render an app with specific test values and return compose data."""
-        workspace_path = os.getcwd()
-        values_path = app_manifest.path / Config.TEST_VALUES_DIR / test_values_filename
-        compose_path = app_manifest.path / Config.RENDERED_COMPOSE_PATH
-
-        # Render and fix the rendered file's permissions in a single container
-        render_cmd = shlex.join(
-            [
-                "apps_render_app",
-                "render",
-                f"--path=/workspace/{app_manifest.path}",
-                f"--values=/workspace/{values_path}",
-            ]
-        )
-        chmod_cmd = shlex.join(["chmod", "777", f"/workspace/{compose_path}"])
-
-        docker_cmd = [
-            "docker",
-            "run",
-            f"--platform={self.platform}",
-            "--quiet",
-            "--rm",
-            "-e FAKE_ENV=1",
-            f"-v={workspace_path}:/workspace",
-            "-v=/var/run/docker.sock:/var/run/docker.sock:ro",
-            "--entrypoint=/bin/bash",
-            self.container_image,
-            "-c",
-            f"{render_cmd} && {chmod_cmd}",
-        ]
-
-        logger.debug(f"Rendering: {' '.join(docker_cmd)}")
-
-        try:
-            result = subprocess.run(docker_cmd, capture_output=True, text=True, check=True)
-            logger.debug(f"Successfully rendered {app_manifest.name} with {test_values_filename}")
-
-            if result.stdout:
-                logger.debug(f"Render output: {result.stdout}")
-
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to render {app_manifest.name}/{test_values_filename}")
-            logger.error(f"Docker error: {e.stderr}")
-            raise RuntimeError(f"Rendering failed for {app_manifest.name}") from e
-
-        # Read rendered compose file
-        if not compose_path.exists():
-            raise FileNotFoundError(f"Rendered compose file not found: {compose_path}")
-
-        try:
-            with open(compose_path, "r") as f:
-                data = yaml.load(f, Loader=Config.YAML_LOADER)
-
-            # Ensure we have a dict
-            if not isinstance(data, dict):
-                raise ValueError(f"YAML file {compose_path} must contain a dictionary at root level, got {type(data)}")
-            return data
-
-        except yaml.YAMLError as e:
-            raise RuntimeError(f"Failed to parse rendered compose: {compose_path}") from e
-
-
-class DockerComposeAnalyzer:
-    """Analyzes Docker Compose configurations for service capabilities."""
-
-    @staticmethod
-    def extract_service_names(compose_data: Dict, include_short_lived: bool = False) -> List[str]:
-        """Extract service names from compose data, optionally including short-lived services."""
-        services = compose_data.get("services", {})
+    name: str
+    path: Path
+    test_values: list[str]
+
+
+@dataclass
+class Analysis:
+    """What an app's containers look like across all of its test values."""
+
+    service_names: set[str]
+    # capability -> services that add it
+    capabilities: dict[str, set[str]]
+    # service -> (uid, gid) of each test value
+    users: dict[str, list[tuple[int, int]]]
+
+
+def read_yaml(path: Path) -> dict:
+    with open(path) as f:
+        data = yaml.load(f, Loader=YAML_LOADER)
+    if not isinstance(data, dict):
+        raise ValueError(f"YAML file {path} must contain a dictionary at root level, got {type(data)}")
+    return data
+
+
+def write_yaml(path: Path, data: dict) -> None:
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+
+# Discovery
+
+
+def load_app(train: str, path: Path) -> App | None:
+    if train == "test" and path.name in EXCLUDED_TEST_APPS:
+        logger.debug(f"Skipping excluded test app: {path.name}")
+        return None
+
+    if not (path / APP_METADATA_FILE).exists():
+        logger.warning(f"Skipping {path}: missing {APP_METADATA_FILE}")
+        return None
+
+    values_dir = path / TEST_VALUES_DIR
+    test_values = []
+    if values_dir.exists():
+        test_values = sorted(f.name for f in values_dir.iterdir() if f.is_file() and f.suffix == ".yaml")
+
+    return App(train=train, name=path.name, path=path, test_values=test_values)
+
+
+def load_all_apps() -> list[App]:
+    apps = []
+    for train_path in sorted(APPS_ROOT_DIR.iterdir()):
+        if not train_path.is_dir():
+            continue
+        logger.info(f"Scanning train: {train_path.name}")
+        for app_path in sorted(train_path.iterdir()):
+            if app_path.is_dir() and (app := load_app(train_path.name, app_path)):
+                apps.append(app)
+
+    logger.info(f"Discovered {len(apps)} apps total")
+    return apps
+
+
+# Rendering and analysis
+
+
+def render(app: App, values_file: str) -> dict:
+    """Render the app with the given test values and return the compose data."""
+    values_path = app.path / TEST_VALUES_DIR / values_file
+    compose_path = app.path / RENDERED_COMPOSE_PATH
+
+    # Render and make the (root owned) rendered file readable in a single container
+    render_cmd = shlex.join(
+        ["apps_render_app", "render", f"--path=/workspace/{app.path}", f"--values=/workspace/{values_path}"]
+    )
+    chmod_cmd = shlex.join(["chmod", "777", f"/workspace/{compose_path}"])
+    docker_cmd = [
+        "docker",
+        "run",
+        f"--platform={PLATFORM}",
+        "--quiet",
+        "--rm",
+        "-e",
+        "FAKE_ENV=1",
+        f"-v={os.getcwd()}:/workspace",
+        "-v=/var/run/docker.sock:/var/run/docker.sock:ro",
+        "--entrypoint=/bin/bash",
+        CONTAINER_IMAGE,
+        "-c",
+        f"{render_cmd} && {chmod_cmd}",
+    ]
+
+    logger.debug(f"Rendering: {shlex.join(docker_cmd)}")
+    result = subprocess.run(docker_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Rendering {app.name} with {values_file} failed:\n{result.stderr}")
+
+    return read_yaml(compose_path)
+
+
+def parse_user(service: str, user) -> tuple[int, int]:
+    """Parse a compose "uid:gid" user directive."""
+    uid, _, gid = user.partition(":") if isinstance(user, str) else ("", "", "")
+    if not uid.isdigit() or not gid.isdigit():
+        raise ValueError(f"Service {service} has invalid user directive: {user!r}. Expected numeric 'uid:gid'")
+    return int(uid), int(gid)
+
+
+def analyze(app: App) -> Analysis:
+    analysis = Analysis(service_names=set(), capabilities=defaultdict(set), users=defaultdict(list))
+
+    for values_file in app.test_values:
+        logger.debug(f"Processing {app.name} with {values_file}")
+        services = render(app, values_file).get("services")
         if not services:
-            raise ValueError("No services found in compose data")
+            raise ValueError(f"No services found when rendering {app.name} with {values_file}")
 
-        service_names = []
-        for service_name, service_config in services.items():
-            if not include_short_lived:
-                restart_policy = service_config.get("restart", "")
-                if restart_policy.startswith("on-failure"):
-                    logger.debug(f"Skipping short-lived service: {service_name}")
-                    continue
+        for name, config in services.items():
+            restart = config.get("restart", "")
+            # Short-lived services (init/setup containers) are not part of the app's surface
+            if restart.startswith("on-failure"):
+                logger.debug(f"Skipping short-lived service: {name}")
+                continue
+            analysis.service_names.add(name)
 
-            service_names.append(service_name)
-
-        return service_names
-
-    @staticmethod
-    def extract_capabilities_by_service(compose_data: Dict) -> Dict[str, Set[str]]:
-        """Extract capabilities grouped by service from compose data."""
-        services = compose_data.get("services", {})
-        if not services:
-            raise ValueError("No services found in compose data")
-
-        service_capabilities = {}
-
-        for service_name, service_config in services.items():
-            restart_policy = service_config.get("restart", "")
-
-            # Skip services without restart policy
-            if not restart_policy:
-                logger.warning(f"No restart policy for service: {service_name}")
+            if not restart:
+                logger.warning(f"No restart policy for service: {name}")
                 continue
 
-            # Skip short-lived services
-            if restart_policy.startswith("on-failure"):
-                logger.debug(f"Skipping short-lived service: {service_name}")
-                continue
-
-            # Validate cap_drop configuration
-            if "cap_drop" not in service_config:
+            if "cap_drop" not in config:
                 logger.error(
-                    f"No cap_drop for service: {service_name}. Consider explicitly setting the defaults via cap_add "
+                    f"No cap_drop for service: {name}. Consider explicitly setting the defaults via cap_add "
                     "https://github.com/moby/moby/blob/7a0bf747f5c25da0794e42d5f9e5a40db5a7786e/oci/caps/defaults.go#L4"
                 )
-            elif service_config["cap_drop"] != ["ALL"]:
-                logger.error(f"Non-standard cap_drop for service: {service_name}")
-
-            # Extract capabilities
-            if "cap_add" in service_config:
-                capabilities = set(service_config["cap_add"])
-                if capabilities:
-                    service_capabilities[service_name] = capabilities
-                    logger.debug(f"Service {service_name} capabilities: {capabilities}")
-
-        return service_capabilities
-
-    @staticmethod
-    def extract_user_by_service(compose_data: Dict) -> Dict[str, Tuple[int, int]]:
-        """Extract user directive grouped by service from compose data.
-        Returns a dict mapping service name to (uid, gid) tuple.
-        Expects format "uid:gid". Defaults to (0, 0) for root if not specified."""
-        services = compose_data.get("services", {})
-        if not services:
-            raise ValueError("No services found in compose data")
-
-        service_users = {}
-
-        for service_name, service_config in services.items():
-            restart_policy = service_config.get("restart", "")
-
-            # Skip services without restart policy
-            if not restart_policy:
-                logger.warning(f"No restart policy for service: {service_name}")
-                continue
-
-            # Skip short-lived services
-            if restart_policy.startswith("on-failure"):
-                logger.debug(f"Skipping short-lived service: {service_name}")
-                continue
-
-            # Extract user directive, default to "0:0" (root) if not present
-            user_directive = service_config.get("user", "0:0")
-
-            # Parse user directive (format must be "uid:gid")
-            if isinstance(user_directive, str):
-                if ":" not in user_directive:
-                    raise ValueError(
-                        f"Service {service_name} has invalid user directive format: {user_directive}. "
-                        f"Expected format is 'uid:gid'"
-                    )
-
-                parts = user_directive.split(":")
-                if len(parts) != 2:
-                    raise ValueError(
-                        f"Service {service_name} has invalid user directive format: {user_directive}. "
-                        f"Expected format is 'uid:gid'"
-                    )
-
-                uid_part, gid_part = parts
-                try:
-                    uid = int(uid_part)
-                    gid = int(gid_part)
-                except ValueError:
-                    raise ValueError(
-                        f"Service {service_name} has non-numeric user directive: {user_directive}. "
-                        f"Both uid and gid must be numeric"
-                    )
-            else:
-                raise ValueError(
-                    f"Service {service_name} has unexpected user directive type: {type(user_directive)}. "
-                    f"Expected string format 'uid:gid'"
-                )
-
-            service_users[service_name] = (uid, gid)
-            logger.debug(f"Service {service_name} user: {uid}:{gid}")
-
-        return service_users
-
-
-class AppQuestionsValidator:
-    """Validates app questions configuration against actual services."""
-
-    def __init__(self, file_cache: FileSystemCache):
-        self.file_cache = file_cache
-
-    def validate_question(self, question: Dict) -> None:
-        """Validate a single question configuration."""
-        if "variable" not in question:
-            raise ValueError("Question missing variable field")
-
-        variable_name = question["variable"]
-        if variable_name == "TZ":
-            return
-
-        if variable_name not in [
-            "storageEntry",
-            "publicIpDnsProviderEntry",
-            "jenkinsJavaOpt",
-            "jenkinsOption",
-            "aspellDict",
-            "trustedProxy",
-            "extraParam",
-        ]:
-            if not re.match(Config.RE_VAR_NAME, variable_name):
-                raise ValueError(f"Invalid variable name: {variable_name}")
-
-        schema = question["schema"]
-        schema_type = schema["type"]
-        if schema_type == "dict":
-            for attr in schema["attrs"]:
-                self.validate_question(attr)
-        elif schema_type == "list":
-            if "min_length" in schema:
-                raise ValueError(f"List schema with min_length not supported, use min: {schema}")
-            for item in schema["items"]:
-                self.validate_question(item)
-
-    def validate_variable_names(self, app_manifest: AppManifest) -> None:
-        """Validate that variable names in questions match service names."""
-        questions_path = app_manifest.path / Config.QUESTIONS_FILE
-        if not questions_path.exists():
-            raise FileNotFoundError(f"Questions file not found: {questions_path}")
-
-        questions_config = self.file_cache.read_yaml_file(questions_path)
-        if not isinstance(questions_config, dict):
-            raise ValueError(f"Invalid questions config in {questions_path}")
-
-        for question in questions_config.get("questions", []):
-            self.validate_question(question)
-
-    def validate_container_labels_section(self, app_manifest: AppManifest, service_names: List[str]) -> None:
-        """Validate that container labels section matches actual service names."""
-        questions_path = app_manifest.path / Config.QUESTIONS_FILE
-        if not questions_path.exists():
-            raise FileNotFoundError(f"Questions file not found: {questions_path}")
-
-        questions_config = self.file_cache.read_yaml_file(questions_path)
-        if not isinstance(questions_config, dict):
-            raise ValueError(f"Invalid questions config in {questions_path}")
-
-        new_enum = [{"value": name, "description": name} for name in service_names]
-
-        def check_containers_enum(enum_item, section_name):
-            old_enum = enum_item["schema"]["enum"]
-
-            old_values = {item["value"] for item in old_enum}
-            new_values = {item["value"] for item in new_enum}
-
-            if old_values != new_values:
-                raise ValueError(
-                    f"Container {section_name} section should have {sorted(new_values)} "
-                    f"but has {sorted(old_values)}"
-                )
-
-        def check_labels():
-            # Find the labels question and validate containers enum
-            for question in questions_config.get("questions", []):
-                # Find the questions{}.labels[{}] question
-                if question.get("variable") != "labels":
-                    continue
-
-                # questions.labels
-                for attr in question["schema"]["items"][0]["schema"]["attrs"]:
-                    # Find the questions{}.labels[{}].containers[str] question
-                    if attr.get("variable") != "containers":
-                        continue
-
-                    # questions.labels.containers
-                    enum_item = attr["schema"]["items"][0]
-                    check_containers_enum(enum_item, "labels")
-                    return
-
-        def check_network():
-            # Find the network question and validate containers enum
-            for question in questions_config.get("questions", []):
-                # Find the questions{}.network{} question
-                if question.get("variable") != "network":
-                    continue
-
-                for item in question["schema"]["attrs"]:
-                    # Find the questions{}.network{}.networks[{}] question
-                    if item.get("variable") != "networks":
-                        continue
-
-                    for attr in item["schema"]["items"][0]["schema"]["attrs"]:
-                        # Find the questions{}.network{}.networks[{}].containers[{}] question
-                        if attr.get("variable") != "containers":
-                            continue
-
-                        for attr_item in attr["schema"]["items"][0]["schema"]["attrs"]:
-                            # Find the questions{}.network{}.networks[{}].containers[{}].name question
-                            if attr_item.get("variable") != "name":
-                                continue
-
-                            check_containers_enum(attr_item, "network.networks.containers.name")
-                            return
-
-        check_labels()
-        check_network()
-
-
-class AppImagesValidator:
-    """Validates the images defined in ix_values.yaml."""
-
-    def __init__(self, file_cache: FileSystemCache):
-        self.file_cache = file_cache
-
-    def validate_digest_pins(self, app_manifest: AppManifest) -> None:
-        """Fail on digest pinned images from registries that prune untagged manifests."""
-        values_path = app_manifest.path / Config.APP_VALUES_FILE
-        if not values_path.exists():
-            return
-
-        values_config = self.file_cache.read_yaml_file(values_path)
-        for name, image in (values_config.get("images") or {}).items():
-            repo = image.get("repository", "")
-            tag = str(image.get("tag", ""))
-            if repo.startswith(Config.NO_DIGEST_PIN_REGISTRIES) and "@" in tag:
-                raise ValueError(
-                    f"Image [{name}] ({repo}) must not be pinned to a digest in {values_path}. "
-                    f"Registries {list(Config.NO_DIGEST_PIN_REGISTRIES)} prune manifests that are no longer tagged."
-                )
-
-
-class AppVersionManager:
-    """Manages app version information and updates."""
-
-    def __init__(self, file_cache: FileSystemCache, should_bump_versions: bool = True):
-        self.file_cache = file_cache
-        self.should_bump_versions = should_bump_versions
-
-    def get_current_app_version(self, app_manifest: AppManifest) -> str:
-        """Get the current app version from appropriate source."""
-        # Special case for ix-app
-        if str(app_manifest.path) == f"{Config.APPS_ROOT_DIR}/stable/ix-app":
-            app_config = self.file_cache.read_yaml_file(app_manifest.path / Config.APP_METADATA_FILE)
-            return app_config["version"]
-
-        # Regular apps use ix_values.yaml
-        values_path = app_manifest.path / Config.APP_VALUES_FILE
-        if not values_path.exists():
-            raise FileNotFoundError(f"App values file not found: {values_path}")
-
-        values_config = self.file_cache.read_yaml_file(values_path)
-        # "images.image" is the main image of the app, its tag is used as the app_version
-        image = (values_config.get("images") or {}).get("image")
-        if not isinstance(image, dict):
-            raise ValueError(f"Missing [images.image] in {values_path}, it is required for the app_version")
-        tag = image.get("tag")
-        if not tag or not isinstance(tag, str):
-            raise ValueError(f"Missing or non-string [images.image.tag] in {values_path}")
-        # Drop the digest pin (tag@sha256:...), it is not part of the version
-        return tag.split("@")[0]
-
-    def increment_patch_version(self, version: str) -> str:
-        """Increment the patch version number."""
-        if not self.should_bump_versions:
-            return version
-
-        try:
-            parts = version.split(".")
-            if len(parts) != 3:
-                raise ValueError("Version must be in format x.y.z")
-
-            parts[2] = str(int(parts[2]) + 1)
-            return ".".join(parts)
-        except (ValueError, IndexError) as e:
-            raise ValueError(f"Invalid version format: {version}") from e
-
-
-class AppMetadataUpdater:
-    """Updates app metadata files with capability information."""
-
-    def __init__(self, file_cache: FileSystemCache, version_manager: AppVersionManager):
-        self.file_cache = file_cache
-        self.version_manager = version_manager
-
-    @staticmethod
-    def create_run_as_context(service_users: Dict[str, Tuple[int, int]]) -> List[Dict[str, Any]]:
-        """Create run_as_context list based on service user values."""
-        run_as_context = []
-
-        for service_name, (uid, gid) in sorted(service_users.items()):
-            # Determine user type
-            if uid == 0:
-                user_type = "root user"
-            elif uid == 568:
-                user_type = "any non-root user"
-            else:
-                user_type = "non-root user"
-
-            # Determine group type
-            if gid == 0:
-                group_type = "root group"
-            elif gid == 568:
-                group_type = "any non-root group"
-            else:
-                group_type = "non-root group"
-
-            # Create description
-            if uid == 0 and gid == 0:
-                description = f"Container [{service_name}] runs as root user and group."
-            elif uid == 568 and gid == 568:
-                description = f"Container [{service_name}] can run as any non-root user and group."
-            elif uid != 0 and uid != 568 and gid != 0 and gid != 568:
-                description = f"Container [{service_name}] runs as non-root user and group."
-            elif uid == 568:
-                description = f"Container [{service_name}] can run as any non-root user and {group_type}."
-            elif gid == 568:
-                description = f"Container [{service_name}] runs as {user_type} and any non-root group."
-            else:
-                description = f"Container [{service_name}] runs as {user_type} and {group_type}."
-
-            context = {
-                "description": description,
-                "gid": gid,
-                "group_name": DockerCapabilityRegistry.gid_to_group_name(gid),
-                "uid": uid,
-                "user_name": DockerCapabilityRegistry.uid_to_user_name(uid),
-            }
-
-            run_as_context.append(context)
-
-        return run_as_context
-
-    def update_app_metadata(
-        self,
-        app_manifest: AppManifest,
-        capabilities: List[DockerCapability],
-        current_app_version: str,
-        service_users: Dict[str, Tuple[int, int]],
-        should_bump_version: bool = True,
-    ) -> None:
-        """Update app.yaml with new capabilities, run_as_context, and version information."""
-        app_metadata_path = app_manifest.path / Config.APP_METADATA_FILE
-        app_config = self.file_cache.read_yaml_file(app_metadata_path)
-
-        if not isinstance(app_config, dict):
-            raise ValueError(f"Invalid app config in {app_metadata_path}")
-
-        # Validate app configuration (warnings only)
-        self._validate_app_configuration(app_manifest, app_config)
-
-        # Check if update is needed
-        needs_version_bump = False
-
-        # Update app version if changed
-        old_app_version = app_config.get("app_version", "")
-        # If the old app version is a substring of the current version, keep it
-        # Example new version is 1.2.3-debian and app_version is 1.2.3. This is fine.
-        if old_app_version in current_app_version:
-            current_app_version = old_app_version
-        if current_app_version != old_app_version:
-            needs_version_bump = True
-        app_config["app_version"] = current_app_version
-
-        # Update capabilities if changed
-        new_capabilities_data = sorted([cap.to_dict() for cap in capabilities], key=lambda c: c["name"])
-        old_capabilities_data = sorted(app_config.get("capabilities", []), key=lambda c: c["name"])
-
-        if old_capabilities_data != new_capabilities_data:
-            needs_version_bump = True
-        app_config["capabilities"] = new_capabilities_data
-
-        # Update run_as_context if changed
-        new_run_as_context = self.create_run_as_context(service_users)
-        old_run_as_context = app_config.get("run_as_context", [])
-
-        if old_run_as_context != new_run_as_context:
-            needs_version_bump = True
-        app_config["run_as_context"] = new_run_as_context
-
-        new_maintainers = [{"email": "dev@truenas.com", "name": "truenas", "url": "https://www.truenas.com/"}]
-        if app_config.get("maintainers", []) != new_maintainers:
-            app_config["maintainers"] = new_maintainers
-            needs_version_bump = True
-
-        app_source = f"https://apps.truenas.com/catalog/{app_manifest.name}_{app_manifest.train}/"
-        curr_sources = set(app_config.get("sources", []))
-        curr_sources.add(app_source)
-        if set(app_config.get("sources", [])) != curr_sources:
-            app_config["sources"] = sorted(curr_sources)
-            needs_version_bump = True
-
-        # Bump version if needed
-        if needs_version_bump and should_bump_version:
-            old_version = app_config["version"]
-            new_version = self.version_manager.increment_patch_version(old_version)
-            app_config["version"] = new_version
-            logger.info(f"Updated {app_manifest.name} version: {old_version} → {new_version}")
-
-        # Write updated configuration
-        self.file_cache.write_yaml_file(app_metadata_path, app_config)
-
-    def _validate_app_configuration(self, app_manifest: AppManifest, app_config: Dict) -> None:
-        """Validate app configuration and log warnings for issues."""
-        app_name = app_config.get("name", app_manifest.name)
-
-        # Check for multiple categories
-        categories = app_config.get("categories", [])
-        if len(categories) > 1:
-            raise ValueError(
-                f"{app_manifest.name}: app.yaml must have exactly 1 category, found {len(categories)}: {categories}"
-            )
-
-        # Check for missing fields
-        if "date_added" not in app_config:
-            logger.warning(f"{app_manifest.name}: missing date_added")
-        if "changelog_url" not in app_config:
-            logger.warning(f"{app_manifest.name}: missing changelog_url")
-
-        # Validate media URLs
-        expected_base_url = "https://media.sys.truenas.net/apps"
-        app_expected_base_url = f"{expected_base_url}/{app_name}"
-
-        icon_url = app_config.get("icon", "")
-        if not icon_url.startswith(expected_base_url):
-            logger.error(f"{app_manifest.name}: invalid icon URL: {icon_url}. Must use {expected_base_url} as base")
-            sys.exit(1)
-
-        if not icon_url.startswith(f"{app_expected_base_url}/icons/"):
-            logger.warning(f"{app_manifest.name}: invalid icon URL: {icon_url}")
-
-        for ss_url in app_config.get("screenshots", []):
-            if not ss_url.startswith(expected_base_url):
-                logger.error(
-                    f"{app_manifest.name}: invalid screenshot URL: {ss_url}. Must use {expected_base_url} as base"
-                )
-                sys.exit(1)
-            if not ss_url.startswith(f"{app_expected_base_url}/screenshots/"):
-                logger.warning(f"{app_manifest.name}: invalid screenshot URL: {ss_url}")
-
-
-class TrueNASAppCapabilityManager:
-    """Main orchestrator for TrueNAS app capability management."""
-
-    def __init__(self, should_bump_versions: bool = True):
-        self.should_bump_versions = should_bump_versions
-        self.file_cache = FileSystemCache()
-        self.discovery_service = AppDiscoveryService()
-        self.compose_renderer = DockerComposeRenderer()
-        self.compose_analyzer = DockerComposeAnalyzer()
-        self.questions_validator = AppQuestionsValidator(self.file_cache)
-        self.images_validator = AppImagesValidator(self.file_cache)
-        self.version_manager = AppVersionManager(self.file_cache, should_bump_versions)
-        self.metadata_updater = AppMetadataUpdater(self.file_cache, self.version_manager)
-        self.capability_registry = DockerCapabilityRegistry()
-
-    @staticmethod
-    def select_service_user(service_name: str, user_values: List[Tuple[int, int]]) -> Tuple[int, int]:
-        """Pick the user to report for a service from the values of all test configurations."""
-        # If all test values have the same user, use that
-        if len(set(user_values)) == 1:
-            return user_values[0]
-
-        # 568 only differs across test values when it comes from a user-configurable
-        # run_as, so the service can run as any user (root included, if the user picks it)
-        if (568, 568) in user_values:
-            return (568, 568)
-
-        uids = [uid for uid, _ in user_values]
-        gids = [gid for _, gid in user_values]
-
-        # If at least one test value has user 0 (root) or group 0 (root), the service runs as root
-        if 0 in uids or 0 in gids:
-            # Prefer entry with both uid=0 and gid=0, then uid=0, then gid=0
-            for matches in (
-                lambda uid, gid: uid == 0 and gid == 0,
-                lambda uid, gid: uid == 0,
-                lambda uid, gid: gid == 0,
-            ):
-                for uid, gid in user_values:
-                    if matches(uid, gid):
-                        return (uid, gid)
-
-        # If test values have different non-root users, use the most common one
-        # (lowest uid/gid on ties). This shouldn't normally happen, but we handle it
-        selected = min(set(user_values), key=lambda value: (-user_values.count(value), value))
-        logger.warning(f"Service {service_name} has inconsistent user values: {user_values}, using {selected}")
-        return selected
-
-    def analyze_single_app(self, app_manifest: AppManifest) -> AppAnalysisResult:
-        """Analyze a single app across all its test configurations."""
-        if not app_manifest.test_value_files:
-            logger.warning(f"No test configurations for {app_manifest.name}")
-            return AppAnalysisResult([], [], "", {})
-
-        # Extract app title from app.yaml
-        app_metadata_path = app_manifest.path / Config.APP_METADATA_FILE
-        app_config = self.file_cache.read_yaml_file(app_metadata_path)
-        if not isinstance(app_config, dict):
-            raise ValueError(f"Invalid app config in {app_metadata_path}")
-        app_title = app_config.get("title", app_manifest.name)
-
-        # Track capabilities across all test configurations
-        capability_to_services: Dict[str, Set[str]] = {}
-        all_service_names = set()
-        # Track user values: service_name -> list of (uid, gid) tuples from all test configs
-        service_user_values: Dict[str, List[Tuple[int, int]]] = {}
-
-        for test_values_file in app_manifest.test_value_files:
-            logger.debug(f"Processing {app_manifest.name} with {test_values_file}")
-
-            try:
-                # Render app with test configuration
-                compose_data = self.compose_renderer.render_app_with_values(app_manifest, test_values_file)
-
-                # Extract service information
-                service_names = self.compose_analyzer.extract_service_names(compose_data)
-                all_service_names.update(service_names)
-
-                # Extract capabilities by service
-                service_capabilities = self.compose_analyzer.extract_capabilities_by_service(compose_data)
-
-                # Aggregate capabilities
-                for service_name, capabilities in service_capabilities.items():
-                    for capability in capabilities:
-                        if capability not in capability_to_services:
-                            capability_to_services[capability] = set()
-                        capability_to_services[capability].add(service_name)
-
-                # Extract user directives by service
-                service_users = self.compose_analyzer.extract_user_by_service(compose_data)
-                for service_name, (uid, gid) in service_users.items():
-                    if service_name not in service_user_values:
-                        service_user_values[service_name] = []
-                    service_user_values[service_name].append((uid, gid))
-
-            except Exception as e:
-                logger.error(f"Failed to process {app_manifest.name}/{test_values_file}: {e}")
-                raise
-
-        # Convert to DockerCapability objects
-        capabilities = []
-        for capability_name, services in capability_to_services.items():
-            try:
-                description = self.capability_registry.create_capability_description(
-                    capability_name, sorted(services), app_title
-                )
-                capabilities.append(DockerCapability(capability_name, description))
-            except ValueError as e:
-                logger.error(f"Failed to create capability description: {e}")
-                continue
-
-        # Determine final user for each service based on all test configurations
-        final_service_users = {
-            service_name: self.select_service_user(service_name, user_values)
-            for service_name, user_values in service_user_values.items()
+            elif config["cap_drop"] != ["ALL"]:
+                logger.error(f"Non-standard cap_drop for service: {name}")
+
+            for capability in config.get("cap_add") or []:
+                analysis.capabilities[capability].add(name)
+
+            analysis.users[name].append(parse_user(name, config.get("user", "0:0")))
+
+    return analysis
+
+
+# Metadata generation
+
+
+def normalize_name(name: str) -> str:
+    return name.lower().replace("_", "").replace("-", "").replace(" ", "")
+
+
+def service_title(service: str, app_title: str) -> str:
+    if normalize_name(service) == normalize_name(app_title):
+        return app_title
+    if service.lower() in SERVICE_TITLES:
+        return SERVICE_TITLES[service.lower()]
+    return service.replace("-", " ").replace("_", " ").title()
+
+
+def describe_capability(capability: str, services: set[str], app_title: str) -> str:
+    # Numbered replicas (e.g. worker-1, worker-2) are described once
+    base_names = {re.sub(r"-\d+$", "", service) for service in services}
+    titles = sorted(service_title(name, app_title) for name in base_names)
+
+    description = CAPABILITY_DESCRIPTIONS[capability]
+    if len(titles) == 1:
+        return f"{titles[0]} is {description}"
+    return f"{', '.join(titles)} are {description}"
+
+
+def build_capabilities(capabilities: dict[str, set[str]], app_title: str) -> list[dict]:
+    entries = []
+    for capability, services in capabilities.items():
+        if capability not in CAPABILITY_DESCRIPTIONS:
+            logger.error(f"Unknown capability: {capability}")
+            continue
+        entries.append({"description": describe_capability(capability, services, app_title), "name": capability})
+    return sorted(entries, key=lambda c: c["name"])
+
+
+def select_service_user(service: str, user_values: list[tuple[int, int]]) -> tuple[int, int]:
+    """Pick the user to report for a service from the values of all test configurations."""
+    # If all test values have the same user, use that
+    if len(set(user_values)) == 1:
+        return user_values[0]
+
+    # 568 only differs across test values when it comes from a user-configurable
+    # run_as, so the service can run as any user (root included, if the user picks it)
+    if (APPS_ID, APPS_ID) in user_values:
+        return (APPS_ID, APPS_ID)
+
+    # If at least one test value runs as root, the service runs as root.
+    # Prefer entry with both uid=0 and gid=0, then uid=0, then gid=0
+    for matches in (
+        lambda uid, gid: uid == 0 and gid == 0,
+        lambda uid, gid: uid == 0,
+        lambda uid, gid: gid == 0,
+    ):
+        for uid, gid in user_values:
+            if matches(uid, gid):
+                return (uid, gid)
+
+    # If test values have different non-root users, use the most common one
+    # (lowest uid/gid on ties). This shouldn't normally happen, but we handle it
+    selected = min(set(user_values), key=lambda value: (-user_values.count(value), value))
+    logger.warning(f"Service {service} has inconsistent user values: {user_values}, using {selected}")
+    return selected
+
+
+def host_name(kind: str, names: dict[int, str], id_: int) -> str:
+    if id_ not in names:
+        logger.warning(f"Unknown host {kind} id: {id_}")
+        return f"Host {kind} is [unknown ({id_})]"
+    return f"Host {kind} is [{names[id_]}]"
+
+
+def describe_user(service: str, uid: int, gid: int) -> str:
+    kinds = {0: "root", APPS_ID: "any non-root"}
+    user, group = kinds.get(uid, "non-root"), kinds.get(gid, "non-root")
+    verb = "can run" if uid == APPS_ID else "runs"
+    # "user and group" when both are the same kind, e.g. "root user and group"
+    if user == group:
+        return f"Container [{service}] {verb} as {user} user and group."
+    return f"Container [{service}] {verb} as {user} user and {group} group."
+
+
+def build_run_as_context(users: dict[str, tuple[int, int]]) -> list[dict]:
+    return [
+        {
+            "description": describe_user(service, uid, gid),
+            "gid": gid,
+            "group_name": host_name("group", GROUP_NAMES, gid),
+            "uid": uid,
+            "user_name": host_name("user", USER_NAMES, uid),
         }
-
-        # Get current app version
-        current_version = self.version_manager.get_current_app_version(app_manifest)
-
-        return AppAnalysisResult(
-            capabilities=sorted(capabilities, key=lambda c: c.name),
-            service_names=sorted(all_service_names),
-            app_version=str(current_version),
-            service_users=final_service_users,
-        )
-
-    def update_single_app(self, app_manifest: AppManifest) -> None:
-        """Update capabilities and metadata for a single app."""
-        logger.debug(f"Updating capabilities for {app_manifest.name}")
-
-        try:
-            # Analyze the app
-            analysis_result = self.analyze_single_app(app_manifest)
-
-            # Validate variable names in questions
-            self.questions_validator.validate_variable_names(app_manifest)
-
-            # Validate questions configuration
-            self.questions_validator.validate_container_labels_section(app_manifest, analysis_result.service_names)
-
-            # Validate images (no digest pins on registries that prune untagged manifests)
-            self.images_validator.validate_digest_pins(app_manifest)
-
-            # Update metadata
-            self.metadata_updater.update_app_metadata(
-                app_manifest,
-                analysis_result.capabilities,
-                analysis_result.app_version,
-                analysis_result.service_users,
-                self.should_bump_versions,
-            )
-
-            logger.info(
-                f"Successfully updated {app_manifest.name} with "
-                f"{len(analysis_result.capabilities)} capabilities and "
-                f"{len(analysis_result.service_users)} services"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to update {app_manifest.name}: {e}")
-            raise
-
-    def update_all_apps(self) -> None:
-        """Update capabilities for all discovered apps."""
-        app_manifests = self.discovery_service.discover_all_apps()
-
-        if not app_manifests:
-            logger.warning("No apps found to process")
-            return
-
-        success_count = 0
-        failed_count = 0
-
-        for app_manifest in app_manifests:
-            try:
-                self.update_single_app(app_manifest)
-                success_count += 1
-            except Exception as e:
-                logger.error(f"Skipping {app_manifest.name}: {e}")
-                failed_count += 1
-                continue
-
-        logger.info(f"Successfully processed {success_count}/{len(app_manifests)} apps")
-        if failed_count > 0:
-            logger.error(f"Failed to process {failed_count} apps")
-            sys.exit(1)
-
-    def update_specific_app(self, train_name: str, app_name: str) -> None:
-        """Update capabilities for a specific app."""
-        app_manifest = self.discovery_service.discover_single_app(train_name, app_name)
-        if not app_manifest:
-            logger.error(f"App {train_name}/{app_name} not found")
-            sys.exit(1)
-
-        self.update_single_app(app_manifest)
+        for service, (uid, gid) in sorted(users.items())
+    ]
 
 
-def parse_command_line_arguments() -> argparse.Namespace:
-    """Parse and return command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="TrueNAS Apps Capability Manager - Analyze and update app capabilities"
+def is_ix_app(app: App) -> bool:
+    return app.train == "stable" and app.name == "ix-app"
+
+
+def get_app_version(app: App, app_config: dict) -> str:
+    # ix-app has no image of its own, its version is the app_version
+    if is_ix_app(app):
+        return app_config["version"]
+
+    values_path = app.path / APP_VALUES_FILE
+    # "images.image" is the main image of the app, its tag is used as the app_version
+    image = (read_yaml(values_path).get("images") or {}).get("image")
+    if not isinstance(image, dict):
+        raise ValueError(f"Missing [images.image] in {values_path}, it is required for the app_version")
+    tag = image.get("tag")
+    if not tag or not isinstance(tag, str):
+        raise ValueError(f"Missing or non-string [images.image.tag] in {values_path}")
+    # Drop the digest pin (tag@sha256:...), it is not part of the version
+    return tag.split("@")[0]
+
+
+def bump_patch_version(version: str) -> str:
+    parts = version.split(".")
+    if len(parts) != 3 or not parts[2].isdigit():
+        raise ValueError(f"Invalid version format: {version}, must be x.y.z")
+    parts[2] = str(int(parts[2]) + 1)
+    return ".".join(parts)
+
+
+def get_git_date_added(app: App) -> str:
+    """Date of the commit that added the app's app.yaml (the latest one, if it was ever re-added)."""
+    path = app.path / APP_METADATA_FILE
+    result = subprocess.run(
+        ["git", "log", "--diff-filter=A", "--format=%as", "--", str(path)], capture_output=True, text=True
     )
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to get git log for {path}:\n{result.stderr}")
+    dates = result.stdout.split()
+    if not dates:
+        raise ValueError(f"{path} has not been committed, can't get date_added from git")
+    # git log lists newest first
+    return dates[0]
+
+
+# Validation
+
+
+def find_question(questions: list[dict], variable: str) -> dict | None:
+    return next((q for q in questions if q.get("variable") == variable), None)
+
+
+def validate_question(question: dict) -> None:
+    if "variable" not in question:
+        raise ValueError(f"Question missing variable field: {question}")
+
+    variable = question["variable"]
+    if variable not in VAR_NAME_EXCEPTIONS and not RE_VAR_NAME.match(variable):
+        raise ValueError(f"Invalid variable name: {variable}")
+
+    schema = question["schema"]
+    if schema["type"] == "dict":
+        for attr in schema["attrs"]:
+            validate_question(attr)
+    elif schema["type"] == "list":
+        if "min_length" in schema:
+            raise ValueError(f"List schema with min_length not supported, use min: {schema}")
+        for item in schema["items"]:
+            validate_question(item)
+
+
+def check_containers_enum(question: dict, section: str, service_names: set[str]) -> None:
+    current = {item["value"] for item in question["schema"]["enum"]}
+    if current != service_names:
+        raise ValueError(f"Container {section} section should have {sorted(service_names)} but has {sorted(current)}")
+
+
+def validate_questions(app: App, service_names: set[str]) -> None:
+    questions = read_yaml(app.path / QUESTIONS_FILE).get("questions", [])
+    for question in questions:
+        validate_question(question)
+
+    # The containers enums must list exactly the app's services
+    # questions.labels[].containers[]
+    if labels := find_question(questions, "labels"):
+        label_attrs = labels["schema"]["items"][0]["schema"]["attrs"]
+        if containers := find_question(label_attrs, "containers"):
+            check_containers_enum(containers["schema"]["items"][0], "labels", service_names)
+
+    # questions.network.networks[].containers[].name
+    if network := find_question(questions, "network"):
+        if networks := find_question(network["schema"]["attrs"], "networks"):
+            network_attrs = networks["schema"]["items"][0]["schema"]["attrs"]
+            if containers := find_question(network_attrs, "containers"):
+                container_attrs = containers["schema"]["items"][0]["schema"]["attrs"]
+                if name := find_question(container_attrs, "name"):
+                    check_containers_enum(name, "network.networks.containers.name", service_names)
+
+
+def validate_images(app: App) -> None:
+    """Fail on digest pinned images from registries that prune untagged manifests."""
+    values_path = app.path / APP_VALUES_FILE
+    if not values_path.exists():
+        return
+
+    for name, image in (read_yaml(values_path).get("images") or {}).items():
+        repo = image.get("repository", "")
+        tag = str(image.get("tag", ""))
+        if repo.startswith(NO_DIGEST_PIN_REGISTRIES) and "@" in tag:
+            raise ValueError(
+                f"Image [{name}] ({repo}) must not be pinned to a digest in {values_path}. "
+                f"Registries {list(NO_DIGEST_PIN_REGISTRIES)} prune manifests that are no longer tagged."
+            )
+
+
+def validate_app_config(app: App, app_config: dict) -> None:
+    categories = app_config.get("categories", [])
+    if len(categories) > 1:
+        raise ValueError(f"app.yaml must have exactly 1 category, found {len(categories)}: {categories}")
+
+    for field in ("date_added", "changelog_url"):
+        if field not in app_config:
+            logger.warning(f"{app.name}: missing {field}")
+
+    app_media_url = f"{MEDIA_BASE_URL}/{app_config.get('name', app.name)}"
+    media = [("icon", app_config.get("icon", ""), "icons")]
+    media += [("screenshot", url, "screenshots") for url in app_config.get("screenshots", [])]
+    for kind, url, subdir in media:
+        if not url.startswith(MEDIA_BASE_URL):
+            raise ValueError(f"Invalid {kind} URL: {url}. Must use {MEDIA_BASE_URL} as base")
+        if not url.startswith(f"{app_media_url}/{subdir}/"):
+            logger.warning(f"{app.name}: invalid {kind} URL: {url}")
+
+
+# Main flow
+
+
+def update_app(app: App, bump_version: bool, set_date_added: bool) -> None:
+    if not app.test_values:
+        raise ValueError(f"No test values found in {app.path / TEST_VALUES_DIR}")
+
+    app_config_path = app.path / APP_METADATA_FILE
+    app_config = read_yaml(app_config_path)
+    app_title = app_config.get("title", app.name)
+
+    analysis = analyze(app)
+    validate_questions(app, analysis.service_names)
+    validate_images(app)
+    validate_app_config(app, app_config)
+
+    users = {service: select_service_user(service, values) for service, values in analysis.users.items()}
+    capabilities = build_capabilities(analysis.capabilities, app_title)
+    app_version = get_app_version(app, app_config)
+
+    old_app_version = app_config.get("app_version")
+    # Keep a shorter app_version that the tag extends, e.g. tag 1.2.3-debian and app_version 1.2.3
+    if old_app_version and old_app_version in app_version:
+        app_version = old_app_version
+    run_as_context = build_run_as_context(users)
+
+    changed = (
+        # ix-app's app_version just follows its version, so it never needs a bump of its own
+        (old_app_version != app_version and not is_ix_app(app))
+        or sorted(app_config.get("capabilities") or [], key=lambda c: c["name"]) != capabilities
+        or (app_config.get("run_as_context") or []) != run_as_context
+    )
+    app_config.update(app_version=app_version, capabilities=capabilities, run_as_context=run_as_context)
+
+    if app_config.get("maintainers", []) != MAINTAINERS:
+        app_config["maintainers"] = MAINTAINERS
+        changed = True
+
+    sources = set(app_config.get("sources", []))
+    app_source = f"https://apps.truenas.com/catalog/{app.name}_{app.train}/"
+    if app_source not in sources:
+        app_config["sources"] = sorted(sources | {app_source})
+        changed = True
+
+    if set_date_added:
+        date_added = get_git_date_added(app)
+        # str() as an unquoted date in the yaml loads as a date object
+        if str(app_config.get("date_added")) != date_added:
+            logger.info(f"Updated {app.name} date_added: {app_config.get('date_added')} → {date_added}")
+            app_config["date_added"] = date_added
+            changed = True
+
+    if changed and bump_version:
+        old_version = app_config["version"]
+        app_config["version"] = bump_patch_version(old_version)
+        logger.info(f"Updated {app.name} version: {old_version} → {app_config['version']}")
+        if is_ix_app(app):
+            app_config["app_version"] = app_config["version"]
+
+    write_yaml(app_config_path, app_config)
+    logger.info(f"Successfully updated {app.name} with {len(capabilities)} capabilities and {len(users)} services")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Analyze rendered TrueNAS apps and update their app.yaml metadata")
     parser.add_argument("--train", help="Specific train name to process")
     parser.add_argument("--app", help="Specific app name to process (requires --train)")
     parser.add_argument("--no-bump", action="store_true", help="Skip version bumping when updating metadata")
+    parser.add_argument(
+        "--set-date-added",
+        action="store_true",
+        help="Set date_added from the commit that added app.yaml. "
+        "Needs app.yaml to be committed and the full git history (not a shallow clone)",
+    )
+    args = parser.parse_args()
 
-    return parser.parse_args()
+    if bool(args.train) != bool(args.app):
+        parser.error("Both --train and --app must be provided together, or neither")
 
+    if args.set_date_added:
+        shallow = subprocess.run(["git", "rev-parse", "--is-shallow-repository"], capture_output=True, text=True)
+        if shallow.returncode != 0 or shallow.stdout.strip() != "false":
+            parser.error("--set-date-added needs a git repository with full history (not a shallow clone)")
 
-def main():
-    """Main application entry point."""
-    try:
-        args = parse_command_line_arguments()
-
-        # Initialize the capability manager
-        capability_manager = TrueNASAppCapabilityManager(should_bump_versions=not args.no_bump)
-
-        # Determine operation mode
-        if args.train and args.app:
-            # Update specific app
-            capability_manager.update_specific_app(args.train, args.app)
-        elif args.train or args.app:
-            # Invalid: both train and app must be provided together
-            logger.error("Both --train and --app must be provided together, or neither")
+    if args.train:
+        app = load_app(args.train, APPS_ROOT_DIR / args.train / args.app)
+        if not app:
+            logger.error(f"App {args.train}/{args.app} not found")
             sys.exit(1)
-        else:
-            # Update all apps
-            capability_manager.update_all_apps()
+        apps = [app]
+    else:
+        apps = load_all_apps()
 
-    except KeyboardInterrupt:
-        logger.info("Operation cancelled by user")
-        sys.exit(1)
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+    failed = []
+    for app in apps:
+        try:
+            update_app(app, bump_version=not args.no_bump, set_date_added=args.set_date_added)
+        except Exception as e:
+            logger.error(f"Failed to update {app.train}/{app.name}: {e}")
+            failed.append(app)
+
+    if len(apps) > 1:
+        logger.info(f"Successfully processed {len(apps) - len(failed)}/{len(apps)} apps")
+    if failed:
+        logger.error(f"Failed to process {len(failed)} apps: {', '.join(f'{a.train}/{a.name}' for a in failed)}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logger.info("Operation cancelled by user")
+        sys.exit(1)
