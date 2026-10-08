@@ -183,7 +183,8 @@ def render_compose():
     cmd = " ".join(
         [
             f"docker run --platform {PLATFORM} --quiet --rm",
-            "-e FAKE_ENV=1",
+            "-e",
+            "FAKE_ENV=1",
             f"-v {os.getcwd()}:/workspace",
             "-v /var/run/docker.sock:/var/run/docker.sock:ro",
             CONTAINER_IMAGE,
