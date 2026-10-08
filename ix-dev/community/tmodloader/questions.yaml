@@ -1,399 +1,130 @@
 groups:
+  - name: Server Setup
+    description: |
+      Choose server management. Set world options if WebUI is disabled.
+
+      Important: If enabled, open the WebUI after installation and use the setup code from the app logs.
+
+      Variables and defaults:
+      https://github.com/Crosis47/tmodloader/wiki/Configuration#defaults-reference
   - name: Network Configuration
     description: |
-      Publish: Choose this for direct access using the TrueNAS IP address and port, such as opening the WebUI from your browser or connecting a game client.
-
-      Expose: Choose this when another container, such as a reverse proxy, connects over a shared Docker network. This does not publish a port on the TrueNAS host or connect separate app networks automatically.
-
-      For the WebUI, both Publish and Expose enable dashboard-managed game settings. Choosing None disables the WebUI and reveals required game configuration fields in this form. Review and set these fields before installing, since the WebUI will not be available.
-
-      Publishing a port does not configure router port forwarding.
+      Configure game and WebUI access. Network and proxy guide:
+      https://github.com/Crosis47/tmodloader/wiki/Networking-and-Access
   - name: Storage Configuration
     description: |
-      Data storage (/data) contains worlds, mods, mod configuration, downloaded server runtimes, dashboard settings, and logs.
-
-      Backups storage (/backups) contains backup archives created by the container. Use dedicated datasets for both mounts.
-  - name: tModLoader Configuration
-    description: |
-      Configure tModLoader game settings and additional environment variables.
-      See the environment variables and defaults reference:
-      https://github.com/Crosis47/tmodloader/wiki/Configuration#defaults-reference
+      Choose storage for data and backups. Folder reference:
+      https://github.com/Crosis47/tmodloader/wiki/Updates-and-Storage#persistent-folders
   - name: Labels Configuration
     description: Configure Labels for tModLoader
   - name: Resources Configuration
     description: Configure Resources for tModLoader
 
 questions:
+  - variable: server_management
+    label: Server Management
+    group: Server Setup
+    description: |
+      Choose how to configure the game server.</br>
+      Direct access publishes the WebUI on the TrueNAS host. Shared network access requires a Docker network shared with your reverse proxy.</br>
+      Environment variables disables the WebUI and reveals the initial world settings. Other game options can be set in Additional Environment Variables.
+    schema:
+      type: string
+      default: published
+      required: true
+      enum:
+        - value: published
+          description: WebUI - Direct Access
+        - value: exposed
+          description: WebUI - Shared Docker Network
+        - value: headless
+          description: Environment Variables - WebUI Disabled
+
+  - variable: game_settings
+    label: Initial World Settings
+    group: Server Setup
+    description: Used only when the WebUI is disabled. Size and difficulty apply only when creating a new world.
+    schema:
+      type: dict
+      show_if: [["server_management", "=", "headless"]]
+      attrs:
+        - variable: world_name
+          label: World Name
+          description: Selects an existing world by name or creates it if it does not exist.
+          schema:
+            type: string
+            default: Docker
+            required: true
+        - variable: world_size
+          label: World Size
+          description: Only applies to newly generated worlds.
+          schema:
+            type: string
+            default: "1"
+            required: true
+            enum:
+              - value: "1"
+                description: Small
+              - value: "2"
+                description: Medium
+              - value: "3"
+                description: Large
+        - variable: world_difficulty
+          label: World Difficulty
+          description: Only applies to newly generated worlds.
+          schema:
+            type: string
+            default: "0"
+            required: true
+            enum:
+              - value: "0"
+                description: Classic
+              - value: "1"
+                description: Expert
+              - value: "2"
+                description: Master
+              - value: "3"
+                description: Journey
+
+  - variable: tmodloader
+    label: ""
+    group: Server Setup
+    schema:
+      type: dict
+      attrs:
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: |
+            Use these for deployment settings. With the WebUI enabled, manage game settings in the WebUI.</br>
+            With the WebUI disabled, game settings are managed through environment variables.</br>
+            See https://github.com/Crosis47/tmodloader/wiki/Configuration#defaults-reference for supported variables.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
-          description: |
-            Set Port Bind Mode to None to disable the WebUI and manage game settings through environment variables.</br>
-            On first launch, open the WebUI and enter the one-time setup code from application logs.</br>
-            HTTP access requires a private-network or loopback client; use an HTTPS reverse proxy for other clients.
-          schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish - WebUI via TrueNAS IP and port (direct browser access)
-                    - value: "exposed"
-                      description: Expose - WebUI via shared Docker network (container reverse proxy)
-                    - value: ""
-                      description: None - disable WebUI and configure game settings in this form
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 30506
-                  show_if: [["bind_mode", "!=", ""]]
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-              - variable: origin
-                label: WebUI Origin (Optional)
-                description: |
-                  Leave empty when accessing the WebUI by IP address. For a hostname or reverse proxy,
-                  enter the browser-facing origin, including http:// or https:// and any non-default port
-                  (for example, https://terraria.example.com). Do not include a path, query, or credentials.
-                  This does not change the listening port or enable HTTPS.
-                schema:
-                  type: string
-                  default: ""
-                  show_if: [["bind_mode", "!=", ""]]
-              - variable: trusted_proxy
-                label: Trusted Proxy (IP Address or Service Name)
-                description: |
-                  Optional. Leave empty for direct access without a reverse proxy.
-                  Enter the proxy's IPv4/IPv6 address as seen by this container, or its service name/network alias
-                  on a shared Docker network (for example, reverse-proxy). Do not enter your browser's IP,
-                  a URL, port, subnet, wildcard, or list of addresses.
-                  For service names, join the proxy's network using Networks below and use a name you control.
-                  Only connections from the configured IP or currently resolved addresses may supply forwarded headers;
-                  failed DNS lookups do not grant trust. The proxy must overwrite X-Forwarded-For with one client IP
-                  and X-Forwarded-Proto with http or https, and preserve the browser Host header.
-                schema:
-                  type: string
-                  default: ""
-                  show_if: [["bind_mode", "!=", ""]]
-              - variable: game_settings
-                label: Game Settings (WebUI Disabled)
-                description: These settings are used only when the WebUI is disabled.
-                schema:
-                  type: dict
-                  show_if: [["bind_mode", "=", ""]]
-                  attrs:
-                    - variable: world_name
-                      label: World Name
-                      description: Selects an existing world by name or creates it if it does not exist.
-                      schema:
-                        type: string
-                        default: Docker
-                        required: true
-                    - variable: world_size
-                      label: World Size
-                      description: Only applies to newly generated worlds.
-                      schema:
-                        type: string
-                        default: "1"
-                        required: true
-                        enum:
-                          - value: "1"
-                            description: Small
-                          - value: "2"
-                            description: Medium
-                          - value: "3"
-                            description: Large
-                    - variable: world_difficulty
-                      label: World Difficulty
-                      description: Only applies to newly generated worlds.
-                      schema:
-                        type: string
-                        default: "0"
-                        required: true
-                        enum:
-                          - value: "0"
-                            description: Classic
-                          - value: "1"
-                            description: Expert
-                          - value: "2"
-                            description: Master
-                          - value: "3"
-                            description: Journey
-                    - variable: max_players
-                      label: Maximum Players
-                      schema:
-                        type: int
-                        default: 8
-                        min: 1
-                        max: 255
-                        required: true
-                    - variable: password
-                      label: Game Password
-                      description: Empty disables the game password.
-                      schema:
-                        type: string
-                        private: true
-                        default: ""
-                    - variable: mods
-                      label: Workshop Mods
-                      description: |
-                        Comma-separated Steam Workshop mod IDs. Prefix collection IDs with collection:.</br>
-                        Leave empty for no Workshop mods.
-                      schema:
-                        type: string
-                        default: ""
-                    - variable: log_level
-                      label: Console Log Level
-                      description: Controls console output verbosity. Complete raw output is retained in the persistent console log.
-                      schema:
-                        type: string
-                        default: normal
-                        required: true
-                        enum:
-                          - value: quiet
-                            description: Quiet
-                          - value: normal
-                            description: Normal
-                          - value: debug
-                            description: Debug
-                    - variable: journey
-                      label: Journey Permissions
-                      description: Controls who can use each power in Journey worlds. These permissions do not convert existing worlds to Journey.
-                      schema:
-                        type: dict
-                        show_if: [["world_difficulty", "=", "3"]]
-                        attrs:
-                          - variable: setfrozen
-                            label: Freeze Time
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: setdawn
-                            label: Set Time to Dawn
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: setnoon
-                            label: Set Time to Noon
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: setdusk
-                            label: Set Time to Dusk
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: setmidnight
-                            label: Set Time to Midnight
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: godmode
-                            label: God Mode
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: wind_strength
-                            label: Wind Strength
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: rain_strength
-                            label: Rain Strength
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: time_speed
-                            label: Time Speed
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: rain_frozen
-                            label: Freeze Rain
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: wind_frozen
-                            label: Freeze Wind
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: placement_range
-                            label: Extended Placement Range
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: set_difficulty
-                            label: Adjust Difficulty
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: biome_spread
-                            label: Biome Spread
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-                          - variable: spawn_rate
-                            label: Enemy Spawn Rate
-                            schema:
-                              type: string
-                              default: "0"
-                              required: true
-                              enum:
-                                - value: "0"
-                                  description: Locked
-                                - value: "1"
-                                  description: Host Only
-                                - value: "2"
-                                  description: Everyone
-
         - variable: server_port
-          label: Game Port
+          label: Game Server Access
           schema:
             type: dict
             attrs:
@@ -403,9 +134,6 @@ questions:
                   The port bind mode.</br>
                   - Publish: The port will be published on the host for external access.</br>
                   - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.</br>
-                  Note: If the Dockerfile defines an EXPOSE directive,
-                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: "published"
@@ -414,13 +142,11 @@ questions:
                       description: Publish port on the host for external access
                     - value: "exposed"
                       description: Expose port for inter-container communication
-                    - value: ""
-                      description: None
               - variable: port_number
                 label: Port Number
                 schema:
                   type: int
-                  default: 30505
+                  default: 30522
                   min: 1
                   max: 65535
                   required: true
@@ -528,6 +254,65 @@ questions:
                                         schema:
                                           type: int
                                           "null": true
+
+  - variable: web_port
+    group: Network Configuration
+    label: WebUI Access
+    description: |
+      On first launch, open the WebUI and enter the one-time setup code from application logs.</br>
+      HTTP access requires a private-network or loopback client; use an HTTPS reverse proxy for other clients.
+    schema:
+      type: dict
+      show_if: [["server_management", "!=", "headless"]]
+      attrs:
+        - variable: port_number
+          label: Port Number
+          schema:
+            type: int
+            default: 30523
+            min: 1
+            max: 65535
+            required: true
+        - variable: host_ips
+          label: Host IPs
+          description: Used only for direct access. Leave empty to bind all host addresses. Ignored for shared Docker network access.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: host_ip
+                label: Host IP
+                schema:
+                  type: string
+                  required: true
+                  $ref:
+                    - definitions/node_bind_ip
+
+
+        - variable: origin
+          label: WebUI Origin (Optional)
+          description: |
+            Leave empty when accessing the WebUI by IP address. For a hostname or reverse proxy,
+            enter the browser-facing origin, including http:// or https:// and any non-default port
+            (for example, https://terraria.example.com). Do not include a path, query, or credentials.
+            This does not change the listening port or enable HTTPS.
+          schema:
+            type: string
+            default: ""
+        - variable: trusted_proxy
+          label: Trusted Proxy (IP Address or Service Name)
+          description: |
+            Optional. Leave empty for direct access without a reverse proxy.
+            Enter the proxy's IPv4/IPv6 address as seen by this container, or its service name/network alias
+            on a shared Docker network (for example, reverse-proxy). Do not enter your browser's IP,
+            a URL, port, subnet, wildcard, or list of addresses.
+            For service names, join the proxy's network using Networks below and use a name you control.
+            Only connections from the configured IP or currently resolved addresses may supply forwarded headers;
+            failed DNS lookups do not grant trust. The proxy must overwrite X-Forwarded-For with one client IP
+            and X-Forwarded-Proto with http or https, and preserve the browser Host header.
+          schema:
+            type: string
+            default: ""
 
   - variable: storage
     label: ""
@@ -687,37 +472,6 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-
-  - variable: tmodloader
-    label: ""
-    group: tModLoader Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: additional_envs
-          label: Additional Environment Variables
-          description: |
-            Use these for deployment settings. With the WebUI enabled, manage game settings in the WebUI.</br>
-            With the WebUI port disabled, game settings are managed through environment variables.</br>
-            See https://github.com/Crosis47/tmodloader/wiki/Configuration#defaults-reference for supported variables.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: env
-                label: Environment Variable
-                schema:
-                  type: dict
-                  attrs:
-                    - variable: name
-                      label: Name
-                      schema:
-                        type: string
-                        required: true
-                    - variable: value
-                      label: Value
-                      schema:
-                        type: string
 
   - variable: labels
     label: ""
