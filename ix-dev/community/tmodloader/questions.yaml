@@ -117,58 +117,118 @@ questions:
                       schema:
                         type: string
 
+  - variable: server_port
+    label: Game Server Access
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: bind_mode
+          label: Port Bind Mode
+          description: |
+            The port bind mode.</br>
+            - Publish: The port will be published on the host for external access.</br>
+            - Expose: The port will be exposed for inter-container communication.</br>
+          schema:
+            type: string
+            default: "published"
+            enum:
+              - value: "published"
+                description: Publish port on the host for external access
+              - value: "exposed"
+                description: Expose port for inter-container communication
+        - variable: port_number
+          label: Port Number
+          schema:
+            type: int
+            default: 30522
+            min: 1
+            max: 65535
+            required: true
+        - variable: host_ips
+          label: Host IPs
+          description: IPs on the host to bind this port
+          schema:
+            type: list
+            show_if: [["bind_mode", "=", "published"]]
+            default: []
+            items:
+              - variable: host_ip
+                label: Host IP
+                schema:
+                  type: string
+                  required: true
+                  $ref:
+                    - definitions/node_bind_ip
+
+  - variable: web_port
+    group: Network Configuration
+    label: WebUI Access
+    description: |
+      On first launch, open the WebUI and enter the one-time setup code from application logs.</br>
+      HTTP access requires a private-network or loopback client; use an HTTPS reverse proxy for other clients.
+    schema:
+      type: dict
+      show_if: [["server_management", "!=", "headless"]]
+      attrs:
+        - variable: port_number
+          label: Port Number
+          schema:
+            type: int
+            default: 30523
+            min: 1
+            max: 65535
+            required: true
+        - variable: host_ips
+          label: Host IPs
+          description: Used only for direct access. Leave empty to bind all host addresses. Ignored for shared Docker network access.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: host_ip
+                label: Host IP
+                schema:
+                  type: string
+                  required: true
+                  $ref:
+                    - definitions/node_bind_ip
+
+
+        - variable: origin
+          label: WebUI Origin (Optional)
+          description: |
+            Leave empty when accessing the WebUI by IP address. For a hostname or reverse proxy,
+            enter the browser-facing origin, including http:// or https:// and any non-default port
+            (for example, https://terraria.example.com). Do not include a path, query, or credentials.
+            This does not change the listening port or enable HTTPS.
+          schema:
+            type: string
+            default: ""
+        - variable: trusted_proxy
+          label: Trusted Proxy (IP Address or Service Name)
+          description: |
+            Optional. Leave empty for direct access without a reverse proxy.
+            Enter the proxy's IPv4/IPv6 address as seen by this container, or its service name/network alias
+            on a shared Docker network (for example, reverse-proxy). Do not enter your browser's IP,
+            a URL, port, subnet, wildcard, or list of addresses.
+            For service names, join the proxy's network using Networks below and use a name you control.
+            Only connections from the configured IP or currently resolved addresses may supply forwarded headers;
+            failed DNS lookups do not grant trust. The proxy must overwrite X-Forwarded-For with one client IP
+            and X-Forwarded-Proto with http or https, and preserve the browser Host header.
+          schema:
+            type: string
+            default: ""
+
   - variable: network
     label: ""
     group: Network Configuration
     schema:
       type: dict
       attrs:
-        - variable: server_port
-          label: Game Server Access
-          schema:
-            type: dict
-            attrs:
-              - variable: bind_mode
-                label: Port Bind Mode
-                description: |
-                  The port bind mode.</br>
-                  - Publish: The port will be published on the host for external access.</br>
-                  - Expose: The port will be exposed for inter-container communication.</br>
-                schema:
-                  type: string
-                  default: "published"
-                  enum:
-                    - value: "published"
-                      description: Publish port on the host for external access
-                    - value: "exposed"
-                      description: Expose port for inter-container communication
-              - variable: port_number
-                label: Port Number
-                schema:
-                  type: int
-                  default: 30522
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
-
         - variable: networks
           label: Networks
-          description: Join existing Docker networks, for example a shared network with a reverse proxy when the WebUI port uses Expose.
+          description: Join existing Docker networks for game server or WebUI access, such as a shared network with a reverse proxy.
           schema:
             type: list
             default: []
@@ -254,65 +314,6 @@ questions:
                                         schema:
                                           type: int
                                           "null": true
-
-  - variable: web_port
-    group: Network Configuration
-    label: WebUI Access
-    description: |
-      On first launch, open the WebUI and enter the one-time setup code from application logs.</br>
-      HTTP access requires a private-network or loopback client; use an HTTPS reverse proxy for other clients.
-    schema:
-      type: dict
-      show_if: [["server_management", "!=", "headless"]]
-      attrs:
-        - variable: port_number
-          label: Port Number
-          schema:
-            type: int
-            default: 30523
-            min: 1
-            max: 65535
-            required: true
-        - variable: host_ips
-          label: Host IPs
-          description: Used only for direct access. Leave empty to bind all host addresses. Ignored for shared Docker network access.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: host_ip
-                label: Host IP
-                schema:
-                  type: string
-                  required: true
-                  $ref:
-                    - definitions/node_bind_ip
-
-
-        - variable: origin
-          label: WebUI Origin (Optional)
-          description: |
-            Leave empty when accessing the WebUI by IP address. For a hostname or reverse proxy,
-            enter the browser-facing origin, including http:// or https:// and any non-default port
-            (for example, https://terraria.example.com). Do not include a path, query, or credentials.
-            This does not change the listening port or enable HTTPS.
-          schema:
-            type: string
-            default: ""
-        - variable: trusted_proxy
-          label: Trusted Proxy (IP Address or Service Name)
-          description: |
-            Optional. Leave empty for direct access without a reverse proxy.
-            Enter the proxy's IPv4/IPv6 address as seen by this container, or its service name/network alias
-            on a shared Docker network (for example, reverse-proxy). Do not enter your browser's IP,
-            a URL, port, subnet, wildcard, or list of addresses.
-            For service names, join the proxy's network using Networks below and use a name you control.
-            Only connections from the configured IP or currently resolved addresses may supply forwarded headers;
-            failed DNS lookups do not grant trust. The proxy must overwrite X-Forwarded-For with one client IP
-            and X-Forwarded-Proto with http or https, and preserve the browser Host header.
-          schema:
-            type: string
-            default: ""
 
   - variable: storage
     label: ""
