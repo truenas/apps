@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import yaml
+import shlex
 import logging
 import argparse
 import subprocess
@@ -48,6 +49,9 @@ class Config:
     # Registries that garbage-collect manifests no longer referenced by a tag,
     # so a digest pin (tag@sha256:...) breaks once the tag moves
     NO_DIGEST_PIN_REGISTRIES = ("quay.io/",)
+
+    # libyaml-backed loader is much faster; fall back if PyYAML was built without it
+    YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
 
 # Setup logging
@@ -367,7 +371,7 @@ class FileSystemCache:
         # Read and cache the file
         try:
             with open(file_path, "r") as f:
-                data = yaml.safe_load(f)
+                data = yaml.load(f, Loader=Config.YAML_LOADER)
 
             # Ensure we have a dict
             if not isinstance(data, dict):
@@ -485,6 +489,18 @@ class DockerComposeRenderer:
         """Render an app with specific test values and return compose data."""
         workspace_path = os.getcwd()
         values_path = app_manifest.path / Config.TEST_VALUES_DIR / test_values_filename
+        compose_path = app_manifest.path / Config.RENDERED_COMPOSE_PATH
+
+        # Render and fix the rendered file's permissions in a single container
+        render_cmd = shlex.join(
+            [
+                "apps_render_app",
+                "render",
+                f"--path=/workspace/{app_manifest.path}",
+                f"--values=/workspace/{values_path}",
+            ]
+        )
+        chmod_cmd = shlex.join(["chmod", "777", f"/workspace/{compose_path}"])
 
         docker_cmd = [
             "docker",
@@ -495,11 +511,10 @@ class DockerComposeRenderer:
             "-e FAKE_ENV=1",
             f"-v={workspace_path}:/workspace",
             "-v=/var/run/docker.sock:/var/run/docker.sock:ro",
+            "--entrypoint=/bin/bash",
             self.container_image,
-            "apps_render_app",
-            "render",
-            f"--path=/workspace/{app_manifest.path}",
-            f"--values=/workspace/{values_path}",
+            "-c",
+            f"{render_cmd} && {chmod_cmd}",
         ]
 
         logger.debug(f"Rendering: {' '.join(docker_cmd)}")
@@ -517,14 +532,12 @@ class DockerComposeRenderer:
             raise RuntimeError(f"Rendering failed for {app_manifest.name}") from e
 
         # Read rendered compose file
-        compose_path = app_manifest.path / Config.RENDERED_COMPOSE_PATH
         if not compose_path.exists():
             raise FileNotFoundError(f"Rendered compose file not found: {compose_path}")
 
         try:
-            self._fix_file_permissions(compose_path)
             with open(compose_path, "r") as f:
-                data = yaml.safe_load(f)
+                data = yaml.load(f, Loader=Config.YAML_LOADER)
 
             # Ensure we have a dict
             if not isinstance(data, dict):
@@ -533,30 +546,6 @@ class DockerComposeRenderer:
 
         except yaml.YAMLError as e:
             raise RuntimeError(f"Failed to parse rendered compose: {compose_path}") from e
-
-    def _fix_file_permissions(self, file_path: Path) -> None:
-        """Fix file permissions using Docker container."""
-        logger.debug(f"Fixing permissions for {file_path}")
-
-        docker_cmd = [
-            "docker",
-            "run",
-            f"--platform={self.platform}",
-            "--quiet",
-            "--rm",
-            "-e FAKE_ENV=1",
-            f"-v={os.getcwd()}:/workspace",
-            "--entrypoint=/bin/bash",
-            self.container_image,
-            "-c",
-            f"chmod 777 /workspace/{file_path}",
-        ]
-
-        result = subprocess.run(docker_cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            logger.error(f"Failed to fix permissions for {file_path}")
-            logger.error(result.stderr)
-            raise RuntimeError(f"Permission fix failed for {file_path}")
 
 
 class DockerComposeAnalyzer:
