@@ -50,6 +50,22 @@ def test_non_existing_image(mock_values):
         render.add_container("test_container", "non_existing_image")
 
 
+def test_image_override(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.set_image_override("ghcr.io/example/app", "patched", "sha256:" + "a" * 64)
+    c1.healthcheck.disable()
+    output = render.render()
+    assert output["services"]["test_container"]["image"] == "ghcr.io/example/app:patched@sha256:" + "a" * 64
+
+
+def test_image_override_rejects_invalid_digest(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    with pytest.raises(Exception):
+        c1.set_image_override("ghcr.io/example/app", "patched", "sha256:not-a-digest")
+
+
 def test_pull_policy(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

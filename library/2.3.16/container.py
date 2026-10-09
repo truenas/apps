@@ -186,6 +186,7 @@ class Container:
             raise RenderError("Image override digest must be a sha256 digest")
         self._image = f"{repository}:{tag}" + (f"@{digest}" if digest else "")
 
+
     def build_image(self, content: list[str | None]):
         dockerfile = f"FROM {self._image}\n"
         for line in content:

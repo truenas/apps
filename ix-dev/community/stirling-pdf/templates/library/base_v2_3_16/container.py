@@ -1,3 +1,4 @@
+import re
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -173,6 +174,18 @@ class Container:
 
     def name(self) -> str:
         return self._name
+
+    def set_image_override(self, repository: str, tag: str, digest: str = ""):
+        """Replace the catalog image with a validated OCI image reference."""
+        repository_pattern = r"[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?(?::[0-9]+)?(?:/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)*"
+        if not re.fullmatch(repository_pattern, repository):
+            raise RenderError("Image override repository must be a lowercase OCI repository name")
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
+            raise RenderError("Image override tag must be a valid OCI tag")
+        if digest and not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+            raise RenderError("Image override digest must be a sha256 digest")
+        self._image = f"{repository}:{tag}" + (f"@{digest}" if digest else "")
+
 
     def build_image(self, content: list[str | None]):
         dockerfile = f"FROM {self._image}\n"
