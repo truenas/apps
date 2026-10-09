@@ -14,31 +14,29 @@
 {% do c1.environment.add_env("ULTRA_ADMIN_PASSWORD", values.ultra_explorer.admin_password) %}
 {% do c1.environment.add_env("ULTRA_SECURE_COOKIES", values.ultra_explorer.secure_cookies) %}
 
-{% set mount_paths = values.storage.additional_storage | map(attribute="mount_path") | list %}
-{% for root in values.ultra_explorer.local_roots %}
-  {% if root not in mount_paths %}
-    {% do tpl.funcs.fail("Expected [ultra_explorer.local_roots] [%s] to be the mount path of an [storage.additional_storage] entry"|format(root)) %}
-  {% endif %}
-  {% if root == values.consts.data_dir_path or root.startswith(values.consts.data_dir_path ~ "/") %}
-    {% do tpl.funcs.fail("Expected [ultra_explorer.local_roots] [%s] to be outside [%s]"|format(root, values.consts.data_dir_path)) %}
-  {% endif %}
-{% endfor %}
-{# Ultra Explorer only browses local folders inside these roots; the image ships an empty default. #}
-{% do c1.environment.add_env("ULTRA_LOCAL_ROOTS", values.ultra_explorer.local_roots|join(":") if values.ultra_explorer.local_roots else values.consts.default_local_root) %}
-
 {% do c1.environment.add_user_envs(values.ultra_explorer.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
 
+{% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 64, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
+
 {% do c1.add_storage(values.consts.data_dir_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
-{% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 64, "uid": values.run_as.user, "gid": values.run_as.group}}) %}
-
+{% set local_roots = namespace(x=[]) %}
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+  {% if store.local_root %}
+    {% if store.mount_path == values.consts.data_dir_path or store.mount_path.startswith(values.consts.data_dir_path + "/") %}
+      {% do tpl.funcs.fail("Expected [storage.additional_storage] local folder [%s] to be outside [%s]"|format(store.mount_path, values.consts.data_dir_path)) %}
+    {% endif %}
+    {% do local_roots.x.append(store.mount_path) %}
+  {% endif %}
 {% endfor %}
+
+{# Ultra Explorer only browses local folders inside these roots; the image ships an empty default. #}
+{% do c1.environment.add_env("ULTRA_LOCAL_ROOTS", local_roots.x|join(":") or values.consts.default_local_root) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
