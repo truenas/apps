@@ -19,6 +19,9 @@ import yaml
 import sys
 import os
 
+# libyaml-backed loader is much faster; fall back if PyYAML was built without it
+YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 PLATFORM = "linux/amd64"
 CHANGE_PLATFORM_FOR_IMAGES = [
@@ -180,7 +183,8 @@ def render_compose():
     cmd = " ".join(
         [
             f"docker run --platform {PLATFORM} --quiet --rm",
-            "-e FAKE_ENV=1",
+            "-e",
+            "FAKE_ENV=1",
             f"-v {os.getcwd()}:/workspace",
             "-v /var/run/docker.sock:/var/run/docker.sock:ro",
             CONTAINER_IMAGE,
@@ -202,7 +206,7 @@ def render_compose():
 
     with open(template_file, "r") as f:
         try:
-            out = yaml.safe_load(f)
+            out = yaml.load(f, Loader=YAML_LOADER)
             # Replace platform on some known images that refuse to work on
             # arm64 when platform is set to linux/amd64.
             for svc_name, svc in out.get("services", {}).items():
@@ -254,7 +258,7 @@ def print_docker_compose_config():
         print_stdout(res.stdout.decode("utf-8"))
         sys.exit(0)
 
-    data = yaml.safe_load(res.stdout.decode("utf-8"))
+    data = yaml.load(res.stdout.decode("utf-8"), Loader=YAML_LOADER)
     update_x_portals(data)
 
     print_stderr(res.stdout.decode("utf-8"))
@@ -528,7 +532,7 @@ def copy_macros():
 
 def generate_item_file():
     with open(f"ix-dev/{args['train']}/{args['app']}/app.yaml", "r") as f:
-        app_yaml = yaml.safe_load(f)
+        app_yaml = yaml.load(f, Loader=YAML_LOADER)
 
     item_file = f"ix-dev/{args['train']}/{args['app']}/item.yaml"
     item_data = {
