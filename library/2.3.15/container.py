@@ -177,7 +177,8 @@ class Container:
 
     def set_image_override(self, repository: str, tag: str, digest: str = ""):
         """Replace the catalog image with a validated OCI image reference."""
-        if not re.fullmatch(r"[a-z0-9](?:[a-z0-9./_-]*[a-z0-9])?", repository):
+        repository_pattern = r"[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?(?::[0-9]+)?(?:/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)*"
+        if not re.fullmatch(repository_pattern, repository):
             raise RenderError("Image override repository must be a lowercase OCI repository name")
         if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
             raise RenderError("Image override tag must be a valid OCI tag")
