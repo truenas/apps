@@ -1,3 +1,4 @@
+import re
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -174,6 +175,16 @@ class Container:
     def name(self) -> str:
         return self._name
 
+    def set_image_override(self, repository: str, tag: str, digest: str = ""):
+        """Replace the catalog image with a validated OCI image reference."""
+        if not re.fullmatch(r"[a-z0-9](?:[a-z0-9./_-]*[a-z0-9])?", repository):
+            raise RenderError("Image override repository must be a lowercase OCI repository name")
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
+            raise RenderError("Image override tag must be a valid OCI tag")
+        if digest and not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+            raise RenderError("Image override digest must be a sha256 digest")
+        self._image = f"{repository}:{tag}" + (f"@{digest}" if digest else "")
+
     def build_image(self, content: list[str | None]):
         dockerfile = f"FROM {self._image}\n"
         for line in content:
@@ -325,12 +336,18 @@ class Container:
         else:
             self._storage.add(mount_path, config)
 
-    def add_docker_socket(self, read_only: bool = True, mount_path: str = "/var/run/docker.sock"):
+    def add_docker_socket(self, mount_path: str = "/var/run/docker.sock"):
         self.add_group(999)
-        self._storage._add_docker_socket(read_only, mount_path)
+        self._storage._add_docker_socket(mount_path)
 
-    def add_udev(self, read_only: bool = True, mount_path: str = "/run/udev"):
-        self._storage._add_udev(read_only, mount_path)
+    def add_udev(self, mount_path: str = "", subpath: str = ""):
+        self._storage._add_udev(mount_path, subpath)
+
+    def add_utmp(self, mount_path: str = "/var/run/utmp"):
+        self._storage._add_utmp(mount_path)
+
+    def add_dbus(self, mount_path: str = "/run/dbus"):
+        self._storage._add_dbus(mount_path)
 
     def add_tun_device(self):
         self.devices._add_tun_device()

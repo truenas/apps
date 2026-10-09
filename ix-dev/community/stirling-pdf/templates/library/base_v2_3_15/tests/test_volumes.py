@@ -548,6 +548,28 @@ def test_tmpfs_volume(mock_values):
     ]
 
 
+def test_tmpfs_exec(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage("/run", {"type": "tmpfs", "tmpfs_config": {"exec": True, "uid": 568, "gid": 568}})
+    c1.add_storage("/some/path", {"type": "tmpfs", "tmpfs_config": {"exec": False}})
+    output = render.render()
+    assert output["services"]["test_container"]["tmpfs"] == [
+        "/run:exec,gid=568,uid=568",
+        "/some/path",
+    ]
+
+
+def test_tmpfs_invalid_exec(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    vol_config = {"type": "tmpfs", "tmpfs_config": {"exec": "yes"}}
+    with pytest.raises(Exception):
+        c1.add_storage("/some/path", vol_config)
+
+
 def test_add_tmpfs_with_existing_volume(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
@@ -651,21 +673,139 @@ def test_add_udev(mock_values):
     ]
 
 
-def test_add_udev_not_read_only(mock_values):
+def test_add_udev_cannot_be_read_write(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    c1.add_udev(read_only=False)
+    with pytest.raises(TypeError):
+        c1.add_udev(read_only=False)
+
+
+def test_add_udev_subpath(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_udev(subpath="data")
     output = render.render()
     assert output["services"]["test_container"]["volumes"] == [
         {
             "type": "bind",
-            "source": "/run/udev",
-            "target": "/run/udev",
-            "read_only": False,
+            "source": "/run/udev/data",
+            "target": "/run/udev/data",
+            "read_only": True,
             "bind": {"create_host_path": False, "propagation": "rprivate"},
         }
     ]
+
+
+def test_add_udev_subpath_with_mount_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_udev(mount_path="/some/path", subpath="data")
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/run/udev/data",
+            "target": "/some/path",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+@pytest.mark.parametrize("subpath", ["/data", "../../etc", "data/../..", "a//b"])
+def test_add_udev_invalid_subpath(mock_values, subpath):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception):
+        c1.add_udev(subpath=subpath)
+
+
+def test_add_dbus(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_dbus()
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/run/dbus",
+            "target": "/run/dbus",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+def test_add_dbus_mount_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_dbus(mount_path="/some/path")
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/run/dbus",
+            "target": "/some/path",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+def test_add_dbus_cannot_be_read_write(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(TypeError):
+        c1.add_dbus(read_only=False)
+
+
+def test_add_utmp(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_utmp()
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/var/run/utmp",
+            "target": "/var/run/utmp",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+def test_add_utmp_mount_path(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_utmp(mount_path="/some/path")
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"] == [
+        {
+            "type": "bind",
+            "source": "/var/run/utmp",
+            "target": "/some/path",
+            "read_only": True,
+            "bind": {"create_host_path": False, "propagation": "rprivate"},
+        }
+    ]
+
+
+def test_add_utmp_cannot_be_read_write(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(TypeError):
+        c1.add_utmp(read_only=False)
 
 
 def test_add_docker_socket(mock_values):
@@ -685,21 +825,12 @@ def test_add_docker_socket(mock_values):
     ]
 
 
-def test_add_docker_socket_not_read_only(mock_values):
+def test_add_docker_socket_cannot_be_read_write(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    c1.storage._add_docker_socket(read_only=False, mount_path="/var/run/docker.sock")
-    output = render.render()
-    assert output["services"]["test_container"]["volumes"] == [
-        {
-            "type": "bind",
-            "source": "/var/run/docker.sock",
-            "target": "/var/run/docker.sock",
-            "read_only": False,
-            "bind": {"create_host_path": False, "propagation": "rprivate"},
-        }
-    ]
+    with pytest.raises(TypeError):
+        c1.add_docker_socket(read_only=False)
 
 
 def test_add_docker_socket_mount_path(mock_values):
