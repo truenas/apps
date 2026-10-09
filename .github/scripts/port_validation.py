@@ -13,6 +13,9 @@ import yaml
 from collections import defaultdict
 from os import scandir
 
+# libyaml-backed loader is much faster; fall back if PyYAML was built without it
+YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 
 def extract_ports_from_items(items):
     ports = []
@@ -93,7 +96,7 @@ def get_current_port_map():
         with open(path) as f:
             parts = path.split("/")
             app_info = f"{parts[-3]}/{parts[-2]}"
-            for item in extract_ports(yaml.load(f, Loader=yaml.FullLoader)["questions"]):
+            for item in extract_ports(yaml.load(f, Loader=YAML_LOADER)["questions"]):
                 app_port, port_name = item["port"], item["name"]
                 port_map[app_port].append(f"{app_info} ({port_name})")
                 port_docs.append((app_info, port_name, app_port))
