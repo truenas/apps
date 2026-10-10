@@ -1,0 +1,170 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set inbox_zero_net = tpl.networks.create_internal("inbox-zero-net") %}
+
+{% set google_enabled = values.inbox_zero.auth_provider in ["google", "both"] %}
+{% set microsoft_enabled = values.inbox_zero.auth_provider in ["microsoft", "both"] %}
+{% if values.inbox_zero.llm.provider in ["ollama", "openai-compatible"] and not values.inbox_zero.llm.base_url %}
+  {% do tpl.funcs.fail("LLM Base URL is required for the [%s] provider."|format(values.inbox_zero.llm.provider)) %}
+{% endif %}
+
+{# Internal secrets, only shared between the containers of this app #}
+{% set cron_secret = tpl.funcs.secure_string(32) %}
+{% set internal_api_key = tpl.funcs.secure_string(32) %}
+{% set redis_http_token = tpl.funcs.secure_string(32) %}
+
+{% set internal_api_url = "http://%s:%d"|format(values.consts.app_container_name, values.network.web_port.port_number) %}
+
+{% set c1 = tpl.add_container(values.consts.app_container_name, "image") %}
+{% do c1.add_network(inbox_zero_net) %}
+
+{% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
+{% do worker.add_network(inbox_zero_net) %}
+
+{% set redis_http = tpl.add_container(values.consts.redis_http_container_name, "redis_http_image") %}
+{% do redis_http.add_network(inbox_zero_net) %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{# Postgres #}
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.inbox_zero.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.inbox_zero.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(inbox_zero_net) %}
+
+{# Redis #}
+{% set redis_config = {
+  "password": values.inbox_zero.redis_password,
+  "volume": tpl.funcs.temp_config("redis_data"),
+} %}
+{% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
+{% do redis.container.add_network(inbox_zero_net) %}
+
+{# Redis HTTP (Upstash compatible REST API in front of redis) #}
+{% do redis_http.set_user(values.run_as.user, values.run_as.group) %}
+{% do redis_http.remove_devices() %}
+{% do redis_http.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do redis_http.healthcheck.set_test("wget", {"port": values.consts.redis_http_port, "path": "/"}) %}
+{% do redis_http.environment.add_env("SRH_MODE", "env") %}
+{% do redis_http.environment.add_env("SRH_PORT", values.consts.redis_http_port) %}
+{% do redis_http.environment.add_env("SRH_TOKEN", redis_http_token) %}
+{% do redis_http.environment.add_env("SRH_CONNECTION_STRING", redis.get_url("redis")) %}
+
+{# Inbox Zero #}
+{# Runs as root, the image replaces build time placeholders under the root owned /app on every start #}
+{% do c1.set_user(0, 0) %}
+{% do c1.set_init(true) %}
+{% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+{% do c1.depends.add_dependency(values.consts.redis_http_container_name, "service_healthy") %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
+{# Migrations run on startup #}
+{% do c1.healthcheck.set_start_period(120) %}
+
+{% do c1.environment.add_env("NODE_ENV", "production") %}
+{# Docker sets HOSTNAME to the container id, which makes Next.js bind only to that address #}
+{% do c1.environment.add_env("HOSTNAME", "0.0.0.0") %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("NEXT_PUBLIC_BASE_URL", values.inbox_zero.base_url) %}
+{% do c1.environment.add_env("NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS", true) %}
+{% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
+{% do c1.environment.add_env("DIRECT_URL", postgres.get_url("postgresql")) %}
+{% do c1.environment.add_env("UPSTASH_REDIS_URL", "http://%s:%d"|format(values.consts.redis_http_container_name, values.consts.redis_http_port)) %}
+{% do c1.environment.add_env("UPSTASH_REDIS_TOKEN", redis_http_token) %}
+{% do c1.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
+{% do c1.environment.add_env("QUEUE_BACKEND", "bullmq") %}
+{% do c1.environment.add_env("INTERNAL_API_URL", internal_api_url) %}
+{% do c1.environment.add_env("INTERNAL_API_KEY", internal_api_key) %}
+{% do c1.environment.add_env("CRON_SECRET", cron_secret) %}
+{% do c1.environment.add_env("AUTH_SECRET", values.inbox_zero.auth_secret) %}
+{% do c1.environment.add_env("EMAIL_ENCRYPT_SECRET", values.inbox_zero.email_encrypt_secret) %}
+{% do c1.environment.add_env("EMAIL_ENCRYPT_SALT", values.inbox_zero.email_encrypt_salt) %}
+
+{% if google_enabled %}
+  {% do c1.environment.add_env("GOOGLE_CLIENT_ID", values.inbox_zero.google.client_id) %}
+  {% do c1.environment.add_env("GOOGLE_CLIENT_SECRET", values.inbox_zero.google.client_secret) %}
+  {# Required by the app, even when real-time Gmail notifications are not used #}
+  {% do c1.environment.add_env("GOOGLE_PUBSUB_TOPIC_NAME", values.inbox_zero.google.pubsub_topic_name or "skipped") %}
+{% else %}
+  {# Required by the app even when Google sign in is not used #}
+  {% do c1.environment.add_env("GOOGLE_CLIENT_ID", "skipped") %}
+  {% do c1.environment.add_env("GOOGLE_CLIENT_SECRET", "skipped") %}
+  {% do c1.environment.add_env("GOOGLE_PUBSUB_TOPIC_NAME", "skipped") %}
+{% endif %}
+
+{% if microsoft_enabled %}
+  {% do c1.environment.add_env("MICROSOFT_CLIENT_ID", values.inbox_zero.microsoft.client_id) %}
+  {% do c1.environment.add_env("MICROSOFT_CLIENT_SECRET", values.inbox_zero.microsoft.client_secret) %}
+{% endif %}
+
+{% do c1.environment.add_env("DEFAULT_LLM_PROVIDER", values.inbox_zero.llm.provider) %}
+{% do c1.environment.add_env("DEFAULT_LLM_MODEL", values.inbox_zero.llm.model) %}
+{% if values.inbox_zero.llm.provider != "ollama" %}
+  {% do c1.environment.add_env("LLM_API_KEY", values.inbox_zero.llm.api_key) %}
+{% endif %}
+{% if values.inbox_zero.llm.provider == "ollama" %}
+  {% do c1.environment.add_env("OLLAMA_BASE_URL", values.inbox_zero.llm.base_url) %}
+{% elif values.inbox_zero.llm.provider == "openai-compatible" %}
+  {% do c1.environment.add_env("OPENAI_COMPATIBLE_BASE_URL", values.inbox_zero.llm.base_url) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.inbox_zero.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{# Worker (BullMQ queue consumer, forwards jobs to the web app) #}
+{% do worker.set_user(values.run_as.user, values.run_as.group) %}
+{% do worker.set_init(true) %}
+{% do worker.remove_devices() %}
+{% do worker.set_command(["/app/docker/scripts/start-worker.sh"]) %}
+{% do worker.depends.add_dependency(values.consts.app_container_name, "service_healthy") %}
+{% do worker.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do worker.healthcheck.set_test("pidof", {"process": "node"}) %}
+{% do worker.environment.add_env("NODE_ENV", "production") %}
+{% do worker.environment.add_env("NEXT_PUBLIC_BASE_URL", values.inbox_zero.base_url) %}
+{% do worker.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
+{% do worker.environment.add_env("INTERNAL_API_URL", internal_api_url) %}
+{% do worker.environment.add_env("INTERNAL_API_KEY", internal_api_key) %}
+{% do worker.environment.add_user_envs(values.inbox_zero.additional_envs) %}
+
+{# Cron (same schedule as upstream's cron service) #}
+{% set cron_endpoints = [
+  {"schedule": "*/15 * * * *", "path": "/api/cron/scheduled-actions"},
+  {"schedule": "*/15 * * * *", "path": "/api/cron/automation-jobs"},
+  {"schedule": "0 * * * *", "path": "/api/follow-up-reminders"},
+  {"schedule": "*/30 * * * *", "path": "/api/resend/digest/all"},
+  {"schedule": "*/15 * * * *", "path": "/api/meeting-briefs"},
+  {"schedule": "*/5 * * * *", "path": "/api/meeting-recorder/schedule"},
+  {"schedule": "0 */6 * * *", "path": "/api/watch/all"},
+] %}
+{% set cron_tasks = namespace(items=[]) %}
+{% for endpoint in cron_endpoints %}
+  {% do cron_tasks.items.append({
+    "schedule": endpoint.schedule,
+    "command": "curl --silent --show-error --fail --url '%s%s' --header \"Authorization: Bearer $CRON_SECRET\""|format(internal_api_url, endpoint.path),
+  }) %}
+{% endfor %}
+{% set cron = tpl.deps.cron(values.consts.cron_container_name, "cron_image", {"tasks": cron_tasks.items}) %}
+{% do cron.container.add_network(inbox_zero_net) %}
+{% do cron.container.depends.add_dependency(values.consts.app_container_name, "service_healthy") %}
+{% do cron.container.environment.add_env("CRON_SECRET", cron_secret) %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do redis.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
