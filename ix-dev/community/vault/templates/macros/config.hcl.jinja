@@ -1,0 +1,41 @@
+{% macro config_hcl(values, scheme, api_addr, cluster_addr) -%}
+{%- set cluster = values.vault.cluster -%}
+ui = {{ values.vault.ui | lower }}
+log_level = "{{ values.vault.log_level }}"
+api_addr = {{ api_addr | tojson }}
+cluster_addr = {{ cluster_addr | tojson }}
+
+# Recommended with integrated storage (mlock does not work well with its memory-mapped files).
+# Also means the container does not need the IPC_LOCK capability.
+disable_mlock = true
+
+storage "raft" {
+  path = "{{ values.consts.data_path }}"
+{%- if cluster.enabled %}
+  node_id = {{ cluster.node_id | tojson }}
+{%- for peer in cluster.retry_join %}
+
+  retry_join {
+    leader_api_addr = {{ peer.leader_api_addr | tojson }}
+{%- if cluster.leader_ca_cert %}
+    leader_ca_cert_file = "{{ values.consts.peer_ca_cert_path }}"
+{%- endif %}
+{%- if cluster.leader_tls_servername %}
+    leader_tls_servername = {{ cluster.leader_tls_servername | tojson }}
+{%- endif %}
+  }
+{%- endfor %}
+{%- endif %}
+}
+
+listener "tcp" {
+  address = "0.0.0.0:{{ values.network.web_port.port_number }}"
+  cluster_address = "0.0.0.0:{{ values.network.cluster_port.port_number }}"
+{%- if scheme == "https" %}
+  tls_cert_file = "{{ values.consts.ssl_cert_path }}"
+  tls_key_file = "{{ values.consts.ssl_key_path }}"
+{%- else %}
+  tls_disable = true
+{%- endif %}
+}
+{%- endmacro %}
