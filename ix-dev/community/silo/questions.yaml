@@ -1,0 +1,928 @@
+groups:
+  - name: Silo Configuration
+    description: Set Silo's encryption key, database password, and optional search settings.
+  - name: User and Group Configuration
+    description: Configure User and Group for Silo
+  - name: Network Configuration
+    description: Choose the host ports used to reach Silo and its APIs.
+  - name: Storage Configuration
+    description: Choose where Silo keeps its data and which media folder it can read.
+  - name: Labels Configuration
+    description: Add custom Docker labels to selected Silo services.
+  - name: Resources Configuration
+    description: Set CPU, memory, and GPU limits for Silo services.
+
+questions:
+  - variable: silo
+    label: ""
+    group: Silo Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: secret_key
+          label: Data Encryption Key
+          description: Generate with `openssl rand -base64 48`. Back it up separately from your database; Silo needs the same key to decrypt saved credentials after a restore.
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: postgres_password
+          label: PostgreSQL Password
+          description: Password for Silo's private database. Generate it with `openssl rand -hex 24` and keep it with your backups. Do not reuse your encryption key.
+          schema:
+            type: string
+            required: true
+            private: true
+        - variable: enable_search
+          label: Enable Search
+          description: Start the optional Meilisearch service to provide Silo's search features. You must also provide a master key below.
+          schema:
+            type: boolean
+            default: false
+        - variable: meili_master_key
+          label: Meilisearch Master Key
+          description: Secret key used to protect Meilisearch. Set a strong, unique value and keep it private.
+          schema:
+            type: string
+            show_if: [["enable_search", "=", true]]
+            required: true
+            private: true
+        - variable: additional_envs
+          label: Additional Environment Variables
+          description: Add variables only when Silo's documentation requires settings not already provided above.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: Exact environment variable name expected by Silo.
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      description: Value for this variable. Use the dedicated fields above for the encryption key and database password.
+                      schema:
+                        type: string
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Silo files will be owned by.
+          schema:
+            type: int
+            min: 2
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Silo files will be owned by.
+          schema:
+            type: int
+            min: 2
+            default: 568
+            required: true
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: WebUI Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                description: Port number users enter in a browser to open Silo's web interface.
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30527
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: jellyfin_compat_port
+          label: Jellyfin-Compatible API Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Host Port
+                description: Port number clients use to connect to Silo's Jellyfin-compatible API.
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30528
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: audiobookshelf_compat_port
+          label: Audiobookshelf-Compatible API Port
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Host Port
+                description: Port number clients use to connect to Silo's Audiobookshelf-compatible API.
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 30529
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: silo
+                                        description: Main Silo service
+                                      - value: postgres
+                                        description: PostgreSQL database
+                                      - value: redis
+                                        description: Redis cache
+                                      - value: meilisearch
+                                        description: Optional search service
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Silo Data Storage
+          description: The path to store Silo data (plugins, artwork and compatibility data).
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: transcodes
+          label: Silo Transcode Storage
+          description: The path to store Silo transcodes.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                  Temporary: Is a temporary directory that will be created on the disk as a docker volume.
+                  tmpfs: Is a temporary directory that will be created on the RAM.
+                schema:
+                  type: string
+                  required: true
+                  default: "temporary"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+                    - value: "temporary"
+                      description: Temporary (Temporary directory created on the disk)
+                    - value: "tmpfs"
+                      description: tmpfs (Temporary directory created on the RAM)
+              - variable: tmpfs_config
+                label: tmpfs Configuration
+                description: The configuration for the tmpfs dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "tmpfs"]]
+                  attrs:
+                    - variable: size
+                      label: Tmpfs Size Limit (in Mi)
+                      description: |
+                        The maximum size (in Mi) of the temporary directory.</br>
+                        For example: 500
+                      schema:
+                        type: int
+                        default: 500
+                        required: true
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "transcodes"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: postgres_data
+          label: Postgres Data Storage
+          description: The path to store Postgres Data.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "pg_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
+                      schema:
+                        type: boolean
+                        default: false
+                        show_if: [["acl_enable", "=", false]]
+        - variable: meili_data
+          label: Meilisearch Data Storage
+          description: The path to store Meilisearch data. Only used when search is enabled.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "meili_data"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
+        - variable: additional_storage
+          label: Additional Storage
+          description: Add your media here (for example mounted read-only at `/mnt/media`). Optionally mount catalog seeds read-only at `/catalog-seeds`.
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: silo
+                            description: Silo server
+                          - value: postgres
+                            description: PostgreSQL database
+                          - value: redis
+                            description: Redis cache
+                          - value: meilisearch
+                            description: Meilisearch search engine
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                description: CPU limit for the Silo services.
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                description: Memory limit for each service. Installing the Jellyfin Web UI from Silo needs at least 6144 MB.
+                schema:
+                  type: int
+                  default: 4096
+                  required: true
+        - variable: gpus
+          group: Resources Configuration
+          label: GPU Configuration
+          schema:
+            type: dict
+            $ref:
+              - "definitions/gpu_configuration"
+            attrs: []

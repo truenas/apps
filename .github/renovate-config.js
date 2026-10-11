@@ -460,6 +460,11 @@ module.exports = {
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?(-(?<compatibility>full))?$",
       ["nicolargo/glances"],
     ),
+    customVersioning(
+      // build-1284
+      "^build-(?<major>\\d+)$",
+      ["ghcr.io/silo-server/silo-server"],
+    ),
   ],
 };
 
