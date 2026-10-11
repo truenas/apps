@@ -1,0 +1,94 @@
+#!/usr/bin/python3
+"""TrueNAS saved-values migration; run before target schema default injection."""
+
+import copy
+import sys
+
+import yaml
+
+# The only migration-owned names. Defaults match VaultBridge Settings, not a new runtime policy.
+MCP_SETTINGS = {
+    "MCP_HTTP_ENABLED": ("http_enabled", False),
+    "MCP_WRITE_ENABLED": ("write_enabled", False),
+    "MCP_HTTP_ALLOWED_HOSTS": ("allowed_hosts", "127.0.0.1:*,localhost:*,[::1]:*"),
+    "MCP_HTTP_ALLOWED_ORIGINS": (
+        "allowed_origins", "http://127.0.0.1:*,http://localhost:*,http://[::1]:*"
+    ),
+}
+TRUE_VALUES = frozenset(("1", "on", "t", "true", "y", "yes"))
+FALSE_VALUES = frozenset(("0", "off", "f", "false", "n", "no"))
+
+
+class MigrationError(ValueError):
+    pass
+
+
+def migrate(values):
+    # Never mutate the caller's saved state, including on any late conversion failure.
+    result = copy.deepcopy(values)
+    if not isinstance(result, dict):
+        raise MigrationError("MCP migration requires a saved configuration mapping")
+    app = result.get("vaultbridge", {})
+    mcp = result.get("mcp", {})
+    if not isinstance(app, dict) or not isinstance(mcp, dict):
+        raise MigrationError("MCP migration requires vaultbridge and mcp mappings")
+    envs = app.get("additional_envs", [])
+    if not isinstance(envs, list) or any(not isinstance(entry, dict) for entry in envs):
+        raise MigrationError("MCP migration requires vaultbridge.additional_envs entries")
+
+    legacy = {}
+    retained = []
+    for entry in envs:
+        name = entry.get("name")
+        if not isinstance(name, str) or name not in MCP_SETTINGS:
+            retained.append(entry)
+            continue
+        field, _ = MCP_SETTINGS[name]
+        if field in mcp:
+            raise MigrationError(
+                f"Conflicting {name}: vaultbridge.additional_envs and saved mcp.{field}; "
+                "resolve the dual representation before upgrading"
+            )
+        if name in legacy:
+            raise MigrationError(f"Duplicate {name} in vaultbridge.additional_envs")
+        legacy[name] = entry.get("value")
+
+    for name, (field, default) in MCP_SETTINGS.items():
+        if name in legacy:
+            value = legacy[name]
+            if not isinstance(value, str):
+                raise MigrationError(f"Invalid legacy {name}: expected a string")
+            if isinstance(default, bool):
+                lowered = value.lower()
+                if lowered not in TRUE_VALUES | FALSE_VALUES:
+                    raise MigrationError(f"Invalid legacy boolean {name}; correct it before upgrading")
+                value = lowered in TRUE_VALUES
+            mcp[field] = value
+        elif field not in mcp:
+            mcp[field] = default
+
+    result["mcp"] = mcp
+    if "additional_envs" in app:
+        app["additional_envs"] = retained
+    return result
+
+
+def main():
+    if len(sys.argv) != 2:
+        print("MCP migration requires one saved-values YAML file", file=sys.stderr)
+        return 1
+    try:
+        with open(sys.argv[1], encoding="utf-8") as source:
+            result = migrate(yaml.safe_load(source))
+    except MigrationError as error:
+        print(str(error), file=sys.stderr)
+        return 1
+    except (OSError, yaml.YAMLError):
+        print("MCP migration could not read saved-values YAML", file=sys.stderr)
+        return 1
+    print(yaml.safe_dump(result, sort_keys=False), end="")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
