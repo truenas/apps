@@ -102,6 +102,7 @@ def test_mapping(variant: str, config: dict | None = None) -> list[str]:
         "pidof": pidof_test,
         "pgrep": pgrep_test,
         "node": node_test,
+        "node_tcp": node_tcp_test,
     }
 
     if variant not in tests:
@@ -314,6 +315,20 @@ def node_test(config: dict) -> list[str]:
     script = (
         f"require('{scheme}').get({json.dumps(opts)}, "
         "r => process.exit(r.statusCode === 200 ? 0 : 1))"
+        ".on('error', () => process.exit(1));"
+    )
+
+    return ["CMD", binary, "-e", script]
+
+
+def node_tcp_test(config: dict) -> list[str]:
+    config = config or {}
+    binary = get_key(config, "binary", "node", False)
+    host = get_key(config, "host", "127.0.0.1", False)
+    port = get_key(config, "port", None, True)
+
+    script = (
+        f"require('net').connect({port}, {json.dumps(host)}, () => process.exit(0))"
         ".on('error', () => process.exit(1));"
     )
 

@@ -33,6 +33,7 @@ class Tmpfs:
         mode = mount_config.get("mode", None)
         uid = mount_config.get("uid", None)
         gid = mount_config.get("gid", None)
+        exec_ = mount_config.get("exec", False)
 
         if size is not None:
             if not isinstance(size, int):
@@ -51,6 +52,9 @@ class Tmpfs:
         if gid is not None and not isinstance(gid, int):
             raise RenderError(f"Expected [gid] to be an integer for [tmpfs] type, got [{gid}]")
 
+        if not isinstance(exec_, bool):
+            raise RenderError(f"Expected [exec] to be a boolean for [tmpfs] type, got [{exec_}]")
+
         self._tmpfs[mount_path] = {}
         if size is not None:
             self._tmpfs[mount_path]["size"] = str(size)
@@ -60,6 +64,9 @@ class Tmpfs:
             self._tmpfs[mount_path]["uid"] = str(uid)
         if gid is not None:
             self._tmpfs[mount_path]["gid"] = str(gid)
+        # Docker mounts tmpfs as noexec by default, this is a flag without a value
+        if exec_:
+            self._tmpfs[mount_path]["exec"] = None
 
     def is_defined(self, mount_path: str):
         return mount_path in self._tmpfs
@@ -70,6 +77,6 @@ class Tmpfs:
     def render(self):
         result = []
         for mount_path, config in self._tmpfs.items():
-            opts = sorted([f"{k}={v}" for k, v in config.items()])
+            opts = sorted([k if v is None else f"{k}={v}" for k, v in config.items()])
             result.append(f"{mount_path}:{','.join(opts)}" if opts else mount_path)
         return sorted(result)

@@ -254,6 +254,10 @@ some other info.
     c1.set_grace_period(61)
     c1.remove_security_opt("no-new-privileges")
     c1.add_docker_socket()
+    c1.add_udev()
+    c1.add_udev(subpath="data")
+    c1.add_utmp()
+    c1.add_dbus()
     c1.add_tun_device()
     c1.add_usb_bus()
     c1.add_snd_device()
@@ -352,11 +356,15 @@ some other info.
 #### Passing Host Files, Devices, or Sockets into the Container
 
 - /dev/null - (rwm)
+- /run/udev/data - (Read Only)
+- DBus Socket (/run/dbus) - (Read Only)
 - Docker Socket (/var/run/docker.sock) - (Read Only)
 - OS Release File (/etc/os-release) - (Read/Write)
 - Sound Device (/dev/snd) - (Read/Write)
 - TUN Device (/dev/net/tun) - (Read/Write)
 - USB Devices (/dev/bus/usb) - (Read/Write)
+- UTMP (/var/run/utmp) - (Read Only)
+- Udev Socket (/run/udev) - (Read Only)
 
 ---
 

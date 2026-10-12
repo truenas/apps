@@ -23,4 +23,7 @@ def merge_dicts_no_overwrite(dict1, dict2):
 
 
 def get_image_with_hashed_data(image: str, data: str):
+    # Drop the digest pin (repo:tag@sha256:...), it is not valid in the generated tag.
+    # The digest is still part of the hashed data (FROM line), so a digest change results in a new tag.
+    image = image.split("@")[0]
     return get_hash_with_prefix(f"ix-{image}", data)
