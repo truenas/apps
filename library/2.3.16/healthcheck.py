@@ -225,15 +225,9 @@ def redis_test(config: dict) -> list[str]:
     config = config or {}
     port = get_key(config, "port", 6379, False)
     host = get_key(config, "host", "127.0.0.1", False)
-    password = get_key(config, "password", None, False)
-    cmd = ["CMD", "redis-cli", "-h", host, "-p", str(port)]
-
-    if password:
-        cmd.extend(["-a", password])
-
-    cmd.append("ping")
-
-    return cmd
+    # Password is not passed with "-a" as it would be exposed in the process list
+    # redis-cli reads the password from the REDISCLI_AUTH env var instead
+    return ["CMD", "redis-cli", "-h", host, "-p", str(port), "ping"]
 
 
 def postgres_test(config: dict) -> list[str]:

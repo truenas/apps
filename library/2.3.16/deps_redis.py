@@ -50,12 +50,13 @@ class RedisContainer:
         c.set_user(user, group)
         c.remove_devices()
         c.set_grace_period(60)
-        c.healthcheck.set_test("redis", {"password": config["password"]})
+        c.healthcheck.set_test("redis", {"port": port})
 
         cmd = []
         cmd.extend(["--port", str(port)])
         cmd.extend(["--requirepass", config["password"]])
         c.environment.add_env("REDIS_PASSWORD", config["password"])
+        c.environment.add_env("REDISCLI_AUTH", config["password"])
         c.set_command(cmd)
 
         c.add_storage("/data", config["volume"])

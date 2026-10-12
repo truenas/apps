@@ -308,7 +308,7 @@ def test_tcp_healthcheck(mock_values):
 def test_redis_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_test("redis", {"password": "test"})
+    c1.healthcheck.set_test("redis", {"port": 6380})
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
@@ -316,25 +316,7 @@ def test_redis_healthcheck(mock_values):
         "-h",
         "127.0.0.1",
         "-p",
-        "6379",
-        "-a",
-        "test",
-        "ping",
-    ]
-
-
-def test_redis_healthcheck_no_password(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_test("redis", {"password": ""})
-    output = render.render()
-    assert output["services"]["test_container"]["healthcheck"]["test"] == [
-        "CMD",
-        "redis-cli",
-        "-h",
-        "127.0.0.1",
-        "-p",
-        "6379",
+        "6380",
         "ping",
     ]
 

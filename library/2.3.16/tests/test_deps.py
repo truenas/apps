@@ -464,8 +464,6 @@ def test_add_redis(mock_values):
             "127.0.0.1",
             "-p",
             "6379",
-            "-a",
-            "test&password@",
             "ping",
         ],
         "interval": "30s",
@@ -489,6 +487,7 @@ def test_add_redis(mock_values):
         "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
         "REDIS_PASSWORD": "test&password@",
+        "REDISCLI_AUTH": "test&password@",
     }
     assert output["services"]["redis_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
