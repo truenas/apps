@@ -242,8 +242,9 @@ def postgres_test(config: dict) -> list[str]:
     host = get_key(config, "host", "127.0.0.1", False)
     user = get_key(config, "user", None, True)
     db = get_key(config, "db", None, True)
+    binary = get_key(config, "binary", "pg_isready", False)
 
-    return ["CMD", "pg_isready", "-h", host, "-p", str(port), "-U", user, "-d", db]
+    return ["CMD", binary, "-h", host, "-p", str(port), "-U", user, "-d", db]
 
 
 def mariadb_test(config: dict) -> list[str]:

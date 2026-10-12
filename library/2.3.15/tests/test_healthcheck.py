@@ -358,6 +358,17 @@ def test_postgres_healthcheck(mock_values):
     ]
 
 
+def test_postgres_healthcheck_custom_binary(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test(
+        "postgres",
+        {"user": "test-user", "db": "test-db", "binary": "/usr/lib/postgresql/17/bin/pg_isready"},
+    )
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"][1] == "/usr/lib/postgresql/17/bin/pg_isready"
+
+
 def test_mariadb_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
