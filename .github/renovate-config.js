@@ -234,6 +234,11 @@ module.exports = {
       ["ghcr.io/corentinth/it-tools"],
     ),
     customVersioning(
+      // 2026.10.11-g1b6b5d0 `-g` plus hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-g[0-9a-f]+$",
+      ["ghcr.io/coffey-labs/ihasmail"],
+    ),
+    customVersioning(
       // 2.5.x -- Yes x is exact value and not a placeholder
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.x$",
       ["uroni/urbackup-server"],
