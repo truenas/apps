@@ -11,17 +11,18 @@
 
 {% set nc_custom_image = namespace(x=[]) %}
 {% if values.nextcloud.apt_packages %}
-  {% do nc_custom_image.x.append("RUN apt update || { echo 'Failed to update apt cache. Exiting...'; exit 1; }") %}
+  {# Error-Mode=any makes the update fail on unreachable mirrors. #}
+  {% do nc_custom_image.x.append("RUN apt-get update -o APT::Update::Error-Mode=any || { echo 'Failed to update apt cache. Exiting...'; exit 1; }") %}
 
   {# Main packages #}
   {% for pkg in values.nextcloud.apt_packages %}
-    {% do nc_custom_image.x.append("RUN apt install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(pkg, pkg)) %}
+    {% do nc_custom_image.x.append("RUN apt-get install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(pkg, pkg)) %}
   {% endfor %}
 
   {# Additional Dependencies #}
   {% for pkg in values.nextcloud.apt_packages if values.consts.packages[pkg] %}
     {% for dep in values.consts.packages[pkg].additional_apt %}
-      {% do nc_custom_image.x.append("RUN apt install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(dep, dep)) %}
+      {% do nc_custom_image.x.append("RUN apt-get install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(dep, dep)) %}
     {% endfor %}
     {% for dep in values.consts.packages[pkg].pecl %}
       {% do nc_custom_image.x.append("RUN pecl install %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(dep, dep)) %}
@@ -36,7 +37,7 @@
     {# Tesseract OCR #}
     {% for lang in values.nextcloud.tesseract_languages if "ocrmypdf" in values.nextcloud.apt_packages %}
       {% set lang_pack = "tesseract-ocr-%s" | format(lang|replace("_", "-")) %}
-      {% do nc_custom_image.x.append("RUN apt install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(lang_pack, lang_pack)) %}
+      {% do nc_custom_image.x.append("RUN apt-get install -y --no-install-recommends %s || { echo 'Failed to install [%s]. Exiting...'; exit 1; }"|format(lang_pack, lang_pack)) %}
     {% endfor %}
   {% endfor %}
 {% endif %}

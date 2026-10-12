@@ -1,3 +1,12 @@
+// Indentation of repository/tag under images.<name> in ix_values.yaml
+const INDENT = " ".repeat(4);
+
+// Builds the repository/tag lines of an image in ix_values.yaml.
+// Used for both the match regex and the replace template, so they always have the same shape.
+function imageLines(repository, tag) {
+  return `${INDENT}repository: ${repository}\n${INDENT}tag: ${tag}`;
+}
+
 module.exports = {
   extends: [],
   // https://docs.renovatebot.com/self-hosted-configuration/#dryrun
@@ -21,10 +30,21 @@ module.exports = {
       customType: "regex",
       // Match only ix_values.yaml files in the ix-dev directory
       managerFilePatterns: ["/^ix-dev/.*/ix_values\\.yaml$/"],
-      // Matches the repository name and the tag of each image
+      // Matches the repository name, the tag and the optional digest (tag@sha256:...) of each image
       matchStrings: [
-        "\\s{4}repository: (?<depName>[^\\s]+)\\n\\s{4}tag: [\"']?(?<currentValue>[^\\s\"']+)[\"']?",
+        imageLines(
+          /(?<depName>[^\s]+)/.source,
+          /["']?(?<currentValue>[^\s"'@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?["']?/
+            .source,
+        ),
       ],
+      // Needed to add a digest to a tag that has none (pinDigest).
+      // Always quote the tag, some tags (eg 4.47, 20260916_075031) are only strings because they are quoted.
+      // https://docs.renovatebot.com/configuration-options/#custommanagersautoreplacestringtemplate
+      autoReplaceStringTemplate: imageLines(
+        "{{{depName}}}",
+        '"{{{newValue}}}{{#if newDigest}}@{{{newDigest}}}{{/if}}"',
+      ),
       // Use the docker datasource on matched images
       datasourceTemplate: "docker",
     },
@@ -33,6 +53,9 @@ module.exports = {
     {
       matchManagers: ["custom.regex"],
       matchDatasources: ["docker"],
+      // Pin every image to its digest (tag@sha256:...). Scoped here so gh-actions are not pinned.
+      // https://docs.renovatebot.com/configuration-options/#pindigests
+      pinDigests: true,
       postUpgradeTasks: {
         // What to "git add" after the commands are run
         fileFilters: [
@@ -46,6 +69,13 @@ module.exports = {
           "./.github/scripts/renovate_bump.sh {{{packageFileDir}}} patch {{{depName}}} {{{newValue}}} {{{branchName}}}",
         ],
       },
+    },
+    {
+      // Never pin quay.io images. Quay garbage-collects manifests that are no longer
+      // referenced by a tag, so a pinned digest disappears once its tag moves.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["quay.io/**"],
+      pinDigests: false,
     },
     {
       matchManagers: ["github-actions"],
@@ -81,6 +111,29 @@ module.exports = {
       labels: ["enterprise"],
       groupName: "enterprise",
       matchFileNames: ["ix-dev/enterprise/**"],
+    },
+    // Keep digest changes out of the version update PRs.
+    // These come after the enterprise rule, so enterprise digests land here as well.
+    {
+      // Adding a digest to a tag that has none
+      matchDatasources: ["docker"],
+      matchUpdateTypes: ["pinDigest"],
+      groupName: "pin-digests",
+      labels: ["pin-digest"],
+      fetchChangeLogs: "off",
+    },
+    {
+      // Same tag, new digest (upstream rebuilt the tag)
+      matchDatasources: ["docker"],
+      matchUpdateTypes: ["digest"],
+      groupName: "digest-updates",
+      labels: ["digest"],
+      fetchChangeLogs: "off",
+      // Only create/update the PR on mondays, it is merged weekly.
+      // updateNotScheduled: false, so the open PR is not updated on the other days either.
+      // https://docs.renovatebot.com/configuration-options/#schedule
+      schedule: ["* * * * 1"],
+      updateNotScheduled: false,
     },
     // Custom versioning matching
     // https://docs.renovatebot.com/modules/versioning/regex/#rangesconstraints
@@ -169,7 +222,11 @@ module.exports = {
     customVersioning(
       // 20250122_091948 {year}{month}{day}_{build}
       "^(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})_(?<build>\\d+)$",
-      ["ghcr.io/nextcloud-releases/aio-imaginary"],
+      [
+        "ghcr.io/nextcloud-releases/aio-imaginary",
+        "ghcr.io/nextcloud-releases/aio-talk",
+        "ghcr.io/nextcloud-releases/aio-talk-recording",
+      ],
     ),
     customVersioning(
       // 2024.10.22-7ca5933
@@ -258,7 +315,8 @@ module.exports = {
     ),
     customVersioning(
       // v1.52.0-jammy
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>(noble|jammy)))?$",
+      // The distro is captured as "compatibility", so a jammy pin never updates to a noble tag
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<compatibility>resolute|noble|jammy))?$",
       ["mcr.microsoft.com/playwright"],
     ),
     customVersioning(
@@ -289,8 +347,8 @@ module.exports = {
       ["wger/server"],
     ),
     customVersioning(
-      // 15-vectorchord0.3.0
-      "^15-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      // 18-vectorchord0.3.0
+      "^18-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/immich-app/postgres"],
     ),
     customVersioning(
@@ -327,11 +385,6 @@ module.exports = {
       // appname-1.2.3
       "^(?<compatibility>arcade|calculator|cast|draw-io|external-sites|importer|json-viewer|maps|pastebin|progress-bars|unzip)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["opencloudeu/web-extensions"],
-    ),
-    customVersioning(
-      // 1.0.0-beta.4
-      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-beta\\.(?<build>\\d+))?$",
-      ["rustfs/rustfs"],
     ),
     customVersioning(
       // 10.0.160-mongo8
@@ -392,6 +445,13 @@ module.exports = {
       // 6.5.2-81
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)$",
       ["ghcr.io/zammad/zammad"],
+    ),
+    customVersioning(
+      // 151.0.7922.47-r1 (chrome version, plus a packaging revision).
+      // "revision" only counts when "build" is also set, so the 4th chrome
+      // digit has to be captured for the -rN part to affect ordering.
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-r(?<revision>\\d+)$",
+      ["ghcr.io/karakeep-app/karakeep-chrome"],
     ),
     customVersioning(
       // 4.5.6 or 4.5.3.2, each with an optional "-full" variant.
