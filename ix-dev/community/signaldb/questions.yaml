@@ -1,8 +1,6 @@
 groups:
   - name: SignalDB Configuration
     description: Configure SignalDB
-  - name: Scaling Configuration
-    description: Configure extra SignalDB service instances
   - name: User and Group Configuration
     description: Configure User and Group for SignalDB
   - name: Network Configuration
@@ -31,81 +29,6 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: image_selector
-          label: Image
-          description: |
-            Stable runs the SignalDB release this app version pins.</br>
-            Custom runs any image you name, for example a moving tag such as
-            <code>main</code> or <code>main-glibc-profiling</code> (amd64 only,
-            needed for heap profiling).</br>
-            Moving tags are not re-pulled on redeploy; use Update or pull the images again.
-          schema:
-            type: string
-            default: image
-            required: true
-            enum:
-              - value: image
-                description: Stable release
-              - value: custom_image
-                description: Custom image
-        - variable: custom_image
-          label: Custom Image
-          schema:
-            type: dict
-            show_if: [["image_selector", "=", "custom_image"]]
-            attrs:
-              - variable: repository
-                label: Repository
-                schema:
-                  type: string
-                  default: ghcr.io/cedricziel/signaldb
-                  required: true
-              - variable: tag
-                label: Tag
-                schema:
-                  type: string
-                  default: main
-                  required: true
-        - variable: tenant_name
-          label: Tenant Name
-          description: |
-            Human-readable name for the first tenant created on install.</br>
-            SignalDB is multi-tenant: every ingest/query call must carry a
-            tenant. This tenant and its API key are provisioned for you so
-            the deployment is queryable immediately.
-          schema:
-            type: string
-            default: "Default Tenant"
-            required: true
-        - variable: tenant_slug
-          label: Tenant Slug
-          description: |
-            Identifier for the tenant, sent as the `X-Tenant-ID` header by
-            clients. Lowercase letters, numbers and hyphens only.
-          schema:
-            type: string
-            default: "default"
-            required: true
-        - variable: dataset_slug
-          label: Default Dataset Slug
-          description: |
-            Identifier for the tenant's default dataset, sent as the
-            `X-Dataset-ID` header (optional on requests; this dataset is
-            used when the header is omitted).
-          schema:
-            type: string
-            default: "default"
-            required: true
-        - variable: api_key
-          label: Ingest/Query API Key
-          description: |
-            API key clients send as `Authorization: Bearer <key>` to ingest
-            or query data for the tenant above. Pick a long random value.
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
         - variable: admin_api_key
           label: Admin API Key (optional)
           description: |
@@ -207,17 +130,6 @@ questions:
                       schema:
                         type: string
                         required: true
-        - variable: additional_toml
-          label: Additional TOML Configuration
-          description: |
-            Appended to the generated signaldb.toml, for settings environment variables
-            cannot express, such as more [[auth.tenants]] blocks.</br>
-            The generated file already defines [auth], so do not repeat that table.
-            Settings this app passes as environment variables (storage, database,
-            memory limits, public URLs) override the same keys set here.
-          schema:
-            type: text
-            default: ""
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -238,43 +150,6 @@ questions:
                       label: Value
                       schema:
                         type: string
-  - variable: scaling
-    label: ""
-    group: Scaling Configuration
-    description: |
-      SignalDB always runs every service in its main container. These add more
-      instances next to it, sharing the same database and storage. Each extra
-      container gets the resource limits set below.
-    schema:
-      type: dict
-      attrs:
-        - variable: extra_queriers
-          label: Extra Queriers
-          description: Query instances. The router spreads queries across all queriers.
-          schema:
-            type: int
-            default: 0
-            min: 0
-            max: 8
-            required: true
-        - variable: extra_writers
-          label: Extra Writers
-          description: Ingest instances. Each gets its own WAL directory on the WAL storage.
-          schema:
-            type: int
-            default: 0
-            min: 0
-            max: 8
-            required: true
-        - variable: extra_compactors
-          label: Extra Compactors
-          description: Compaction instances. They coordinate through leases, so each partition is compacted once.
-          schema:
-            type: int
-            default: 0
-            min: 0
-            max: 8
-            required: true
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -540,12 +415,6 @@ questions:
                                         description: postgres
                                       - value: mcp
                                         description: mcp
-                                      - value: querier-1
-                                        description: querier-1
-                                      - value: writer-1
-                                        description: writer-1
-                                      - value: compactor-1
-                                        description: compactor-1
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -605,7 +474,9 @@ questions:
         - variable: data
           label: SignalDB Data Storage
           description: |
-            Holds the rendered signaldb.toml and SignalDB's working directory.
+            Holds your signaldb.toml and SignalDB's working directory.</br>
+            Create signaldb.toml here to configure tenants and API keys.
+            The app does not create or overwrite this file.
           schema:
             type: dict
             attrs:
@@ -1121,12 +992,6 @@ questions:
                             description: postgres
                           - value: mcp
                             description: mcp
-                          - value: querier-1
-                            description: querier-1
-                          - value: writer-1
-                            description: writer-1
-                          - value: compactor-1
-                            description: compactor-1
 
   - variable: resources
     label: ""
