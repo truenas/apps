@@ -40,6 +40,7 @@ SUPPORTED_REPOS = [
     "ghcr.io/oss-apps/postgres",
     "ghcr.io/immich-app/postgres",
 ]
+ALPINE_REPOS = ["timescale/timescaledb"]
 SUPPORTED_UPGRADE_REPOS = [
     "postgres",
     "postgis/postgis",
@@ -152,7 +153,6 @@ class PostgresContainer:
         c = self._render_instance.add_container(name, image)
         containers = [c]
 
-        c.healthcheck.set_test("postgres", {"user": config["user"], "db": config["database"], "port": port})
         c.set_shm_size_mb(256)
         c.remove_devices()
         c.set_grace_period(60)
@@ -165,6 +165,15 @@ class PostgresContainer:
         common_variables.update({"PGDATA": f"{self._data_dir}/{target_major_version}/docker"})
 
         repo = self._get_repo(image)
+        c.healthcheck.set_test(
+            "postgres",
+            {
+                "user": config["user"],
+                "db": config["database"],
+                "port": port,
+                "binary": self._get_pg_isready_path(repo, target_major_version),
+            },
+        )
         if repo in SUPPORTED_UPGRADE_REPOS:
             upg = self._render_instance.add_container(self._upgrade_name, "postgres_upgrade_image")
 
@@ -215,6 +224,14 @@ class PostgresContainer:
         if repo not in SUPPORTED_REPOS:
             raise RenderError(f"Unsupported repo [{repo}] for postgres. Supported repos: {', '.join(SUPPORTED_REPOS)}")
         return repo
+
+    def _get_pg_isready_path(self, repo, major_version):
+        # Alpine based images have no pg_wrapper, the binary is already in PATH
+        if repo in ALPINE_REPOS:
+            return "pg_isready"
+        # Debian based images resolve pg_isready to the perl based pg_wrapper
+        # Call the binary directly to avoid the perl overhead on every healthcheck
+        return f"/usr/lib/postgresql/{major_version}/bin/pg_isready"
 
     def _get_target_version(self, image):
         repo = self._get_repo(image)

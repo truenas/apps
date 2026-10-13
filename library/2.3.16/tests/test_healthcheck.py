@@ -308,7 +308,7 @@ def test_tcp_healthcheck(mock_values):
 def test_redis_healthcheck(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_test("redis", {"password": "test"})
+    c1.healthcheck.set_test("redis", {"port": 6380})
     output = render.render()
     assert output["services"]["test_container"]["healthcheck"]["test"] == [
         "CMD",
@@ -316,25 +316,7 @@ def test_redis_healthcheck(mock_values):
         "-h",
         "127.0.0.1",
         "-p",
-        "6379",
-        "-a",
-        "test",
-        "ping",
-    ]
-
-
-def test_redis_healthcheck_no_password(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.set_test("redis", {"password": ""})
-    output = render.render()
-    assert output["services"]["test_container"]["healthcheck"]["test"] == [
-        "CMD",
-        "redis-cli",
-        "-h",
-        "127.0.0.1",
-        "-p",
-        "6379",
+        "6380",
         "ping",
     ]
 
@@ -356,6 +338,17 @@ def test_postgres_healthcheck(mock_values):
         "-d",
         "test-db",
     ]
+
+
+def test_postgres_healthcheck_custom_binary(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.set_test(
+        "postgres",
+        {"user": "test-user", "db": "test-db", "binary": "/usr/lib/postgresql/17/bin/pg_isready"},
+    )
+    output = render.render()
+    assert output["services"]["test_container"]["healthcheck"]["test"][1] == "/usr/lib/postgresql/17/bin/pg_isready"
 
 
 def test_mariadb_healthcheck(mock_values):
