@@ -443,23 +443,23 @@ def run_app():
 
     print_stderr(f"Exit code: {res.returncode}")
     if res.returncode != 0:
-        if res.stderr:
-            stderr = res.stderr.decode("utf-8")
-            err_msg = "error response from daemon"
-            if err_msg in stderr.lower():
-                print_stderr(
-                    "\nDocker exited with non-zero code and no containers were found.\n"
-                    + "Most likely docker couldn't start one of the containers at all.\n"
-                    + "Such cases are for example when a device is not available on the host.\n"
-                    + "or image cannot be found.\n\n"
-                    + stderr
-                )
-                return res.returncode or 99
+        stderr = res.stderr.decode("utf-8")
+        err_msg = "error response from daemon"
+        if err_msg in stderr.lower():
+            print_stderr(
+                "\nDocker exited with non-zero code and no containers were found.\n"
+                + "Most likely docker couldn't start one of the containers at all.\n"
+                + "Such cases are for example when a device is not available on the host.\n"
+                + "or image cannot be found.\n\n"
+                + stderr
+            )
+            return res.returncode or 99
         parsed_containers = get_parsed_containers()
         if not parsed_containers:
             print_stderr(
                 "Docker exited with non-zero code and no containers were found.\n"
-                + "Most likely docker couldn't start the containers at all.\n"
+                + "Most likely docker couldn't start the containers at all.\n\n"
+                + stderr
             )
             return res.returncode or 99
 
