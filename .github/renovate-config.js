@@ -407,11 +407,6 @@ module.exports = {
       ["amrit3701/lens"],
     ),
     customVersioning(
-      // release-1.11.0
-      "^release-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["ghcr.io/lukegus/termix"],
-    ),
-    customVersioning(
       // slim-v1.12.2
       "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["itzcrazykns1337/vane"],
