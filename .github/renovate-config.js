@@ -432,8 +432,11 @@ module.exports = {
       ["ghcr.io/jellyfin/jellyfin"],
     ),
     customVersioning(
-      // v2026.5.29(.2)?
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
+      // v0.22.0
+      // Upstream used CalVer tags (v2026.9.24) before going back to SemVer.
+      // The major is capped at 3 digits so those old tags never match and
+      // are not offered as "newer" than the SemVer releases.
+      "^v(?<major>\\d{1,3})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["nousresearch/hermes-agent"],
     ),
     customVersioning(
