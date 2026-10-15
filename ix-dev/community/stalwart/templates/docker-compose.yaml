@@ -17,33 +17,47 @@
 {% do init.set_entrypoint(["/init.sh"]) %}
 {% do init.add_storage(values.consts.cli_dir, cli_vol) %}
 
-{# Declarative listener plan consumed by `stalwart-cli apply`. We destroy only the listeners we
-   manage (by name) so disabling a port removes its listener while leaving listeners the user
-   created in the WebUI untouched, then (re)create the ones that are enabled. #}
+{# Declarative listener plan consumed by `stalwart-cli apply`. We only touch the listeners we
+   manage (by name), leaving listeners the user created in the WebUI untouched.
+   Disabled ports are destroyed. For enabled ports the seed script checks which listeners already exist:
+   - Missing ones are created with the default TLS mode below
+   - Existing ones are upserted with only name/bind/protocol, so TLS and any other setting changed in the WebUI survives restarts.
+   TLS modes:
+   - "none" = plaintext only
+   - "starttls" = plaintext with STARTTLS upgrade
+   - "implicit" = TLS from the first byte
+#}
 {% set listeners = [
-  ("http", values.network.http_port, "http", false),
-  ("https", values.network.https_port, "http", true),
-  ("smtp", values.network.smtp_port, "smtp", false),
-  ("submission", values.network.submission_port, "smtp", false),
-  ("submissions", values.network.submissions_port, "smtp", true),
-  ("imap", values.network.imap_port, "imap", false),
-  ("imaptls", values.network.imaps_port, "imap", true),
-  ("pop3", values.network.pop3_port, "pop3", false),
-  ("pop3s", values.network.pop3s_port, "pop3", true),
-  ("sieve", values.network.sieve_port, "manageSieve", false),
+  ("http", values.network.http_port, "http", "none"),
+  ("https", values.network.https_port, "http", "implicit"),
+  ("smtp", values.network.smtp_port, "smtp", "starttls"),
+  ("submission", values.network.submission_port, "smtp", "starttls"),
+  ("submissions", values.network.submissions_port, "smtp", "implicit"),
+  ("imap", values.network.imap_port, "imap", "starttls"),
+  ("imaptls", values.network.imaps_port, "imap", "implicit"),
+  ("pop3", values.network.pop3_port, "pop3", "starttls"),
+  ("pop3s", values.network.pop3s_port, "pop3", "implicit"),
+  ("sieve", values.network.sieve_port, "manageSieve", "starttls"),
 ] %}
 {% set plan = namespace(x=[]) %}
+{% set managed = namespace(x=[]) %}
 {% for name, port, proto, tls in listeners %}
-  {% set name = "tn-%s"|format(name) %}
-  {% do plan.x.append({"@type": "destroy", "object": "NetworkListener", "value": {"name": name}}) %}
+  {# Listeners used to be named `tn-*` and were recreated with STARTTLS disabled on every start. #}
+  {# Destroying those (a no-op once gone) lets the `truenas-*` ones be created with the right TLS. #}
+  {% do plan.x.append({"@type": "destroy", "object": "NetworkListener", "value": {"name": "tn-%s"|format(name)}}) %}
 
-  {% if not port.bind_mode %}{% continue %}{% endif %}
-  {% set bind = {"0.0.0.0:%d"|format(port.port_number): true} %}
-  {% do plan.x.append({
-    "@type": "create", "object": "NetworkListener",
-    "value": {
-      name: {"name": name, "bind": bind,"protocol": proto, "useTls": tls, "tlsImplicit": tls},
-    },
+  {% set name = "truenas-%s"|format(name) %}
+  {% if not port.bind_mode %} {# Remove any disabled listeners #}
+    {% do plan.x.append({"@type": "destroy", "object": "NetworkListener", "value": {"name": name}}) %}
+    {% continue %}
+  {% endif %}
+
+  {% set update_fields = {"name": name, "bind": {"0.0.0.0:%d"|format(port.port_number): true}, "protocol": proto} %}
+  {% set create_fields = dict(update_fields, useTls=tls != "none", tlsImplicit=tls == "implicit") %}
+  {% do managed.x.append({
+    "name": name,
+    "create": {"@type": "create", "object": "NetworkListener", "value": {name: create_fields}} | tojson,
+    "upsert": {"@type": "upsert", "object": "NetworkListener", "matchOn": ["name"], "value": {name: update_fields}} | tojson,
   }) %}
 {% endfor %}
 
@@ -53,7 +67,7 @@
 {% do config.add_caps(["NET_BIND_SERVICE"]) %}
 {% do config.configs.add("config_json", config_json | tojson, values.consts.config_file, "0644") %}
 {% do config.configs.add("plan", plan.x | map("tojson") | join("\n"), values.consts.plan_file, "0644") %}
-{% do config.configs.add("seed", seed(values), "/seed.sh", "0755") %}
+{% do config.configs.add("seed", seed(values, managed.x), "/seed.sh", "0755") %}
 {% do config.set_entrypoint(["/seed.sh"]) %}
 {% do config.set_user(values.run_as.user, values.run_as.group) %}
 {% do config.add_storage(values.consts.data_path, values.storage.data) %}
