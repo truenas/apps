@@ -15,6 +15,7 @@ parts of the app's questions.yaml, ix_values.yaml and app.yaml along the way.
 # ///
 
 import argparse
+import ast
 import logging
 import os
 import re
@@ -701,6 +702,30 @@ def validate_app_config(app: App, app_config: dict) -> None:
             logger.warning(f"{app.name}: invalid {kind} URL: {url}")
 
 
+def validate_app_lib(app: App) -> None:
+    """Fail on per-app library modules that import each other.
+
+    Imported modules are cached by name in middleware's long running process, and that name is only
+    v<version> (no train or app), so two apps at the same version would silently share each other's modules.
+    Sibling modules have to be reached through the ix_lib dict the template gets, eg ix_lib.<train>["<app>"].
+    """
+    lib_base = app.path / "templates/library" / app.train / app.name
+    for lib_file in sorted(lib_base.glob("v*/*.py")):
+        siblings = {p.stem for p in lib_file.parent.glob("*.py")} | {lib_file.parent.name}
+        for node in ast.walk(ast.parse(lib_file.read_text(), str(lib_file))):
+            if isinstance(node, ast.ImportFrom):
+                relative, names = node.level > 0, [node.module or ""]
+            elif isinstance(node, ast.Import):
+                relative, names = False, [alias.name for alias in node.names]
+            else:
+                continue
+            if relative or any(name.split(".")[0] in siblings for name in names):
+                raise ValueError(
+                    f"{lib_file}:{node.lineno} imports another module of the app library. "
+                    f"Use the modules passed through ix_lib.{app.train}[\"{app.name}\"] instead"
+                )
+
+
 # Main flow
 
 
@@ -716,6 +741,7 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     validate_questions(app, analysis.service_names)
     validate_images(app)
     validate_app_config(app, app_config)
+    validate_app_lib(app)
 
     users = {service: select_service_user(service, values) for service, values in analysis.users.items()}
     capabilities = build_capabilities(analysis.capabilities, app_title)
