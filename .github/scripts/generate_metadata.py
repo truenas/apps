@@ -31,6 +31,7 @@ CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
 PLATFORM = "linux/amd64"
 
 APPS_ROOT_DIR = Path("ix-dev")
+LIBRARY_DIR = Path("library")
 TEST_VALUES_DIR = "templates/test_values"
 RENDERED_COMPOSE_PATH = "templates/rendered/docker-compose.yaml"
 APP_METADATA_FILE = "app.yaml"
@@ -364,6 +365,53 @@ def render(app: App, values_file: str) -> dict:
     return read_yaml(compose_path)
 
 
+def sync_library(apps: list[App], lib_version: str, bump_version: bool) -> set[Path]:
+    """Point the apps at lib_version and copy the library into them.
+
+    The hash generator patch bumps (and renames the app lib dir of) every app whose library changed.
+    Returns the paths of the apps it bumped.
+    """
+    if not (LIBRARY_DIR / lib_version).is_dir():
+        raise ValueError(f"Library version {lib_version} not found in {LIBRARY_DIR}")
+
+    old_versions = {}
+    for app in apps:
+        app_config_path = app.path / APP_METADATA_FILE
+        app_config = read_yaml(app_config_path)
+        old_versions[app.path] = app_config["version"]
+        if app_config.get("lib_version") != lib_version:
+            app_config["lib_version"] = lib_version
+            write_yaml(app_config_path, app_config)
+
+    hash_cmd = ["apps_catalog_hash_generate", "--path=/workspace"]
+    if bump_version:
+        hash_cmd.append("--bump=patch")
+    if len(apps) == 1:
+        hash_cmd.extend([f"--train={apps[0].train}", f"--app={apps[0].name}"])
+    docker_cmd = [
+        "docker",
+        "run",
+        f"--platform={PLATFORM}",
+        "--quiet",
+        "--rm",
+        # Keep the copied library and app.yaml files owned by the host user
+        f"--user={os.getuid()}:{os.getgid()}",
+        "-e",
+        "FAKE_ENV=1",
+        f"-v={os.getcwd()}:/workspace",
+        CONTAINER_IMAGE,
+        *hash_cmd,
+    ]
+
+    logger.info(f"Syncing library {lib_version} into {len(apps)} apps")
+    logger.debug(f"Syncing library: {shlex.join(docker_cmd)}")
+    result = subprocess.run(docker_cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Syncing library {lib_version} failed:\n{result.stderr}")
+
+    return {app.path for app in apps if read_yaml(app.path / APP_METADATA_FILE)["version"] != old_versions[app.path]}
+
+
 def parse_user(service: str, user) -> tuple[int, int]:
     """Parse a compose "uid:gid" user directive."""
     uid, _, gid = user.partition(":") if isinstance(user, str) else ("", "", "")
@@ -533,6 +581,18 @@ def bump_patch_version(version: str) -> str:
     return ".".join(parts)
 
 
+def rename_app_lib_dir(app: App, old_version: str, new_version: str) -> None:
+    """Keep the per-app library dir (templates/library/<train>/<app>/v<version>) in sync with the version."""
+    lib_base = app.path / "templates/library" / app.train / app.name
+    old_dir = lib_base / f"v{old_version.replace('.', '_')}"
+    new_dir = lib_base / f"v{new_version.replace('.', '_')}"
+    if not old_dir.is_dir():
+        return
+    if new_dir.exists():
+        raise ValueError(f"App {app.name} library with version {new_version} already exists")
+    old_dir.rename(new_dir)
+
+
 def get_git_date_added(app: App) -> str:
     """Date of the commit that added the app's app.yaml (the latest one, if it was ever re-added)."""
     path = app.path / APP_METADATA_FILE
@@ -640,7 +700,7 @@ def validate_app_config(app: App, app_config: dict) -> None:
 # Main flow
 
 
-def update_app(app: App, bump_version: bool, set_date_added: bool) -> None:
+def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumped: bool = False) -> None:
     if not app.test_values:
         raise ValueError(f"No test values found in {app.path / TEST_VALUES_DIR}")
 
@@ -689,9 +749,11 @@ def update_app(app: App, bump_version: bool, set_date_added: bool) -> None:
             app_config["date_added"] = date_added
             changed = True
 
-    if changed and bump_version:
+    # A library sync in this run has already bumped the app, one bump covers both changes
+    if changed and bump_version and not already_bumped:
         old_version = app_config["version"]
         app_config["version"] = bump_patch_version(old_version)
+        rename_app_lib_dir(app, old_version, app_config["version"])
         logger.info(f"Updated {app.name} version: {old_version} → {app_config['version']}")
         if is_ix_app(app):
             app_config["app_version"] = app_config["version"]
@@ -710,6 +772,11 @@ def main() -> None:
         action="store_true",
         help="Set date_added from the commit that added app.yaml. "
         "Needs app.yaml to be committed and the full git history (not a shallow clone)",
+    )
+    parser.add_argument(
+        "--lib-version",
+        help="Set lib_version and copy that library into the apps, bumping the ones whose library changed. "
+        "Pass the current version to roll out in-place library changes",
     )
     args = parser.parse_args()
 
@@ -730,10 +797,18 @@ def main() -> None:
     else:
         apps = load_all_apps()
 
+    # The library has to be in place before rendering, the metadata is generated from the rendered apps
+    lib_bumped = sync_library(apps, args.lib_version, bump_version=not args.no_bump) if args.lib_version else set()
+
     failed = []
     for app in apps:
         try:
-            update_app(app, bump_version=not args.no_bump, set_date_added=args.set_date_added)
+            update_app(
+                app,
+                bump_version=not args.no_bump,
+                set_date_added=args.set_date_added,
+                already_bumped=app.path in lib_bumped,
+            )
         except Exception as e:
             logger.error(f"Failed to update {app.train}/{app.name}: {e}")
             failed.append(app)
