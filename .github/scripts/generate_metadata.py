@@ -336,11 +336,15 @@ def render(app: App, values_file: str) -> dict:
     values_path = app.path / TEST_VALUES_DIR / values_file
     compose_path = app.path / RENDERED_COMPOSE_PATH
 
-    # Render and make the (root owned) rendered file readable in a single container
     render_cmd = shlex.join(
         ["apps_render_app", "render", f"--path=/workspace/{app.path}", f"--values=/workspace/{values_path}"]
     )
-    chmod_cmd = shlex.join(["chmod", "777", f"/workspace/{compose_path}"])
+    # Drop to the host user so the rendered files are owned by it, keeping the socket's group
+    # so the renderer can still reach docker. The group is read inside the container, it is not
+    # always the host's (eg Docker Desktop shows the socket as root:root, Linux keeps the docker group)
+    drop_privs = (
+        f"setpriv --reuid={os.getuid()} --regid={os.getgid()} --groups=$(stat -c %g /var/run/docker.sock) --"
+    )
     docker_cmd = [
         "docker",
         "run",
@@ -354,7 +358,7 @@ def render(app: App, values_file: str) -> dict:
         "--entrypoint=/bin/bash",
         CONTAINER_IMAGE,
         "-c",
-        f"{render_cmd} && {chmod_cmd}",
+        f"{drop_privs} {render_cmd}",
     ]
 
     logger.debug(f"Rendering: {shlex.join(docker_cmd)}")
