@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 
 from .error import RenderError
 from .formatter import escape_dollar
-from .validations import valid_http_path_or_raise, valid_portal_scheme_or_raise
+from .validations import valid_http_path_or_raise, valid_http_scheme_or_raise
 
 
 class Healthcheck:
@@ -292,11 +292,10 @@ def pgrep_test(config: dict) -> list[str]:
 def node_test(config: dict) -> list[str]:
     config = config or {}
     binary = get_key(config, "binary", "node", False)
-    scheme = get_key(config, "scheme", "http", False)
     host = get_key(config, "host", "127.0.0.1", False)
     port = get_key(config, "port", None, True)
     path = valid_http_path_or_raise(get_key(config, "path", "/", False))
-    scheme = valid_portal_scheme_or_raise(get_key(config, "scheme", "http", False))
+    scheme = valid_http_scheme_or_raise(get_key(config, "scheme", "http", False), "Healthcheck")
 
     opts = {"host": host, "port": port, "path": path}
     if scheme == "https":

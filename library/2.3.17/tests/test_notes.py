@@ -24,10 +24,7 @@ def mock_values():
     }
 
 
-def test_notes(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_notes(render, c1):
     output = render.render()
     assert (
         output["x-notes"]
@@ -92,13 +89,10 @@ https://github.com/truenas/apps
     )
 
 
-def test_notes_with_warnings(mock_values):
-    render = Render(mock_values)
+def test_notes_with_warnings(render, c1):
     render.notes.add_warning("this is not properly configured. fix it now!")
     render.notes.add_warning("that is not properly configured. fix it later!")
-    c1 = render.add_container("test_container", "test_image")
     c1.set_user(568, 568)
-    c1.healthcheck.disable()
     output = render.render()
     assert output["x-action-required"] is True
     assert (
@@ -134,13 +128,10 @@ https://ixsystems.atlassian.net
     )
 
 
-def test_notes_with_deprecations(mock_values):
-    render = Render(mock_values)
+def test_notes_with_deprecations(render, c1):
     render.notes.add_deprecation("this is will be removed later. fix it now!")
     render.notes.add_deprecation("that is will be removed later. fix it later!")
-    c1 = render.add_container("test_container", "test_image")
     c1.set_user(568, 568)
-    c1.healthcheck.disable()
     output = render.render()
     assert output["x-action-required"] is True
     assert (
@@ -176,8 +167,7 @@ https://ixsystems.atlassian.net
     )
 
 
-def test_notes_with_body(mock_values):
-    render = Render(mock_values)
+def test_notes_with_body(render, c1):
     render.notes.set_body(
         """## Additional info
 
@@ -185,9 +175,7 @@ Some info
 some other info.
 """
     )
-    c1 = render.add_container("test_container", "test_image")
     c1.set_user(568, 568)
-    c1.healthcheck.disable()
     output = render.render()
     assert (
         output["x-notes"]
@@ -222,8 +210,7 @@ https://ixsystems.atlassian.net
     )
 
 
-def test_notes_all(mock_values):
-    render = Render(mock_values)
+def test_notes_all(render, c1):
     render.notes.add_warning("this is not properly configured. fix it now!")
     render.notes.add_warning("that is not properly configured. fix it later!")
     render.notes.add_deprecation("this is will be removed later. fix it now!")
@@ -240,10 +227,8 @@ some other info.
     net1 = render.networks.create_internal("test_network1")
     net2 = render.networks.create_internal("test_network2")
 
-    c1 = render.add_container("test_container", "test_image")
     c1.add_network(net1)
     c1.add_network(net2)
-    c1.healthcheck.disable()
     c1.set_privileged(True)
     c1.set_user(0, 0)
     c1.add_group(0)

@@ -134,10 +134,10 @@ def valid_host_path_propagation(propagation: str):
     return propagation
 
 
-def valid_portal_scheme_or_raise(scheme: str):
+def valid_http_scheme_or_raise(scheme: str, kind: str):
     schemes = ("http", "https")
     if scheme not in schemes:
-        raise RenderError(f"Portal Scheme [{scheme}] is not valid. Valid options are: [{', '.join(schemes)}]")
+        raise RenderError(f"{kind} Scheme [{scheme}] is not valid. Valid options are: [{', '.join(schemes)}]")
     return scheme
 
 

@@ -1,13 +1,9 @@
 import pytest
 
+from base.error import RenderError
 
-from base.render import Render
 
-
-def test_add_extra_host(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_add_extra_host(render, c1):
     c1.add_extra_host("test_host", "127.0.0.1")
     c1.add_extra_host("test_host2", "127.0.0.2")
     c1.add_extra_host("host.docker.internal", "host-gateway")
@@ -19,27 +15,18 @@ def test_add_extra_host(mock_values):
     }
 
 
-def test_add_duplicate_extra_host(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_add_duplicate_extra_host(c1):
     c1.add_extra_host("test_host", "127.0.0.1")
-    with pytest.raises(Exception):
+    with pytest.raises(RenderError, match=r"Host \[test_host\] already added with \[127.0.0.1\]"):
         c1.add_extra_host("test_host", "127.0.0.2")
 
 
-def test_add_extra_host_with_ipv6(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_add_extra_host_with_ipv6(render, c1):
     c1.add_extra_host("test_host", "::1")
     output = render.render()
     assert output["services"]["test_container"]["extra_hosts"] == {"test_host": "::1"}
 
 
-def test_add_extra_host_with_invalid_ip(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
+def test_add_extra_host_with_invalid_ip(c1):
+    with pytest.raises(RenderError, match=r"Invalid IP address \[invalid_ip\] for host \[test_host\]"):
         c1.add_extra_host("test_host", "invalid_ip")

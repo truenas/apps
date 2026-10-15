@@ -1,6 +1,7 @@
 import pytest
 
 
+from base.error import RenderError
 from base.render import Render
 
 
@@ -62,11 +63,8 @@ def test_remove_auto_env(mock_values):
     assert "UID" not in envs
 
 
-def test_remove_env_not_defined(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
+def test_remove_env_not_defined(c1):
+    with pytest.raises(RenderError, match=r"Environment variable \[NOT_DEFINED\] is not defined"):
         c1.environment.remove_auto_env("NOT_DEFINED")
 
 
@@ -88,10 +86,7 @@ def test_add_from_all_sources(mock_values):
     assert envs["TZ"] == "Etc/UTC"
 
 
-def test_user_add_vars(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_user_add_vars(render, c1):
     c1.environment.add_user_envs(
         [
             {"name": "MY_ENV", "value": "test_value"},
@@ -104,29 +99,27 @@ def test_user_add_vars(mock_values):
     assert envs["MY_ENV2"] == "test_value2"
 
 
-def test_user_add_duplicate_vars(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
-        c1.environment.add_user_envs(
+@pytest.mark.parametrize(
+    "envs, match",
+    [
+        pytest.param(
             [
                 {"name": "MY_ENV", "value": "test_value"},
                 {"name": "MY_ENV", "value": "test_value2"},
-            ]
-        )
-
-
-def test_user_env_without_name(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
-        c1.environment.add_user_envs(
-            [
-                {"name": "", "value": "test_value"},
-            ]
-        )
+            ],
+            r"Found duplicate environment variable \[MY_ENV\] in user environment variables",
+            id="user_add_duplicate_vars",
+        ),
+        pytest.param(
+            [{"name": "", "value": "test_value"}],
+            r"Environment variable name cannot be empty",
+            id="user_env_without_name",
+        ),
+    ],
+)
+def test_user_add_invalid_vars(c1, envs, match):
+    with pytest.raises(RenderError, match=match):
+        c1.environment.add_user_envs(envs)
 
 
 def test_user_env_try_to_overwrite_auto_vars(mock_values):
@@ -139,21 +132,22 @@ def test_user_env_try_to_overwrite_auto_vars(mock_values):
             {"name": "TZ", "value": "test_value"},
         ]
     )
-    with pytest.raises(Exception):
+    with pytest.raises(
+        RenderError, match=r"Environment variable \[TZ\] is already defined automatically from the library"
+    ):
         render.render()
 
 
-def test_user_env_try_to_overwrite_app_dev_vars(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_user_env_try_to_overwrite_app_dev_vars(render, c1):
     c1.environment.add_user_envs(
         [
             {"name": "PORT", "value": "test_value"},
         ]
     )
     c1.environment.add_env("PORT", "test_value2")
-    with pytest.raises(Exception):
+    with pytest.raises(
+        RenderError, match=r"Environment variable \[PORT\] is already defined from the application developer"
+    ):
         render.render()
 
 
@@ -163,31 +157,27 @@ def test_app_dev_vars_try_to_overwrite_auto_vars(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
     c1.environment.add_env("TZ", "test_value")
-    with pytest.raises(Exception):
+    with pytest.raises(
+        RenderError, match=r"Environment variable \[TZ\] is already defined automatically from the library"
+    ):
         render.render()
 
 
-def test_app_dev_no_name(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
+def test_app_dev_no_name(c1):
+    with pytest.raises(RenderError, match=r"Environment variable name cannot be empty"):
         c1.environment.add_env("", "test_value")
 
 
-def test_app_dev_duplicate_vars(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_app_dev_duplicate_vars(c1):
     c1.environment.add_env("PORT", "test_value")
-    with pytest.raises(Exception):
+    with pytest.raises(
+        RenderError,
+        match=r"Found duplicate environment variable \[PORT\] in application developer environment variables",
+    ):
         c1.environment.add_env("PORT", "test_value2")
 
 
-def test_format_vars(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_format_vars(render, c1):
     c1.environment.add_env("APP_ENV", "test_$value")
     c1.environment.add_env("APP_ENV_BOOL", True)
     c1.environment.add_env("APP_ENV_INT", 10)

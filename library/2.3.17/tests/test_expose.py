@@ -1,13 +1,10 @@
 import pytest
 
-
+from base.error import RenderError
 from base.render import Render
 
 
-def test_add_expose_ports(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_add_expose_ports(render, c1):
     c1.expose.add_port(8081)
     c1.expose.add_port(8081, "udp")
     c1.expose.add_port(8082, "udp")
@@ -15,12 +12,9 @@ def test_add_expose_ports(mock_values):
     assert output["services"]["test_container"]["expose"] == ["8081/tcp", "8081/udp", "8082/udp"]
 
 
-def test_add_duplicate_expose_ports(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_add_duplicate_expose_ports(c1):
     c1.expose.add_port(8081)
-    with pytest.raises(Exception):
+    with pytest.raises(RenderError, match=r"Exposed port \[8081/tcp\] already added"):
         c1.expose.add_port(8081)
 
 

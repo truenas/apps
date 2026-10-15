@@ -1,28 +1,22 @@
 import pytest
 
+from base.error import RenderError
 from base.render import Render
 
 
-def test_build_image_with_from(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
-        c1.build_image(["FROM test_image"])
+@pytest.mark.parametrize(
+    "line",
+    [
+        pytest.param("FROM test_image", id="build_image_with_from"),
+        pytest.param(" FROM test_image", id="build_image_with_from_with_whitespace"),
+    ],
+)
+def test_build_image_with_from(c1, line):
+    with pytest.raises(RenderError, match=r"FROM cannot be used in build image"):
+        c1.build_image([line])
 
 
-def test_build_image_with_from_with_whitespace(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
-        c1.build_image([" FROM test_image"])
-
-
-def test_build_image(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_build_image(render, c1):
     c1.build_image(["RUN echo hello", None, "", "RUN echo world", "RUN echo $MY_VAR > /tmp/test.txt"])
     output = render.render()
     assert (

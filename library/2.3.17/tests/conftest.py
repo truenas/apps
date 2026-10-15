@@ -15,6 +15,8 @@ _base = importlib.util.module_from_spec(_spec)
 sys.modules["base"] = _base
 _spec.loader.exec_module(_base)
 
+from base.render import Render  # noqa: E402 - needs the "base" package registered above
+
 
 # Shared by the test modules, a module defining its own mock_values overrides this one
 @pytest.fixture
@@ -22,3 +24,18 @@ def mock_values():
     return {
         "images": {"test_image": {"repository": "nginx", "tag": "latest"}},
     }
+
+
+# Built from mock_values before the test body runs,
+# tests that change mock_values first have to create their own Render
+@pytest.fixture
+def render(mock_values):
+    return Render(mock_values)
+
+
+# The usual "test_container" on "test_image", with the healthcheck disabled
+@pytest.fixture
+def c1(render):
+    container = render.add_container("test_container", "test_image")
+    container.healthcheck.disable()
+    return container

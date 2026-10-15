@@ -64,6 +64,7 @@ tests = [
             },
         ],
         "should_raise": True,
+        "match": r'- "192\.168\.1\.10:8080" used by WebUI Service',
     },
     {
         "name": "multiple_combos_one_conflicts_with_current_app_one_with_webui",
@@ -90,6 +91,7 @@ tests = [
             },
         ],
         "should_raise": True,  # One combo has non-current-app conflict
+        "match": r'^The following conflicts have been detected:\n- "192\.168\.1\.11:9090" used by WebUI Service\n$',
     },
     {
         "name": "conflict_with_other_app",
@@ -106,6 +108,7 @@ tests = [
             },
         ],
         "should_raise": True,
+        "match": r"- \"192\.168\.1\.10:8080\" used by Applications \('other-app' application\)",
     },
     {
         "name": "multiple_combos_with_conflicts",
@@ -132,6 +135,8 @@ tests = [
             },
         ],
         "should_raise": True,
+        # The fallback validates one combo at a time, so it stops at the first conflict
+        "match": r'- "192\.168\.1\.10:8080" used by WebUI Service',
     },
     {
         "name": "ipv6_wildcard_no_conflict",
@@ -169,7 +174,7 @@ def test_validate_ip_port_combos_with_new_endpoint(mock_render, test):
     combos = [data["combo"] for data in test["combo_data"]]
 
     if test["should_raise"]:
-        with pytest.raises(RenderError):
+        with pytest.raises(RenderError, match=test["match"]):
             tn_client.validate_ip_port_combos(combos)
     else:
         # Should not raise
@@ -213,7 +218,7 @@ def test_validate_ip_port_combos_with_fallback(mock_render, test):
     combos = [data["combo"] for data in test["combo_data"]]
 
     if test["should_raise"]:
-        with pytest.raises(RenderError):
+        with pytest.raises(RenderError, match=test["match"]):
             tn_client.validate_ip_port_combos(combos)
     else:
         # Should not raise

@@ -107,6 +107,8 @@ class Environment:
 
         # Add envs from user (prohibit overwriting app developer envs and auto variables)
         for k, v in self._user_vars.items():
+            if k in self._auto_variables:
+                raise RenderError(f"Environment variable [{k}] is already defined automatically from the library.")
             if k in defined_keys:
                 raise RenderError(f"Environment variable [{k}] is already defined from the application developer.")
             result[k] = self._format_value(v)

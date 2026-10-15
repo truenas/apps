@@ -1,7 +1,7 @@
 import pytest
 
 
-from base.render import Render
+from base.error import RenderError
 
 
 tests = [
@@ -34,7 +34,7 @@ tests = [
             },
             {
                 "values": ({"bind_mode": "published", "port_number": 8081}, {"container_port": 8080}),
-                "expect_error": True,
+                "expect_error": r"Port \[8081/tcp/ipv4\] already added for \[0\.0\.0\.0\]",
             },
         ],
     },
@@ -95,7 +95,9 @@ tests = [
                     {"bind_mode": "published", "port_number": 8081},
                     {"container_port": 8080, "host_ips": ["0.0.0.0"]},
                 ),
-                "expect_error": True,
+                "expect_error": (
+                    r"Cannot bind port \[8081/tcp/ipv4\] to \[0\.0\.0\.0\], already bound to \[192\.168\.1\.10\]"
+                ),
             },
         ],
     },
@@ -114,7 +116,9 @@ tests = [
                     {"bind_mode": "published", "port_number": 8081},
                     {"container_port": 8080, "host_ips": ["192.168.1.10"]},
                 ),
-                "expect_error": True,
+                "expect_error": (
+                    r"Cannot bind port \[8081/tcp/ipv4\] to \[192\.168\.1\.10\], already bound to \[0\.0\.0\.0\]"
+                ),
             },
         ],
     },
@@ -185,7 +189,9 @@ tests = [
                     {"bind_mode": "published", "port_number": 8081},
                     {"container_port": 8080, "host_ips": ["fd00:1234:5678:abcd::10"]},
                 ),
-                "expect_error": True,
+                "expect_error": (
+                    r"Cannot bind port \[8081/tcp/ipv6\] to \[fd00:1234:5678:abcd::10\], already bound to \[::\]"
+                ),
             },
         ],
     },
@@ -204,7 +210,9 @@ tests = [
                     {"bind_mode": "published", "port_number": 8081},
                     {"container_port": 8080, "host_ips": ["::"]},
                 ),
-                "expect_error": True,
+                "expect_error": (
+                    r"Cannot bind port \[8081/tcp/ipv6\] to \[::\], already bound to \[fd00:1234:5678:abcd::10\]"
+                ),
             },
         ],
     },
@@ -239,7 +247,7 @@ tests = [
                     {"bind_mode": "published", "port_number": 8081},
                     {"container_port": 8080, "protocol": "invalid_protocol"},
                 ),
-                "expect_error": True,
+                "expect_error": r"Port Protocol \[invalid_protocol\] is not valid",
             },
         ],
     },
@@ -251,7 +259,7 @@ tests = [
                     {"bind_mode": "published", "port_number": 8081},
                     {"container_port": 8080, "mode": "invalid_mode"},
                 ),
-                "expect_error": True,
+                "expect_error": r"Port Mode \[invalid_mode\] is not valid",
             },
         ],
     },
@@ -263,20 +271,26 @@ tests = [
                     {"bind_mode": "published", "port_number": 8081},
                     {"container_port": 8080, "host_ips": ["invalid_ip"]},
                 ),
-                "expect_error": True,
+                "expect_error": r"Invalid IP address \[invalid_ip\]",
             },
         ],
     },
     {
         "name": "adding_port_with_invalid_port_number_should_fail",
         "inputs": [
-            {"values": ({"bind_mode": "published", "port_number": -1}, {"container_port": 8080}), "expect_error": True},
+            {
+                "values": ({"bind_mode": "published", "port_number": -1}, {"container_port": 8080}),
+                "expect_error": r"Invalid port \[-1\]\. Valid ports are between 1 and 65535",
+            },
         ],
     },
     {
         "name": "adding_port_with_invalid_container_port_should_fail",
         "inputs": [
-            {"values": ({"bind_mode": "published", "port_number": 8081}, {"container_port": -1}), "expect_error": True},
+            {
+                "values": ({"bind_mode": "published", "port_number": 8081}, {"container_port": -1}),
+                "expect_error": r"Invalid port \[-1\]\. Valid ports are between 1 and 65535",
+            },
         ],
     },
     {
@@ -339,32 +353,17 @@ tests = [
 ]
 
 
-@pytest.mark.parametrize("test", tests)
-def test_ports(test):
-    mock_values = {
-        "images": {
-            "test_image": {
-                "repository": "nginx",
-                "tag": "latest",
-            }
-        },
-    }
-
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-
-    errored = False
+# expect_error is either False or the regex the raised RenderError has to match
+@pytest.mark.parametrize("test", tests, ids=[t["name"] for t in tests])
+def test_ports(test, render, c1):
     for input in test["inputs"]:
         if input["expect_error"]:
-            with pytest.raises(Exception):
+            with pytest.raises(RenderError, match=input["expect_error"]):
                 c1.add_port(*input["values"])
-                errored = True
         else:
             c1.add_port(*input["values"])
 
-    errored = True if [i["expect_error"] for i in test["inputs"]].count(True) > 0 else False
-    if errored:
+    if any(i["expect_error"] for i in test["inputs"]):
         return
 
     output = render.render()

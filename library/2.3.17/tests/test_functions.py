@@ -2,6 +2,7 @@ import re
 import pytest
 
 
+from base.error import RenderError
 from base.render import Render
 
 
@@ -41,11 +42,11 @@ def test_funcs(mock_values):
         {
             "func": "bcrypt_hash",
             "values": ["a" * 73],
-            "expect_raise": True,
+            "expect_raise": r"Expected bcrypt password to be at most 72 bytes\. Got 73 bytes",
         },
         {"func": "camel_case", "values": ["my_user"], "expected": "My_User"},
         {"func": "copy_dict", "values": [{"a": 1}], "expected": {"a": 1}},
-        {"func": "fail", "values": ["my_message"], "expect_raise": True},
+        {"func": "fail", "values": ["my_message"], "expect_raise": r"^my_message$"},
         {
             "func": "htpasswd",
             "values": ["my_user", "my_pass"],
@@ -59,12 +60,12 @@ def test_funcs(mock_values):
         {
             "func": "htpasswd",
             "values": ["my_user", "a" * 73],
-            "expect_raise": True,
+            "expect_raise": r"Expected bcrypt password to be at most 72 bytes\. Got 73 bytes",
         },
         {
             "func": "htpasswd",
             "values": ["my_user", "my_pass", 32],
-            "expect_raise": True,
+            "expect_raise": r"bcrypt rounds must be between 4 and 31",
         },
         {"func": "is_boolean", "values": ["true"], "expected": True},
         {"func": "is_boolean", "values": ["false"], "expected": True},
@@ -77,11 +78,19 @@ def test_funcs(mock_values):
             "values": [{"a": 1, "b": {"b1": 2}}, {"b": {"b2": 3}}],
             "expected": {"a": 1, "b": {"b1": 2, "b2": 3}},
         },
-        {"func": "must_match_regex", "values": ["my_user", "^[0-9]$"], "expect_raise": True},
+        {
+            "func": "must_match_regex",
+            "values": ["my_user", "^[0-9]$"],
+            "expect_raise": r"Expected \[my_user\] to match \[\^\[0-9\]\$\]",
+        },
         {"func": "must_match_regex", "values": ["1", "^[0-9]$"], "expected": "1"},
         {"func": "secure_string", "values": [10], "expect_regex": r"^[a-zA-Z0-9-_]+$"},
         {"func": "disallow_chars", "values": ["my_user", ["$", "@"], "my_key"], "expected": "my_user"},
-        {"func": "disallow_chars", "values": ["my_user$", ["$", "@"], "my_key"], "expect_raise": True},
+        {
+            "func": "disallow_chars",
+            "values": ["my_user$", ["$", "@"], "my_key"],
+            "expect_raise": r"Disallowed character \[\$\] in \[my_key\]",
+        },
         {
             "func": "get_host_path",
             "values": [{"type": "host_path", "host_path_config": {"path": "/mnt/test"}}],
@@ -96,7 +105,11 @@ def test_funcs(mock_values):
         {"func": "or_default", "values": [1, None], "expected": 1},
         {"func": "or_default", "values": [False, 1], "expected": 1},
         {"func": "or_default", "values": [True, 1], "expected": True},
-        {"func": "temp_config", "values": [""], "expect_raise": True},
+        {
+            "func": "temp_config",
+            "values": [""],
+            "expect_raise": r"Expected \[name\] to be set when calling \[temp_config\]",
+        },
         {
             "func": "temp_config",
             "values": ["test"],
@@ -106,7 +119,7 @@ def test_funcs(mock_values):
         {
             "func": "require_unique",
             "values": [["a=1", "b=2", "b=3"], "values.key", "="],
-            "expect_raise": True,
+            "expect_raise": r"Expected values in \[values\.key\] to be unique",
         },
         {
             "func": "require_no_reserved",
@@ -116,12 +129,12 @@ def test_funcs(mock_values):
         {
             "func": "require_no_reserved",
             "values": [["a=1", "b=2", "c"], "values.key", ["a"], "="],
-            "expect_raise": True,
+            "expect_raise": r"Value \[a\] is reserved and cannot be set in \[values\.key\]",
         },
         {
             "func": "require_no_reserved",
             "values": [["a=1", "b=2", "c"], "values.key", ["b"], "=", True],
-            "expect_raise": True,
+            "expect_raise": r"Value \[b\] is reserved and cannot be set in \[values\.key\]",
         },
         {
             "func": "url_encode",
@@ -169,8 +182,8 @@ def test_funcs(mock_values):
 
     for test in tests:
         func = render.funcs[test["func"]]
-        if test.get("expect_raise", False):
-            with pytest.raises(Exception):
+        if test.get("expect_raise"):
+            with pytest.raises(RenderError, match=test["expect_raise"]):
                 func(*test["values"])
         elif test.get("expect_regex"):
             r = func(*test["values"])

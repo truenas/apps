@@ -1,6 +1,7 @@
 import json
 import pytest
 
+from base.error import RenderError
 from base.render import Render
 
 
@@ -24,47 +25,111 @@ def mock_values():
     }
 
 
-def test_add_postgres_missing_config(mock_values):
+def _volume():
+    return {"type": "volume", "volume_config": {"volume_name": "test_volume", "auto_permissions": True}}
+
+
+@pytest.mark.parametrize(
+    "dep, config, match",
+    [
+        pytest.param(
+            "postgres",
+            {"user": "test_user", "password": "test_password", "database": "test_database"},
+            r"Expected \[volume\] to be set for postgres",
+            id="add_postgres_missing_config",
+        ),
+        pytest.param(
+            "redis",
+            {"password": "test_password"},
+            r"Expected \[volume\] to be set for redis",
+            id="add_redis_missing_config",
+        ),
+        pytest.param(
+            "mariadb",
+            {"user": "test_user", "password": "test_password", "database": "test_database"},
+            r"Expected \[volume\] to be set for mariadb",
+            id="add_mariadb_missing_config",
+        ),
+    ],
+)
+def test_add_dep_missing_config(render, dep, config, match):
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(RenderError, match=match):
+        getattr(render.deps, dep)(f"{dep}_container", "test_image", config, perms_container)
+
+
+# name is how the dependency calls itself in the error
+@pytest.mark.parametrize(
+    "dep, tag, config, takes_perms, name",
+    [
+        pytest.param(
+            "postgres",
+            "16.6-bookworm",
+            {"user": "test_user", "password": "test_@password", "database": "test_database", "volume": _volume()},
+            True,
+            "postgres",
+            id="add_postgres_unsupported_repo",
+        ),
+        pytest.param(
+            "redis",
+            "latest",
+            {"password": "test&password@", "volume": _volume()},
+            True,
+            "redis",
+            id="add_redis_unsupported_repo",
+        ),
+        pytest.param(
+            "mariadb",
+            "latest",
+            {"user": "test_user", "password": "test_password", "database": "test_database", "volume": _volume()},
+            True,
+            "mariadb",
+            id="add_mariadb_unsupported_repo",
+        ),
+        pytest.param(
+            "mongodb",
+            "7",
+            {"user": "test_user", "password": "test_@password", "database": "test_database", "volume": _volume()},
+            True,
+            "mongodb",
+            id="add_mongodb_unsupported_repo",
+        ),
+        pytest.param(
+            "meilisearch",
+            "7",
+            {"master_key": "test_master_key", "volume": _volume()},
+            True,
+            "meilisearch",
+            id="add_meilisearch_unsupported_repo",
+        ),
+        pytest.param(
+            "elasticsearch",
+            "7",
+            {"password": "test_password", "node_name": "some_test_node", "volume": _volume()},
+            True,
+            "elastic search",
+            id="add_elasticsearch_unsupported_repo",
+        ),
+        pytest.param(
+            "solr",
+            "7",
+            {"core": "test_core", "volume": _volume()},
+            True,
+            "solr",
+            id="add_solr_unsupported_repo",
+        ),
+        pytest.param("tika", "7", {}, False, "tika", id="add_tika_unsupported_repo"),
+        pytest.param("memcached", "7", {}, False, "memcached", id="add_memcached_unsupported_repo"),
+    ],
+)
+def test_add_dep_unsupported_repo(mock_values, dep, tag, config, takes_perms, name):
+    mock_values["images"]["dep_image"] = {"repository": "unsupported_repo", "tag": tag}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception, match=r"Expected \[volume\] to be set for postgres"):
-        render.deps.postgres(
-            "pg_container",
-            "test_image",
-            {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
-            perms_container,
-        )
-
-
-def test_add_postgres_unsupported_repo(mock_values):
-    mock_values["images"]["pg_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "16.6-bookworm",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
-        render.deps.postgres(
-            "pg_container",
-            "pg_image",
-            {
-                "user": "test_user",
-                "password": "test_@password",
-                "database": "test_database",
-                "volume": {
-                    "type": "volume",
-                    "volume_config": {
-                        "volume_name": "test_volume",
-                        "auto_permissions": True,
-                    },
-                },
-            },
-            perms_container,
-        )
+    perms_args = [render.deps.perms("perms_container")] if takes_perms else []
+    with pytest.raises(RenderError, match=rf"Unsupported repo \[unsupported_repo\] for {name}\."):
+        getattr(render.deps, dep)(f"{dep}_container", "dep_image", config, *perms_args)
 
 
 def test_add_postgres(mock_values):
@@ -294,7 +359,7 @@ def test_add_postgres_invalid_max_connections(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
     perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
+    with pytest.raises(RenderError, match=r"Expected \[max_connections\] to be greater than 0, got \[-1\]"):
         render.deps.postgres(
             "pg_container",
             "pg_image",
@@ -324,7 +389,9 @@ def test_add_postgres_max_connections_in_additional_options(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
     perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
+    with pytest.raises(
+        RenderError, match=r"Use the \[max_connections\] key instead of setting it in \[additional_options\]"
+    ):
         render.deps.postgres(
             "pg_container",
             "pg_image",
@@ -345,47 +412,6 @@ def test_add_postgres_max_connections_in_additional_options(mock_values):
         )
 
 
-def test_add_redis_missing_config(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception, match=r"Expected \[volume\] to be set for redis"):
-        render.deps.redis(
-            "redis_container",
-            "test_image",
-            {"password": "test_password"},  # type: ignore
-            perms_container,
-        )
-
-
-def test_add_redis_unsupported_repo(mock_values):
-    mock_values["images"]["redis_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "latest",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
-        render.deps.redis(
-            "redis_container",
-            "redis_image",
-            {
-                "password": "test&password@",
-                "volume": {
-                    "type": "volume",
-                    "volume_config": {
-                        "volume_name": "test_volume",
-                        "auto_permissions": True,
-                    },
-                },
-            },
-            perms_container,
-        )
-
-
 def test_add_redis_with_password_with_spaces(mock_values):
     mock_values["images"]["redis_image"] = {
         "repository": "redis",
@@ -395,7 +421,7 @@ def test_add_redis_with_password_with_spaces(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
     perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception, match=r"Redis password cannot contain \[ \]"):
+    with pytest.raises(RenderError, match=r"Redis password cannot contain \[ \]"):
         render.deps.redis(
             "redis_container",
             "redis_image",
@@ -498,49 +524,6 @@ def test_add_redis(mock_values):
     assert output["services"]["redis_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
     }
-
-
-def test_add_mariadb_missing_config(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception, match=r"Expected \[volume\] to be set for mariadb"):
-        render.deps.mariadb(
-            "mariadb_container",
-            "test_image",
-            {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
-            perms_container,
-        )
-
-
-def test_add_mariadb_unsupported_repo(mock_values):
-    mock_values["images"]["mariadb_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "latest",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
-        render.deps.mariadb(
-            "mariadb_container",
-            "mariadb_image",
-            {
-                "user": "test_user",
-                "password": "test_password",
-                "database": "test_database",
-                "volume": {
-                    "type": "volume",
-                    "volume_config": {
-                        "volume_name": "test_volume",
-                        "auto_permissions": True,
-                    },
-                },
-            },
-            perms_container,
-        )
 
 
 def test_add_mariadb(mock_values):
@@ -809,10 +792,7 @@ def test_add_perms_container(mock_values):
     ]
 
 
-def test_add_duplicate_perms_action(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_add_duplicate_perms_action(render, c1):
     vol_config = {
         "type": "volume",
         "volume_config": {
@@ -825,16 +805,13 @@ def test_add_duplicate_perms_action(mock_values):
     perms_container.add_or_skip_action(
         "data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"}
     )
-    with pytest.raises(Exception):
+    with pytest.raises(RenderError, match=r"Action with id \[data\] already used for another permission action"):
         perms_container.add_or_skip_action(
             "data", vol_config, {"uid": 1000, "gid": 1000, "mode": "check"}
         )
 
 
-def test_add_perm_action_without_auto_perms_enabled(mock_values):
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
+def test_add_perm_action_without_auto_perms_enabled(render, c1):
     vol_config = {
         "type": "volume",
         "volume_config": {
@@ -864,7 +841,7 @@ def test_add_unsupported_postgres_version(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
     perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception, match=r"Postgres version \[99\] is not supported"):
+    with pytest.raises(RenderError, match=r"Postgres version \[99\] is not supported"):
         render.deps.postgres(
             "pg_container",
             "pg_image",
@@ -893,7 +870,7 @@ def test_add_postgres_with_invalid_tag(mock_values):
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
     perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception, match=r"Could not determine major version from tag \[latest\]"):
+    with pytest.raises(RenderError, match=r"Could not determine major version from tag \[latest\]"):
         render.deps.postgres(
             "pg_container",
             "pg_image",
@@ -1143,35 +1120,6 @@ def test_add_mongodb(mock_values):
     }
 
 
-def test_add_mongodb_unsupported_repo(mock_values):
-    mock_values["images"]["mongo_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "7",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
-        render.deps.mongodb(
-            "mongo_container",
-            "mongo_image",
-            {
-                "user": "test_user",
-                "password": "test_@password",
-                "database": "test_database",
-                "volume": {
-                    "type": "volume",
-                    "volume_config": {
-                        "volume_name": "test_volume",
-                        "auto_permissions": True,
-                    },
-                },
-            },
-            perms_container,
-        )
-
-
 def test_add_meilisearch(mock_values):
     mock_values["images"]["meili_image"] = {
         "repository": "getmeili/meilisearch",
@@ -1266,33 +1214,6 @@ def test_add_meilisearch(mock_values):
     assert output["services"]["meili_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
     }
-
-
-def test_add_meilisearch_unsupported_repo(mock_values):
-    mock_values["images"]["meili_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "7",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
-        render.deps.meilisearch(
-            "meili_container",
-            "meili_image",
-            {
-                "master_key": "test_master_key",
-                "volume": {
-                    "type": "volume",
-                    "volume_config": {
-                        "volume_name": "test_volume",
-                        "auto_permissions": True,
-                    },
-                },
-            },
-            perms_container,
-        )
 
 
 def test_add_elasticsearch(mock_values):
@@ -1398,34 +1319,6 @@ def test_add_elasticsearch(mock_values):
     }
 
 
-def test_add_elasticsearch_unsupported_repo(mock_values):
-    mock_values["images"]["elastic_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "7",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
-        render.deps.elasticsearch(
-            "elastic_container",
-            "elastic_image",
-            {
-                "password": "test_password",
-                "node_name": "some_test_node",
-                "volume": {
-                    "type": "volume",
-                    "volume_config": {
-                        "volume_name": "test_volume",
-                        "auto_permissions": True,
-                    },
-                },
-            },
-            perms_container,
-        )
-
-
 def test_add_solr(mock_values):
     mock_values["images"]["solr_image"] = {"repository": "solr", "tag": "9.9.0"}
     render = Render(mock_values)
@@ -1519,33 +1412,6 @@ def test_add_solr(mock_values):
     }
 
 
-def test_add_solr_unsupported_repo(mock_values):
-    mock_values["images"]["solr_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "7",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    perms_container = render.deps.perms("perms_container")
-    with pytest.raises(Exception):
-        render.deps.solr(
-            "solr_container",
-            "solr_image",
-            {
-                "core": "test_core",
-                "volume": {
-                    "type": "volume",
-                    "volume_config": {
-                        "volume_name": "test_volume",
-                        "auto_permissions": True,
-                    },
-                },
-            },
-            perms_container,
-        )
-
-
 def test_add_tika(mock_values):
     mock_values["images"]["tika_image"] = {
         "repository": "apache/tika",
@@ -1610,22 +1476,6 @@ def test_add_tika(mock_values):
         "--port",
         "10999",
     ]
-
-
-def test_add_tika_unsupported_repo(mock_values):
-    mock_values["images"]["tika_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "7",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
-        render.deps.tika(
-            "tika_container",
-            "tika_image",
-            {},
-        )
 
 
 def test_add_memcached(mock_values):
@@ -1696,19 +1546,3 @@ def test_add_memcached(mock_values):
         "-m",
         "512M",
     ]
-
-
-def test_add_memcached_unsupported_repo(mock_values):
-    mock_values["images"]["memcached_image"] = {
-        "repository": "unsupported_repo",
-        "tag": "7",
-    }
-    render = Render(mock_values)
-    c1 = render.add_container("test_container", "test_image")
-    c1.healthcheck.disable()
-    with pytest.raises(Exception):
-        render.deps.memcached(
-            "memcached_container",
-            "memcached_image",
-            {},
-        )
