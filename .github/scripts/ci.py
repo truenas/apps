@@ -160,26 +160,24 @@ def pull_app_catalog_container():
     print_stderr(f"Done pulling container image [{CONTAINER_IMAGE}]")
 
 
-def fix_permissions(file_path):
-    print_stderr("Fixing permissions")
-    cmd = " ".join(
-        [
-            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace -e FAKE_ENV=1",
-            f"--entrypoint /bin/bash {CONTAINER_IMAGE} -c 'chmod 777 /workspace/{file_path}'",
-        ]
-    )
-    res = subprocess.run(cmd, shell=True, capture_output=True)
-    if res.returncode != 0:
-        print_stderr(f"Failed to fix permissions for file [{file_path}]")
-        print_stderr(res.stderr.decode("utf-8"))
-        sys.exit(1)
-    print_stderr(f"Done fixing permissions for file [{file_path}]")
-
-
 def render_compose():
     print_stderr("Rendering docker-compose file")
     test_values_dir = "templates/test_values"
     app_dir = f"ix-dev/{args['train']}/{args['app']}"
+    render_cmd = " ".join(
+        [
+            "apps_render_app render",
+            f"--path /workspace/{app_dir}",
+            f"--values /workspace/{app_dir}/{test_values_dir}/{args['test_file']}",
+        ]
+    )
+    # Drop to the host user so the rendered files are owned by it, keeping the socket's group
+    # so the renderer can still reach docker. The group is read inside the container, it is not
+    # always the host's (eg Docker Desktop shows the socket as root:root, Linux keeps the docker group)
+    drop_privs = (
+        f"setpriv --reuid {os.getuid()} --regid {os.getgid()}"
+        " --groups $(stat -c %g /var/run/docker.sock) --"
+    )
     cmd = " ".join(
         [
             f"docker run --platform {PLATFORM} --quiet --rm",
@@ -187,10 +185,8 @@ def render_compose():
             "FAKE_ENV=1",
             f"-v {os.getcwd()}:/workspace",
             "-v /var/run/docker.sock:/var/run/docker.sock:ro",
-            CONTAINER_IMAGE,
-            "apps_render_app render",
-            f"--path /workspace/{app_dir}",
-            f"--values /workspace/{app_dir}/{test_values_dir}/{args['test_file']}",
+            f"--entrypoint /bin/bash {CONTAINER_IMAGE}",
+            f"-c '{drop_privs} {render_cmd}'",
         ]
     )
     print_cmd(cmd)
@@ -202,7 +198,6 @@ def render_compose():
         sys.exit(1)
 
     template_file = f"{app_dir}/templates/rendered/docker-compose.yaml"
-    fix_permissions(template_file)
 
     with open(template_file, "r") as f:
         try:
@@ -498,6 +493,8 @@ def copy_lib():
     cmd = " ".join(
         [
             f"docker run --platform {PLATFORM} --quiet --rm",
+            # Keep the copied library and app.yaml files owned by the host user
+            f"--user {os.getuid()}:{os.getgid()}",
             f"-e FAKE_ENV=1 -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
             f"apps_catalog_hash_generate --path /workspace --train {args['train']} --app {args['app']}",
         ]
