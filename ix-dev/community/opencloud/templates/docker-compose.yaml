@@ -118,6 +118,34 @@
   {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
 
+{# Excalidraw (uses the Yjs server for collaboration) #}
+{% if values.opencloud.apps.excalidraw %}
+  {% set yjs = tpl.add_container(values.consts.yjs_container_name, "yjs_image") %}
+  {% do yjs.add_network(opencloud_net) %}
+  {% do yjs.set_user(values.run_as.user, values.run_as.group) %}
+  {% do yjs.remove_devices() %}
+  {% do yjs.set_grace_period(20) %}
+  {% do yjs.healthcheck.use_built_in() %}
+  {% do yjs.environment.add_env("PORT", values.consts.yjs_port) %}
+  {# OPENCLOUD_URL is used by the yjs server for its own server-side Graph API
+     calls when authenticating a connection, so it has to be reachable from
+     inside the yjs container. Use OpenCloud's internal address with the same
+     scheme the proxy listens on internally (as reflected by the healthcheck),
+     instead of the browser-facing app URL. #}
+  {% do yjs.environment.add_env("OPENCLOUD_URL", "%s://%s:%d"|format(healthcheck_scheme.x, values.consts.opencloud_container_name, values.network.web_port.port_number)) %}
+  {% if values.opencloud.insecure %}
+    {% do yjs.environment.add_env("NODE_TLS_REJECT_UNAUTHORIZED", "0") %}
+  {% endif %}
+
+  {% do c1.depends.add_dependency(values.consts.yjs_container_name, "service_healthy") %}
+
+  {% set yjs_backend = "http://%s:%d"|format(values.consts.yjs_container_name, values.consts.yjs_port) %}
+  {% do proxy_routes.x.extend([{"endpoint": "/yjs", "backend": yjs_backend, "unprotected": true}]) %}
+
+  {% set ws_port = ":%d"|format(url.port) if url.port else "" %}
+  {% do c1.environment.add_env("WEB_OPTION_YJS_SERVER_URL", "wss://%s%s/yjs"|format(url.host, ws_port)) %}
+{% endif %}
+
 {# Collaboration #}
 {% if values.opencloud.collaboration.enabled %}
   {% set collab_url = tpl.funcs.url_to_dict(values.opencloud.collaboration.url, true) %}
