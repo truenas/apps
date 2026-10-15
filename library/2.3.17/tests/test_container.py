@@ -4,18 +4,6 @@ import pytest
 from base.render import Render
 
 
-@pytest.fixture
-def mock_values():
-    return {
-        "images": {
-            "test_image": {
-                "repository": "nginx",
-                "tag": "latest",
-            }
-        },
-    }
-
-
 def test_empty_container_name(mock_values):
     render = Render(mock_values)
     with pytest.raises(Exception):

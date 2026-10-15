@@ -5,18 +5,6 @@ from base.render import Render
 from base.formatter import get_hashed_name_for_volume
 
 
-@pytest.fixture
-def mock_values():
-    return {
-        "images": {
-            "test_image": {
-                "repository": "nginx",
-                "tag": "latest",
-            }
-        },
-    }
-
-
 def test_add_volume_invalid_type(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")

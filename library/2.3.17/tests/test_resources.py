@@ -4,18 +4,6 @@ import pytest
 from base.render import Render
 
 
-@pytest.fixture
-def mock_values():
-    return {
-        "images": {
-            "test_image": {
-                "repository": "nginx",
-                "tag": "latest",
-            }
-        },
-    }
-
-
 def test_automatically_add_cpu(mock_values):
     mock_values["resources"] = {"limits": {"cpus": 1.0}}
     render = Render(mock_values)

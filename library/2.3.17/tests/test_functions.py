@@ -5,18 +5,6 @@ import pytest
 from base.render import Render
 
 
-@pytest.fixture
-def mock_values():
-    return {
-        "images": {
-            "test_image": {
-                "repository": "nginx",
-                "tag": "latest",
-            }
-        },
-    }
-
-
 def test_funcs(mock_values):
     mock_values["ix_volumes"] = {"test": "/mnt/test123"}
     mock_values["resources"] = {

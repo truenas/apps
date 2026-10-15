@@ -4,18 +4,6 @@ import pytest
 from base.render import Render
 
 
-@pytest.fixture
-def mock_values():
-    return {
-        "images": {
-            "test_image": {
-                "repository": "nginx",
-                "tag": "latest",
-            }
-        },
-    }
-
-
 def test_auto_add_dns_opts(mock_values):
     mock_values["network"] = {"dns_opts": ["attempts:3", "opt1", "opt2"]}
     render = Render(mock_values)

@@ -4,18 +4,6 @@ import pytest
 from base.render import Render
 
 
-@pytest.fixture
-def mock_values():
-    return {
-        "images": {
-            "test_image": {
-                "repository": "nginx",
-                "tag": "latest",
-            }
-        },
-    }
-
-
 def test_auto_add_vars(mock_values):
     mock_values["TZ"] = "Etc/UTC"
     mock_values["run_as"] = {"user": "1000", "group": "1000"}

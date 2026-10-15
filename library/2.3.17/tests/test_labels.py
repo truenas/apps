@@ -3,18 +3,6 @@ import pytest
 from base.render import Render
 
 
-@pytest.fixture
-def mock_values():
-    return {
-        "images": {
-            "test_image": {
-                "repository": "nginx",
-                "tag": "latest",
-            }
-        },
-    }
-
-
 def test_add_disallowed_label(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
