@@ -63,5 +63,13 @@ def test_device_cgroup_rule_invalid_format_missing_major(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match=r"Expected format is \[<type> <major>:<minor> <permission>\]"):
         c1.add_device_cgroup_rule("a 10 rwd")
+
+
+def test_device_cgroup_rule_invalid_format_extra_colon(mock_values):
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    with pytest.raises(Exception, match=r"Expected format is \[<type> <major>:<minor> <permission>\]"):
+        c1.add_device_cgroup_rule("a 10:20:30 rwm")

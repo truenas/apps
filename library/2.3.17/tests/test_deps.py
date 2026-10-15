@@ -28,11 +28,13 @@ def test_add_postgres_missing_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    with pytest.raises(Exception):
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception, match=r"Expected \[volume\] to be set for postgres"):
         render.deps.postgres(
             "pg_container",
             "test_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+            perms_container,
         )
 
 
@@ -347,11 +349,13 @@ def test_add_redis_missing_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    with pytest.raises(Exception):
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception, match=r"Expected \[volume\] to be set for redis"):
         render.deps.redis(
             "redis_container",
             "test_image",
-            {"password": "test_password", "volume": {}},  # type: ignore
+            {"password": "test_password"},  # type: ignore
+            perms_container,
         )
 
 
@@ -390,11 +394,13 @@ def test_add_redis_with_password_with_spaces(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    with pytest.raises(Exception):
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception, match=r"Redis password cannot contain \[ \]"):
         render.deps.redis(
             "redis_container",
             "redis_image",
             {"password": "test password", "volume": {}},  # type: ignore
+            perms_container,
         )
 
 
@@ -498,11 +504,13 @@ def test_add_mariadb_missing_config(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    with pytest.raises(Exception):
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception, match=r"Expected \[volume\] to be set for mariadb"):
         render.deps.mariadb(
             "mariadb_container",
             "test_image",
             {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+            perms_container,
         )
 
 
@@ -851,15 +859,28 @@ def test_add_perm_action_without_auto_perms_enabled(mock_values):
 
 
 def test_add_unsupported_postgres_version(mock_values):
-    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "99"}
+    mock_values["images"]["pg_image"] = {"repository": "postgres", "tag": "99.0-bookworm"}
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    with pytest.raises(Exception):
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception, match=r"Postgres version \[99\] is not supported"):
         render.deps.postgres(
-            "test_container",
-            "test_image",
-            {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+            "pg_container",
+            "pg_image",
+            {
+                "user": "test_user",
+                "password": "test_password",
+                "database": "test_database",
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
+            },
+            perms_container,
         )
 
 
@@ -871,11 +892,24 @@ def test_add_postgres_with_invalid_tag(mock_values):
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
-    with pytest.raises(Exception):
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(Exception, match=r"Could not determine major version from tag \[latest\]"):
         render.deps.postgres(
             "pg_container",
             "pg_image",
-            {"user": "test_user", "password": "test_password", "database": "test_database"},  # type: ignore
+            {
+                "user": "test_user",
+                "password": "test_password",
+                "database": "test_database",
+                "volume": {
+                    "type": "volume",
+                    "volume_config": {
+                        "volume_name": "test_volume",
+                        "auto_permissions": True,
+                    },
+                },
+            },
+            perms_container,
         )
 
 

@@ -208,7 +208,13 @@ def valid_device_cgroup_rule_or_raise(dev_grp_rule: str):
             f" but got [{parts[0]}]"
         )
 
-    major, minor = parts[1].split(":")
+    major_minor = parts[1].split(":")
+    if len(major_minor) != 2:
+        raise RenderError(
+            f"Device Group Rule [{dev_grp_rule}] is not valid. Expected format is [<type> <major>:<minor> <permission>]"
+        )
+
+    major, minor = major_minor
     for part in (major, minor):
         if part != "*" and not part.isdigit():
             raise RenderError(
