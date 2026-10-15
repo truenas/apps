@@ -1,13 +1,17 @@
+import pytest
+
 from base.formatter import escape_dollar
 
 
-def test_escape_dollar():
-    cases = [
-        {"input": "test", "expected": "test"},
-        {"input": "$test", "expected": "$$test"},
-        {"input": "$$test", "expected": "$$$$test"},
-        {"input": "$$$test", "expected": "$$$$$$test"},
-        {"input": "$test$", "expected": "$$test$$"},
-    ]
-    for case in cases:
-        assert escape_dollar(case["input"]) == case["expected"]
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("test", "test"),
+        ("$test", "$$test"),
+        ("$$test", "$$$$test"),
+        ("$$$test", "$$$$$$test"),
+        ("$test$", "$$test$$"),
+    ],
+)
+def test_escape_dollar(value, expected):
+    assert escape_dollar(value) == expected
