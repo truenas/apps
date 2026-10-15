@@ -547,17 +547,14 @@ def rename_app_lib_dir(app: App, old_version: str, new_version: str) -> None:
     old_dir.rename(new_dir)
 
 
-def write_item_file(app: App, app_config: dict) -> None:
-    """Write the catalog entry (item.yaml), it only mirrors a few fields of app.yaml."""
-    write_yaml(
-        app.path / ITEM_FILE,
-        {
-            "categories": app_config.get("categories", []),
-            "icon_url": app_config.get("icon", ""),
-            "screenshots": app_config.get("screenshots", []),
-            "tags": app_config.get("keywords", []),
-        },
-    )
+def build_item(app_config: dict) -> dict:
+    """The catalog entry (item.yaml), it only mirrors a few fields of app.yaml."""
+    return {
+        "categories": app_config.get("categories", []),
+        "icon_url": app_config.get("icon", ""),
+        "screenshots": app_config.get("screenshots", []),
+        "tags": app_config.get("keywords", []),
+    }
 
 
 def get_git_date_added(app: App) -> str:
@@ -741,6 +738,12 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
             app_config["date_added"] = date_added
             changed = True
 
+    item_path = app.path / ITEM_FILE
+    item = build_item(app_config)
+    if not item_path.exists() or read_yaml(item_path) != item:
+        write_yaml(item_path, item)
+        changed = True
+
     # A library sync in this run has already bumped the app, one bump covers both changes
     if changed and bump_version and not already_bumped:
         old_version = app_config["version"]
@@ -751,7 +754,6 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
             app_config["app_version"] = app_config["version"]
 
     write_yaml(app_config_path, app_config)
-    write_item_file(app, app_config)
     logger.info(f"Successfully updated {app.name} with {len(capabilities)} capabilities and {len(users)} services")
 
 
