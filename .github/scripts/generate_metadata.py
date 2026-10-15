@@ -17,7 +17,6 @@ parts of the app's questions.yaml, ix_values.yaml and app.yaml along the way.
 import argparse
 import ast
 import logging
-import os
 import re
 import shlex
 import subprocess
@@ -26,18 +25,21 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
+from common import (
+    APP_METADATA_FILE,
+    APPS_ROOT_DIR,
+    QUESTIONS_FILE,
+    RENDERED_COMPOSE_PATH,
+    TEST_VALUES_DIR,
+    hash_generate_cmd,
+    read_yaml,
+    render_app_cmd,
+    write_yaml,
+)
 
-CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
-PLATFORM = "linux/amd64"
-
-APPS_ROOT_DIR = Path("ix-dev")
 LIBRARY_DIR = Path("library")
-TEST_VALUES_DIR = "templates/test_values"
-RENDERED_COMPOSE_PATH = "templates/rendered/docker-compose.yaml"
-APP_METADATA_FILE = "app.yaml"
 APP_VALUES_FILE = "ix_values.yaml"
-QUESTIONS_FILE = "questions.yaml"
+ITEM_FILE = "item.yaml"
 
 # Special apps excluded from test train
 EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
@@ -45,9 +47,6 @@ EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
 # Registries that garbage-collect manifests no longer referenced by a tag,
 # so a digest pin (tag@sha256:...) breaks once the tag moves
 NO_DIGEST_PIN_REGISTRIES = ("quay.io/",)
-
-# libyaml-backed loader is much faster; fall back if PyYAML was built without it
-YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
 RE_VAR_NAME = re.compile(r"^[a-z0-9_]+$")
 # Existing variable names that predate the naming rule
@@ -282,19 +281,6 @@ class Analysis:
     users: dict[str, list[tuple[int, int]]]
 
 
-def read_yaml(path: Path) -> dict:
-    with open(path) as f:
-        data = yaml.load(f, Loader=YAML_LOADER)
-    if not isinstance(data, dict):
-        raise ValueError(f"YAML file {path} must contain a dictionary at root level, got {type(data)}")
-    return data
-
-
-def write_yaml(path: Path, data: dict) -> None:
-    with open(path, "w") as f:
-        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
-
-
 # Discovery
 
 
@@ -336,31 +322,7 @@ def render(app: App, values_file: str) -> dict:
     """Render the app with the given test values and return the compose data."""
     values_path = app.path / TEST_VALUES_DIR / values_file
     compose_path = app.path / RENDERED_COMPOSE_PATH
-
-    render_cmd = shlex.join(
-        ["apps_render_app", "render", f"--path=/workspace/{app.path}", f"--values=/workspace/{values_path}"]
-    )
-    # Drop to the host user so the rendered files are owned by it, keeping the socket's group
-    # so the renderer can still reach docker. The group is read inside the container, it is not
-    # always the host's (eg Docker Desktop shows the socket as root:root, Linux keeps the docker group)
-    drop_privs = (
-        f"setpriv --reuid={os.getuid()} --regid={os.getgid()} --groups=$(stat -c %g /var/run/docker.sock) --"
-    )
-    docker_cmd = [
-        "docker",
-        "run",
-        f"--platform={PLATFORM}",
-        "--quiet",
-        "--rm",
-        "-e",
-        "FAKE_ENV=1",
-        f"-v={os.getcwd()}:/workspace",
-        "-v=/var/run/docker.sock:/var/run/docker.sock:ro",
-        "--entrypoint=/bin/bash",
-        CONTAINER_IMAGE,
-        "-c",
-        f"{drop_privs} {render_cmd}",
-    ]
+    docker_cmd = render_app_cmd(app.path, values_path)
 
     logger.debug(f"Rendering: {shlex.join(docker_cmd)}")
     result = subprocess.run(docker_cmd, capture_output=True, text=True)
@@ -388,25 +350,12 @@ def sync_library(apps: list[App], lib_version: str, bump_version: bool) -> set[P
             app_config["lib_version"] = lib_version
             write_yaml(app_config_path, app_config)
 
-    hash_cmd = ["apps_catalog_hash_generate", "--path=/workspace"]
+    hash_args = []
     if bump_version:
-        hash_cmd.append("--bump=patch")
+        hash_args.append("--bump=patch")
     if len(apps) == 1:
-        hash_cmd.extend([f"--train={apps[0].train}", f"--app={apps[0].name}"])
-    docker_cmd = [
-        "docker",
-        "run",
-        f"--platform={PLATFORM}",
-        "--quiet",
-        "--rm",
-        # Keep the copied library and app.yaml files owned by the host user
-        f"--user={os.getuid()}:{os.getgid()}",
-        "-e",
-        "FAKE_ENV=1",
-        f"-v={os.getcwd()}:/workspace",
-        CONTAINER_IMAGE,
-        *hash_cmd,
-    ]
+        hash_args.extend([f"--train={apps[0].train}", f"--app={apps[0].name}"])
+    docker_cmd = hash_generate_cmd(hash_args)
 
     logger.info(f"Syncing library {lib_version} into {len(apps)} apps")
     logger.debug(f"Syncing library: {shlex.join(docker_cmd)}")
@@ -596,6 +545,19 @@ def rename_app_lib_dir(app: App, old_version: str, new_version: str) -> None:
     if new_dir.exists():
         raise ValueError(f"App {app.name} library with version {new_version} already exists")
     old_dir.rename(new_dir)
+
+
+def write_item_file(app: App, app_config: dict) -> None:
+    """Write the catalog entry (item.yaml), it only mirrors a few fields of app.yaml."""
+    write_yaml(
+        app.path / ITEM_FILE,
+        {
+            "categories": app_config.get("categories", []),
+            "icon_url": app_config.get("icon", ""),
+            "screenshots": app_config.get("screenshots", []),
+            "tags": app_config.get("keywords", []),
+        },
+    )
 
 
 def get_git_date_added(app: App) -> str:
@@ -789,6 +751,7 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
             app_config["app_version"] = app_config["version"]
 
     write_yaml(app_config_path, app_config)
+    write_item_file(app, app_config)
     logger.info(f"Successfully updated {app.name} with {len(capabilities)} capabilities and {len(users)} services")
 
 
