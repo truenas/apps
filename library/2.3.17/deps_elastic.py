@@ -31,7 +31,7 @@ class ElasticSearchContainer:
 
         for key in ("password", "node_name", "volume"):
             if key not in config:
-                raise RenderError(f"Expected [{key}] to be set for ElasticSearch")
+                raise RenderError(f"Expected [{key}] to be set for elasticsearch")
 
         c = self._render_instance.add_container(name, image)
 
@@ -81,7 +81,7 @@ class ElasticSearchContainer:
             raise RenderError("Could not determine repo")
         if repo not in SUPPORTED_REPOS:
             raise RenderError(
-                f"Unsupported repo [{repo}] for elastic search. Supported repos: {', '.join(SUPPORTED_REPOS)}"
+                f"Unsupported repo [{repo}] for elasticsearch. Supported repos: {', '.join(SUPPORTED_REPOS)}"
             )
         return repo
 

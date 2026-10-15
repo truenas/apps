@@ -107,7 +107,7 @@ def test_add_dep_missing_config(render, dep, config, match):
             "7",
             {"password": "test_password", "node_name": "some_test_node", "volume": _volume()},
             True,
-            "elastic search",
+            "elasticsearch",
             id="add_elasticsearch_unsupported_repo",
         ),
         pytest.param(
