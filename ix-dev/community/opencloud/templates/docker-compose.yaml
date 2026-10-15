@@ -30,10 +30,12 @@
   {% set target_path = "%s/web/assets/apps"|format(values.consts.data_path) %}
   {% set app_config = values.consts.app_map[app_name] %}
 
-  {% set app = tpl.add_container(app_config.container_name, app_config.image) %}
+  {% set source_path = app_config.source or "/usr/share/nginx/html/apps/%s"|format(app_config.id) %}
+
+  {% set app = tpl.add_container(app_config.id, "%s_image"|format(app_name)) %}
   {% do app_containers.x.append(app) %}
 
-  {% do c1.depends.add_dependency(app_config.container_name, "service_completed_successfully") %}
+  {% do c1.depends.add_dependency(app_config.id, "service_completed_successfully") %}
 
   {% do app.set_user(0, 0) %}
   {% do app.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
@@ -41,7 +43,7 @@
   {% do app.add_storage(values.consts.data_path, values.storage.data) %}
   {% do app.environment.add_env("TARGET_PATH", target_path) %}
   {% do app.environment.add_env("APP_ID", app_config.id) %}
-  {% do app.environment.add_env("SOURCE_PATH", app_config.source) %}
+  {% do app.environment.add_env("SOURCE_PATH", source_path) %}
   {% do app.environment.add_env("ENABLED", enabled) %}
   {% do app.configs.add("app_entrypoint", app_init(values), "/ix-entrypoint.sh", "0755") %}
   {% do app.set_entrypoint(["/ix-entrypoint.sh"]) %}
@@ -89,7 +91,6 @@
   {% do radicale.add_storage(values.consts.radicale_data_path, values.storage.radicale_data) %}
   {% do perm_container.add_or_skip_action("radicale_data", values.storage.radicale_data, perms_config) %}
 {% endif %}
-
 
 {# Networking #}
 {% do c1.environment.add_env("PROXY_HTTP_ADDR", ":%d"|format(values.network.web_port.port_number)) %}
