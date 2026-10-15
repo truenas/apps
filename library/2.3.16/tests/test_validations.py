@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch
 
 from pathlib import Path
-from validations import is_allowed_path, RESTRICTED, RESTRICTED_IN
+from base.validations import is_allowed_path, RESTRICTED, RESTRICTED_IN
 
 
 def mock_resolve(self):

@@ -1,13 +1,10 @@
 from typing import TYPE_CHECKING, TypedDict, NotRequired
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
 
-try:
-    from .error import RenderError
-except ImportError:
-    from error import RenderError
+from .error import RenderError
 
 
 class GuacdConfig(TypedDict):

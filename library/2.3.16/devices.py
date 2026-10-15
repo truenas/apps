@@ -1,14 +1,10 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .error import RenderError
-    from .device import Device
-except ImportError:
-    from error import RenderError
-    from device import Device
+from .error import RenderError
+from .device import Device
 
 
 class Devices:

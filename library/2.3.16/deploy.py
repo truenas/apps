@@ -1,12 +1,9 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .resources import Resources
-except ImportError:
-    from resources import Resources
+from .resources import Resources
 
 
 class Deploy:

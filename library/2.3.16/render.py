@@ -1,29 +1,16 @@
 import copy
 
-try:
-    from .configs import Configs
-    from .container import Container
-    from .deps import Deps
-    from .docker_client import DockerClient
-    from .error import RenderError
-    from .functions import Functions
-    from .networks import Networks
-    from .notes import Notes
-    from .portals import Portals
-    from .truenas_client import TNClient
-    from .volumes import Volumes
-except ImportError:
-    from configs import Configs
-    from container import Container
-    from deps import Deps
-    from docker_client import DockerClient
-    from error import RenderError
-    from functions import Functions
-    from networks import Networks
-    from notes import Notes
-    from portals import Portals
-    from truenas_client import TNClient
-    from volumes import Volumes
+from .configs import Configs
+from .container import Container
+from .deps import Deps
+from .docker_client import DockerClient
+from .error import RenderError
+from .functions import Functions
+from .networks import Networks
+from .notes import Notes
+from .portals import Portals
+from .truenas_client import TNClient
+from .volumes import Volumes
 
 
 class Render(object):

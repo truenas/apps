@@ -3,16 +3,12 @@ from typing import TYPE_CHECKING, TypedDict
 
 
 if TYPE_CHECKING:
-    from render import Render
-    from storage import IxStorage
+    from .render import Render
+    from .storage import IxStorage
 
 
-try:
-    from .error import RenderError
-    from .deps_perms import PermsContainer
-except ImportError:
-    from error import RenderError
-    from deps_perms import PermsContainer
+from .error import RenderError
+from .deps_perms import PermsContainer
 
 
 class MongoDBConfig(TypedDict):

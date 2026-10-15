@@ -2,16 +2,11 @@ import json
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .error import RenderError
-    from .formatter import escape_dollar
-    from .validations import valid_http_path_or_raise, valid_portal_scheme_or_raise
-except ImportError:
-    from error import RenderError
-    from formatter import escape_dollar
-    from validations import valid_http_path_or_raise, valid_portal_scheme_or_raise
+from .error import RenderError
+from .formatter import escape_dollar
+from .validations import valid_http_path_or_raise, valid_portal_scheme_or_raise
 
 
 class Healthcheck:

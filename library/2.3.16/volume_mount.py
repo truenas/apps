@@ -1,19 +1,13 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
-    from storage import IxStorage
+    from .render import Render
+    from .storage import IxStorage
 
-try:
-    from .error import RenderError
-    from .formatter import merge_dicts_no_overwrite
-    from .volume_mount_types import BindMountType, VolumeMountType
-    from .volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
-except ImportError:
-    from error import RenderError
-    from formatter import merge_dicts_no_overwrite
-    from volume_mount_types import BindMountType, VolumeMountType
-    from volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
+from .error import RenderError
+from .formatter import merge_dicts_no_overwrite
+from .volume_mount_types import BindMountType, VolumeMountType
+from .volume_sources import HostPathSource, IxVolumeSource, CifsSource, NfsSource, VolumeSource
 
 
 class VolumeMount:

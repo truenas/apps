@@ -4,18 +4,13 @@ from typing import TYPE_CHECKING, TypedDict, NotRequired
 
 
 if TYPE_CHECKING:
-    from render import Render
-    from storage import IxStorage
+    from .render import Render
+    from .storage import IxStorage
 
 
-try:
-    from .error import RenderError
-    from .deps_perms import PermsContainer
-    from .validations import valid_port_or_raise
-except ImportError:
-    from error import RenderError
-    from deps_perms import PermsContainer
-    from validations import valid_port_or_raise
+from .error import RenderError
+from .deps_perms import PermsContainer
+from .validations import valid_port_or_raise
 
 
 class PostgresConfig(TypedDict):

@@ -1,14 +1,11 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
-    from storage import IxStorageVolumeConfig, IxStorageBindLikeConfigs
+    from .render import Render
+    from .storage import IxStorageVolumeConfig, IxStorageBindLikeConfigs
 
 
-try:
-    from .validations import valid_host_path_propagation
-except ImportError:
-    from validations import valid_host_path_propagation
+from .validations import valid_host_path_propagation
 
 
 class BindMountType:

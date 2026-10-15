@@ -1,17 +1,12 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
 
-try:
-    from .error import RenderError
-    from .storage import IxStorageVolumeLikeConfigs
-    from .volume_types import NfsVolume, CifsVolume, DockerVolume
-except ImportError:
-    from error import RenderError
-    from storage import IxStorageVolumeLikeConfigs
-    from volume_types import NfsVolume, CifsVolume, DockerVolume
+from .error import RenderError
+from .storage import IxStorageVolumeLikeConfigs
+from .volume_types import NfsVolume, CifsVolume, DockerVolume
 
 
 class Volumes:

@@ -1,4 +1,4 @@
-from formatter import escape_dollar
+from base.formatter import escape_dollar
 
 
 def test_escape_dollar():

@@ -1,17 +1,12 @@
 from typing import TYPE_CHECKING, TypedDict, Literal, NotRequired, Union
 
 if TYPE_CHECKING:
-    from container import Container
-    from render import Render
+    from .container import Container
+    from .render import Render
 
-try:
-    from .error import RenderError
-    from .validations import valid_fs_path_or_raise
-    from .volume_mount import VolumeMount
-except ImportError:
-    from error import RenderError
-    from validations import valid_fs_path_or_raise
-    from volume_mount import VolumeMount
+from .error import RenderError
+from .validations import valid_fs_path_or_raise
+from .volume_mount import VolumeMount
 
 
 class IxStorageTmpfsConfig(TypedDict):

@@ -1,12 +1,9 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .validations import valid_restart_policy_or_raise
-except ImportError:
-    from validations import valid_restart_policy_or_raise
+from .validations import valid_restart_policy_or_raise
 
 
 class RestartPolicy:

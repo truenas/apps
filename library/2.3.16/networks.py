@@ -2,16 +2,11 @@ from typing import TYPE_CHECKING
 from dataclasses import dataclass
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .error import RenderError
-    from .labels import Labels
-    from .validations import valid_mac_or_raise, valid_ip_or_raise
-except ImportError:
-    from error import RenderError
-    from labels import Labels
-    from validations import valid_mac_or_raise, valid_ip_or_raise
+from .error import RenderError
+from .labels import Labels
+from .validations import valid_mac_or_raise, valid_ip_or_raise
 
 
 class Networks:

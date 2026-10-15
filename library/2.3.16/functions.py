@@ -8,14 +8,10 @@ from base64 import b64encode
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .error import RenderError
-    from .volume_sources import HostPathSource, IxVolumeSource
-except ImportError:
-    from error import RenderError
-    from volume_sources import HostPathSource, IxVolumeSource
+from .error import RenderError
+from .volume_sources import HostPathSource, IxVolumeSource
 
 
 class Functions:

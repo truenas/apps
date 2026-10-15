@@ -2,12 +2,9 @@ import re
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .error import RenderError
-except ImportError:
-    from error import RenderError
+from .error import RenderError
 
 DEFAULT_CPUS = 2.0
 DEFAULT_MEMORY = 4096

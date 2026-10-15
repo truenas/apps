@@ -1,16 +1,12 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from container import Container
-    from render import Render
-    from storage import IxStorage
+    from .container import Container
+    from .render import Render
+    from .storage import IxStorage
 
-try:
-    from .error import RenderError
-    from .validations import valid_fs_path_or_raise, valid_octal_mode_or_raise
-except ImportError:
-    from error import RenderError
-    from validations import valid_fs_path_or_raise, valid_octal_mode_or_raise
+from .error import RenderError
+from .validations import valid_fs_path_or_raise, valid_octal_mode_or_raise
 
 
 class Tmpfs:

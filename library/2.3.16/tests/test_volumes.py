@@ -1,8 +1,8 @@
 import pytest
 
 
-from render import Render
-from formatter import get_hashed_name_for_volume
+from base.render import Render
+from base.formatter import get_hashed_name_for_volume
 
 
 @pytest.fixture

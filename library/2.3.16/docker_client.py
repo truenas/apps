@@ -2,14 +2,10 @@ import docker
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .error import RenderError
-    from .validations import is_truenas_system
-except ImportError:
-    from error import RenderError
-    from validations import is_truenas_system
+from .error import RenderError
+from .validations import is_truenas_system
 
 
 class DockerClient:

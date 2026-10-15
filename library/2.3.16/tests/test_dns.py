@@ -1,7 +1,7 @@
 import pytest
 
 
-from render import Render
+from base.render import Render
 
 
 @pytest.fixture

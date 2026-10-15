@@ -4,15 +4,11 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from render import Render
-    from storage import IxStorage
+    from .render import Render
+    from .storage import IxStorage
 
-try:
-    from .error import RenderError
-    from .validations import valid_octal_mode_or_raise, valid_fs_path_or_raise
-except ImportError:
-    from error import RenderError
-    from validations import valid_octal_mode_or_raise, valid_fs_path_or_raise
+from .error import RenderError
+from .validations import valid_octal_mode_or_raise, valid_fs_path_or_raise
 
 
 class PermsContainer:

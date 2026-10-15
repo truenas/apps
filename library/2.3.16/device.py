@@ -1,9 +1,5 @@
-try:
-    from .error import RenderError
-    from .validations import valid_fs_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
-except ImportError:
-    from error import RenderError
-    from validations import valid_fs_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
+from .error import RenderError
+from .validations import valid_fs_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
 
 
 class Device:

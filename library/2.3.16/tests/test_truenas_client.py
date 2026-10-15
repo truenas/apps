@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from truenas_client import TNClient, PortCombo, ValidationErrors, RenderError
+from base.truenas_client import TNClient, PortCombo, ValidationErrors, RenderError
 
 
 @pytest.fixture

@@ -1,36 +1,21 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .deps_chromadb import ChromaContainer, ChromaConfig
-    from .deps_cron import CronContainer, CronConfig
-    from .deps_elastic import ElasticSearchContainer, ElasticConfig
-    from .deps_guacd import GuacdContainer, GuacdConfig
-    from .deps_mariadb import MariadbContainer, MariadbConfig
-    from .deps_meilisearch import MeilisearchContainer, MeiliConfig
-    from .deps_memcached import MemcachedContainer, MemcachedConfig
-    from .deps_mongodb import MongoDBContainer, MongoDBConfig
-    from .deps_perms import PermsContainer
-    from .deps_postgres import PostgresContainer, PostgresConfig
-    from .deps_redis import RedisContainer, RedisConfig
-    from .deps_solr import SolrContainer, SolrConfig
-    from .deps_tika import TikaContainer, TikaConfig
-except ImportError:
-    from deps_chromadb import ChromaContainer, ChromaConfig
-    from deps_cron import CronContainer, CronConfig
-    from deps_elastic import ElasticSearchContainer, ElasticConfig
-    from deps_guacd import GuacdContainer, GuacdConfig
-    from deps_mariadb import MariadbContainer, MariadbConfig
-    from deps_meilisearch import MeilisearchContainer, MeiliConfig
-    from deps_memcached import MemcachedContainer, MemcachedConfig
-    from deps_mongodb import MongoDBContainer, MongoDBConfig
-    from deps_perms import PermsContainer
-    from deps_postgres import PostgresContainer, PostgresConfig
-    from deps_redis import RedisContainer, RedisConfig
-    from deps_solr import SolrContainer, SolrConfig
-    from deps_tika import TikaContainer, TikaConfig
+from .deps_chromadb import ChromaContainer, ChromaConfig
+from .deps_cron import CronContainer, CronConfig
+from .deps_elastic import ElasticSearchContainer, ElasticConfig
+from .deps_guacd import GuacdContainer, GuacdConfig
+from .deps_mariadb import MariadbContainer, MariadbConfig
+from .deps_meilisearch import MeilisearchContainer, MeiliConfig
+from .deps_memcached import MemcachedContainer, MemcachedConfig
+from .deps_mongodb import MongoDBContainer, MongoDBConfig
+from .deps_perms import PermsContainer
+from .deps_postgres import PostgresContainer, PostgresConfig
+from .deps_redis import RedisContainer, RedisConfig
+from .deps_solr import SolrContainer, SolrConfig
+from .deps_tika import TikaContainer, TikaConfig
 
 
 class Deps:

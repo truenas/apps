@@ -1,14 +1,10 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .error import RenderError
-    from .validations import valid_security_opt_or_raise
-except ImportError:
-    from error import RenderError
-    from validations import valid_security_opt_or_raise
+from .error import RenderError
+from .validations import valid_security_opt_or_raise
 
 
 class SecurityOpt:

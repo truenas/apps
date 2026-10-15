@@ -4,10 +4,7 @@ import ipaddress
 from pathlib import Path
 
 
-try:
-    from .error import RenderError
-except ImportError:
-    from error import RenderError
+from .error import RenderError
 
 MAC_ADDR_REGEX = re.compile(r"^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$")
 

@@ -1,18 +1,13 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
-    from storage import IxStorageNfsConfig, IxStorageCifsConfig, IxStorageVolumeConfig
+    from .render import Render
+    from .storage import IxStorageNfsConfig, IxStorageCifsConfig, IxStorageVolumeConfig
 
 
-try:
-    from .error import RenderError
-    from .formatter import escape_dollar
-    from .validations import valid_fs_path_or_raise
-except ImportError:
-    from error import RenderError
-    from formatter import escape_dollar
-    from validations import valid_fs_path_or_raise
+from .error import RenderError
+from .formatter import escape_dollar
+from .validations import valid_fs_path_or_raise
 
 
 class NfsVolume:

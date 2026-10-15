@@ -1,15 +1,10 @@
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
-try:
-    from .error import RenderError
-    from .formatter import escape_dollar
-    from .resources import Resources
-except ImportError:
-    from error import RenderError
-    from formatter import escape_dollar
-    from resources import Resources
+    from .render import Render
+from .error import RenderError
+from .formatter import escape_dollar
+from .resources import Resources
 
 
 class Environment:

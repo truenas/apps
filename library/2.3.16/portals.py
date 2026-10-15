@@ -3,14 +3,10 @@ from typing import TYPE_CHECKING
 import copy
 
 if TYPE_CHECKING:
-    from render import Render
+    from .render import Render
 
-try:
-    from .error import RenderError
-    from .validations import valid_portal_scheme_or_raise, valid_http_path_or_raise, valid_port_or_raise
-except ImportError:
-    from error import RenderError
-    from validations import valid_portal_scheme_or_raise, valid_http_path_or_raise, valid_port_or_raise
+from .error import RenderError
+from .validations import valid_portal_scheme_or_raise, valid_http_path_or_raise, valid_port_or_raise
 
 
 class Portals:

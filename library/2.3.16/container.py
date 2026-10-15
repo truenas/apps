@@ -1,73 +1,40 @@
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from render import Render
-    from storage import IxStorage
+    from .render import Render
+    from .storage import IxStorage
 
-try:
-    from .configs import ContainerConfigs
-    from .depends import Depends
-    from .deploy import Deploy
-    from .device_cgroup_rules import DeviceCGroupRules
-    from .devices import Devices
-    from .dns import Dns
-    from .environment import Environment
-    from .error import RenderError
-    from .expose import Expose
-    from .extra_hosts import ExtraHosts
-    from .formatter import escape_dollar, get_image_with_hashed_data
-    from .healthcheck import Healthcheck
-    from .labels import Labels
-    from .networks import ContainerNetworks
-    from .ports import Ports
-    from .restart import RestartPolicy
-    from .tmpfs import Tmpfs
-    from .validations import (
-        valid_cap_or_raise,
-        valid_cgroup_or_raise,
-        valid_ipc_mode_or_raise,
-        valid_mac_or_raise,
-        valid_network_mode_or_raise,
-        valid_pid_mode_or_raise,
-        valid_port_bind_mode_or_raise,
-        valid_port_mode_or_raise,
-        valid_pull_policy_or_raise,
-    )
-    from .security_opts import SecurityOpts
-    from .storage import Storage
-    from .sysctls import Sysctls
-except ImportError:
-    from configs import ContainerConfigs
-    from depends import Depends
-    from deploy import Deploy
-    from device_cgroup_rules import DeviceCGroupRules
-    from devices import Devices
-    from dns import Dns
-    from environment import Environment
-    from error import RenderError
-    from expose import Expose
-    from extra_hosts import ExtraHosts
-    from formatter import escape_dollar, get_image_with_hashed_data
-    from healthcheck import Healthcheck
-    from labels import Labels
-    from networks import ContainerNetworks
-    from ports import Ports
-    from restart import RestartPolicy
-    from tmpfs import Tmpfs
-    from validations import (
-        valid_cap_or_raise,
-        valid_cgroup_or_raise,
-        valid_ipc_mode_or_raise,
-        valid_mac_or_raise,
-        valid_network_mode_or_raise,
-        valid_pid_mode_or_raise,
-        valid_port_bind_mode_or_raise,
-        valid_port_mode_or_raise,
-        valid_pull_policy_or_raise,
-    )
-    from security_opts import SecurityOpts
-    from storage import Storage
-    from sysctls import Sysctls
+from .configs import ContainerConfigs
+from .depends import Depends
+from .deploy import Deploy
+from .device_cgroup_rules import DeviceCGroupRules
+from .devices import Devices
+from .dns import Dns
+from .environment import Environment
+from .error import RenderError
+from .expose import Expose
+from .extra_hosts import ExtraHosts
+from .formatter import escape_dollar, get_image_with_hashed_data
+from .healthcheck import Healthcheck
+from .labels import Labels
+from .networks import ContainerNetworks
+from .ports import Ports
+from .restart import RestartPolicy
+from .tmpfs import Tmpfs
+from .validations import (
+    valid_cap_or_raise,
+    valid_cgroup_or_raise,
+    valid_ipc_mode_or_raise,
+    valid_mac_or_raise,
+    valid_network_mode_or_raise,
+    valid_pid_mode_or_raise,
+    valid_port_bind_mode_or_raise,
+    valid_port_mode_or_raise,
+    valid_pull_policy_or_raise,
+)
+from .security_opts import SecurityOpts
+from .storage import Storage
+from .sysctls import Sysctls
 
 
 class Container:
