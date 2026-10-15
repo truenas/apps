@@ -7,6 +7,8 @@
 {% endif %}
 
 {% set proto = "https" if values.network.certificate_id else "http" %}
+{% set global_ssl_key_path = "%s/%s"|format(values.consts.ssl_key_dir, values.consts.ssl_key_name) %}
+{% set global_ssl_cert_path = "%s/%s"|format(values.consts.ssl_cert_dir, values.consts.ssl_cert_name) %}
 
 {% set c1 = tpl.add_container(values.consts.sftpgo_container_name, values.sftpgo.image_selector) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
@@ -26,12 +28,12 @@
 
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
-  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+  {% do c1.configs.add("private", cert.privatekey, global_ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, global_ssl_cert_path) %}
 
   {% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__ENABLE_HTTPS", true) %}
-  {% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__CERTIFICATE_FILE", values.consts.ssl_cert_path) %}
-  {% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__CERTIFICATE_KEY_FILE", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__CERTIFICATE_FILE", global_ssl_cert_path) %}
+  {% do c1.environment.add_env("SFTPGO_HTTPD__BINDINGS__0__CERTIFICATE_KEY_FILE", global_ssl_key_path) %}
 {% endif %}
 
 {% do c1.environment.add_user_envs(values.sftpgo.additional_envs) %}
@@ -56,6 +58,17 @@
   {% do c1.add_port(svc.port) %}
   {% do c1.environment.add_env("SFTPGO_WEBDAVD__BINDINGS__%d__PORT"|format(loop.index0), svc.port.port_number) %}
   {% do c1.environment.add_env("SFTPGO_WEBDAVD__BINDINGS__%d__ADDRESS"|format(loop.index0), "") %}
+  {% if svc.certificate_id %}
+    {% set cert = values.ix_certificates[svc.certificate_id] %}
+    {% set key_path = "%s/webdavd_%d_%s"|format(values.consts.ssl_key_dir, loop.index0, values.consts.ssl_key_name) %}
+    {% set cert_path = "%s/webdavd_%d_%s"|format(values.consts.ssl_cert_dir, loop.index0, values.consts.ssl_cert_name) %}
+
+    {% do c1.configs.add("private_webdavd_%d"|format(loop.index0), cert.privatekey, key_path) %}
+    {% do c1.configs.add("public_webdavd_%d"|format(loop.index0), cert.certificate, cert_path) %}
+    {% do c1.environment.add_env("SFTPGO_WEBDAVD__BINDINGS__%d__CERTIFICATE_FILE"|format(loop.index0), cert_path) %}
+    {% do c1.environment.add_env("SFTPGO_WEBDAVD__BINDINGS__%d__CERTIFICATE_KEY_FILE"|format(loop.index0), key_path) %}
+    {% do c1.environment.add_env("SFTPGO_WEBDAVD__BINDINGS__%d__ENABLE_HTTPS"|format(loop.index0), true) %}
+  {% endif %}
 {% endfor %}
 
 {% if values.network.ftpd_services %}
@@ -76,8 +89,8 @@
   {% do c1.environment.add_env("SFTPGO_TELEMETRY__BIND_PORT", values.network.telemetry_port.port_number) %}
   {% do c1.environment.add_env("SFTPGO_TELEMETRY__BIND_ADDRESS", "") %}
   {% if values.network.certificate_id %}
-    {% do c1.environment.add_env("SFTPGO_TELEMETRY__CERTIFICATE_FILE", values.consts.ssl_cert_path) %}
-    {% do c1.environment.add_env("SFTPGO_TELEMETRY__CERTIFICATE_KEY_FILE", values.consts.ssl_key_path) %}
+    {% do c1.environment.add_env("SFTPGO_TELEMETRY__CERTIFICATE_FILE", global_ssl_cert_path) %}
+    {% do c1.environment.add_env("SFTPGO_TELEMETRY__CERTIFICATE_KEY_FILE", global_ssl_key_path) %}
   {% endif %}
 {% endif %}
 

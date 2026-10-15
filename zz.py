@@ -30,7 +30,11 @@ def get_yaml_data(file: str):
 
 
 def set_added_date(data: dict, app_yaml: str):
-    res = subprocess.run(f'git log --diff-filter=A --format="%as" -- {app_yaml}', shell=True, capture_output=True)
+    res = subprocess.run(
+        f'git log --diff-filter=A --format="%as" -- {app_yaml}',
+        shell=True,
+        capture_output=True,
+    )
     if res.returncode != 0:
         raise Exception(f"failed to get git log for {app_yaml}")
     git_log = res.stdout.decode("utf-8").strip()
@@ -40,7 +44,7 @@ def set_added_date(data: dict, app_yaml: str):
     return data, True
 
 
-CURRENT_LIB_VERSION = "2.3.1"
+CURRENT_LIB_VERSION = "2.3.16"
 
 
 def update_app_yaml():
@@ -60,6 +64,12 @@ def update_app_yaml():
                 continue
 
             data, changed = set_added_date(data, file)
+            if data["lib_version"] != CURRENT_LIB_VERSION:
+                data["lib_version"] = CURRENT_LIB_VERSION
+                changed = True
+                # print(
+                #     f"Lib version mismatch for {train}/{app}: {data['lib_version']} != {CURRENT_LIB_VERSION}"
+                # )
             if changed or data["lib_version"] == CURRENT_LIB_VERSION:
                 data = bump_version(data, "patch")
             with open(file, "w") as f:

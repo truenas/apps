@@ -1,0 +1,31 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    if values["storage"].get("use_deprecated_volumes"):
+        raise Exception(
+            "The deprecated [Local], [Config] and [Project] storages have been removed, "
+            "only the [Home Directory] storage (mounted at /home/coder) is supported. "
+            "Before upgrading: edit the application, uncheck [Use Deprecated Volumes], configure the "
+            "[Home Directory] storage and save. Then stop the application and copy the data of the old "
+            "Local storage to <home>/.local, the Config storage to <home>/.config and the Project storage "
+            "to <home>/project (where <home> is the Home Directory storage path). Start the application, "
+            "verify your data and then upgrade."
+        )
+
+    for key in ["use_deprecated_volumes", "local", "config", "project"]:
+        values["storage"].pop(key, None)
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

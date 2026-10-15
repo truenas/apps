@@ -54,7 +54,7 @@
 {% do paperless_container.environment.add_env("PAPERLESS_DBPASS", values.paperless.db_password) %}
 {% do paperless_container.environment.add_env("PAPERLESS_REDIS", redis.get_url("redis")) %}
 
-{% do paperless_container.environment.add_user_envs(values.paperless.additional_envs) %}
+{% do paperless_container.environment.add_user_envs(values.paperless.additional_envs | selectattr("container", "equalto", "paperless") | list) %}
 
 {% do paperless_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do paperless_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -88,6 +88,7 @@
 {% if values.paperless.enable_tika_gotenberg %}
   {% set tika_container = tpl.deps.tika(values.consts.tika_container_name, "tika_image", {"port": values.consts.tika_port}) %}
   {% do tika_container.container.add_network(paperless_net) %}
+  {% do tika_container.container.environment.add_user_envs(values.paperless.additional_envs | selectattr("container", "equalto", "tika") | list) %}
 
   {% set gotenberg_container = tpl.add_container(values.consts.gotenberg_container_name, "gotenberg_image") %}
   {% do gotenberg_container.add_network(paperless_net) %}
@@ -96,6 +97,7 @@
   {% do gotenberg_container.environment.add_env("CHROMIUM_DISABLE_JAVASCRIPT", values.paperless.gotenberg_chromium_disable_javascript|string|lower) %}
   {% do gotenberg_container.environment.add_env("CHROMIUM_ALLOW_LIST", values.paperless.gotenberg_chromium_allow_list_regex) %}
   {% do gotenberg_container.healthcheck.set_test("http", {"port": values.consts.gotenberg_port, "path":"/health"}) %}
+  {% do gotenberg_container.environment.add_user_envs(values.paperless.additional_envs | selectattr("container", "equalto", "gotenberg") | list) %}
 
   {% do paperless_container.environment.add_env("PAPERLESS_TIKA_ENABLED", 1) %}
   {% do paperless_container.environment.add_env("PAPERLESS_TIKA_ENDPOINT", tika_container.get_url()) %}

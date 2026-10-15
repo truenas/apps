@@ -18,7 +18,7 @@ jq_write() {
 {%- set pool_addr =
   values.xmrig.remote_pool_address
   if values.xmrig.remote_pool_address
-  else "host.docker.internal:%s" | format(values.xmrig.local_xmrig_port)
+  else "host.docker.internal:%s" | format(values.xmrig.local_p2pool_port)
 %}
 
 jq_write '.pools[0].url = "{{ pool_addr }}"'
@@ -43,7 +43,6 @@ jq_write '.cpu.enabled = true'
 jq_write '.cpu.priority = {{ values.xmrig.cpu_priority }}'
 jq_write '.cpu["*"].threads = {{ values.xmrig.cpu_threads }}'
 jq_write '.randomx["1gb-pages"] = {{ values.xmrig.use_1gb_huge_pages | lower }}'
-jq_write '.randomx.rdmsr = {{ values.xmrig.use_msr_mod | lower }}'
 
 {%- if values.xmrig.use_proxy %}
   {%- set proxy_addr =

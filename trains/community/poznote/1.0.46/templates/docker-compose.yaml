@@ -1,0 +1,48 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set poznote_net = tpl.networks.create_internal("poznote-net") %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
+
+{% set poznote = tpl.add_container(values.consts.poznote_container_name, "image") %}
+{% do poznote.add_network(poznote_net) %}
+{% do poznote.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+{% do poznote.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/api/health", "spider": false}) %}
+
+{% do poznote.environment.add_env("SQLITE_DATABASE", "%s/database/poznote.db" | format(values.consts.data_path)) %}
+{% do poznote.environment.add_user_envs(values.poznote.additional_envs) %}
+
+{% if values.poznote.enable_mcp %}
+  {% set mcp = tpl.add_container(values.consts.mcp_container_name, "mcp_image") %}
+  {% do mcp.add_network(poznote_net) %}
+  {% do mcp.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
+  {% do mcp.depends.add_dependency(values.consts.poznote_container_name, "service_healthy") %}
+  {% do mcp.healthcheck.set_test("netcat", {"port": values.consts.internal_mcp_port}) %}
+  {% do mcp.environment.add_env("POZNOTE_API_URL", "http://%s:%d/api/v1" | format(values.consts.poznote_container_name, values.consts.internal_web_port)) %}
+  {% do mcp.environment.add_env("POZNOTE_SERVICE_TOKEN_FILE", "%s/.mcp_token" | format(values.consts.data_path)) %}
+
+  {% do mcp.add_port(values.network.mcp_port, {"container_port": values.consts.internal_mcp_port}) %}
+
+  {% do mcp.add_storage(values.consts.data_path, dict(values.storage.data, **{"read_only": true})) %}
+{% endif %}
+
+{% do poznote.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+
+{% do poznote.add_storage(values.consts.data_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do poznote.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do poznote.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
