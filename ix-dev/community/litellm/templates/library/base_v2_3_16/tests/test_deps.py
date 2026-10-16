@@ -127,7 +127,7 @@ def test_add_postgres(mock_values):
     assert output["services"]["pg_container"]["healthcheck"] == {
         "test": [
             "CMD",
-            "pg_isready",
+            "/usr/lib/postgresql/16/bin/pg_isready",
             "-h",
             "127.0.0.1",
             "-p",
@@ -464,8 +464,6 @@ def test_add_redis(mock_values):
             "127.0.0.1",
             "-p",
             "6379",
-            "-a",
-            "test&password@",
             "ping",
         ],
         "interval": "30s",
@@ -489,6 +487,7 @@ def test_add_redis(mock_values):
         "UMASK_SET": "002",
         "NVIDIA_VISIBLE_DEVICES": "void",
         "REDIS_PASSWORD": "test&password@",
+        "REDISCLI_AUTH": "test&password@",
     }
     assert output["services"]["redis_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
@@ -970,6 +969,50 @@ def test_postgres_version_with_digest_pin(mock_values):
     output = render.render()
     pgup = output["services"]["postgres_container_upgrade"]
     assert pgup["environment"]["TARGET_VERSION"] == "17"
+
+
+@pytest.mark.parametrize(
+    "repo, tag, binary",
+    [
+        ("postgres", "17.7-bookworm", "/usr/lib/postgresql/17/bin/pg_isready"),
+        ("postgis/postgis", "18-3.6", "/usr/lib/postgresql/18/bin/pg_isready"),
+        ("pgvector/pgvector", "0.8.1-pg16-trixie", "/usr/lib/postgresql/16/bin/pg_isready"),
+        ("paradedb/paradedb", "v0.21.8-pg18", "/usr/lib/postgresql/18/bin/pg_isready"),
+        ("ghcr.io/immich-app/postgres", "15-vectorchord0.4.3", "/usr/lib/postgresql/15/bin/pg_isready"),
+        ("ghcr.io/oss-apps/postgres", "18.0-trixie", "/usr/lib/postgresql/18/bin/pg_isready"),
+        ("timescale/timescaledb", "2.24.0-pg18", "pg_isready"),
+    ],
+)
+def test_postgres_healthcheck_binary(mock_values, repo, tag, binary):
+    mock_values["images"]["pg_image"] = {"repository": repo, "tag": tag}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("test_perms_container")
+    pg = render.deps.postgres(
+        "postgres_container",
+        "pg_image",
+        {
+            "user": "test_user",
+            "password": "test_password",
+            "database": "test_database",
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
+        },
+        perms_container,
+    )
+    if perms_container.has_actions():
+        perms_container.activate()
+        pg.add_dependency(
+            "test_perms_container", "service_completed_successfully"
+        )
+    output = render.render()
+    assert output["services"]["postgres_container"]["healthcheck"]["test"][1] == binary
 
 
 def test_add_mongodb(mock_values):
