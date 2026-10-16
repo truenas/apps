@@ -10,20 +10,26 @@
 import subprocess
 import argparse
 import platform
-import pathlib
 import secrets
 import shutil
+import shlex
 import copy
 import json
 import yaml
 import sys
-import os
 
-# libyaml-backed loader is much faster; fall back if PyYAML was built without it
-YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+import generate_metadata
+from common import (
+    APPS_ROOT_DIR,
+    CONTAINER_IMAGE,
+    PLATFORM,
+    RENDERED_COMPOSE_PATH,
+    TEST_VALUES_DIR,
+    YAML_LOADER,
+    hash_generate_cmd,
+    render_app_cmd,
+)
 
-CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
-PLATFORM = "linux/amd64"
 CHANGE_PLATFORM_FOR_IMAGES = [
     "redis",
     "valkey/valkey",
@@ -84,6 +90,11 @@ def parse_args():
         type=bool,
         help="Wait for user input before stopping the app",
     )
+    parser.add_argument(
+        "--skip-metadata",
+        action="store_true",
+        help="Don't update the app metadata (app.yaml, item.yaml) before rendering",
+    )
     parsed = parser.parse_args()
 
     return {
@@ -94,6 +105,7 @@ def parse_args():
         "render_only_debug": parsed.render_only_debug,
         "project": secrets.token_hex(16),
         "wait": parsed.wait,
+        "skip_metadata": parsed.skip_metadata,
     }
 
 
@@ -106,6 +118,7 @@ def print_info():
     print_stderr(f"  - render-only: [{args['render_only']}]")
     print_stderr(f"  - render-only-debug: [{args['render_only_debug']}]")
     print_stderr(f"  - wait: [{args['wait']}]")
+    print_stderr(f"  - skip-metadata: [{args['skip_metadata']}]")
 
 
 def command_exists(command):
@@ -137,14 +150,12 @@ def check_required_commands():
             sys.exit(1)
 
 
+def get_app_dir():
+    return APPS_ROOT_DIR / args["train"] / args["app"]
+
+
 def get_base_cmd():
-    rendered_compose = "templates/rendered/docker-compose.yaml"
-    return " ".join(
-        [
-            f"docker compose -p {args['project']} -f",
-            f"ix-dev/{args['train']}/{args['app']}/{rendered_compose}",
-        ]
-    )
+    return f"docker compose -p {args['project']} -f {get_app_dir() / RENDERED_COMPOSE_PATH}"
 
 
 def pull_app_catalog_container():
@@ -160,49 +171,19 @@ def pull_app_catalog_container():
     print_stderr(f"Done pulling container image [{CONTAINER_IMAGE}]")
 
 
-def fix_permissions(file_path):
-    print_stderr("Fixing permissions")
-    cmd = " ".join(
-        [
-            f"docker run --platform {PLATFORM} --quiet --rm -v {os.getcwd()}:/workspace -e FAKE_ENV=1",
-            f"--entrypoint /bin/bash {CONTAINER_IMAGE} -c 'chmod 777 /workspace/{file_path}'",
-        ]
-    )
-    res = subprocess.run(cmd, shell=True, capture_output=True)
-    if res.returncode != 0:
-        print_stderr(f"Failed to fix permissions for file [{file_path}]")
-        print_stderr(res.stderr.decode("utf-8"))
-        sys.exit(1)
-    print_stderr(f"Done fixing permissions for file [{file_path}]")
-
-
 def render_compose():
     print_stderr("Rendering docker-compose file")
-    test_values_dir = "templates/test_values"
-    app_dir = f"ix-dev/{args['train']}/{args['app']}"
-    cmd = " ".join(
-        [
-            f"docker run --platform {PLATFORM} --quiet --rm",
-            "-e",
-            "FAKE_ENV=1",
-            f"-v {os.getcwd()}:/workspace",
-            "-v /var/run/docker.sock:/var/run/docker.sock:ro",
-            CONTAINER_IMAGE,
-            "apps_render_app render",
-            f"--path /workspace/{app_dir}",
-            f"--values /workspace/{app_dir}/{test_values_dir}/{args['test_file']}",
-        ]
-    )
-    print_cmd(cmd)
+    app_dir = get_app_dir()
+    cmd = render_app_cmd(app_dir, app_dir / TEST_VALUES_DIR / args["test_file"])
+    print_cmd(shlex.join(cmd))
     separator_start()
-    res = subprocess.run(cmd, shell=True)
-    separator_start()
+    res = subprocess.run(cmd)
+    separator_end()
     if res.returncode != 0:
         print_stderr("Failed to render docker-compose file")
         sys.exit(1)
 
-    template_file = f"{app_dir}/templates/rendered/docker-compose.yaml"
-    fix_permissions(template_file)
+    template_file = app_dir / RENDERED_COMPOSE_PATH
 
     with open(template_file, "r") as f:
         try:
@@ -489,60 +470,45 @@ def run_app():
 
 
 def check_app_dir_exists():
-    if not os.path.exists(f"ix-dev/{args['train']}/{args['app']}"):
-        print_stderr(f"App directory [ix-dev/{args['train']}/{args['app']}] does not exist")
+    if not get_app_dir().is_dir():
+        print_stderr(f"App directory [{get_app_dir()}] does not exist")
         sys.exit(1)
 
 
 def copy_lib():
-    cmd = " ".join(
-        [
-            f"docker run --platform {PLATFORM} --quiet --rm",
-            f"-e FAKE_ENV=1 -v {os.getcwd()}:/workspace {CONTAINER_IMAGE}",
-            f"apps_catalog_hash_generate --path /workspace --train {args['train']} --app {args['app']}",
-        ]
-    )
-    print_cmd(cmd)
+    cmd = hash_generate_cmd([f"--train={args['train']}", f"--app={args['app']}"])
+    print_cmd(shlex.join(cmd))
     separator_start()
-    res = subprocess.run(cmd, shell=True, capture_output=True)
+    res = subprocess.run(cmd, capture_output=True)
     print_stderr(res.stdout.decode("utf-8"))
-    separator_start()
+    separator_end()
     if res.returncode != 0:
         print_stderr("Failed to generate hashes and copy lib")
+        print_stderr(res.stderr.decode("utf-8"))
         sys.exit(1)
 
 
-def copy_macros():
-    if not os.path.exists("macros"):
-        print_stderr("Macros directory does not exist. Skipping macros copy")
+def update_metadata():
+    # Debug renders are for templates that don't render cleanly, metadata would fail on them first
+    if args["skip_metadata"] or args["render_only_debug"]:
+        print_stderr("Skipping metadata update")
         return
 
-    print_stderr("Copying macros")
-    target_macros_dir = f"ix-dev/{args['train']}/{args['app']}/templates/macros/global"
-    os.makedirs(target_macros_dir, exist_ok=True)
-    if pathlib.Path(target_macros_dir).exists():
-        shutil.rmtree(target_macros_dir, ignore_errors=True)
+    app = generate_metadata.load_app(args["train"], get_app_dir())
+    if not app:
+        print_stderr("App has no metadata to update. Skipping metadata update")
+        return
 
+    # Renders every test file into the rendered compose, so it has to run before this test's render
+    print_stderr("Updating app metadata")
+    separator_start()
     try:
-        shutil.copytree("macros", target_macros_dir, dirs_exist_ok=True)
-    except shutil.Error:
-        print_stderr("Failed to copy macros")
+        generate_metadata.update_app(app, bump_version=True, set_date_added=False)
+    except Exception as e:
+        print_stderr(f"Failed to update app metadata: {e}")
         sys.exit(1)
-
-
-def generate_item_file():
-    with open(f"ix-dev/{args['train']}/{args['app']}/app.yaml", "r") as f:
-        app_yaml = yaml.load(f, Loader=YAML_LOADER)
-
-    item_file = f"ix-dev/{args['train']}/{args['app']}/item.yaml"
-    item_data = {
-        "icon_url": app_yaml.get("icon", ""),
-        "categories": app_yaml.get("categories", []),
-        "screenshots": app_yaml.get("screenshots", []),
-        "tags": app_yaml.get("keywords", []),
-    }
-    with open(item_file, "w") as f:
-        yaml.dump(item_data, f)
+    finally:
+        separator_end()
 
 
 def wait_for_user_input():
@@ -558,8 +524,7 @@ def main():
     check_app_dir_exists()
     pull_app_catalog_container()
     copy_lib()
-    copy_macros()
-    generate_item_file()
+    update_metadata()
     check_required_commands()
     render_compose()
     print_docker_compose_config()
