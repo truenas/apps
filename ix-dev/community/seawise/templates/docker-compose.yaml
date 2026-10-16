@@ -1,0 +1,27 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.seawise_container_name, "image") %}
+
+{#- Starts as root so the entrypoint can chown /config, then drops to PUID/PGID (run_as). #}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "SETUID", "SETGID"]) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "wget", "--spider", "-q", "http://127.0.0.1:%d/healthz"|format(values.network.web_port.port_number)]) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.environment.add_env("SEAWISE_PORT", values.network.web_port.port_number) %}
+{% if values.network.host_network %}
+  {% do c1.environment.add_env("SEAWISE_HOST_NETWORK", "true") %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.seawise.additional_envs) %}
+
+{% do tpl.notes.add_info("Requires a free Seawise.io account. Open the Web UI within 5 minutes of the first start to set a password.") %}
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
