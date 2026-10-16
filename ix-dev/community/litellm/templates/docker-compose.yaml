@@ -15,9 +15,12 @@
 {% do postgres.container.add_network(db_net) %}
 
 {% do c1.add_network(db_net) %}
-{% do c1.set_command(["--port", values.network.web_port.port_number | string]) %}
+{% do c1.set_init(true) %}
+{% do c1.set_read_only(true) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.set_command(["--port", values.network.web_port.port_number]) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_custom_test(["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:" ~ values.network.web_port.port_number ~ "/health/liveliness', timeout=5)"]) %}
+{% do c1.healthcheck.set_test("http", {"port": values.network.web_port.port_number, "path": "/health/liveliness"}) %}
 
 {% do c1.environment.add_env("LITELLM_MASTER_KEY", values.litellm.master_key) %}
 {% do c1.environment.add_env("LITELLM_SALT_KEY", values.litellm.salt_key) %}
@@ -29,10 +32,12 @@
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perm_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
