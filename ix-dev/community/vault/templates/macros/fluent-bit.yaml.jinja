@@ -1,0 +1,37 @@
+{% macro fluent_bit_yaml(values, hostname) -%}
+{%- set fwd = values.vault.audit_forwarding -%}
+service:
+  flush: 1
+  log_level: info
+
+pipeline:
+  inputs:
+    - name: tail
+      tag: vault.audit
+      path: {{ values.consts.audit_path }}/*.log
+      # Offsets live next to the logs, so restarts resume instead of resending
+      db: {{ values.consts.audit_path }}/.fluent-bit-tail.db
+      read_from_head: true
+      # Audit entries are single JSON lines that can exceed the 32k default
+      buffer_max_size: 1M
+      skip_long_lines: true
+
+  outputs:
+    - name: syslog
+      match: vault.audit
+      host: {{ fwd.host | tojson }}
+      port: {{ fwd.port }}
+      mode: {{ fwd.mode }}
+{%- if fwd.mode == "tls" %}
+      tls: on
+      tls.verify: {{ "on" if fwd.tls_verify else "off" }}
+{%- endif %}
+      syslog_format: {{ fwd.format }}
+      # The defaults (1024/2048 bytes) would truncate audit entries
+      syslog_maxsize: 65000
+      syslog_message_key: log
+      syslog_hostname_preset: {{ hostname | tojson }}
+      syslog_appname_preset: vault
+      syslog_facility_preset: 13
+      syslog_severity_preset: 6
+{%- endmacro %}
