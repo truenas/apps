@@ -1,0 +1,90 @@
+{% from 'macros/bootstrap.py' import bootstrap_script %}
+{% from 'macros/initialize.py' import initialize_script %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set db = tpl.deps.mariadb(values.consts.db_container_name, 'mariadb_image', {
+  'user': 'frappe_bootstrap', 'password': values.erpnext.db_password,
+  'database': 'frappe_bootstrap', 'root_password': values.erpnext.db_password,
+  'auto_upgrade': false, 'volume': values.storage.db_data
+}, perms) %}
+{% do db.container.environment.add_env('MARIADB_ROOT_HOST', '%') %}
+{% do db.container.set_command(['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci', '--skip-character-set-client-handshake']) %}
+{% do db.container.healthcheck.set_start_period(60) %}
+{% do db.container.healthcheck.set_retries(30) %}
+
+{% set cache = tpl.add_container(values.consts.redis_cache_container_name, 'redis_image') %}
+{% do cache.set_user(1000, 1000) %}
+{% do cache.set_command(['redis-server', '--save', '', '--appendonly', 'no']) %}
+{% do cache.healthcheck.set_custom_test(['CMD', 'redis-cli', 'ping']) %}
+{% do cache.deploy.resources.set_profile('low') %}
+
+{% set queue = tpl.add_container(values.consts.redis_queue_container_name, 'redis_image') %}
+{% do queue.set_user(1000, 1000) %}
+{% do queue.set_command(['redis-server', '--appendonly', 'yes']) %}
+{% do queue.add_storage('/data', values.storage.queue_data) %}
+{% do queue.healthcheck.set_custom_test(['CMD', 'redis-cli', 'ping']) %}
+{% do queue.deploy.resources.set_profile('low') %}
+{% do perms.add_or_skip_action('queue_data', values.storage.queue_data, {'uid': 1000, 'gid': 1000, 'mode': 'check'}) %}
+{% for key in ['sites', 'logs'] %}
+  {% do perms.add_or_skip_action(key, values.storage[key], {'uid': 1000, 'gid': 1000, 'mode': 'check'}) %}
+{% endfor %}
+
+{% set boot = tpl.add_container(values.consts.bootstrap_container_name, 'image') %}
+{% do boot.set_user(1000, 1000) %}
+{% do boot.restart.set_policy('no') %}
+{% do boot.healthcheck.disable() %}
+{% do boot.set_entrypoint(['/home/frappe/frappe-bench/env/bin/python', '/catalog/bootstrap.py']) %}
+{% do boot.configs.add('catalog_bootstrap', bootstrap_script(), '/catalog/bootstrap.py', '0444') %}
+{% do boot.environment.add_env('CATALOG_IMAGE', values.images.image.repository ~ ':' ~ values.images.image.tag) %}
+{% do boot.add_storage('/persistent/sites', values.storage.sites) %}
+
+{% set init = tpl.add_container(values.consts.initializer_container_name, 'image') %}
+{% do init.set_user(1000, 1000) %}
+{% do init.restart.set_policy('no') %}
+{% do init.healthcheck.disable() %}
+{% do init.set_entrypoint(['/home/frappe/frappe-bench/env/bin/python', '/catalog/initialize.py']) %}
+{% do init.configs.add('catalog_initialize', initialize_script(), '/catalog/initialize.py', '0444') %}
+{% do init.add_storage(values.consts.sites_path, values.storage.sites) %}
+{% do init.add_storage(values.consts.logs_path, values.storage.logs) %}
+{% do init.environment.add_env('SITE_NAME', values.erpnext.site_name) %}
+{% do init.environment.add_env('ADMIN_PASSWORD', values.erpnext.admin_password) %}
+{% do init.environment.add_env('DB_ROOT_PASSWORD', values.erpnext.db_password) %}
+{% do init.depends.add_dependency(values.consts.bootstrap_container_name, 'service_completed_successfully') %}
+{% for name in [values.consts.db_container_name, values.consts.redis_cache_container_name, values.consts.redis_queue_container_name] %}
+  {% do init.depends.add_dependency(name, 'service_healthy') %}
+{% endfor %}
+
+{% set runtime = {} %}
+{% for name in [values.consts.backend_container_name, values.consts.websocket_container_name, values.consts.queue_short_container_name, values.consts.queue_long_container_name, values.consts.scheduler_container_name, values.consts.frontend_container_name] %}
+  {% set c = tpl.add_container(name, 'image') %}
+  {% do runtime.update({name: c}) %}
+  {% do c.set_user(1000, 1000) %}
+  {% do c.add_storage(values.consts.sites_path, values.storage.sites) %}
+  {% do c.add_storage(values.consts.logs_path, values.storage.logs) %}
+  {% do c.depends.add_dependency(values.consts.initializer_container_name, 'service_completed_successfully') %}
+  {% do c.healthcheck.disable() %}
+{% endfor %}
+{% do runtime[values.consts.queue_short_container_name].set_command(['bench', 'worker', '--queue', 'short,default']) %}
+{% do runtime[values.consts.queue_long_container_name].set_command(['bench', 'worker', '--queue', 'long']) %}
+{% do runtime[values.consts.scheduler_container_name].set_command(['bench', 'schedule']) %}
+{% do runtime[values.consts.websocket_container_name].set_command(['node', '/home/frappe/frappe-bench/apps/frappe/socketio.js']) %}
+{% set frontend = runtime[values.consts.frontend_container_name] %}
+{# The image makes nginx config/cache/pid paths writable by group 0. #}
+{% do frontend.add_group(0) %}
+{% do frontend.set_command(['nginx-entrypoint.sh']) %}
+{% for key, value in {'BACKEND': 'backend:8000', 'SOCKETIO': 'websocket:9000', 'FRAPPE_SITE_NAME_HEADER': values.erpnext.site_name, 'NGINX_LISTEN_PORT': '8080', 'UPSTREAM_REAL_IP_ADDRESS': '127.0.0.1', 'UPSTREAM_REAL_IP_HEADER': 'X-Forwarded-For', 'UPSTREAM_REAL_IP_RECURSIVE': 'off', 'PROXY_READ_TIMEOUT': '120', 'CLIENT_MAX_BODY_SIZE': '50m'}.items() %}
+  {% do frontend.environment.add_env(key, value) %}
+{% endfor %}
+{% do frontend.add_port(values.network.web_port, {'container_port': 8080}) %}
+{% for name in [values.consts.backend_container_name, values.consts.websocket_container_name] %}
+  {% do frontend.depends.add_dependency(name, 'service_started') %}
+{% endfor %}
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% for c in [boot, db.container, queue] %}
+    {% do c.depends.add_dependency(values.consts.perms_container_name, 'service_completed_successfully') %}
+  {% endfor %}
+{% endif %}
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.set_body('Development draft: fresh installations only. Log in as Administrator with the initial password. Image upgrades and existing-site imports are blocked pending catalog lifecycle integration. Per-container resource limits are not aggregate app limits.') %}
+{{ tpl.render() | tojson }}
