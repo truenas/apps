@@ -1,5 +1,7 @@
 {% from 'macros/bootstrap.py' import bootstrap_script %}
 {% from 'macros/initialize.py' import initialize_script %}
+{% from 'macros/health.py' import health_script %}
+{% from 'macros/runtime.py' import runtime_script %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 {% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set db = tpl.deps.mariadb(values.consts.db_container_name, 'mariadb_image', {
@@ -62,8 +64,17 @@
   {% do c.add_storage(values.consts.sites_path, values.storage.sites) %}
   {% do c.add_storage(values.consts.logs_path, values.storage.logs) %}
   {% do c.depends.add_dependency(values.consts.initializer_container_name, 'service_completed_successfully') %}
-  {% do c.healthcheck.disable() %}
+  {% do c.environment.add_env('SITE_NAME', values.erpnext.site_name) %}
+  {% do c.environment.add_env('CATALOG_IMAGE', values.images.image.repository ~ ':' ~ values.images.image.tag) %}
+  {% do c.configs.add('catalog_runtime', runtime_script(), '/catalog/runtime.py', '0444') %}
+  {% do c.set_entrypoint(['/home/frappe/frappe-bench/env/bin/python', '/catalog/runtime.py']) %}
+  {% do c.configs.add('catalog_health', health_script(), '/catalog/health.py', '0444') %}
+  {% do c.healthcheck.set_custom_test(['CMD', '/home/frappe/frappe-bench/env/bin/python', '/catalog/health.py', name]) %}
+  {% do c.healthcheck.set_interval(30) %}
+  {% do c.healthcheck.set_timeout(15) %}
+  {% do c.healthcheck.set_start_period(120) %}
 {% endfor %}
+{% do runtime[values.consts.backend_container_name].set_command(['start.sh']) %}
 {% do runtime[values.consts.queue_short_container_name].set_command(['bench', 'worker', '--queue', 'short,default']) %}
 {% do runtime[values.consts.queue_long_container_name].set_command(['bench', 'worker', '--queue', 'long']) %}
 {% do runtime[values.consts.scheduler_container_name].set_command(['bench', 'schedule']) %}
