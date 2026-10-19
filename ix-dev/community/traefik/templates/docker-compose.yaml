@@ -33,10 +33,15 @@
   "traefik": "%d/tcp" | format(values.network.api_port.port_number),
 }) %}
 {% set http3_entrypoints = namespace(x=[]) %}
+
 {% for entry_point in values.network.entry_points %}
-  {% if entry_point.entrypoint_name in entrypoints.x %}
-    {% do tpl.funcs.fail("Entry point [%s] is already defined on port [%s]" | format(entry_point.entrypoint_name, entrypoints.x[entry_point.entrypoint_name])) %}
-  {% endif %}
+  {% for name, port in entrypoints.x.items() %}
+    {% if name == entry_point.entrypoint_name %}
+      {% do tpl.funcs.fail("Entrypoint [%s] is already defined on port [%s]" | format(name, port)) %}
+    {% elif name|lower == entry_point.entrypoint_name|lower %}
+      {% do tpl.funcs.fail("Entrypoint [%s] conflicts with entrypoint [%s] already defined on port [%s]" | format(entry_point.entrypoint_name, name, port)) %}
+    {% endif %}
+  {% endfor %}
 
   {% do cmd.x.append("--entrypoints.%s.address=:%d/%s"|format(entry_point.entrypoint_name, entry_point.port_number, entry_point.protocol)) %}
   {% do entrypoints.x.update({entry_point.entrypoint_name: "%d/%s"|format(entry_point.port_number, entry_point.protocol)}) %}
