@@ -32,7 +32,6 @@
   "ping": "%d/tcp" | format(values.consts.ping_port),
   "traefik": "%d/tcp" | format(values.network.api_port.port_number),
 }) %}
-{% set http3_entrypoints = namespace(x=[]) %}
 
 {% for entry_point in values.network.entry_points %}
   {% for name, port in entrypoints.x.items() %}
@@ -50,7 +49,6 @@
   {% if entry_point.protocol == "tcp" and entry_point.http3 %}
     {% do cmd.x.append("--entrypoints.%s.http3"|format(entry_point.entrypoint_name)) %}
     {% do c1.add_port(entry_point, {"protocol": "udp"}) %}
-    {% do http3_entrypoints.x.append(entry_point.entrypoint_name|lower) %}
   {% endif %}
 {% endfor %}
 
@@ -86,8 +84,9 @@
     {% if flag.endswith(".address") %}
       {% do tpl.funcs.fail("You do not need to set the address flag for entry point [%s]. It is automatically set to [:%s]" | format(entrypoint_name, port_number)) %}
     {% endif %}
-    {% if flag == "entrypoints.%s.http3"|format(entrypoint_name|lower) and entrypoint_name in http3_entrypoints.x %}
-      {% do tpl.funcs.fail("You do not need to set the http3 flag for entry point [%s]. It is set by the Enable HTTP/3 option" | format(entrypoint_name)) %}
+    
+    {% if flag == "entrypoints.%s.http3" | format(entrypoint_name) %}
+      {% do tpl.funcs.fail("Flag [--%s] does not publish the entry point's port for UDP. Use the Enable HTTP/3 option for entry point [%s] instead" | format(flag, entrypoint_name)) %}
     {% endif %}
   {% endif %}
 
