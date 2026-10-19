@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:latest"
+CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:slim"
 PLATFORM = "linux/amd64"
 
 APPS_ROOT_DIR = Path("ix-dev")
