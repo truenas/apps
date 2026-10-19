@@ -32,6 +32,7 @@
   "ping": "%d/tcp" | format(values.consts.ping_port),
   "traefik": "%d/tcp" | format(values.network.api_port.port_number),
 }) %}
+{% set http3_entrypoints = namespace(x=[]) %}
 {% for entry_point in values.network.entry_points %}
   {% if entry_point.entrypoint_name in entrypoints.x %}
     {% do tpl.funcs.fail("Entry point [%s] is already defined on port [%s]" | format(entry_point.entrypoint_name, entrypoints.x[entry_point.entrypoint_name])) %}
@@ -40,6 +41,12 @@
   {% do cmd.x.append("--entrypoints.%s.address=:%d/%s"|format(entry_point.entrypoint_name, entry_point.port_number, entry_point.protocol)) %}
   {% do entrypoints.x.update({entry_point.entrypoint_name: "%d/%s"|format(entry_point.port_number, entry_point.protocol)}) %}
   {% do c1.add_port(entry_point) %}
+
+  {% if entry_point.protocol == "tcp" and entry_point.http3 %}
+    {% do cmd.x.append("--entrypoints.%s.http3"|format(entry_point.entrypoint_name)) %}
+    {% do c1.add_port(entry_point, {"protocol": "udp"}) %}
+    {% do http3_entrypoints.x.append(entry_point.entrypoint_name|lower) %}
+  {% endif %}
 {% endfor %}
 
 {% set cert_resolvers = namespace(x=[]) %}
@@ -73,6 +80,9 @@
     {% set port_number = entrypoints.x.get(entrypoint_name) %}
     {% if flag.endswith(".address") %}
       {% do tpl.funcs.fail("You do not need to set the address flag for entry point [%s]. It is automatically set to [:%s]" | format(entrypoint_name, port_number)) %}
+    {% endif %}
+    {% if flag == "entrypoints.%s.http3"|format(entrypoint_name|lower) and entrypoint_name in http3_entrypoints.x %}
+      {% do tpl.funcs.fail("You do not need to set the http3 flag for entry point [%s]. It is set by the Enable HTTP/3 option" | format(entrypoint_name)) %}
     {% endif %}
   {% endif %}
 
