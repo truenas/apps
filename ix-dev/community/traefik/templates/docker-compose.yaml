@@ -32,23 +32,22 @@
   "ping": "%d/tcp" | format(values.consts.ping_port),
   "traefik": "%d/tcp" | format(values.network.api_port.port_number),
 }) %}
-
+{% set http3_entrypoints = namespace(x=[]) %}
 {% for entry_point in values.network.entry_points %}
-  {% for name, port in entrypoints.x.items() %}
-    {% if name == entry_point.entrypoint_name %}
-      {% do tpl.funcs.fail("Entrypoint [%s] is already defined on port [%s]" | format(name, port)) %}
-    {% elif name|lower == entry_point.entrypoint_name|lower %}
-      {% do tpl.funcs.fail("Entrypoint [%s] conflicts with entrypoint [%s] already defined on port [%s]" | format(entry_point.entrypoint_name, name, port)) %}
-    {% endif %}
-  {% endfor %}
+  {# Traefik merges entry points whose names differ only in case, so keys are stored lowercased #}
+  {% set name = entry_point.entrypoint_name|lower %}
+  {% if name in entrypoints.x %}
+    {% do tpl.funcs.fail("Entry point [%s] is already defined on port [%s] (entry point names are case-insensitive)" | format(entry_point.entrypoint_name, entrypoints.x[name])) %}
+  {% endif %}
 
-  {% do cmd.x.append("--entrypoints.%s.address=:%d/%s"|format(entry_point.entrypoint_name, entry_point.port_number, entry_point.protocol)) %}
-  {% do entrypoints.x.update({entry_point.entrypoint_name: "%d/%s"|format(entry_point.port_number, entry_point.protocol)}) %}
+  {% do cmd.x.append("--entrypoints.%s.address=:%d/%s"|format(name, entry_point.port_number, entry_point.protocol)) %}
+  {% do entrypoints.x.update({name: "%d/%s"|format(entry_point.port_number, entry_point.protocol)}) %}
   {% do c1.add_port(entry_point) %}
 
   {% if entry_point.protocol == "tcp" and entry_point.http3 %}
-    {% do cmd.x.append("--entrypoints.%s.http3"|format(entry_point.entrypoint_name)) %}
+    {% do cmd.x.append("--entrypoints.%s.http3"|format(name)) %}
     {% do c1.add_port(entry_point, {"protocol": "udp"}) %}
+    {% do http3_entrypoints.x.append(name) %}
   {% endif %}
 {% endfor %}
 
@@ -84,9 +83,14 @@
     {% if flag.endswith(".address") %}
       {% do tpl.funcs.fail("You do not need to set the address flag for entry point [%s]. It is automatically set to [:%s]" | format(entrypoint_name, port_number)) %}
     {% endif %}
-    
-    {% if flag == "entrypoints.%s.http3" | format(entrypoint_name) %}
+
+    {% set http3_flag = "entrypoints.%s.http3"|format(entrypoint_name) %}
+    {% if flag == http3_flag %}
       {% do tpl.funcs.fail("Flag [--%s] does not publish the entry point's port for UDP. Use the Enable HTTP/3 option for entry point [%s] instead" | format(flag, entrypoint_name)) %}
+    {% endif %}
+    {# Any http3.* sub-option implicitly enables HTTP/3 on the entry point #}
+    {% if flag.startswith("%s."|format(http3_flag)) and entrypoint_name not in http3_entrypoints.x %}
+      {% do tpl.funcs.fail("Flag [--%s] requires the Enable HTTP/3 option for entry point [%s]" | format(flag, entrypoint_name)) %}
     {% endif %}
   {% endif %}
 
