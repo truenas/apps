@@ -266,12 +266,12 @@ module.exports = {
     customVersioning(
       // 1.0.0-hash
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
-      ["ixsystems/nextcloud-notify-push"],
+      ["ghcr.io/truenas/containers/nextcloud-notify-push"],
     ),
     customVersioning(
       // 1.0.0-fpm-hash
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-fpm-(?<build>.+)$",
-      ["ixsystems/nextcloud-fpm"],
+      ["ghcr.io/truenas/containers/nextcloud-fpm"],
     ),
     customVersioning(
       // v0.137.0-noble-lite
