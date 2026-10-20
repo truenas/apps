@@ -80,18 +80,32 @@ questions:
         default: ''
     - variable: encryption_key
       label: Stored-data Encryption Key
-      description: Generate a random key once and preserve it. Use at least 32 characters. Losing or changing it
-        makes saved credentials and 2FA secrets unreadable.
+      description: Generate a random key of at least 32 characters and keep it safe. Before replacing it,
+        back up the database and uploads, copy the current key into Previous Encryption Key, and preserve
+        the backup-unlock key. Losing a key makes values encrypted with it unreadable.
       schema:
         type: string
         required: true
         private: true
         min_length: 32
         default: ''
+    - variable: encryption_key_previous
+      label: Previous Encryption Key (Optional)
+      description: Leave empty unless changing the stored-data encryption key. Enter the old key here before
+        setting a new key above. Old values are not rewritten automatically; keep this key while any remain.
+        If Separate Backup Master Key is empty, set it to the old encryption key before the change so existing
+        backups stay unlockable. See the installation guide for key rotation.
+      schema:
+        type: string
+        private: true
+        default: ''
+        valid_chars: ^(.{32,})?$
+        valid_chars_error: Leave empty or enter the previous encryption key of at least 32 characters.
     - variable: backup_master_key
       label: Separate Backup Master Key (ALPHA)
       description: Account backup, import and restore are ALPHA. Optional separate server backup-unlock key. Empty
-        uses the stored-data encryption key. Preserve this key once used.
+        uses the stored-data encryption key. Preserve this key once used. Before changing the encryption key,
+        set this field to its old value if this field was empty; the previous-key field does not unlock backups.
       schema:
         type: string
         private: true
@@ -228,7 +242,7 @@ questions:
           label: Port Number
           schema:
             type: int
-            default: 30505
+            default: 30395
             show_if:
             - - bind_mode
               - '='

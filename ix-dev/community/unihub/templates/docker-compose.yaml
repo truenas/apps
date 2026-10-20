@@ -24,6 +24,7 @@
 {# The supervisor and Nginx master start as root; the API drops to UID/GID 10001. #}
 {% do c1.set_user(0, 0) %}
 {% do c1.set_init(true) %}
+{% do c1.set_grace_period(15) %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "NET_BIND_SERVICE", "SETGID", "SETUID"]) %}
 {# UniHub's health endpoint supports GET, not wget --spider's HEAD request. #}
 {% do c1.healthcheck.set_custom_test(["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]) %}
@@ -49,6 +50,7 @@
 {% do c1.environment.add_env("BOOTSTRAP_ADMIN_PASSWORD", values.unihub.admin_password) %}
 {% do c1.environment.add_env("JWT_SECRET", values.unihub.jwt_secret) %}
 {% do c1.environment.add_env("ENCRYPTION_KEY", values.unihub.encryption_key) %}
+{% do c1.environment.add_env("ENCRYPTION_KEY_PREVIOUS", values.unihub.get("encryption_key_previous", "")) %}
 {% do c1.environment.add_env("BACKUP_MASTER_KEY", values.unihub.backup_master_key) %}
 {% do c1.environment.add_env("ALLOWED_ORIGINS", ([values.unihub.browser_origin] + values.unihub.additional_origins) | unique | join(",")) %}
 {% do c1.environment.add_env("TRUST_PROXY_HEADERS", true) %}
