@@ -34,6 +34,7 @@ CHANGE_PLATFORM_FOR_IMAGES = [
     "redis",
     "valkey/valkey",
     "chaptarr/chaptarr",
+    "ghcr.io/valkey/valkey",
     "ghcr.io/lostb1t/remux",
     "ghcr.io/stalwartlabs/stalwart",
     "ghcr.io/euro-office/documentserver",
@@ -132,7 +133,9 @@ def replace_platform_in_service(svc):
     svc_copy = copy.deepcopy(svc)
     image = svc.get("image", "")
     if not image:
-        print_stderr("No image found in service definition. Skipping platform replacement.")
+        print_stderr(
+            "No image found in service definition. Skipping platform replacement."
+        )
         sys.exit(1)
     repo = image.split(":")[0]
     if repo in CHANGE_PLATFORM_FOR_IMAGES:
@@ -199,7 +202,9 @@ def render_compose():
         except yaml.YAMLError as e:
             print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
             with open(template_file, "r") as f:
-                print_stderr(f"Syntax Error in rendered docker-compose file:\n{f.read()}")
+                print_stderr(
+                    f"Syntax Error in rendered docker-compose file:\n{f.read()}"
+                )
             sys.exit(1)
 
         if args["render_only_debug"]:
@@ -308,7 +313,9 @@ def get_parsed_containers():
     # Outputs one container per line, in json format
     cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
-    all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
+    all_containers = subprocess.run(
+        cmd, shell=True, capture_output=True
+    ).stdout.decode("utf-8")
     parsed_containers = []
     for line in all_containers.split("\n"):
         if not line:
@@ -445,7 +452,9 @@ def run_app():
             return res.returncode or 99
 
         failed_containers = get_failed_containers()
-        failed_containers_names = "\n".join([f"\t-{c['Name']} ({c['ID']})" for c in failed_containers])
+        failed_containers_names = "\n".join(
+            [f"\t-{c['Name']} ({c['ID']})" for c in failed_containers]
+        )
         if not failed_containers:
             print_stderr("✅ No failed containers found")
 
@@ -455,7 +464,9 @@ def run_app():
                 + f"failed containers that failed to start:\n {failed_containers_names}"
             )
         for container in failed_containers:
-            print_stderr(f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data")
+            print_stderr(
+                f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data"
+            )
             print_inspect_data(container)
 
         # https://github.com/docker/compose/issues/10596
@@ -476,7 +487,9 @@ def check_app_dir_exists():
 
 
 def copy_lib():
-    cmd = hash_generate_cmd([f"--train={args['train']}", f"--app={args['app']}"])
+    cmd = hash_generate_cmd(
+        [f"--train={args['train']}", f"--app={args['app']}"]
+    )
     print_cmd(shlex.join(cmd))
     separator_start()
     res = subprocess.run(cmd, capture_output=True)
@@ -503,7 +516,9 @@ def update_metadata():
     print_stderr("Updating app metadata")
     separator_start()
     try:
-        generate_metadata.update_app(app, bump_version=True, set_date_added=False)
+        generate_metadata.update_app(
+            app, bump_version=True, set_date_added=False
+        )
     except Exception as e:
         print_stderr(f"Failed to update app metadata: {e}")
         sys.exit(1)
