@@ -234,6 +234,11 @@ module.exports = {
       ["ghcr.io/corentinth/it-tools"],
     ),
     customVersioning(
+      // 2026.10.11-g1b6b5d0 `-g` plus hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-g[0-9a-f]+$",
+      ["ghcr.io/coffey-labs/ihasmail"],
+    ),
+    customVersioning(
       // 2.5.x -- Yes x is exact value and not a placeholder
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.x$",
       ["uroni/urbackup-server"],
@@ -402,11 +407,6 @@ module.exports = {
       ["amrit3701/lens"],
     ),
     customVersioning(
-      // release-1.11.0
-      "^release-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["ghcr.io/lukegus/termix"],
-    ),
-    customVersioning(
       // slim-v1.12.2
       "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["itzcrazykns1337/vane"],
@@ -432,8 +432,11 @@ module.exports = {
       ["ghcr.io/jellyfin/jellyfin"],
     ),
     customVersioning(
-      // v2026.5.29(.2)?
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
+      // v0.22.0
+      // Upstream used CalVer tags (v2026.9.24) before going back to SemVer.
+      // The major is capped at 3 digits so those old tags never match and
+      // are not offered as "newer" than the SemVer releases.
+      "^v(?<major>\\d{1,3})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["nousresearch/hermes-agent"],
     ),
     customVersioning(

@@ -25,7 +25,7 @@ echo "stalwart-cli installed:"
 "{{ bin }}" --version
 {%- endmacro %}
 
-{% macro seed(values) -%}
+{% macro seed(values, listeners) -%}
 {%- set cli = "%s/stalwart-cli"|format(values.consts.cli_dir) -%}
 #!/bin/bash
 set -euo pipefail
@@ -50,11 +50,32 @@ for _ in $(seq 1 60); do
     sleep 1
 done
 
+export STALWART_URL="http://127.0.0.1:8080"
+export STALWART_USER="admin"
+export STALWART_PASSWORD="${recovery_pass}"
+
+# Create listeners that don't exist yet (with their default TLS mode), and only
+# update name/bind/protocol on existing ones so WebUI changes are preserved.
+echo "Checking existing listeners..."
+existing="$("{{ cli }}" query NetworkListener --fields name --json)"
+plan="/tmp/plan.ndjson"
+cp "{{ values.consts.plan_file }}" "${plan}"
+
+add_listener() {
+    if grep -qF "\"name\":\"$1\"" <<< "${existing}"; then
+        echo "Listener $1 exists, updating"
+        printf '\n%s' "$3" >> "${plan}"
+    else
+        echo "Listener $1 is missing, creating"
+        printf '\n%s' "$2" >> "${plan}"
+    fi
+}
+{% for l in listeners %}
+add_listener '{{ l.name }}' '{{ l.create }}' '{{ l.upsert }}'
+{%- endfor %}
+
 echo "Applying configuration plan..."
-STALWART_URL="http://127.0.0.1:8080" \
-STALWART_USER="admin" \
-STALWART_PASSWORD="${recovery_pass}" \
-    "{{ cli }}" apply --file "{{ values.consts.plan_file }}"
+"{{ cli }}" apply --file "${plan}"
 
 echo "Configuration applied. Stopping recovery server..."
 kill "${server_pid}"
