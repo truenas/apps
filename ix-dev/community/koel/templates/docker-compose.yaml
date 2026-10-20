@@ -4,6 +4,7 @@
 
 {% set c1 = tpl.add_container(values.consts.koel_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -16,8 +17,12 @@
 
 {% do c1.add_network(koel_net) %}
 {% do c1.add_caps(["SETUID", "SETGID", "FOWNER", "DAC_OVERRIDE", "CHOWN"]) %}
+{# koel:init installs the scheduler via the setgid crontab binary #}
+{% do c1.remove_security_opt("no-new-privileges") %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/sw.js"}) %}
+{# Without an .env file, the entrypoint skips koel:init (migrations) #}
+{% do c1.configs.add("koel-env", "# Configuration is provided via environment variables\n", "/var/www/html/.env") %}
 
 {% do c1.environment.add_env("APP_KEY", values.koel.app_key) %}
 {% do c1.environment.add_env("DB_CONNECTION", "pgsql") %}
@@ -26,17 +31,22 @@
 {% do c1.environment.add_env("DB_DATABASE", values.consts.db_name) %}
 {% do c1.environment.add_env("DB_USERNAME", values.consts.db_user) %}
 {% do c1.environment.add_env("DB_PASSWORD", values.koel.db_password) %}
+{% do c1.environment.add_env("QUEUE_CONNECTION", "sync") %}
 {% do c1.environment.add_env("OPTIMIZE_CONFIG", true) %}
 
 {% do c1.environment.add_user_envs(values.koel.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
 {% do c1.add_storage("/music", values.storage.music) %}
+{% do perm_container.add_or_skip_action("music", values.storage.music, perms_config) %}
 {% do c1.add_storage("/var/www/html/storage/search-indexes", values.storage.search_index) %}
-{% do c1.add_storage("/var/www/html/public/img/storage", values.storage.image_storage) %}
+{% do perm_container.add_or_skip_action("search_index", values.storage.search_index, perms_config) %}
+{% do c1.add_storage("/var/www/html/storage/app/public/images", values.storage.image_storage) %}
+{% do perm_container.add_or_skip_action("image_storage", values.storage.image_storage, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
 {% if perm_container.has_actions() %}
