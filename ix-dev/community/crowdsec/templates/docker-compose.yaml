@@ -1,10 +1,15 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.crowdsec_container_name, "image") %}
+{% set lapi_scheme = namespace(x="http") %}
+{% for env in values.crowdsec.additional_envs if env.name == "USE_TLS" %}
+  {% set lapi_scheme.x = "https" if env.value|lower == "true" else "http" %}
+{% endfor %}
+
 {% if values.network.disable_lapi %}
   {% do c1.healthcheck.disable() %}
 {% else %}
-  {% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_lapi_port, "path": "/health", "busybox": true}) %}
+  {% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_lapi_port, "path": "/health", "scheme": lapi_scheme.x, "busybox": true}) %}
 {% endif %}
 
 {% do c1.environment.add_env("DISABLE_LOCAL_API", values.network.disable_lapi) %}
