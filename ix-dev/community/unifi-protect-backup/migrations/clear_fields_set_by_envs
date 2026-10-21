@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    # These fields had no effect before. Some users set the env instead.
+    # Clear the field. Then the user env keeps working and does not clash.
+    config = values["unifi_protect_backup"]
+    env_names = {env["name"] for env in config.get("additional_envs", [])}
+    if "DETECTION_TYPES" in env_names:
+        config["detection_types"] = []
+    # The app exits when it gets both CAMERAS and IGNORE_CAMERAS.
+    if env_names & {"IGNORE_CAMERAS", "CAMERAS"}:
+        config["ignore_cameras"] = []
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
