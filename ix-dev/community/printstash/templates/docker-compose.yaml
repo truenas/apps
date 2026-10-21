@@ -9,6 +9,9 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.add_port(values.network.web_port, {"container_port": 3000}) %}
 {% do c1.healthcheck.set_test("curl", {"port": 3000, "path": "/api/v1/health"}) %}
+{# A Settings restart is a graceful SIGTERM: give running jobs the same 60s the
+   image's own compose file asks for. #}
+{% do c1.set_grace_period(60) %}
 
 {# The library passes TZ and PUID/PGID itself, from the Timezone answer and from
    set_user(). PUID/PGID are the identity the image's entrypoint checks before it
@@ -16,6 +19,12 @@
 {# First administrator is created in the browser from a private address. #}
 {% do c1.environment.add_env("VAULT_SETUP_MODE", "trusted_network") %}
 {% do c1.environment.add_env("VAULT_RESTART_ENABLED", "true") %}
+{# The same compute budgets every other listing ships: the image uses a GPU when
+   it can see one and the CPU otherwise, and a NAS is usually a small box. #}
+{% do c1.environment.add_env("VAULT_COMPUTE_MODE", "auto") %}
+{% do c1.environment.add_env("VAULT_COMPUTE_MEMORY_MB", "1024") %}
+{% do c1.environment.add_env("VAULT_MESH_MEMORY_BUDGET_FRACTION", "0.5") %}
+{% do c1.environment.add_env("VAULT_EMBEDDING_MEMORY_BUDGET_FRACTION", "0.25") %}
 {% do c1.environment.add_user_envs(values.printstash.additional_envs) %}
 
 {% do c1.add_storage("/data", values.storage.data) %}
