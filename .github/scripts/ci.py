@@ -34,7 +34,7 @@ CHANGE_PLATFORM_FOR_IMAGES = [
     "redis",
     "valkey/valkey",
     "chaptarr/chaptarr",
-    "ghcr.io/valkey/valkey",
+    "ghcr.io/valkey-io/valkey",
     "ghcr.io/lostb1t/remux",
     "ghcr.io/stalwartlabs/stalwart",
     "ghcr.io/euro-office/documentserver",
