@@ -207,7 +207,7 @@ module.exports = {
     customVersioning(
       // 2023.12.31-3535377c9
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.+$",
-      ["searxng/searxng"],
+      ["ghcr.io/searxng/searxng"],
     ),
     customVersioning(
       // tailscale considers beta releases when minor part ends with an odd number
@@ -246,7 +246,7 @@ module.exports = {
     customVersioning(
       // 1.1.11-1 or 1.1.11
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
-      ["rustdesk/rustdesk-server", "ghcr.io/openclaw/openclaw"],
+      ["ghcr.io/rustdesk/rustdesk-server", "ghcr.io/openclaw/openclaw"],
     ),
     customVersioning(
       // 9.1.2-stable
@@ -266,12 +266,12 @@ module.exports = {
     customVersioning(
       // 1.0.0-hash
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
-      ["ixsystems/nextcloud-notify-push"],
+      ["ghcr.io/truenas/containers/nextcloud-notify-push"],
     ),
     customVersioning(
       // 1.0.0-fpm-hash
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-fpm-(?<build>.+)$",
-      ["ixsystems/nextcloud-fpm"],
+      ["ghcr.io/truenas/containers/nextcloud-fpm"],
     ),
     customVersioning(
       // v0.137.0-noble-lite
@@ -281,7 +281,7 @@ module.exports = {
     customVersioning(
       // v24.7
       "^v(?<major>\\d+)\\.(?<minor>\\d+)$",
-      ["nzbgetcom/nzbget"],
+      ["ghcr.io/nzbgetcom/nzbget"],
     ),
     customVersioning(
       // 0.96
@@ -419,7 +419,7 @@ module.exports = {
     customVersioning(
       // 0.9.0(.x)?
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
-      ["jvmilazz0/kavita"],
+      ["ghcr.io/kareadita/kavita"],
     ),
     customVersioning(
       // v1.0(.0)?
