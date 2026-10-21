@@ -251,7 +251,7 @@ module.exports = {
     customVersioning(
       // 9.1.2-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
-      [" ghcr.io/lms-community/lyrionmusicserver"],
+      ["ghcr.io/lms-community/lyrionmusicserver"],
     ),
     customVersioning(
       // 2.1.0.3-stable
