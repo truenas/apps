@@ -58,10 +58,15 @@ def base_values() -> dict:
     return read_yaml(APP_DIR / "templates/test_values/basic-values.yaml") | read_yaml(APP_DIR / "ix_values.yaml")
 
 
-def render_scenario(*, api_key: str = "", host_port: int = 15152, storage_type: str = "host_path") -> dict:
+def render_scenario(*, api_key: str = "", host_port: int = 15152, storage_type: str = "host_path", storage_paths: dict[str, str] | None = None, uid: int = 568, gid: int = 568) -> dict:
     values = copy.deepcopy(base_values())
     values["network"]["web_port"]["port_number"] = host_port
     values["abdm"]["api_key"] = api_key
+    values["run_as"]["user"] = uid
+    values["run_as"]["group"] = gid
+    if storage_paths:
+        for name, path in storage_paths.items():
+            values["storage"][name]["host_path_config"]["path"] = path
     if storage_type == "ix_volume":
         values["ix_volumes"] = {
             "config": "/mnt/.ix-apps/app_mounts/abdm/config",
@@ -76,7 +81,7 @@ def render_scenario(*, api_key: str = "", host_port: int = 15152, storage_type: 
     return render_compose(values)
 
 
-def validate_rendered(compose: dict, *, api_key: str, host_port: int) -> None:
+def validate_rendered(compose: dict, *, api_key: str, host_port: int, storage_paths: dict[str, str] | None = None, uid: int = 568, gid: int = 568, storage_type: str = "host_path") -> None:
     services = compose["services"]
     app = services["abdm"]
     assert app["environment"]["HOME"] == "/config"
@@ -87,24 +92,40 @@ def validate_rendered(compose: dict, *, api_key: str, host_port: int) -> None:
     assert any(p["published"] == host_port and p["target"] == 15151 for p in app["ports"])
     mounts = {volume["target"]: volume for volume in app["volumes"]}
     assert set(mounts) == {"/config", "/downloads", "/temp"}
-    if all(mounts[path]["type"] == "bind" for path in mounts):
-        assert mounts["/config"]["source"]
-        assert mounts["/downloads"]["source"]
-        assert mounts["/temp"]["source"]
+    expected_paths = storage_paths or {
+        "config": "/mnt/tank/apps/abdm/config",
+        "downloads": "/mnt/tank/media/downloads",
+        "temp": "/mnt/tank/apps/abdm/temp",
+    }
+    path_targets = {"config": "/config", "downloads": "/downloads", "temp": "/temp"}
+    host_path_storage = storage_type == "host_path"
+    if host_path_storage:
+        for name, target in path_targets.items():
+            self_source = mounts[target]["source"]
+            assert self_source == expected_paths[name], f"{name} dataset {expected_paths[name]} mounted to unexpected path {target}: {self_source}"
     assert "permissions" in services, "Automatic dataset permission service was not rendered"
     permissions = services["permissions"]
     action_config = compose["configs"]["permissions_actions_data"]["content"]
     actions = json.loads(action_config)
     assert {a["identifier"] for a in actions} == {"config", "downloads", "temp"}
-    assert all(a["uid"] == 568 and a["gid"] == 568 for a in actions)
-    assert all(a["chmod"] == "0770" for a in actions)
+    actions_by_name = {a["identifier"]: a for a in actions}
+    for name, target in path_targets.items():
+        action = actions_by_name[name]
+        assert action["mount_path"] == f"/mnt/permission/{name}", f"{name} permission action targets the wrong dataset mount"
+        assert action["uid"] == uid, f"{name} owner UID mismatch"
+        assert action["gid"] == gid, f"{name} owner GID mismatch"
+        assert action["chmod"] == "0770", f"{name} permissions are not 0770"
+        permission_mount = next(v for v in permissions["volumes"] if v["target"] == action["mount_path"])
+        assert permission_mount["source"] == mounts[target]["source"], f"{name} permission action is bound to a different dataset than {target}"
+        if host_path_storage:
+            assert permission_mount["source"] == expected_paths[name], f"{name} permission action is bound to the wrong dataset"
 
 
 def run_validation() -> None:
     assert_catalog_files()
     validate_rendered(render_scenario(), api_key="", host_port=15152)
     validate_rendered(render_scenario(api_key="test-api-key", host_port=18555), api_key="test-api-key", host_port=18555)
-    validate_rendered(render_scenario(storage_type="ix_volume"), api_key="", host_port=15152)
+    validate_rendered(render_scenario(storage_type="ix_volume"), api_key="", host_port=15152, storage_type="ix_volume")
 
 
 def main() -> int:

@@ -4,7 +4,14 @@ AB Download Manager is a modern open-source download manager featuring a respons
 
 The catalog installer provides a dataset/path picker for each persistent location: configuration (`/config`), downloads (`/downloads`), and temporary files (`/temp`). Select the existing TrueNAS dataset for each location in the install wizard. The installer automatically applies ownership for the configured user/group and mode `0770` to selected paths; no shell-based `mkdir`, `chown`, or `chmod` is needed.
 
-The selected host-path datasets must already exist in TrueNAS. Create them in the Datasets screen before installing, then choose each one in the wizard. Alternatively, each location can use a TrueNAS-managed ixVolume. The catalog installer also supports the web port, timezone, user/group IDs, and an optional private API key. The key is applied during the app's first initialization. The container includes the browser display stack and is configured with 1 GiB shared memory.
+The selected host-path datasets must already exist in TrueNAS. Create them in the Datasets screen before installing, then choose each one in the wizard. Alternatively, each location can use a TrueNAS-managed ixVolume.
+
+### Host-path datasets vs ixVolumes
+
+- **Host path:** Select an existing dataset. This gives you direct control over dataset placement and sharing with other apps, but you must create it first. Automatic permissions change the selected root to the configured UID/GID and `0770`; they do not recursively change existing contents.
+- **ixVolume:** TrueNAS creates and manages the app dataset, so no separate dataset setup is needed. This is convenient for app-only storage; permission management follows TrueNAS-managed volume behavior and may differ when ACLs are enabled.
+
+For either type, ensure the chosen ACL and ownership model permits ABDM's configured user to write. The catalog installer also supports the web port, timezone, user/group IDs, and an optional private API key. The key is applied during the app's first initialization. The container includes the browser display stack and is configured with 1 GiB shared memory.
 
 ## Credits & Authors
 
