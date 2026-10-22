@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    # The deprecated Gandi API key was removed, only the Personal Access Token is supported
+    for provider in values["ddns"]["config"]:
+        if provider.get("gandi_key", "") and not provider.get("gandi_personal_access_token", ""):
+            raise Exception(
+                f"Provider [gandi] for domain [{provider.get('domain', '')}] uses the deprecated [API Key] field."
+                " Please set a [Personal Access Token] and remove the [API Key] before upgrading."
+            )
+        provider.pop("gandi_key", None)
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

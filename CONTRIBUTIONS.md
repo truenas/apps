@@ -1254,7 +1254,7 @@ version: 2.0.0 # Incremented from 1.0.10
 3. **Minimal Capabilities**: Only add capabilities if absolutely necessary
 
    ```python
-   {% do app.set_capabilities(["NET_ADMIN"]) %}  # Only if needed
+   {% do app.add_caps(["NET_ADMIN"]) %}  # Only if needed
    ```
 
 4. **Validate Input**: Use schema validation (min, max, enum) in `questions.yaml`
