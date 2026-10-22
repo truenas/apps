@@ -28,5 +28,15 @@ jobs:
         run: git config --global --add safe.directory "$(pwd)"
       - name: Fetch base branch history
         run: git fetch -u origin master:master
+      - name: Check no library copies are committed
+        run: |
+          copies=$(git ls-files 'ix-dev/*/*/templates/library/*')
+          if [ -n "$copies" ]; then
+            echo "Libraries are copied from library/ and lib/ by prepare_libs.py, remove the committed copies:"
+            echo "$copies"
+            exit 1
+          fi
+      - name: Copy the libraries into the apps
+        run: python3 .github/scripts/prepare_libs.py
       - name: validate dev catalog
         run: /bin/bash -c "/usr/local/bin/apps_dev_charts_validate validate --path $(pwd)"
