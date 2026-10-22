@@ -686,6 +686,8 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     app_config = read_yaml(app_config_path)
     app_title = app_config.get("title", app.name)
 
+    # The metadata is generated from the rendered app, which needs its libraries in place
+    prepare_app_libs(app.path)
     analysis = analyze(app)
     validate_questions(app, analysis.service_names)
     validate_images(app)
@@ -791,7 +793,6 @@ def main() -> None:
     failed = []
     for app in apps:
         try:
-            prepare_app_libs(app.path)
             update_app(
                 app,
                 bump_version=not args.no_bump,
