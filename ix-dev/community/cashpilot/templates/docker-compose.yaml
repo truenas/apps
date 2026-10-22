@@ -1,4 +1,5 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
+{% set cashpilot_net = tpl.networks.create_internal("cashpilot-net") %}
 
 {% set ui = tpl.add_container(values.consts.ui_container_name, "image") %}
 {% set worker = tpl.add_container(values.consts.worker_container_name, "worker_image") %}
@@ -9,6 +10,7 @@
 {# Dashboard. The image's command listens on a fixed port, so the host port maps to it. #}
 {% do ui.set_user(values.run_as.user, values.run_as.group) %}
 {% do ui.set_init(true) %}
+{% do ui.add_network(cashpilot_net) %}
 {% do ui.healthcheck.set_test("wget", {"port": values.consts.ui_port, "path": "/api/health", "spider": false, "busybox": true}) %}
 {% do ui.environment.add_env("CASHPILOT_DATA_DIR", values.consts.data_path) %}
 {% do ui.environment.add_env("CASHPILOT_API_KEY", values.cashpilot.api_key) %}
@@ -21,6 +23,7 @@
 {# Its data is a separate storage on purpose, so it cannot read the dashboard's credential store. #}
 {% do worker.set_user(values.run_as.user, values.run_as.group) %}
 {% do worker.set_init(true) %}
+{% do worker.add_network(cashpilot_net) %}
 {% do worker.healthcheck.set_test("wget", {"port": values.consts.worker_port, "path": "/api/health", "spider": false, "busybox": true}) %}
 {# Github Actions Docker Group #}
 {% if values.ci %}{% do worker.add_group(118) %}{% endif %}
