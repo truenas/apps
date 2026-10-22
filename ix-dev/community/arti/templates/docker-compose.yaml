@@ -1,18 +1,17 @@
-{% from "macros/setup.py.jinja" import setup_py %}
+{% from "macros/setup.sh.jinja" import setup_sh %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perm_config = {"uid": values.consts.run_as_user, "gid": values.consts.run_as_group, "mode": "check"} %}
 {% set state_perm_config = dict(perm_config, **{"chmod": "0750"}) %}
 
-{% set config = tpl.add_container(values.consts.config_container_name, "config_image") %}
+{% set config = tpl.add_container(values.consts.config_container_name, "container_utils_image") %}
 {% do config.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
 {% do config.add_caps(["FOWNER"]) %}
 {% do config.add_extra_host("host.docker.internal", "host-gateway") %}
 {% do config.setup_as_helper(disable_network=false) %}
-{% do config.configs.add("setup.py", setup_py(values), "/setup.py", "0755") %}
-{% do config.configs.add("entrypoint.sh", values.consts.config_entrypoint, "/entrypoint.sh", "0755") %}
-{% do config.set_entrypoint(["/entrypoint.sh"]) %}
+{% do config.configs.add("setup.sh", setup_sh(values), "/setup.sh", "0755") %}
+{% do config.set_entrypoint(["/setup.sh"]) %}
 
 {% set arti = tpl.add_container(values.consts.arti_container_name, "image") %}
 {% do arti.set_user(values.consts.run_as_user, values.consts.run_as_group) %}
