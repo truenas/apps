@@ -1,28 +1,28 @@
 images:
   image:
-    repository: paperlessngx/paperless-ngx
-    tag: "3.3.0@sha256:6b94799bc769a063b3340cc5847402e626d4d91d29a295a8e747f8e9bead4207"
+    repository: ghcr.io/paperless-ngx/paperless-ngx
+    tag: "3.3.3@sha256:dba0242c1df1843643df4eb50ce5639f3a7900f414879088fd5bed8eaf2d456d"
   container_utils_image:
-    repository: ixsystems/container-utils
-    tag: "1.0.2@sha256:46eba20714c1cc6784f60e245c32c33a2d9f616e47d804694a9854248c89a992"
+    repository: ghcr.io/truenas/containers/container-utils
+    tag: "1.1.1@sha256:d1bdb3a3ed7fc158eca53cd78486c388345c603fe2bf42fb24a1e03e1068ff38"
   postgres_17_image:
     repository: postgres
-    tag: "17.11-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652"
+    tag: "17.11-bookworm@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27"
   postgres_18_image:
     repository: postgres
-    tag: "18.6-trixie@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722"
+    tag: "18.6-trixie@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6"
   redis_image:
-    repository: valkey/valkey
+    repository: ghcr.io/valkey-io/valkey
     tag: "9.1.2@sha256:418652cfb58ef879d4978c33553735d7147016032d5aefaa14c828e611eb9dfd"
   tika_image:
     repository: apache/tika
-    tag: "3.3.1.0-full@sha256:d8e6ed96260ad89307a93195a1b856102987a818ac648502f8efbaf313d32470"
+    tag: "3.3.3.0-full@sha256:6ef30abd65df4b6c478907904099d0245bdb0e0686f94fb9bc7493558442bb74"
   gotenberg_image:
     repository: gotenberg/gotenberg
-    tag: "8.37.0@sha256:f29984bd1e226bf1b93ba90af06000afa8b315853e99d27b9aaa41b93f15c769"
+    tag: "8.38.1@sha256:aa552cc115db488e0f0bcb07446aac13071ad51505b642c84bb894500907b42b"
   postgres_upgrade_image:
-    repository: ixsystems/postgres-upgrade
-    tag: "1.2.21@sha256:721514696eeb5fedf7818f768e9608d9a3e07ce4551b4c1737faf3f1e6106517"
+    repository: ghcr.io/truenas/containers/postgres-upgrade
+    tag: "1.2.24@sha256:92c8ed779477f48b5fe8df165a6ec7f277432552187d7ce294e1c82427ec07cf"
 
 consts:
   paperless_container_name: paperless
@@ -31,10 +31,16 @@ consts:
   redis_container_name: redis
   tika_container_name: tika
   gotenberg_container_name: gotenberg
-  data_path: /usr/src/paperless/data
-  media_path: /usr/src/paperless/media
+  # Keep data/media/trash outside the paperless user's home (/usr/src/paperless),
+  # otherwise `usermod --uid` (USERMAP_UID) walks the whole library on every start.
+  data_path: /paperless/data
+  media_path: /paperless/media
+  trash_path: /paperless/trash
+  # Consume intentionally stays under the home dir. Workflow triggers match `filter_path`
+  # against the absolute in-container path of the consumed file, so moving it
+  # would silently break existing triggers like `/usr/src/paperless/consume/scanner/*`.
+  # It is normally near-empty, so the usermod walk over it is cheap.
   consume_path: /usr/src/paperless/consume
-  trash_path: /usr/src/paperless/trash
   db_user: paperless
   db_name: paperless
   tika_run_user: 35002

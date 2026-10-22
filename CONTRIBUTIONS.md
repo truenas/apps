@@ -1040,9 +1040,9 @@ The `.github/scripts/ci.py` script is your primary testing tool:
 
 When you run the CI script, it automatically:
 
-1. **Generates `item.yaml`**: Creates the catalog entry
-2. **Updates library files**: Copies the correct library version to `templates/library/` based on `lib_version` in `app.yaml`
-3. **Updates `lib_version_hash`**: Calculates and sets the hash in `app.yaml`
+1. **Updates library files**: Copies the correct library version to `templates/library/` based on `lib_version` in `app.yaml`
+2. **Updates `lib_version_hash`**: Calculates and sets the hash in `app.yaml`
+3. **Updates metadata**: Runs the metadata generation below for the app (unless `--skip-metadata`)
 4. **Renders the template**: Processes your Jinja2 template with the test values
 5. **Deploys with Docker Compose**: Starts the containers (unless `--render-only`)
 6. **Monitors health**: Waits for containers to become healthy (times out after 10 minutes)
@@ -1050,7 +1050,7 @@ When you run the CI script, it automatically:
 ### Metadata Generation / Validation
 
 ```bash
-# Generates some metadata (like capabilities) for your app
+# Generates some metadata (like capabilities) for your app, and its item.yaml catalog entry
 ./.github/scripts/generate_metadata.py --app myapp --train community
 # Validates ports in questions.yaml are unique
 ./.github/scripts/port_validation.py
@@ -1254,7 +1254,7 @@ version: 2.0.0 # Incremented from 1.0.10
 3. **Minimal Capabilities**: Only add capabilities if absolutely necessary
 
    ```python
-   {% do app.set_capabilities(["NET_ADMIN"]) %}  # Only if needed
+   {% do app.add_caps(["NET_ADMIN"]) %}  # Only if needed
    ```
 
 4. **Validate Input**: Use schema validation (min, max, enum) in `questions.yaml`

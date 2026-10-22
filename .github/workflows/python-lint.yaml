@@ -1,18 +1,26 @@
-name: flake8
+name: lint
 
-on: [push]
+on:
+  pull_request:
+  # To lint a branch without a PR
+  workflow_dispatch:
+
+# A new commit cancels the runs of the previous one
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  flake8:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: 3.14
+          python-version: 3.15
 
       - name: Install dependencies
         run: |
@@ -21,3 +29,39 @@ jobs:
 
       - name: Analysing the code with flake8
         run: flake8 .
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.15
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install actionlint-py
+
+      # Also runs shellcheck (preinstalled on the runner) on the run: scripts
+      - name: Analysing the workflows with actionlint
+        run: actionlint
+
+  line-endings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # .gitattributes normalizes new commits, this catches files committed with CRLF anyway
+      - name: Check for CRLF line endings
+        run: |
+          crlf=$(git ls-files --eol ix-dev library .github | grep -E '^i/(crlf|mixed)' || true)
+          if [ -n "$crlf" ]; then
+            echo "Files with CRLF line endings:"
+            echo "$crlf"
+            exit 1
+          fi

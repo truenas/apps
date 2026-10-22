@@ -187,7 +187,7 @@ module.exports = {
     customVersioning(
       // RELEASE.2024-08-26T15-33-07Z
       "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
-      ["minio/minio", "quay.io/minio/aistor/minio"],
+      ["quay.io/minio/aistor/minio"],
     ),
     customVersioning(
       // version-6.0.0
@@ -207,7 +207,7 @@ module.exports = {
     customVersioning(
       // 2023.12.31-3535377c9
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.+$",
-      ["searxng/searxng"],
+      ["ghcr.io/searxng/searxng"],
     ),
     customVersioning(
       // tailscale considers beta releases when minor part ends with an odd number
@@ -234,6 +234,11 @@ module.exports = {
       ["ghcr.io/corentinth/it-tools"],
     ),
     customVersioning(
+      // 2026.10.11-g1b6b5d0 `-g` plus hash
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-g[0-9a-f]+$",
+      ["ghcr.io/coffey-labs/ihasmail"],
+    ),
+    customVersioning(
       // 2.5.x -- Yes x is exact value and not a placeholder
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.x$",
       ["uroni/urbackup-server"],
@@ -241,12 +246,12 @@ module.exports = {
     customVersioning(
       // 1.1.11-1 or 1.1.11
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
-      ["rustdesk/rustdesk-server", "ghcr.io/openclaw/openclaw"],
+      ["ghcr.io/rustdesk/rustdesk-server", "ghcr.io/openclaw/openclaw"],
     ),
     customVersioning(
       // 9.1.2-stable
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-stable$",
-      [" ghcr.io/lms-community/lyrionmusicserver"],
+      ["ghcr.io/lms-community/lyrionmusicserver"],
     ),
     customVersioning(
       // 2.1.0.3-stable
@@ -261,12 +266,12 @@ module.exports = {
     customVersioning(
       // 1.0.0-hash
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>.+)$",
-      ["ixsystems/nextcloud-notify-push"],
+      ["ghcr.io/truenas/containers/nextcloud-notify-push"],
     ),
     customVersioning(
       // 1.0.0-fpm-hash
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-fpm-(?<build>.+)$",
-      ["ixsystems/nextcloud-fpm"],
+      ["ghcr.io/truenas/containers/nextcloud-fpm"],
     ),
     customVersioning(
       // v0.137.0-noble-lite
@@ -276,7 +281,7 @@ module.exports = {
     customVersioning(
       // v24.7
       "^v(?<major>\\d+)\\.(?<minor>\\d+)$",
-      ["nzbgetcom/nzbget"],
+      ["ghcr.io/nzbgetcom/nzbget"],
     ),
     customVersioning(
       // 0.96
@@ -292,11 +297,6 @@ module.exports = {
       // 335
       "^(?<patch>\\d+)$",
       ["quay.io/cockpit/ws"],
-    ),
-    customVersioning(
-      // 0.3_0.18
-      "^(?<major>\\d+)\\.(?<minor>\\d+)_(?<patch>\\d+)\\.(?<build>\\d+)$",
-      ["ghcr.io/magicgrants/monero-lws"],
     ),
     customVersioning(
       // 6.1.4.2
@@ -402,11 +402,6 @@ module.exports = {
       ["amrit3701/lens"],
     ),
     customVersioning(
-      // release-1.11.0
-      "^release-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["ghcr.io/lukegus/termix"],
-    ),
-    customVersioning(
       // slim-v1.12.2
       "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["itzcrazykns1337/vane"],
@@ -419,7 +414,7 @@ module.exports = {
     customVersioning(
       // 0.9.0(.x)?
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
-      ["jvmilazz0/kavita"],
+      ["ghcr.io/kareadita/kavita"],
     ),
     customVersioning(
       // v1.0(.0)?
@@ -432,8 +427,11 @@ module.exports = {
       ["ghcr.io/jellyfin/jellyfin"],
     ),
     customVersioning(
-      // v2026.5.29(.2)?
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?$",
+      // v0.22.0
+      // Upstream used CalVer tags (v2026.9.24) before going back to SemVer.
+      // The major is capped at 3 digits so those old tags never match and
+      // are not offered as "newer" than the SemVer releases.
+      "^v(?<major>\\d{1,3})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["nousresearch/hermes-agent"],
     ),
     customVersioning(
