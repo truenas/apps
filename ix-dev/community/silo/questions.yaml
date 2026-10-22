@@ -1,16 +1,16 @@
 groups:
   - name: Silo Configuration
-    description: Set Silo's encryption key, database password, and optional search settings.
+    description: Configure Silo
   - name: User and Group Configuration
     description: Configure User and Group for Silo
   - name: Network Configuration
-    description: Choose the host ports used to reach Silo and its APIs.
+    description: Configure Network for Silo
   - name: Storage Configuration
-    description: Choose where Silo keeps its data and which media folder it can read.
+    description: Configure Storage for Silo
   - name: Labels Configuration
-    description: Add custom Docker labels to selected Silo services.
+    description: Configure Labels for Silo
   - name: Resources Configuration
-    description: Set CPU, memory, and GPU limits for Silo services.
+    description: Configure Resources for Silo
 
 questions:
   - variable: silo
@@ -19,16 +19,32 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: secret_key
-          label: Data Encryption Key
-          description: Generate with `openssl rand -base64 48`. Back it up separately from your database; Silo needs the same key to decrypt saved credentials after a restore.
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
+          description: |
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
+          schema:
+            type: string
+            default: postgres_18_image
+            required: true
+            enum:
+              - value: postgres_18_image
+                description: Postgres 18
+        - variable: postgres_password
+          label: PostgreSQL Password
+          description: Password for Silo's private database. Generate it with `openssl rand -hex 24` and keep it with your backups. Do not reuse your encryption key.
           schema:
             type: string
             required: true
             private: true
-        - variable: postgres_password
-          label: PostgreSQL Password
-          description: Password for Silo's private database. Generate it with `openssl rand -hex 24` and keep it with your backups. Do not reuse your encryption key.
+        - variable: secret_key
+          label: Data Encryption Key
+          description: Generate with `openssl rand -base64 48`. Back it up separately from your database; Silo needs the same key to decrypt saved credentials after a restore.
           schema:
             type: string
             required: true
@@ -104,7 +120,6 @@ questions:
           label: WebUI Port
           schema:
             type: dict
-            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -154,7 +169,6 @@ questions:
           label: Jellyfin-Compatible API Port
           schema:
             type: dict
-            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -204,7 +218,6 @@ questions:
           label: Audiobookshelf-Compatible API Port
           schema:
             type: dict
-            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -255,7 +268,6 @@ questions:
           description: The docker networks to join
           schema:
             type: list
-            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -345,13 +357,6 @@ questions:
                                         schema:
                                           type: int
                                           "null": true
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
-          schema:
-            type: boolean
-            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
