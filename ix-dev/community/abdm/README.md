@@ -2,7 +2,9 @@
 
 AB Download Manager is a modern open-source download manager featuring a responsive web interface and a built-in browser session for TrueNAS SCALE. This community catalog package deploys the `ghcr.io/sweenyxsky-oss/abdm-truenas` container image.
 
-The catalog installer provides configurable network port, timezone, user/group IDs, and persistent storage mounts for configuration, downloads, and temporary download files. The container includes the browser display stack and is configured with 1 GiB shared memory.
+The catalog installer provides a dataset/path picker for each persistent location: configuration (`/config`), downloads (`/downloads`), and temporary files (`/temp`). Select the existing TrueNAS dataset for each location in the install wizard. The installer automatically applies ownership for the configured user/group and mode `0770` to selected paths; no shell-based `mkdir`, `chown`, or `chmod` is needed.
+
+The selected host-path datasets must already exist in TrueNAS. Create them in the Datasets screen before installing, then choose each one in the wizard. Alternatively, each location can use a TrueNAS-managed ixVolume. The catalog installer also supports the web port, timezone, user/group IDs, and an optional private API key. The key is applied during the app's first initialization. The container includes the browser display stack and is configured with 1 GiB shared memory.
 
 ## Credits & Authors
 
@@ -31,7 +33,8 @@ Run these checks on a disposable TrueNAS SCALE 25.10.x system and pool. Record t
 ### Install
 
 - [ ] Refresh the catalog and confirm AB Download Manager appears in the community train.
-- [ ] Install with default ixVolumes; confirm the wizard completes and the app reaches **Running**.
+- [ ] Install by selecting existing TrueNAS datasets separately for configuration, downloads, and temporary files; confirm the wizard completes and the app reaches **Running**. Verify the installer applies ownership and mode `0770` without manual shell commands.
+- [ ] Repeat with ixVolumes if desired; confirm the app reaches **Running** and the datasets persist.
 - [ ] Open the app portal and verify the web interface and built-in browser session load.
 - [ ] Add a small test download; confirm completed files land in the configured downloads dataset.
 - [ ] Restart the app and confirm configuration, browser profile, and downloaded test file persist.
