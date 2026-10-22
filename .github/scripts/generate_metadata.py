@@ -712,6 +712,14 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     )
     app_config.update(app_version=app_version, capabilities=capabilities, run_as_context=run_as_context)
 
+    # The dev validation checks the copied library against this hash, library/hashes.yaml is validated against library/
+    if lib_version := app_config.get("lib_version"):
+        lib_version_hash = read_yaml(LIBRARY_DIR / "hashes.yaml").get(lib_version)
+        if lib_version_hash and app_config.get("lib_version_hash") != lib_version_hash:
+            logger.info(f"Updated {app.name} lib_version_hash for library {lib_version}")
+            app_config["lib_version_hash"] = lib_version_hash
+            changed = True
+
     if app_config.get("maintainers", []) != MAINTAINERS:
         app_config["maintainers"] = MAINTAINERS
         changed = True
