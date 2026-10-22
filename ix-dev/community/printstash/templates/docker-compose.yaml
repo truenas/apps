@@ -16,8 +16,16 @@
 {# The library passes TZ and PUID/PGID itself, from the Timezone answer and from
    set_user(). PUID/PGID are the identity the image's entrypoint checks before it
    migrates the database. #}
-{# First administrator is created in the browser from a private address. #}
-{% do c1.environment.add_env("VAULT_SETUP_MODE", "trusted_network") %}
+{# The image refuses to open first-run setup when the mode and the admin
+   variables disagree, so they are only passed with the environment mode. #}
+{% do c1.environment.add_env("VAULT_SETUP_MODE", values.printstash.setup_mode) %}
+{% if values.printstash.setup_mode == "environment" %}
+  {% do c1.environment.add_env("VAULT_SETUP_ADMIN_USERNAME", values.printstash.admin_username) %}
+  {% do c1.environment.add_env("VAULT_SETUP_ADMIN_PASSWORD", values.printstash.admin_password) %}
+  {% if values.printstash.admin_email %}
+    {% do c1.environment.add_env("VAULT_SETUP_ADMIN_EMAIL", values.printstash.admin_email) %}
+  {% endif %}
+{% endif %}
 {% do c1.environment.add_env("VAULT_RESTART_ENABLED", "true") %}
 {% do c1.environment.add_user_envs(values.printstash.additional_envs) %}
 
