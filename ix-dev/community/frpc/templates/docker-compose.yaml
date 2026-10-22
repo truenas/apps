@@ -1,0 +1,55 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.frpc_container_name, "image") %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.set_command(["-c", values.consts.config_path]) %}
+{% do c1.healthcheck.disable() %}
+
+{% if values.frpc.custom_toml %}
+  {% do tpl.notes.add_warning("Custom TOML is used as-is: the wizard fields (server address, auth) are ignored.") %}
+  {% if values.network.web_server %}
+    {% do tpl.notes.add_warning("Custom TOML mode: define the webServer section inside your TOML; its port must match the Web UI Port below.") %}
+  {% endif %}
+  {% set toml_content = values.frpc.custom_toml_text %}
+{% else %}
+  {% set lines = [] %}
+  {% do lines.append("serverAddr = %s" | format(values.frpc.server_addr | tojson)) %}
+  {% do lines.append("serverPort = %s" | format(values.frpc.server_port)) %}
+  {% if values.frpc.login_user %}
+    {% do lines.append("loginUser = %s" | format(values.frpc.login_user | tojson)) %}
+  {% endif %}
+  {% if values.frpc.auth_token %}
+    {% do lines.append("auth.token = %s" | format(values.frpc.auth_token | tojson)) %}
+  {% endif %}
+  {% if values.network.web_server %}
+    {% do lines.append("") %}
+    {% do lines.append("webServer.addr = \"0.0.0.0\"") %}
+    {% do lines.append("webServer.port = %s" | format(values.network.web_port.port_number)) %}
+    {% if values.network.web_server_user %}
+      {% do lines.append("webServer.user = %s" | format(values.network.web_server_user | tojson)) %}
+    {% endif %}
+    {% if values.network.web_server_password %}
+      {% do lines.append("webServer.password = %s" | format(values.network.web_server_password | tojson)) %}
+    {% endif %}
+  {% endif %}
+  {% set toml_content = lines | join("\n") %}
+{% endif %}
+
+{% do c1.configs.add("frpc-toml", toml_content, values.consts.config_path) %}
+
+{% do c1.environment.add_user_envs(values.frpc.additional_envs) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if values.network.web_server and not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port) %}
+{% endif %}
+
+{% if values.network.web_server %}
+  {% do tpl.portals.add(values.network.web_port) %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
