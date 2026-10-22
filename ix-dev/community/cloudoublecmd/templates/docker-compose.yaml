@@ -1,0 +1,28 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set app = tpl.add_container(values.consts.cloudoublecmd_container_name, "image") %}
+
+{% do app.set_user(1000, 1000) %}
+{% do app.set_init(true) %}
+{% do app.set_read_only(true) %}
+{% do app.set_grace_period(30) %}
+{% do app.healthcheck.use_built_in() %}
+{% do app.add_port(values.network.web_port, {"container_port": 7070}) %}
+{% do app.environment.add_env("PORT", "7070") %}
+{% do app.environment.add_env("ACCESS_TOKEN", values.cloudoublecmd.access_token) %}
+{% do app.environment.add_env("UI_PASSWORD", values.cloudoublecmd.ui_password) %}
+{% set connections = [{"id": "pool", "label": "Pool", "protocol": "local", "root": values.consts.data_mount_path, "writable": true}] %}
+{% do app.environment.add_env("CONNECTIONS_JSON", connections | tojson) %}
+
+{% do app.add_storage(values.consts.data_mount_path, {
+  "type": "host_path",
+  "host_path_config": {"path": values.storage.pool.host_path_config.path, "create_host_path": false},
+  "read_only": false
+}) %}
+{% do app.add_storage(values.consts.temp_path, {
+  "type": "tmpfs",
+  "tmpfs_config": {"size": 512, "mode": "0700", "uid": 1000, "gid": 1000}
+}) %}
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.add_warning("This app has read-write access to the selected host path. Selecting a pool root grants broad access and allows permanent file deletion. Use a trusted network, protect credentials, and maintain snapshots/backups.") %}
+
+{{ tpl.render() | tojson }}
