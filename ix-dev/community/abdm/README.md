@@ -1,17 +1,25 @@
 # AB Download Manager
 
-AB Download Manager is a self-hosted download manager with a web interface and a built-in browser. This TrueNAS community catalog package configures the existing `ghcr.io/sweenyxsky-oss/abdm-truenas` container image.
+AB Download Manager is a modern open-source download manager featuring a responsive web interface and a built-in browser session for TrueNAS SCALE. This community catalog package deploys the `ghcr.io/sweenyxsky-oss/abdm-truenas` container image.
 
-The catalog installer provides configurable network port, timezone, user/group, and persistent storage for configuration, downloads, and temporary download data. The container includes the browser display stack and needs 1 GiB shared memory.
+The catalog installer provides configurable network port, timezone, user/group IDs, and persistent storage mounts for configuration, downloads, and temporary download files. The container includes the browser display stack and is configured with 1 GiB shared memory.
 
-## Keep using the YAML deployment
+## Credits & Authors
 
-This catalog package does **not** replace or remove the existing `docker-compose.truenas.yml` in the [ABDM TrueNAS repository](https://github.com/sweenyxsky-oss/abdm-truenas). That file remains available for users who prefer to install or manage ABDM with a direct Compose YAML deployment. The catalog definition is an additional install path.
+- **TrueNAS SCALE Edition & Containerization**: Abdul-Rahman B ([@sweenyxsky-oss](https://github.com/sweenyxsky-oss)) — Headless daemon adaptation, TrueNAS web interface, browser session integration, and catalog packaging.
+- **Upstream AB Download Manager**: Amir Hossein Bayat ([@amir1376](https://github.com/amir1376)) and the [AB Download Manager contributors](https://github.com/amir1376/ab-download-manager).
+- **Browser Extension & uBlock Origin**: Developed by upstream maintainers and Raymond Hill (gorhill).
 
-## Image and application version
+## Dual Deployment Modes
 
-The image is pinned by digest in `ix_values.yaml` for reproducible installs. The application reports upstream version 1.10.4; the container image also packages the TrueNAS web integration and built-in browser. The pinned image tag is the TrueNAS-specific `v0.4-browser-multiconnection` build. Catalog image updates should update the pinned digest and bump the catalog package version after testing.
+This catalog package exists alongside the standalone Compose setup:
+- **TrueNAS Apps Catalog**: One-click install from the TrueNAS SCALE UI with interactive dataset and port configuration.
+- **Docker Compose (Custom App)**: The original `docker-compose.truenas.yml` remains maintained in [sweenyxsky-oss/abdm-truenas](https://github.com/sweenyxsky-oss/abdm-truenas) for users who prefer direct Compose management.
+
+## Image & Verification
+
+The image is pinned by immutable digest in `ix_values.yaml` (`v0.4-browser-multiconnection@sha256:0e72114de44e...`). The base application reports upstream version 1.10.4.
 
 ## Security
 
-Keep the service on a trusted network or place it behind HTTPS before exposing it outside the LAN. Configure API-key authentication in ABDM if you need to restrict access.
+Keep the service on a trusted local network or place it behind a reverse proxy with HTTPS. You can enable API-key authentication within the ABDM web interface.
