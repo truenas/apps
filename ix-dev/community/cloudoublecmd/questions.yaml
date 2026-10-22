@@ -1,0 +1,100 @@
+groups:
+  - name: ClouDouble Commander Configuration
+    description: Configure the service credentials for ClouDouble Commander.
+  - name: Network Configuration
+    description: Configure the web interface port.
+  - name: Storage Configuration
+    description: Select the pool or dataset root ClouDouble Commander can access.
+
+questions:
+  - variable: cloudoublecmd
+    label: ""
+    group: ClouDouble Commander Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: access_token
+          label: Service Access Token
+          description: A unique random token of at least 32 characters used for the service API. Keep it private.
+          schema:
+            type: string
+            required: true
+            private: true
+            min_length: 32
+        - variable: ui_password
+          label: Web UI Password
+          description: Password for browser sign-in. Use at least 12 characters and keep it private.
+          schema:
+            type: string
+            required: true
+            private: true
+            min_length: 12
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: web_port
+          label: Web UI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: Publish this port for LAN access, expose it to other containers, or do not publish it.
+                schema:
+                  type: string
+                  default: published
+                  enum:
+                    - value: published
+                      description: Publish port on the host for external access
+                    - value: exposed
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: Do not publish or expose
+              - variable: port_number
+                label: Host Port
+                schema:
+                  type: int
+                  default: 7080
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: Host IP addresses to bind the published port to.
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: pool
+          label: Pool or Dataset Root
+          description: Select an existing host path. Choose the pool root for the whole-pool access model. The mount is read-write and is not recursively re-permissioned.
+          schema:
+            type: dict
+            attrs:
+              - variable: host_path_config
+                label: Host Path
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: path
+                      label: Pool or Dataset Path
+                      schema:
+                        type: hostpath
+                        required: true
