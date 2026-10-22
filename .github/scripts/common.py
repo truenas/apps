@@ -10,6 +10,9 @@ CONTAINER_IMAGE = "ghcr.io/truenas/apps_validation:slim"
 PLATFORM = "linux/amd64"
 
 APPS_ROOT_DIR = Path("ix-dev")
+LIBRARY_DIR = Path("library")
+# Unversioned source of an app's own library, copied to templates/library/<train>/<app>/v<version>
+APP_LIBRARY_SOURCE_DIR = "lib"
 TEST_VALUES_DIR = "templates/test_values"
 RENDERED_COMPOSE_PATH = "templates/rendered/docker-compose.yaml"
 APP_METADATA_FILE = "app.yaml"
