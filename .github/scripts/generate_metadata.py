@@ -741,8 +741,9 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     item_path = app.path / ITEM_FILE
     item = build_item(app_config)
     if not item_path.exists() or read_yaml(item_path) != item:
-        write_yaml(item_path, item)
         changed = True
+    # Written every time, so it keeps the format generate_metadata writes app.yaml in
+    write_yaml(item_path, item)
 
     # A library sync in this run has already bumped the app, one bump covers both changes
     bumped = changed and bump_version and not already_bumped
