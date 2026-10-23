@@ -47,9 +47,6 @@ questions:
                 description: Postgres 18
         - variable: db_password
           label: Database Password
-          description: |
-            Password for the bundled Postgres. The database is only reachable from inside the app, never published.</br>
-            Changing it after first start requires also changing it inside Postgres.
           schema:
             type: string
             default: ""
@@ -83,19 +80,23 @@ questions:
             including scheme and port. Example: <code>http://192.168.1.10:30530</code></br>
             Required for login and auth redirects to work.
           schema:
-            type: string
+            type: uri
             default: ""
             required: true
-            valid_chars: "^https?://[^<>\\s/]+(/.*)?$"
-            valid_chars_error: Enter a URL with scheme, host and port, such as http://192.168.1.10:30530.
         - variable: allowed_hostnames
           label: Allowed Hostnames (Optional)
           description: |
             Extra hostnames the instance accepts besides the Public URL host,
             comma-separated (LAN names, Tailscale aliases).
           schema:
-            type: string
-            default: ""
+            type: list
+            default: []
+            items:
+              - variable: hostname
+                label: Hostname
+                schema:
+                  type: string
+                  required: true
         - variable: deployment_exposure
           label: Deployment Exposure
           description: |
@@ -110,20 +111,6 @@ questions:
                 description: Private (LAN only)
               - value: public
                 description: Public (internet-facing, requires TLS)
-        - variable: anthropic_api_key
-          label: Anthropic API Key (Optional)
-          description: Enables Claude based agents. Leave empty to sign in per agent instead.
-          schema:
-            type: string
-            default: ""
-            private: true
-        - variable: openai_api_key
-          label: OpenAI API Key (Optional)
-          description: Enables Codex/OpenAI based agents.
-          schema:
-            type: string
-            default: ""
-            private: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -201,7 +188,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30530
+                  default: 30534
                   min: 1
                   max: 65535
                   required: true
@@ -306,9 +293,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description:
-                                          Indicates in which order Compose connects the service’s containers
-                                          to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -396,7 +381,6 @@ questions:
                         required: true
         - variable: postgres_data
           label: Postgres Data Storage
-          description: The path to store Postgres Data.
           schema:
             type: dict
             attrs:
