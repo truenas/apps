@@ -1,6 +1,18 @@
 {% from "macros/entrypoint.sh" import entrypoint %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% if values.network.disable_lapi %}
+  {% set envs = {} %}
+  {% for env in values.crowdsec.additional_envs if env.value %}
+    {% do envs.update({env.name: env.value}) %}
+  {% endfor %}
+  {% set password_auth = envs.get("AGENT_USERNAME") and envs.get("AGENT_PASSWORD") %}
+  {% set tls_auth = (envs.get("USE_TLS", "") | lower == "true") and envs.get("CLIENT_CERT_FILE") and envs.get("CLIENT_KEY_FILE") %}
+  {% if not envs.get("LOCAL_API_URL") or not (password_auth or tls_auth) %}
+    {% do tpl.funcs.fail("Disable Local API requires [LOCAL_API_URL] and either [AGENT_USERNAME] and [AGENT_PASSWORD], or [USE_TLS=true], [CLIENT_CERT_FILE] and [CLIENT_KEY_FILE] in Additional Environment Variables") %}
+  {% endif %}
+{% endif %}
+
 {% set c1 = tpl.add_container(values.consts.crowdsec_container_name, "image") %}
 {% do c1.add_caps(["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"]) %}
 
