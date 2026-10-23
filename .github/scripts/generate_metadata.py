@@ -26,8 +26,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from common import (
+    APP_LIBRARY_SOURCE_DIR,
     APP_METADATA_FILE,
     APPS_ROOT_DIR,
+    LIBRARY_DIR,
     QUESTIONS_FILE,
     RENDERED_COMPOSE_PATH,
     TEST_VALUES_DIR,
@@ -36,8 +38,8 @@ from common import (
     render_app_cmd,
     write_yaml,
 )
+from prepare_libs import prepare_app_libs
 
-LIBRARY_DIR = Path("library")
 APP_VALUES_FILE = "ix_values.yaml"
 ITEM_FILE = "item.yaml"
 
@@ -535,18 +537,6 @@ def bump_patch_version(version: str) -> str:
     return ".".join(parts)
 
 
-def rename_app_lib_dir(app: App, old_version: str, new_version: str) -> None:
-    """Keep the per-app library dir (templates/library/<train>/<app>/v<version>) in sync with the version."""
-    lib_base = app.path / "templates/library" / app.train / app.name
-    old_dir = lib_base / f"v{old_version.replace('.', '_')}"
-    new_dir = lib_base / f"v{new_version.replace('.', '_')}"
-    if not old_dir.is_dir():
-        return
-    if new_dir.exists():
-        raise ValueError(f"App {app.name} library with version {new_version} already exists")
-    old_dir.rename(new_dir)
-
-
 def build_item(app_config: dict) -> dict:
     """The catalog entry (item.yaml), it only mirrors a few fields of app.yaml."""
     return {
@@ -668,9 +658,9 @@ def validate_app_lib(app: App) -> None:
     v<version> (no train or app), so two apps at the same version would silently share each other's modules.
     Sibling modules have to be reached through the ix_lib dict the template gets, eg ix_lib.<train>["<app>"].
     """
-    lib_base = app.path / "templates/library" / app.train / app.name
-    for lib_file in sorted(lib_base.glob("v*/*.py")):
-        siblings = {p.stem for p in lib_file.parent.glob("*.py")} | {lib_file.parent.name}
+    lib_files = sorted((app.path / APP_LIBRARY_SOURCE_DIR).glob("*.py"))
+    siblings = {p.stem for p in lib_files}
+    for lib_file in lib_files:
         for node in ast.walk(ast.parse(lib_file.read_text(), str(lib_file))):
             if isinstance(node, ast.ImportFrom):
                 relative, names = node.level > 0, [node.module or ""]
@@ -696,6 +686,8 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     app_config = read_yaml(app_config_path)
     app_title = app_config.get("title", app.name)
 
+    # The metadata is generated from the rendered app, which needs its libraries in place
+    prepare_app_libs(app.path)
     analysis = analyze(app)
     validate_questions(app, analysis.service_names)
     validate_images(app)
@@ -720,6 +712,14 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     )
     app_config.update(app_version=app_version, capabilities=capabilities, run_as_context=run_as_context)
 
+    # The dev validation checks the copied library against this hash, library/hashes.yaml is validated against library/
+    if lib_version := app_config.get("lib_version"):
+        lib_version_hash = read_yaml(LIBRARY_DIR / "hashes.yaml").get(lib_version)
+        if lib_version_hash and app_config.get("lib_version_hash") != lib_version_hash:
+            logger.info(f"Updated {app.name} lib_version_hash for library {lib_version}")
+            app_config["lib_version_hash"] = lib_version_hash
+            changed = True
+
     if app_config.get("maintainers", []) != MAINTAINERS:
         app_config["maintainers"] = MAINTAINERS
         changed = True
@@ -741,19 +741,23 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     item_path = app.path / ITEM_FILE
     item = build_item(app_config)
     if not item_path.exists() or read_yaml(item_path) != item:
-        write_yaml(item_path, item)
         changed = True
+    # Written every time, so it keeps the format generate_metadata writes app.yaml in
+    write_yaml(item_path, item)
 
     # A library sync in this run has already bumped the app, one bump covers both changes
-    if changed and bump_version and not already_bumped:
+    bumped = changed and bump_version and not already_bumped
+    if bumped:
         old_version = app_config["version"]
         app_config["version"] = bump_patch_version(old_version)
-        rename_app_lib_dir(app, old_version, app_config["version"])
         logger.info(f"Updated {app.name} version: {old_version} → {app_config['version']}")
         if is_ix_app(app):
             app_config["app_version"] = app_config["version"]
 
     write_yaml(app_config_path, app_config)
+    if bumped:
+        # The app library copy is named after the version, later renders of the app need it under the new one
+        prepare_app_libs(app.path)
     logger.info(f"Successfully updated {app.name} with {len(capabilities)} capabilities and {len(users)} services")
 
 
