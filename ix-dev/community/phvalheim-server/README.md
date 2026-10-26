@@ -24,4 +24,14 @@ AI providers are optional. Players need their own copy of Valheim. Modded worlds
 
 Original PhValheim code owned by Brian Miller is licensed under MIT. Third-party components and media retain their own terms.
 
+## Updates
+
+This app follows `theoriginalbrian/phvalheim-server:latest`, PhValheim's stable release channel, with `pull_policy: always`. New container deployments pull the current stable image. Choose when to apply updates so you can prepare your players and back up the complete application data first.
+
+The maintainer will submit a catalog revision bump after each stable release so installed catalog apps receive the normal TrueNAS **Update** action. Catalog configuration fixes also increment that revision. The catalog's upstream version label is `latest`; PhValheim's admin interface shows the actual running release.
+
+For an immediate image refresh before a new catalog revision is available, an administrator can use TrueNAS's documented `app.pull_images` operation with `redeploy: true` for this app. See the [TrueNAS API documentation](https://api.truenas.com/v25.10/api_methods_app.pull_images.html). This is an operator action on TrueNAS, not an integration inside the container.
+
+Because the image reference follows `latest`, rolling back only a catalog revision does not select an older PhValheim image. Recovery to an earlier release requires that release's versioned image together with a compatible full-data backup. Keep versioned release tags available for recovery.
+
 [Website](https://phvalheim.com) · [Documentation](https://brianmiller.github.io/phvalheim-server/) · [Product tour](https://brianmiller.github.io/phvalheim-server/start/tour/) · [Support](https://github.com/brianmiller/phvalheim-server/issues)
