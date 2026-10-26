@@ -138,6 +138,11 @@ module.exports = {
     // Custom versioning matching
     // https://docs.renovatebot.com/modules/versioning/regex/#rangesconstraints
     customVersioning(
+      // PhValheim publishes two-component release tags such as 2.59.
+      "^(?<major>\\d+)\\.(?<minor>\\d+)$",
+      ["theoriginalbrian/phvalheim-server"],
+    ),
+    customVersioning(
       // There are tags with date format (24.08.0), but newer versions are semver
       // We still limit major to 1 digit, as we don't want to match "24.08.0" as a major version
       // This is something that we need to investigate if one of the images start having 2 digit major versions
