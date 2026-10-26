@@ -35,18 +35,26 @@ questions:
             enum:
               - value: postgres_18_image
                 description: Postgres 18
-        - variable: postgres_password
-          label: PostgreSQL Password
-          description: Password for Silo's private database. Generate it with `openssl rand -hex 24` and keep it with your backups. Do not reuse your encryption key.
+        - variable: db_password
+          label: Database Password
           schema:
             type: string
+            default: ""
+            required: true
+            private: true
+        - variable: redis_password
+          label: Redis Password
+          schema:
+            type: string
+            default: ""
             required: true
             private: true
         - variable: secret_key
-          label: Data Encryption Key
-          description: Generate with `openssl rand -base64 48`. Back it up separately from your database; Silo needs the same key to decrypt saved credentials after a restore.
+          label: Secret Key
+          description: Generate with `openssl rand -base64 48`.
           schema:
             type: string
+            default: ""
             required: true
             private: true
         - variable: enable_search
@@ -55,17 +63,17 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: meili_master_key
+        - variable: meilisearch_master_key
           label: Meilisearch Master Key
-          description: Secret key used to protect Meilisearch. Set a strong, unique value and keep it private.
+          description: The master key for Meilisearch.
           schema:
             type: string
             show_if: [["enable_search", "=", true]]
+            default: ""
             required: true
             private: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Add variables only when Silo's documentation requires settings not already provided above.
           schema:
             type: list
             default: []
@@ -77,13 +85,11 @@ questions:
                   attrs:
                     - variable: name
                       label: Name
-                      description: Exact environment variable name expected by Silo.
                       schema:
                         type: string
                         required: true
                     - variable: value
                       label: Value
-                      description: Value for this variable. Use the dedicated fields above for the encryption key and database password.
                       schema:
                         type: string
 
@@ -98,7 +104,7 @@ questions:
           description: The user id that Silo files will be owned by.
           schema:
             type: int
-            min: 2
+            min: 568
             default: 568
             required: true
         - variable: group
@@ -106,7 +112,7 @@ questions:
           description: The group id that Silo files will be owned by.
           schema:
             type: int
-            min: 2
+            min: 568
             default: 568
             required: true
 
@@ -142,11 +148,9 @@ questions:
                       description: None
               - variable: port_number
                 label: Port Number
-                description: Port number users enter in a browser to open Silo's web interface.
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 30527
+                  default: 30358
                   min: 1
                   max: 65535
                   required: true
@@ -190,30 +194,10 @@ questions:
                     - value: ""
                       description: None
               - variable: port_number
-                label: Host Port
-                description: Port number clients use to connect to Silo's Jellyfin-compatible API.
+                label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 30528
-                  min: 1
-                  max: 65535
-                  required: true
-              - variable: host_ips
-                label: Host IPs
-                description: IPs on the host to bind this port
-                schema:
-                  type: list
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: []
-                  items:
-                    - variable: host_ip
-                      label: Host IP
-                      schema:
-                        type: string
-                        required: true
-                        $ref:
-                          - definitions/node_bind_ip
+                  default: 30359
         - variable: audiobookshelf_compat_port
           label: Audiobookshelf-Compatible API Port
           schema:
@@ -239,12 +223,11 @@ questions:
                     - value: ""
                       description: None
               - variable: port_number
-                label: Host Port
-                description: Port number clients use to connect to Silo's Audiobookshelf-compatible API.
+                label: Port Number
                 schema:
                   type: int
+                  default: 30360
                   show_if: [["bind_mode", "=", "published"]]
-                  default: 30529
                   min: 1
                   max: 65535
                   required: true
@@ -302,13 +285,13 @@ questions:
                                     required: true
                                     enum:
                                       - value: silo
-                                        description: Main Silo service
+                                        description: silo
                                       - value: postgres
-                                        description: PostgreSQL database
+                                        description: postgres
                                       - value: redis
-                                        description: Redis cache
+                                        description: redis
                                       - value: meilisearch
-                                        description: Optional search service
+                                        description: meilisearch
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -353,7 +336,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -364,8 +347,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Silo Data Storage
-          description: The path to store Silo data (plugins, artwork and compatibility data).
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -440,8 +422,7 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: transcodes
-          label: Silo Transcode Storage
-          description: The path to store Silo transcodes.
+          label: Transcode Storage
           schema:
             type: dict
             attrs:
@@ -539,7 +520,6 @@ questions:
                         required: true
         - variable: postgres_data
           label: Postgres Data Storage
-          description: The path to store Postgres Data.
           schema:
             type: dict
             attrs:
@@ -579,7 +559,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "pg_data"
+                        default: "postgres_data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -627,7 +607,6 @@ questions:
                         show_if: [["acl_enable", "=", false]]
         - variable: meili_data
           label: Meilisearch Data Storage
-          description: The path to store Meilisearch data. Only used when search is enabled.
           schema:
             type: dict
             attrs:
@@ -703,12 +682,11 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Add your media here (for example mounted read-only at `/mnt/media`). Optionally mount catalog seeds read-only at `/catalog-seeds`.
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -800,6 +778,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -856,6 +836,7 @@ questions:
                             schema:
                               type: string
                               required: true
+
   - variable: labels
     label: ""
     group: Labels Configuration
@@ -891,13 +872,14 @@ questions:
                         required: true
                         enum:
                           - value: silo
-                            description: Silo server
+                            description: silo
                           - value: postgres
-                            description: PostgreSQL database
+                            description: postgres
                           - value: redis
-                            description: Redis cache
+                            description: redis
                           - value: meilisearch
-                            description: Meilisearch search engine
+                            description: meilisearch
+
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -911,14 +893,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPU limit for the Silo services.
+                description: CPUs limit for Silo.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for each service. Installing the Jellyfin Web UI from Silo needs at least 6144 MB.
+                description: Memory limit for Silo.
                 schema:
                   type: int
                   default: 4096
