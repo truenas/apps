@@ -5,20 +5,19 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{# The image has no shell, so the healthcheck calls the binary directly #}
 {% do c1.healthcheck.set_custom_test(["CMD", "/opentodo", "healthcheck"]) %}
 
 {% do c1.environment.add_env("OPENTODO_ADDR", ":%d"|format(values.network.web_port.port_number)) %}
-{% do c1.environment.add_env("OPENTODO_DATA_DIR", "/data") %}
-{% do c1.environment.add_env("OPENTODO_BASE_URL", values.opentodo.base_url) %}
+{% do c1.environment.add_env("OPENTODO_DATA_DIR", values.consts.data_dir) %}
+{% do c1.environment.add_env("OPENTODO_BASE_URL", values.opentodo.base_url.rstrip("/")) %}
 {% do c1.environment.add_env("OPENTODO_SETUP_TOKEN", values.opentodo.setup_token) %}
 {% do c1.environment.add_env("OPENTODO_ALLOW_SIGNUP", values.opentodo.allow_signup) %}
-{% do c1.environment.add_env("OPENTODO_TRUSTED_PROXIES", values.opentodo.trusted_proxies) %}
+{% do c1.environment.add_env("OPENTODO_TRUSTED_PROXIES", values.opentodo.trusted_proxies|join(",")) %}
 {% do c1.environment.add_user_envs(values.opentodo.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/data", values.storage.data) %}
+{% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
