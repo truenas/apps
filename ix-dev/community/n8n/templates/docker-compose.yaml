@@ -16,6 +16,11 @@
   {% do tpl.funcs.fail("Expected [n8n.web_host] to not contain port [:###]") %}
 {% endif %}
 
+{% set editor_base_url = values.n8n.editor_base_url or "" %}
+{% if editor_base_url and not (editor_base_url.startswith("https://") or editor_base_url.startswith("http://")) %}
+  {% do tpl.funcs.fail("Expected [n8n.editor_base_url] to start with [http(s)://]") %}
+{% endif %}
+
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 
 {% set pg_config = {
@@ -46,6 +51,9 @@
 {% do c1.environment.add_env("N8N_PATH", "/") %}
 {% do c1.environment.add_env("N8N_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("N8N_HOST", values.n8n.web_host) %}
+{% if editor_base_url %}
+  {% do c1.environment.add_env("N8N_EDITOR_BASE_URL", editor_base_url) %}
+{% endif %}
 {% do c1.environment.add_env("GENERIC_TIMEZONE", values.TZ) %}
 {% do c1.environment.add_env("N8N_SECURE_COOKIE", values.network.certificate_id != None) %}
 {% do c1.environment.add_env("N8N_PROTOCOL", "https" if values.network.certificate_id else "http") %}
