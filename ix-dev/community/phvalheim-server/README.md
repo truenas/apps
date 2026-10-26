@@ -26,12 +26,10 @@ Original PhValheim code owned by Brian Miller is licensed under MIT. Third-party
 
 ## Updates
 
-This app follows `theoriginalbrian/phvalheim-server:latest`, PhValheim's stable release channel, with `pull_policy: always`. New container deployments pull the current stable image. Choose when to apply updates so you can prepare your players and back up the complete application data first.
+The catalog uses a stable version tag pinned to an image digest, so each catalog revision selects the image that was reviewed and tested. The upstream version label shows the PhValheim release, separately from the TrueNAS catalog revision.
 
-The maintainer will submit a catalog revision bump after each stable release so installed catalog apps receive the normal TrueNAS **Update** action. Catalog configuration fixes also increment that revision. The catalog's upstream version label is `latest`; PhValheim's admin interface shows the actual running release.
+TrueNAS's Renovate configuration tracks PhValheim's numeric release tags, such as `2.59` and `2.60`, and prepares catalog update PRs with the new image reference and a catalog revision bump. It also tracks digest changes for rebuilt release tags. Updates become available through the normal TrueNAS **Update** action after the catalog change is reviewed, merged and published.
 
-For an immediate image refresh before a new catalog revision is available, an administrator can use TrueNAS's documented `app.pull_images` operation with `redeploy: true` for this app. See the [TrueNAS API documentation](https://api.truenas.com/v25.10/api_methods_app.pull_images.html). This is an operator action on TrueNAS, not an integration inside the container.
-
-Because the image reference follows `latest`, rolling back only a catalog revision does not select an older PhValheim image. Recovery to an earlier release requires that release's versioned image together with a compatible full-data backup. Keep versioned release tags available for recovery.
+Schedule updates with your players and back up the complete application data first. Preserve the main data and separate backup mounts through updates. An older catalog revision retains its own image pin, but restoring an older application may also require compatible data backups. Managed app storage and mounted host paths have different backup/rollback procedures.
 
 [Website](https://phvalheim.com) · [Documentation](https://brianmiller.github.io/phvalheim-server/) · [Product tour](https://brianmiller.github.io/phvalheim-server/start/tour/) · [Support](https://github.com/brianmiller/phvalheim-server/issues)

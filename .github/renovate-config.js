@@ -78,14 +78,6 @@ module.exports = {
       pinDigests: false,
     },
     {
-      // PhValheim follows the maintainer's stable latest channel. Native image pulls
-      // deliver releases; catalog revision bumps provide the standard Update flow.
-      matchDatasources: ["docker"],
-      matchPackageNames: ["theoriginalbrian/phvalheim-server"],
-      enabled: false,
-      pinDigests: false,
-    },
-    {
       matchManagers: ["github-actions"],
       addLabels: ["actions"],
       groupName: "gh-actions",
@@ -145,6 +137,11 @@ module.exports = {
     },
     // Custom versioning matching
     // https://docs.renovatebot.com/modules/versioning/regex/#rangesconstraints
+    customVersioning(
+      // PhValheim stable releases use two-component tags such as 2.59.
+      "^(?<major>\\d+)\\.(?<minor>\\d+)$",
+      ["theoriginalbrian/phvalheim-server"],
+    ),
     customVersioning(
       // There are tags with date format (24.08.0), but newer versions are semver
       // We still limit major to 1 digit, as we don't want to match "24.08.0" as a major version
