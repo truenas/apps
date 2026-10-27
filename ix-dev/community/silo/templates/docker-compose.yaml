@@ -22,12 +22,12 @@
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 {% do redis.container.add_network(silo_net) %}
 
+{% do silo.environment.add_env("SILO_SEARCH_PROVIDER", "meilisearch" if values.silo.enable_search else "postgres") %}
 {% if values.silo.enable_search %}
   {% set meili_config = {"master_key": values.silo.meilisearch_master_key, "volume": values.storage.meili_data} %}
   {% set meilisearch = tpl.deps.meilisearch(values.consts.meilisearch_container_name, "meilisearch_image", meili_config, perm_container) %}
   {% do meilisearch.container.add_network(silo_net) %}
   {% do silo.depends.add_dependency(values.consts.meilisearch_container_name, "service_healthy") %}
-  {% do silo.environment.add_env("SILO_SEARCH_PROVIDER", "meilisearch") %}
   {% do silo.environment.add_env("SILO_MEILISEARCH_URL", meilisearch.get_url()) %}
   {% do silo.environment.add_env("SILO_MEILISEARCH_API_KEY", values.silo.meilisearch_master_key) %}
 {% endif %}
