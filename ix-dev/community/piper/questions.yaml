@@ -32,53 +32,59 @@ questions:
         - variable: voice
           label: Voice
           description: |
-            The Piper voice to use (PIPER_VOICE), in the format [language_REGION-name-quality].</br>
+            The Piper voice to use (--voice), in the format [language_REGION-name-quality].</br>
             See https://huggingface.co/rhasspy/piper-voices for the available voices.</br>
-            Voices are downloaded into the config storage on first use.
+            Voices are downloaded into the data storage on first use.
           schema:
             type: string
             default: en_US-lessac-medium
             required: true
-        - variable: length_scale
-          label: Length Scale
+        - variable: speaker
+          label: Speaker (Optional)
           description: |
-            Voice speaking rate (PIPER_LENGTH).</br>
-            [1.0] is the default, values below [1.0] are faster and values above [1.0] are slower.
+            Speaker name or number to use, if the voice supports multiple speakers (--speaker).</br>
+            Leave empty to use the default speaker of the voice.
+          schema:
+            type: string
+            default: ""
+        - variable: length_scale
+          label: Length Scale (Optional)
+          description: |
+            Voice speaking rate (--length-scale).</br>
+            [1.0] is the default, values below [1.0] are faster and values above [1.0] are slower.</br>
+            Leave empty to use the value from the voice configuration.
           schema:
             type: string
             default: "1.0"
-            required: true
-            valid_chars: "^[0-9]+(\\.[0-9]+)?$"
+            valid_chars: "^([0-9]+(\\.[0-9]+)?)?$"
+            valid_chars_error: Must be a positive number, for example [1.0].
         - variable: noise_scale
-          label: Noise Scale
+          label: Noise Scale (Optional)
           description: |
-            Controls the variability of the voice by adding noise (PIPER_NOISE).</br>
-            Values above [1] will start to degrade the audio.
+            Controls the variability of the voice by adding noise (--noise-scale).</br>
+            Values above [1] will start to degrade the audio.</br>
+            Leave empty to use the value from the voice configuration.
           schema:
             type: string
             default: "0.667"
-            required: true
-            valid_chars: "^[0-9]+(\\.[0-9]+)?$"
-        - variable: noise_w
-          label: Noise Width
+            valid_chars: "^([0-9]+(\\.[0-9]+)?)?$"
+            valid_chars_error: Must be a positive number, for example [0.667].
+        - variable: noise_w_scale
+          label: Noise W Scale (Optional)
           description: |
-            Controls the variability of the speaking cadence (PIPER_NOISEW).</br>
-            Values above [1] produce extreme stutters and pauses.
+            Controls the variability of the speaking cadence (--noise-w-scale).</br>
+            Values above [1] produce extreme stutters and pauses.</br>
+            Leave empty to use the value from the voice configuration.
           schema:
             type: string
             default: "0.333"
-            required: true
-            valid_chars: "^[0-9]+(\\.[0-9]+)?$"
-        - variable: speaker
-          label: Speaker
-          description: Speaker number to use, if the voice supports multiple speakers (PIPER_SPEAKER).
-          schema:
-            type: int
-            default: 0
-            min: 0
-            required: true
+            valid_chars: "^([0-9]+(\\.[0-9]+)?)?$"
+            valid_chars_error: Must be a positive number, for example [0.333].
         - variable: additional_envs
           label: Additional Environment Variables
+          description: |
+            Additional environment variables for Piper.</br>
+            For example [WYOMING_PIPER_ARGS] can be used to pass extra command line arguments.
           schema:
             type: list
             default: []
@@ -270,8 +276,9 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: config
-          label: Config Storage
+        - variable: data
+          label: Data Storage
+          description: The path to store Piper data, such as downloaded voices.
           schema:
             type: dict
             attrs:
@@ -311,7 +318,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "config"
+                        default: "data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
