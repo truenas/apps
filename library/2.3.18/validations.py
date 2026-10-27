@@ -259,7 +259,10 @@ def is_allowed_path(input_path: str, is_ix_volume: bool = False) -> bool:
     Returns True if the path is allowed, False otherwise.
     """
     # Resolve the path to avoid symlink bypasses
-    real_path = Path(input_path).resolve()
+    return _is_allowed_real_path(Path(input_path).resolve(), is_ix_volume)
+
+
+def _is_allowed_real_path(real_path: Path, is_ix_volume: bool) -> bool:
     for restricted in RESTRICTED if not is_ix_volume else [r for r in RESTRICTED if r != Path("/mnt/.ix-apps")]:
         if real_path.is_relative_to(restricted) or restricted.is_relative_to(real_path):
             return False
@@ -267,10 +270,15 @@ def is_allowed_path(input_path: str, is_ix_volume: bool = False) -> bool:
     return real_path not in RESTRICTED_IN
 
 
-def allowed_fs_host_path_or_raise(path: str, is_ix_volume: bool = False):
-    if not is_allowed_path(path, is_ix_volume):
+def allowed_fs_host_path_or_raise(path: str, is_ix_volume: bool = False) -> tuple[str, str]:
+    """Returns the path and its resolved path.
+
+    The path is what gets rendered, the resolved one is only for checks (it is resolved on the
+    machine that renders, the system on TrueNAS, so it differs on others)."""
+    real_path = Path(path).resolve()
+    if not _is_allowed_real_path(real_path, is_ix_volume):
         raise RenderError(f"Path [{path}] is not allowed to be mounted.")
-    return path
+    return path, str(real_path)
 
 
 def _valid_path_or_raise(path: str):

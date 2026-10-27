@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 
 from base.error import RenderError
@@ -114,3 +115,21 @@ def test_add_tun_device(render, c1):
     c1.add_tun_device()
     output = render.render()
     assert output["services"]["test_container"]["devices"] == ["/dev/net/tun:/dev/net/tun"]
+
+
+def test_device_resolved_host_device(render, c1, monkeypatch):
+    # Symlinks resolve on the machine that renders, so this one is faked
+    def mock_resolve(self):
+        return Path("/dev/sda") if str(self) == "/dev/disk/by-id/ata-disk" else self
+
+    monkeypatch.setattr(Path, "resolve", mock_resolve)
+    c1.devices.add_device("/dev/disk/by-id/ata-disk", "/dev/disk0")
+    c1.devices.add_device("/dev/ttyUSB0", "/dev/ttyUSB0")
+    devices = {d.host_device: d.resolved_host_device for d in c1.devices._devices}
+    assert devices == {"/dev/disk/by-id/ata-disk": "/dev/sda", "/dev/ttyUSB0": "/dev/ttyUSB0"}
+    # The rendered device is the path as given
+    output = render.render()
+    assert output["services"]["test_container"]["devices"] == [
+        "/dev/disk/by-id/ata-disk:/dev/disk0",
+        "/dev/ttyUSB0:/dev/ttyUSB0",
+    ]

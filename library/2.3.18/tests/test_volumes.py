@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 
 from base.error import RenderError
@@ -587,3 +588,51 @@ def test_host_path_without_disallowed_path(render, c1):
             "bind": {"create_host_path": False, "propagation": "rprivate"},
         }
     ]
+
+
+# Symlinks resolve on the machine that renders, so they are faked
+SYMLINKS = {"/mnt/pool/link": "/mnt/pool/target", "/mnt/pool/sock": "/run/docker.sock", "/mnt/pool/data": "/data"}
+
+
+def mock_resolve(self):
+    return Path(SYMLINKS.get(str(self), str(self)))
+
+
+def test_host_path_resolved_source(render, c1, monkeypatch):
+    monkeypatch.setattr(Path, "resolve", mock_resolve)
+    c1.add_storage("/data", {"type": "host_path", "host_path_config": {"path": "/mnt/pool/link"}})
+    (vm,) = c1.storage._volume_mounts
+    assert vm.resolved_source == "/mnt/pool/target"
+    # The rendered source is the path as given
+    output = render.render()
+    assert output["services"]["test_container"]["volumes"][0]["source"] == "/mnt/pool/link"
+
+
+def test_host_path_symlink_to_restricted_path(c1, monkeypatch):
+    monkeypatch.setattr(Path, "resolve", mock_resolve)
+    with pytest.raises(RenderError, match=r"Path \[/mnt/pool/data\] is not allowed to be mounted"):
+        c1.add_storage("/data", {"type": "host_path", "host_path_config": {"path": "/mnt/pool/data"}})
+
+
+def test_ix_volume_resolved_source(mock_values, monkeypatch):
+    monkeypatch.setattr(Path, "resolve", mock_resolve)
+    mock_values["ix_volumes"] = {"test_dataset": "/mnt/pool/link"}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.add_storage("/data", {"type": "ix_volume", "ix_volume_config": {"dataset_name": "test_dataset"}})
+    (vm,) = c1.storage._volume_mounts
+    assert vm.resolved_source == "/mnt/pool/target"
+
+
+def test_volume_has_no_resolved_source(c1):
+    c1.add_storage("/data", {"type": "volume", "volume_config": {"volume_name": "test_volume"}})
+    (vm,) = c1.storage._volume_mounts
+    assert vm.resolved_source == ""
+
+
+def test_docker_socket_symlink_risk_warning(render, c1, monkeypatch):
+    monkeypatch.setattr(Path, "resolve", mock_resolve)
+    c1.add_storage("/var/run/docker.sock", {"type": "host_path", "host_path_config": {"path": "/mnt/pool/sock"}})
+    output = render.render()
+    assert "This app has access to the Docker socket" in output["x-notes"]

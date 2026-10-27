@@ -265,7 +265,9 @@ class Notes:
             for vm in c.storage._volume_mounts:
                 if vm.volume_mount_spec.get("type", "") == "bind":
                     source = vm.volume_mount_spec.get("source", "")
-                    if source in DOCKER_SOCKETS:
+                    # Resolved catches symlinks to the socket, the literal path a socket that is a
+                    # symlink itself on the machine that renders (eg Docker Desktop)
+                    if source in DOCKER_SOCKETS or vm.resolved_source in DOCKER_SOCKETS:
                         self.add_risk_warning("docker_access")
                     read_only = vm.volume_mount_spec.get("read_only", False)
                     pretty, is_host_mount = self.get_pretty_host_mount(source)

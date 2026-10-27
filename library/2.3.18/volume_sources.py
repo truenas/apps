@@ -13,6 +13,7 @@ class HostPathSource:
     def __init__(self, render_instance: "Render", config: "IxStorageHostPathConfig"):
         self._render_instance = render_instance
         self.source: str = ""
+        self.resolved_source: str = ""
 
         if not config:
             raise RenderError("Expected [host_path_config] to be set for [host_path] type.")
@@ -27,7 +28,7 @@ class HostPathSource:
             path = valid_fs_path_or_raise(config.get("path", ""))
 
         path = path.rstrip("/")
-        self.source = allowed_fs_host_path_or_raise(path)
+        self.source, self.resolved_source = allowed_fs_host_path_or_raise(path)
 
     def get(self):
         return self.source
@@ -37,6 +38,7 @@ class IxVolumeSource:
     def __init__(self, render_instance: "Render", config: "IxStorageIxVolumeConfig"):
         self._render_instance = render_instance
         self.source: str = ""
+        self.resolved_source: str = ""
 
         if not config:
             raise RenderError("Expected [ix_volume_config] to be set for [ix_volume] type.")
@@ -53,7 +55,7 @@ class IxVolumeSource:
             )
 
         path = valid_fs_path_or_raise(ix_volumes[dataset_name].rstrip("/"))
-        self.source = allowed_fs_host_path_or_raise(path, True)
+        self.source, self.resolved_source = allowed_fs_host_path_or_raise(path, True)
 
     def get(self):
         return self.source

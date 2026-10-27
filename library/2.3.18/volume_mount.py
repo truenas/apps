@@ -14,6 +14,8 @@ class VolumeMount:
     def __init__(self, render_instance: "Render", mount_path: str, config: "IxStorage"):
         self._render_instance = render_instance
         self.mount_path: str = mount_path
+        # The host path with its symlinks resolved, only for host_path and ix_volume
+        self.resolved_source: str = ""
 
         storage_type: str = config.get("type", "")
         if not storage_type:
@@ -26,14 +28,18 @@ class VolumeMount:
                 if mount_config is None:
                     raise RenderError("Expected [host_path_config] to be set for [host_path] type.")
                 mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
-                source = HostPathSource(self._render_instance, mount_config).get()
+                host_path_source = HostPathSource(self._render_instance, mount_config)
+                source = host_path_source.get()
+                self.resolved_source = host_path_source.resolved_source
             case "ix_volume":
                 spec_type = "bind"
                 mount_config = config.get("ix_volume_config")
                 if mount_config is None:
                     raise RenderError("Expected [ix_volume_config] to be set for [ix_volume] type.")
                 mount_type_specific_definition = BindMountType(self._render_instance, mount_config).render()
-                source = IxVolumeSource(self._render_instance, mount_config).get()
+                ix_volume_source = IxVolumeSource(self._render_instance, mount_config)
+                source = ix_volume_source.get()
+                self.resolved_source = ix_volume_source.resolved_source
             case "nfs":
                 spec_type = "volume"
                 mount_config = config.get("nfs_config")

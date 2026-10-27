@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from .error import RenderError
 from .validations import valid_fs_path_or_raise, allowed_device_or_raise, valid_cgroup_perm_or_raise
 
@@ -18,6 +20,9 @@ class Device:
 
         self.cgroup_perm: str = cgroup_perm
         self.host_device: str = hd
+        # Only used for adding warnings etc, eg /dev/disk/by-id/... resolves to the actual disk.
+        # The host_device is what gets rendered
+        self.resolved_host_device: str = str(Path(hd).resolve())
         self.container_device: str = cd
 
     def render(self):
