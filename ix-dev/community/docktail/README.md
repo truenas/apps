@@ -9,7 +9,8 @@ Apps do not need published ports; DockTail connects to their container IPs direc
 Before installing, you need:
 
 - A Tailscale auth key for the sidecar, allowed to apply the tags in **Advertise Tags** (default `tag:server`).
-- A Tailscale OAuth client (recommended) or API key, so DockTail can create service definitions.
+- Optionally, a Tailscale OAuth client (recommended) or API key, so DockTail can create service definitions.
+  Without one, you create each service in the Tailscale admin console yourself.
 - `tagOwners` and `autoApprovers.services` entries in your tailnet policy.
   See [Tailscale Admin Setup](https://docktail.org/docs/tailscale-admin/).
 
