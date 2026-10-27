@@ -1,0 +1,26 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.piper_container_name, "image") %}
+
+{# linuxserver.io images start as root, then drop to the run_as user and group after fixing permissions #}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "SETGID", "SETUID", "DAC_OVERRIDE", "FOWNER"]) %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.consts.internal_wyoming_port}) %}
+{# Voice downloads on first start can take a while #}
+{% do c1.healthcheck.set_start_period(300) %}
+
+{% do c1.environment.add_env("PIPER_VOICE", values.piper.voice) %}
+{% do c1.environment.add_env("PIPER_LENGTH", values.piper.length_scale) %}
+{% do c1.environment.add_env("PIPER_NOISE", values.piper.noise_scale) %}
+{% do c1.environment.add_env("PIPER_NOISEW", values.piper.noise_w) %}
+{% do c1.environment.add_env("PIPER_SPEAKER", values.piper.speaker) %}
+{% do c1.environment.add_user_envs(values.piper.additional_envs) %}
+
+{% do c1.add_port(values.network.wyoming_port, {"container_port": values.consts.internal_wyoming_port}) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
