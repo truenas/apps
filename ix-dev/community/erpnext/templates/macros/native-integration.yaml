@@ -1,0 +1,34 @@
+{# Included by the candidate template after normal service construction. #}
+{% from 'macros/native_scripts.py' import native_script, native_policy_script, native_job_script, native_patch_policy_script, native_patch_target_script, native_queue_guard_script %}
+{% set old = tpl.add_container('upgrade-backup', 'previous_image') %}
+{% do old.set_user(1000, 1000) %}
+{% do old.restart.set_policy('no') %}
+{% do old.healthcheck.disable() %}
+{% do old.add_storage(values.consts.sites_path, values.storage.sites) %}
+{% do old.add_storage(values.consts.logs_path, values.storage.logs) %}
+{% do old.depends.add_dependency(values.consts.bootstrap_container_name, 'service_completed_successfully') %}
+{% for name in [values.consts.db_container_name, values.consts.redis_cache_container_name, values.consts.redis_queue_container_name] %}
+  {% do old.depends.add_dependency(name, 'service_healthy') %}
+{% endfor %}
+{% do init.depends.add_dependency('upgrade-backup', 'service_completed_successfully') %}
+{% for c, action in [(boot, 'bootstrap'), (old, 'backup'), (init, 'initialize')] %}
+  {% do c.set_entrypoint(['/home/frappe/frappe-bench/env/bin/python', '/catalog/native.py']) %}
+  {% do c.set_command([action]) %}
+  {% if action != 'initialize' %}
+    {% do c.environment.add_env('SITE_NAME', values.erpnext.site_name) %}
+  {% endif %}
+  {% if action != 'bootstrap' %}
+    {% do c.environment.add_env('CATALOG_IMAGE', values.images.image.repository ~ ':' ~ values.images.image.tag) %}
+  {% endif %}
+  {% do c.configs.add('catalog_native', native_script(), '/catalog/native.py', '0444') %}
+  {% do c.configs.add('catalog_native_policy', native_policy_script(), '/catalog/native_policy.py', '0444') %}
+  {% do c.configs.add('catalog_native_job', native_job_script(), '/catalog/rehearsal.py', '0444') %}
+  {% do c.configs.add('catalog_native_patch_policy', native_patch_policy_script(), '/catalog/patch_policy.py', '0444') %}
+  {% do c.configs.add('catalog_native_patch_target', native_patch_target_script(), '/catalog/patch_target.py', '0444') %}
+  {% do c.configs.add('catalog_native_queue_guard', native_queue_guard_script(), '/catalog/queue_guard.py', '0444') %}
+{% endfor %}
+{% for name, c in runtime.items() %}
+  {% do c.environment.add_env('CATALOG_NATIVE_LIFECYCLE', '1') %}
+  {% do c.configs.add('catalog_native_policy', native_policy_script(), '/catalog/native_policy.py', '0444') %}
+{% endfor %}
+{% do tpl.notes.set_body('Fresh installation or the exact reviewed ERPNext 16.51.0 to 16.51.1 patch transition only. Preserve recovery backups; an interrupted migration blocks startup. Review pending or failed background jobs before upgrading. Recovery requires a verified backup in separate storage. No automatic rollback.') %}

@@ -35,23 +35,39 @@ def validate_state(root, site, image, operation=None):
         raise RuntimeError('Upgrade is not ready for runtime')
 
 
+def expected_operation():
+    explicit = os.environ.get('EXPECTED_UPGRADE_OPERATION')
+    if explicit:
+        return explicit
+    if os.environ.get('CATALOG_NATIVE_LIFECYCLE') == '1':
+        from native_policy import operation_id
+        return operation_id(os.environ['SITE_NAME'], os.environ['CATALOG_IMAGE'])
+    return None
+
+
 def run():
     root = BENCH / 'sites'
     with (root / '.catalog-runtime.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
         validate_state(root, os.environ['SITE_NAME'], os.environ['CATALOG_IMAGE'],
-                       os.environ.get('EXPECTED_UPGRADE_OPERATION'))
+                       expected_operation())
         if len(sys.argv) < 2:
             raise RuntimeError('Runtime command missing')
         child = None
         pending_signal = None
+        worker_command = sys.argv[1:3] == ['bench', 'worker']
 
         def forward(number, frame):
             nonlocal pending_signal
             pending_signal = number
             if child is not None:
                 try:
-                    os.killpg(child.pid, number)
+                    if worker_command:
+                        # bench execs the RQ worker. Signal its PID so the horse
+                        # can finish; group SIGTERM would kill that job directly.
+                        child.send_signal(number)
+                    else:
+                        os.killpg(child.pid, number)
                 except ProcessLookupError:
                     pass
 
