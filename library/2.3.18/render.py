@@ -1,4 +1,5 @@
 import copy
+import os
 
 from .configs import Configs
 from .container import Container
@@ -72,6 +73,10 @@ class Render(object):
             "x-action-required": action_required,
             "services": {c._name: c.render() for c in self._containers.values()},
         }
+
+        # Only for the metadata generator, which keeps the app's README in sync with it
+        if os.environ.get("IX_RENDER_README") == "1":
+            result["x-readme"] = self.notes.readme_warnings()
 
         # Make sure that after services are rendered
         # there are no labels that target a non-existent container

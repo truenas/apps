@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch
 
 from pathlib import Path
-from base.validations import is_allowed_path, RESTRICTED, RESTRICTED_IN
+from base.validations import is_allowed_path, valid_fs_path_or_raise, RESTRICTED, RESTRICTED_IN
 
 
 def mock_resolve(self):
@@ -41,11 +41,45 @@ def mock_resolve(self):
         ("/usr/local/share", True),
         # Another system path likely not in restricted list
         ("/opt/myapp", True),
+        # The middleware socket, under both paths it is reachable from
+        ("/var/run/middleware/middlewared.sock", False),
+        ("/run/middleware/middlewared.sock", False),
+        # Parents of restricted paths expose them too
+        ("/var", False),
+        ("/var/run", False),
+        ("/run", False),
+        # Siblings of restricted paths are fine
+        ("/var/run/docker.sock", True),
+        ("/run/udev", True),
+        ("/var/lib/something", True),
     ],
 )
 @patch.object(Path, "resolve", mock_resolve)
 def test_is_allowed_path_direct(test_path, expected):
     """Test direct paths against the is_allowed_path function."""
+    assert is_allowed_path(test_path) == expected
+
+
+def mock_resolve_var_run_symlink(self):
+    # On TrueNAS /var/run is a symlink to /run
+    path = str(self)
+    if path == "/var/run" or path.startswith("/var/run/"):
+        return Path("/run" + path.removeprefix("/var/run"))
+    return self
+
+
+@pytest.mark.parametrize(
+    "test_path, expected",
+    [
+        ("/var/run/middleware/middlewared.sock", False),
+        ("/var/run/middleware", False),
+        ("/var/run", False),
+        ("/var/run/docker.sock", True),
+    ],
+)
+@patch.object(Path, "resolve", mock_resolve_var_run_symlink)
+def test_is_allowed_path_var_run_symlink(test_path, expected):
+    """Test that the /var/run -> /run symlink does not expose the middleware socket."""
     assert is_allowed_path(test_path) == expected
 
 
@@ -130,3 +164,17 @@ def test_is_allowed_path_restricted_in_list(test_path):
     Test that items in RESTRICTED_IN are invalid.
     """
     assert is_allowed_path(test_path) is False
+
+
+@pytest.mark.parametrize(
+    "test_path",
+    ["/var/run/../run/docker.sock", "/mnt/pool/..", "/mnt/./pool", "/mnt/pool/.", "/.."],
+)
+def test_valid_fs_path_dot_components(test_path):
+    with pytest.raises(Exception, match=r"cannot contain \[\.\] or \[\.\.\] components"):
+        valid_fs_path_or_raise(test_path)
+
+
+@pytest.mark.parametrize("test_path", ["/mnt/pool/.config", "/mnt/pool/..data", "/mnt/pool/file.", "/a.b/c"])
+def test_valid_fs_path_dots_in_names(test_path):
+    assert valid_fs_path_or_raise(test_path) == test_path

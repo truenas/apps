@@ -128,6 +128,119 @@ https://ixsystems.atlassian.net
     )
 
 
+def test_notes_with_risk_warnings(render, c1):
+    render.notes.add_warning("this is not properly configured. fix it now!")
+    render.notes.add_risk_warning("truenas_api_access")
+    # Adding the same risk warning again is a no-op
+    render.notes.add_risk_warning("truenas_api_access")
+    c1.set_user(568, 568)
+    output = render.render()
+    assert "x-readme" not in output
+    assert (
+        output["x-notes"]
+        == """# Test App ⚠️
+
+## Risks ⚠️
+
+- This app requires a TrueNAS API key, which gives it administrative control over the system.
+
+Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Use at your own risk.
+
+## Warnings ⚠️
+
+- this is not properly configured. fix it now!
+
+## Security
+
+**Read the following security precautions to ensure that you wish to continue using this application.**
+
+---
+
+### Container: [test_container]
+
+#### Running user/group(s)
+
+- User: 568
+- Group: 568
+- Supplementary Groups: apps
+
+---
+
+## Bug Reports and Feature Requests
+
+If you find a bug in this app or have an idea for a new feature, please file an issue at
+https://ixsystems.atlassian.net
+"""  # noqa: E501
+    )
+
+
+def test_notes_risk_warnings_do_not_require_action(render, c1):
+    render.notes.add_risk_warning("truenas_api_access")
+    output = render.render()
+    assert output["x-action-required"] is False
+    assert output["x-notes"].startswith("# Test App ⚠️\n\n## Risks ⚠️\n\n- This app requires a TrueNAS API key")
+    assert "## Warnings" not in output["x-notes"]
+
+
+def test_notes_invalid_risk_warning(render):
+    with pytest.raises(Exception, match=r"Risk warning \[invalid\] is not valid"):
+        render.notes.add_risk_warning("invalid")
+
+
+def test_readme_warnings(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.add_risk_warning("truenas_api_access")
+    output = render.render()
+    assert output["x-readme"] == {
+        "warnings": ["This app requires a TrueNAS API key, which gives it administrative control over the system."],
+        "warnings_footer": (
+            "Misconfiguration or a malicious update can compromise data integrity, security, or system stability. "
+            "Install at your own risk."
+        ),
+    }
+
+
+def test_readme_no_warnings(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    output = render.render()
+    assert output["x-readme"]["warnings"] == []
+
+
+@pytest.mark.parametrize("socket", ["/var/run/docker.sock", "/run/docker.sock"])
+def test_risk_warning_docker_socket(render, c1, monkeypatch, socket):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.add_storage(socket, {"type": "host_path", "host_path_config": {"path": socket}, "read_only": True})
+    output = render.render()
+    assert output["x-action-required"] is False
+    assert "## Risks ⚠️\n\n- This app has access to the Docker socket" in output["x-notes"]
+    assert output["x-readme"]["warnings"] == [
+        "This app has access to the Docker socket, which gives it full control over all containers and effectively "
+        "root access to the system."
+    ]
+
+
+def test_risk_warning_privileged(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.set_privileged(True)
+    output = render.render()
+    assert output["x-notes"].startswith(
+        "# Test App ⚠️\n\n## Risks ⚠️\n\n- This app runs a container in privileged mode"
+    )
+    assert output["x-readme"]["warnings"] == [
+        "This app runs a container in privileged mode, which gives it full access to the system's devices and kernel."
+    ]
+
+
+def test_risk_warning_detected_once_for_many_containers(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.set_privileged(True)
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+    c2.set_privileged(True)
+    output = render.render()
+    assert len(output["x-readme"]["warnings"]) == 1
+
+
 def test_notes_with_deprecations(render, c1):
     render.notes.add_deprecation("this is will be removed later. fix it now!")
     render.notes.add_deprecation("that is will be removed later. fix it later!")
@@ -217,6 +330,7 @@ def test_notes_all(render, c1):
     render.notes.add_deprecation("that is will be removed later. fix it later!")
     render.notes.add_info("some info")
     render.notes.add_info("some other info")
+    render.notes.add_risk_warning("truenas_api_access")
     render.notes.set_body(
         """## Additional info
 
@@ -264,6 +378,14 @@ some other info.
     assert (
         output["x-notes"]
         == """# Test App ⚠️
+
+## Risks ⚠️
+
+- This app requires a TrueNAS API key, which gives it administrative control over the system.
+- This app runs a container in privileged mode, which gives it full access to the system's devices and kernel.
+- This app has access to the Docker socket, which gives it full control over all containers and effectively root access to the system.
+
+Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Use at your own risk.
 
 ## Warnings ⚠️
 

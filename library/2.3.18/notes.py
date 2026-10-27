@@ -1,10 +1,33 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .error import RenderError
+
 if TYPE_CHECKING:
     from .render import Render
 
 SHORT_LIVED = "short-lived"
+
+RISK_WARNING_IMPACT = (
+    "Misconfiguration or a malicious update can compromise data integrity, security, or system stability."
+)
+# The notes are only visible after install, the README before it
+RISK_WARNING_NOTES_SUFFIX = "Use at your own risk."
+RISK_WARNING_README_SUFFIX = "Install at your own risk."
+# docker_access and privileged are added by the scan of the containers, apps add the rest
+RISK_WARNINGS = {
+    "truenas_api_access": (
+        "This app requires a TrueNAS API key, which gives it administrative control over the system."
+    ),
+    "docker_access": (
+        "This app has access to the Docker socket, "
+        "which gives it full control over all containers and effectively root access to the system."
+    ),
+    "privileged": (
+        "This app runs a container in privileged mode, which gives it full access to the system's devices and kernel."
+    ),
+}
+DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
 
 
 @dataclass
@@ -20,6 +43,7 @@ class Notes:
         self._app_train: str = ""
         self._info: list[str] = []
         self._warnings: list[str] = []
+        self._risk_warnings: list[str] = []
         self._deprecations: list[str] = []
         self._security: dict[str, list[Security]] = {}
         self._header: str = ""
@@ -53,7 +77,7 @@ class Notes:
 
     def _set_header(self):
         header = f"# {self._app_name}"
-        if len(self._warnings) > 0 or len(self._deprecations) > 0:
+        if len(self._warnings) > 0 or len(self._risk_warnings) > 0 or len(self._deprecations) > 0:
             header += " ⚠️"
 
         self._header = f"{header}\n\n"
@@ -66,6 +90,21 @@ class Notes:
 
     def _prepend_warning(self, warning: str):
         self._warnings.insert(0, warning)
+
+    def add_risk_warning(self, name: str):
+        if name not in RISK_WARNINGS:
+            raise RenderError(
+                f"Risk warning [{name}] is not valid. Valid options are: [{', '.join(RISK_WARNINGS.keys())}]"
+            )
+        if name not in self._risk_warnings:
+            self._risk_warnings.append(name)
+
+    def readme_warnings(self) -> dict:
+        # The footer follows the list of warnings, once
+        return {
+            "warnings": [RISK_WARNINGS[name] for name in self._risk_warnings],
+            "warnings_footer": f"{RISK_WARNING_IMPACT} {RISK_WARNING_README_SUFFIX}",
+        }
 
     def add_deprecation(self, deprecation: str):
         self._deprecations.append(deprecation)
@@ -146,6 +185,7 @@ class Notes:
                 )
 
             if c._privileged:
+                self.add_risk_warning("privileged")
                 self._security[name].append(
                     Security(
                         header="Privileged mode is enabled",
@@ -225,6 +265,8 @@ class Notes:
             for vm in c.storage._volume_mounts:
                 if vm.volume_mount_spec.get("type", "") == "bind":
                     source = vm.volume_mount_spec.get("source", "")
+                    if source in DOCKER_SOCKETS:
+                        self.add_risk_warning("docker_access")
                     read_only = vm.volume_mount_spec.get("read_only", False)
                     pretty, is_host_mount = self.get_pretty_host_mount(source)
                     if is_host_mount:
@@ -245,10 +287,17 @@ class Notes:
         self._security = {k: v for k, v in self._security.items() if v}
 
     def render(self):
-        self._set_header()
+        # The scan adds warnings, the header shows whether there are any
         self.scan_containers()
+        self._set_header()
 
         result = self._header
+
+        if self._risk_warnings:
+            result += "## Risks ⚠️\n\n"
+            for name in self._risk_warnings:
+                result += f"- {RISK_WARNINGS[name]}\n"
+            result += f"\n{RISK_WARNING_IMPACT} {RISK_WARNING_NOTES_SUFFIX}\n\n"
 
         if self._warnings:
             result += "## Warnings ⚠️\n\n"

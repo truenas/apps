@@ -52,8 +52,11 @@ def catalog_container_cmd(options: list[str], command: list[str]) -> list[str]:
     ]
 
 
-def render_app_cmd(app_path: Path | str, values_path: Path | str) -> list[str]:
-    """Render the app into its templates/rendered/docker-compose.yaml."""
+def render_app_cmd(app_path: Path | str, values_path: Path | str, readme: bool = False) -> list[str]:
+    """Render the app into its templates/rendered/docker-compose.yaml.
+
+    With readme, the library also renders the x-readme data the app's README.md is generated from.
+    """
     render = shlex.join(
         ["apps_render_app", "render", f"--path=/workspace/{app_path}", f"--values=/workspace/{values_path}"]
     )
@@ -63,10 +66,10 @@ def render_app_cmd(app_path: Path | str, values_path: Path | str) -> list[str]:
     drop_privs = (
         f"setpriv --reuid={os.getuid()} --regid={os.getgid()} --groups=$(stat -c %g /var/run/docker.sock) --"
     )
-    return catalog_container_cmd(
-        ["-v=/var/run/docker.sock:/var/run/docker.sock:ro", "--entrypoint=/bin/bash"],
-        ["-c", f"{drop_privs} {render}"],
-    )
+    options = ["-v=/var/run/docker.sock:/var/run/docker.sock:ro", "--entrypoint=/bin/bash"]
+    if readme:
+        options.append("-e=IX_RENDER_README=1")
+    return catalog_container_cmd(options, ["-c", f"{drop_privs} {render}"])
 
 
 def hash_generate_cmd(args: list[str]) -> list[str]:

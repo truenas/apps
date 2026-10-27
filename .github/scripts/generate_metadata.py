@@ -42,6 +42,14 @@ from prepare_libs import prepare_app_libs
 
 APP_VALUES_FILE = "ix_values.yaml"
 ITEM_FILE = "item.yaml"
+README_FILE = "README.md"
+
+# The generated block of README warnings, placed at the end of the README
+README_WARNINGS_START = "<!-- x-readme:warnings:start -->"
+README_WARNINGS_END = "<!-- x-readme:warnings:end -->"
+RE_README_WARNINGS = re.compile(
+    rf"\n*{re.escape(README_WARNINGS_START)}.*?{re.escape(README_WARNINGS_END)}\n*", re.S
+)
 
 # Special apps excluded from test train
 EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
@@ -281,6 +289,10 @@ class Analysis:
     capabilities: dict[str, set[str]]
     # service -> (uid, gid) of each test value
     users: dict[str, list[tuple[int, int]]]
+    # README warnings of every test value
+    readme_warnings: set[str]
+    # Follows the README warnings, the same in every test value
+    readme_warnings_footer: str
 
 
 # Discovery
@@ -324,7 +336,7 @@ def render(app: App, values_file: str) -> dict:
     """Render the app with the given test values and return the compose data."""
     values_path = app.path / TEST_VALUES_DIR / values_file
     compose_path = app.path / RENDERED_COMPOSE_PATH
-    docker_cmd = render_app_cmd(app.path, values_path)
+    docker_cmd = render_app_cmd(app.path, values_path, readme=True)
 
     logger.debug(f"Rendering: {shlex.join(docker_cmd)}")
     result = subprocess.run(docker_cmd, capture_output=True, text=True)
@@ -377,11 +389,23 @@ def parse_user(service: str, user) -> tuple[int, int]:
 
 
 def analyze(app: App) -> Analysis:
-    analysis = Analysis(service_names=set(), capabilities=defaultdict(set), users=defaultdict(list))
+    analysis = Analysis(
+        service_names=set(),
+        capabilities=defaultdict(set),
+        users=defaultdict(list),
+        readme_warnings=set(),
+        readme_warnings_footer="",
+    )
 
     for values_file in app.test_values:
         logger.debug(f"Processing {app.name} with {values_file}")
-        services = render(app, values_file).get("services")
+        compose = render(app, values_file)
+        # Libraries older than 2.3.18 don't render x-readme
+        readme = compose.get("x-readme") or {}
+        analysis.readme_warnings.update(readme.get("warnings") or [])
+        analysis.readme_warnings_footer = readme.get("warnings_footer") or analysis.readme_warnings_footer
+
+        services = compose.get("services")
         if not services:
             raise ValueError(f"No services found when rendering {app.name} with {values_file}")
 
@@ -545,6 +569,22 @@ def build_item(app_config: dict) -> dict:
         "screenshots": app_config.get("screenshots", []),
         "tags": app_config.get("keywords", []),
     }
+
+
+def build_readme(readme: str, warnings: list[str], footer: str) -> str:
+    """The README with its generated warnings block replaced by (or removed for no) warnings."""
+    stripped = RE_README_WARNINGS.sub("", readme)
+    # Removing a block also takes the README's final newline, a README without one is left untouched
+    if stripped != readme:
+        stripped = stripped.rstrip() + "\n"
+    if not warnings:
+        return stripped
+
+    lines = [README_WARNINGS_START, *(f"> ⚠️ **WARNING:** {w}" for w in warnings)]
+    if footer:
+        lines.append(footer)
+    block = "\n\n".join([*lines, README_WARNINGS_END])
+    return f"{stripped.rstrip()}\n\n{block}\n"
 
 
 def get_git_date_added(app: App) -> str:
@@ -744,6 +784,15 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
         changed = True
     # Written every time, so it keeps the format generate_metadata writes app.yaml in
     write_yaml(item_path, item)
+
+    readme_path = app.path / README_FILE
+    readme = readme_path.read_text()
+    # Sorted, a set's order changes between runs
+    new_readme = build_readme(readme, sorted(analysis.readme_warnings), analysis.readme_warnings_footer)
+    if new_readme != readme:
+        logger.info(f"Updated {app.name} README warnings: {len(analysis.readme_warnings)}")
+        readme_path.write_text(new_readme)
+        changed = True
 
     # A library sync in this run has already bumped the app, one bump covers both changes
     bumped = changed and bump_version and not already_bumped

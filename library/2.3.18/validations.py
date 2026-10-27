@@ -18,6 +18,8 @@ RESTRICTED: tuple[Path, ...] = (
     Path("/conf"),
     Path("/audit"),
     Path("/var/run/middleware"),
+    # /var/run is a symlink to /run on TrueNAS, so the middleware socket resolves under /run
+    Path("/run/middleware"),
     Path("/home"),
     Path("/boot"),
     Path("/var/log"),
@@ -251,14 +253,15 @@ def valid_fs_path_or_raise(path: str):
 def is_allowed_path(input_path: str, is_ix_volume: bool = False) -> bool:
     """
     Validates that the given path (after resolving symlinks) is not
-    one of the restricted paths or within those restricted directories.
+    one of the restricted paths, within those restricted directories
+    or a parent of them (which would expose them too).
 
     Returns True if the path is allowed, False otherwise.
     """
     # Resolve the path to avoid symlink bypasses
     real_path = Path(input_path).resolve()
     for restricted in RESTRICTED if not is_ix_volume else [r for r in RESTRICTED if r != Path("/mnt/.ix-apps")]:
-        if real_path.is_relative_to(restricted):
+        if real_path.is_relative_to(restricted) or restricted.is_relative_to(real_path):
             return False
 
     return real_path not in RESTRICTED_IN
@@ -277,6 +280,8 @@ def _valid_path_or_raise(path: str):
         raise RenderError(f"Path [{path}] must start with /")
     if "//" in path:
         raise RenderError(f"Path [{path}] cannot contain [//]")
+    if any(part in (".", "..") for part in path.split("/")):
+        raise RenderError(f"Path [{path}] cannot contain [.] or [..] components")
     return path
 
 
