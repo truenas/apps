@@ -460,7 +460,7 @@ module.exports = {
     ),
     customVersioning(
       // build-1284
-      "^build-(?<major>\\d+)$",
+      "^build-(?<minor>\\d+)$",
       ["ghcr.io/silo-server/silo-server"],
     ),
   ],
