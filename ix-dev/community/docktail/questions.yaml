@@ -1,15 +1,14 @@
 groups:
 - name: DockTail Configuration
-  description: Configure DockTail service credentials and optional monitoring
+  description: Configure DockTail
 - name: Tailscale Configuration
-  description: Configure the Tailscale sidecar. It requires host networking and /dev/net/tun to reach Docker container
-    IPs.
+  description: Configure the Tailscale sidecar for DockTail
 - name: Storage Configuration
-  description: Configure persistent Tailscale state storage
+  description: Configure Storage for DockTail
 - name: Labels Configuration
-  description: Configure labels for DockTail and its Tailscale sidecar
+  description: Configure Labels for DockTail
 - name: Resources Configuration
-  description: Configure resources for each container
+  description: Configure Resources for DockTail
 questions:
 - variable: TZ
   label: Timezone
@@ -27,8 +26,11 @@ questions:
     type: dict
     attrs:
     - variable: credentials_type
-      label: Tailscale Service Credentials
-      description: Credentials for automatic service creation. See https://docktail.org/docs/tailscale-admin/.
+      label: Tailscale Credentials
+      description: |
+        Credentials DockTail uses to create service definitions in your tailnet.</br>
+        OAuth is recommended because API keys expire.</br>
+        Setup and required permissions: https://docktail.org/docs/tailscale-admin/
       schema:
         type: string
         required: true
@@ -39,8 +41,8 @@ questions:
         - value: api_key
           description: API Key
     - variable: oauth_client_id
-      label: Tailscale OAuth Client ID
-      description: OAuth client ID.
+      label: OAuth Client ID
+      description: Client ID of your Tailscale OAuth client.
       schema:
         type: string
         required: true
@@ -51,8 +53,8 @@ questions:
           - '='
           - oauth
     - variable: oauth_client_secret
-      label: Tailscale OAuth Client Secret
-      description: OAuth client secret.
+      label: OAuth Client Secret
+      description: Client secret of your Tailscale OAuth client.
       schema:
         type: string
         required: true
@@ -63,8 +65,8 @@ questions:
           - '='
           - oauth
     - variable: api_key
-      label: Tailscale API Key
-      description: API key. Alternative to OAuth.
+      label: API Key
+      description: Your Tailscale API key (tskey-api-...).
       schema:
         type: string
         required: true
@@ -75,8 +77,8 @@ questions:
           - '='
           - api_key
     - variable: cloud_key
-      label: DockTail Cloud key
-      description: Optional, connects this host to DockTail Cloud monitoring. DOCKTAIL_CLOUD_KEY.
+      label: DockTail Cloud Key (Optional)
+      description: Connects this host to DockTail Cloud monitoring at cloud.docktail.org. Leave empty to run DockTail alone.
       schema:
         type: string
         private: true
@@ -108,8 +110,11 @@ questions:
     type: dict
     attrs:
     - variable: auth_key
-      label: Tailscale Auth Key
-      description: Required sidecar enrollment key. Must allow the advertised tags.
+      label: Auth Key
+      description: |
+        Auth key the Tailscale sidecar uses to join your tailnet.</br>
+        It must be allowed to apply the tags set in Advertise Tags.</br>
+        To generate one: https://login.tailscale.com/admin/settings/keys
       schema:
         type: string
         required: true
@@ -118,17 +123,18 @@ questions:
         empty: false
     - variable: hostname
       label: Hostname
-      description: Tailscale sidecar hostname.
+      description: Name of the Tailscale sidecar device in your tailnet.
       schema:
         type: string
         required: true
         default: docktail-host
         valid_chars: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
-        valid_chars_error: Use 1 to 63 lowercase letters, numbers or hyphens, starting and ending with a letter
-          or number.
+        valid_chars_error: Use up to 63 lowercase letters, numbers, and hyphens, starting and ending with a letter or number.
     - variable: advertise_tags
       label: Advertise Tags
-      description: 'Sidecar device tags. Default: tag:server. Requires matching tailnet policy.'
+      description: |
+        Tags for the Tailscale sidecar device.</br>
+        Each tag needs a tagOwners entry in your tailnet policy, and autoApprovers.services must allow it to advertise services.
       schema:
         type: list
         required: true
@@ -138,12 +144,12 @@ questions:
         items:
         - variable: tag
           label: Tag
-          description: A Tailscale device tag, such as tag:server.
+          description: A Tailscale tag, for example tag:server.
           schema:
             type: string
             required: true
             valid_chars: ^tag:[a-zA-Z][a-zA-Z0-9-]*$
-            valid_chars_error: Use a tag such as tag:server.
+            valid_chars_error: "Tags start with \"tag:\" followed by a letter, for example tag:server."
 - variable: storage
   label: ''
   group: Storage Configuration
@@ -152,7 +158,7 @@ questions:
     attrs:
     - variable: state
       label: Tailscale State Storage
-      description: Persistent Tailscale state at /var/lib/tailscale. Must be writable by root.
+      description: Where the Tailscale sidecar keeps its state, so it stays the same device across restarts.
       schema:
         type: dict
         attrs:
@@ -294,14 +300,14 @@ questions:
         attrs:
         - variable: cpus
           label: CPUs
-          description: CPUs limit for each DockTail and Tailscale container.
+          description: CPU limit, applied to the DockTail and Tailscale containers separately.
           schema:
             type: int
             default: 2
             required: true
         - variable: memory
           label: Memory (in MB)
-          description: Memory limit for each DockTail and Tailscale container.
+          description: Memory limit, applied to the DockTail and Tailscale containers separately.
           schema:
             type: int
             default: 1024
