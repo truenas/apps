@@ -1,0 +1,308 @@
+groups:
+- name: DockTail Configuration
+  description: Configure DockTail service credentials and optional monitoring
+- name: Tailscale Configuration
+  description: Configure the Tailscale sidecar. It requires host networking and /dev/net/tun to reach Docker container
+    IPs.
+- name: Storage Configuration
+  description: Configure persistent Tailscale state storage
+- name: Labels Configuration
+  description: Configure labels for DockTail and its Tailscale sidecar
+- name: Resources Configuration
+  description: Configure resources for each container
+questions:
+- variable: TZ
+  label: Timezone
+  description: Timezone
+  group: DockTail Configuration
+  schema:
+    type: string
+    default: Etc/UTC
+    $ref:
+    - definitions/timezone
+- variable: docktail
+  label: ''
+  group: DockTail Configuration
+  schema:
+    type: dict
+    attrs:
+    - variable: credentials_type
+      label: Tailscale Service Credentials
+      description: Credentials for automatic service creation. See https://docktail.org/docs/tailscale-admin/.
+      schema:
+        type: string
+        required: true
+        default: oauth
+        enum:
+        - value: oauth
+          description: OAuth Client (Recommended)
+        - value: api_key
+          description: API Key
+    - variable: oauth_client_id
+      label: Tailscale OAuth Client ID
+      description: OAuth client ID.
+      schema:
+        type: string
+        required: true
+        private: true
+        empty: false
+        show_if:
+        - - credentials_type
+          - '='
+          - oauth
+    - variable: oauth_client_secret
+      label: Tailscale OAuth Client Secret
+      description: OAuth client secret.
+      schema:
+        type: string
+        required: true
+        private: true
+        empty: false
+        show_if:
+        - - credentials_type
+          - '='
+          - oauth
+    - variable: api_key
+      label: Tailscale API Key
+      description: API key. Alternative to OAuth.
+      schema:
+        type: string
+        required: true
+        private: true
+        empty: false
+        show_if:
+        - - credentials_type
+          - '='
+          - api_key
+    - variable: cloud_key
+      label: DockTail Cloud key
+      description: Optional, connects this host to DockTail Cloud monitoring. DOCKTAIL_CLOUD_KEY.
+      schema:
+        type: string
+        private: true
+        default: ''
+    - variable: additional_envs
+      label: Additional Environment Variables
+      schema:
+        type: list
+        default: []
+        items:
+        - variable: env
+          label: Environment Variable
+          schema:
+            type: dict
+            attrs:
+            - variable: name
+              label: Name
+              schema:
+                type: string
+                required: true
+            - variable: value
+              label: Value
+              schema:
+                type: string
+- variable: tailscale
+  label: ''
+  group: Tailscale Configuration
+  schema:
+    type: dict
+    attrs:
+    - variable: auth_key
+      label: Tailscale Auth Key
+      description: Required sidecar enrollment key. Must allow the advertised tags.
+      schema:
+        type: string
+        required: true
+        private: true
+        default: ''
+        empty: false
+    - variable: hostname
+      label: Hostname
+      description: Tailscale sidecar hostname.
+      schema:
+        type: string
+        required: true
+        default: docktail-host
+        valid_chars: ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$
+        valid_chars_error: Use 1 to 63 lowercase letters, numbers or hyphens, starting and ending with a letter
+          or number.
+    - variable: advertise_tags
+      label: Advertise Tags
+      description: 'Sidecar device tags. Default: tag:server. Requires matching tailnet policy.'
+      schema:
+        type: list
+        required: true
+        min: 1
+        default:
+        - tag:server
+        items:
+        - variable: tag
+          label: Tag
+          description: A Tailscale device tag, such as tag:server.
+          schema:
+            type: string
+            required: true
+            valid_chars: ^tag:[a-zA-Z][a-zA-Z0-9-]*$
+            valid_chars_error: Use a tag such as tag:server.
+- variable: storage
+  label: ''
+  group: Storage Configuration
+  schema:
+    type: dict
+    attrs:
+    - variable: state
+      label: Tailscale State Storage
+      description: Persistent Tailscale state at /var/lib/tailscale. Must be writable by root.
+      schema:
+        type: dict
+        attrs:
+        - variable: type
+          label: Type
+          description: 'ixVolume: Is dataset created automatically by the system.</br>
+
+            Host Path: Is a path that already exists on the system.
+
+            '
+          schema:
+            type: string
+            required: true
+            default: ix_volume
+            enum:
+            - value: host_path
+              description: Host Path (Path that already exists on the system)
+            - value: ix_volume
+              description: ixVolume (Dataset created automatically by the system)
+        - variable: ix_volume_config
+          label: ixVolume Configuration
+          description: The configuration for the ixVolume dataset.
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - variable: acl_enable
+              label: Enable ACL
+              description: Enable ACL for the storage.
+              schema:
+                type: boolean
+                default: false
+            - variable: dataset_name
+              label: Dataset Name
+              description: The name of the dataset to use for storage.
+              schema:
+                type: string
+                required: true
+                hidden: true
+                default: state
+            - variable: acl_entries
+              label: ACL Configuration
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+        - variable: host_path_config
+          label: Host Path Configuration
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - host_path
+            attrs:
+            - variable: acl_enable
+              label: Enable ACL
+              description: Enable ACL for the storage.
+              schema:
+                type: boolean
+                default: false
+            - variable: acl
+              label: ACL Configuration
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+                $ref:
+                - normalize/acl
+            - variable: path
+              label: Host Path
+              description: The host path to use for storage.
+              schema:
+                type: hostpath
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+                required: true
+- variable: labels
+  label: ''
+  group: Labels Configuration
+  schema:
+    type: list
+    default: []
+    items:
+    - variable: label
+      label: Label
+      schema:
+        type: dict
+        attrs:
+        - variable: key
+          label: Key
+          schema:
+            type: string
+            required: true
+        - variable: value
+          label: Value
+          schema:
+            type: string
+            required: true
+        - variable: containers
+          label: Containers
+          description: Containers where the label should be applied
+          schema:
+            type: list
+            items:
+            - variable: container
+              label: Container
+              schema:
+                type: string
+                required: true
+                enum:
+                - value: docktail
+                  description: docktail
+                - value: tailscale
+                  description: tailscale
+- variable: resources
+  label: ''
+  group: Resources Configuration
+  schema:
+    type: dict
+    attrs:
+    - variable: limits
+      label: Limits
+      schema:
+        type: dict
+        attrs:
+        - variable: cpus
+          label: CPUs
+          description: CPUs limit for each DockTail and Tailscale container.
+          schema:
+            type: int
+            default: 2
+            required: true
+        - variable: memory
+          label: Memory (in MB)
+          description: Memory limit for each DockTail and Tailscale container.
+          schema:
+            type: int
+            default: 1024
+            required: true

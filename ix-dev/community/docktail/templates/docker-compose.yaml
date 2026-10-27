@@ -1,0 +1,48 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set ts = tpl.add_container(values.consts.tailscale_container_name, "tailscale_image") %}
+{% do ts.set_user(0, 0) %}
+{% do ts.set_hostname(values.tailscale.hostname) %}
+{% do ts.set_network_mode("host") %}
+{# Same capabilities as the catalog Tailscale app; the library drops all others. #}
+{% do ts.add_caps(["NET_ADMIN", "NET_RAW", "SYS_MODULE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+{% do ts.add_tun_device() %}
+{% do ts.environment.add_env("TS_AUTHKEY", values.tailscale.auth_key) %}
+{% do ts.environment.add_env("TS_EXTRA_ARGS", "--advertise-tags=%s"|format(values.tailscale.advertise_tags|join(","))) %}
+{% do ts.environment.add_env("TS_STATE_DIR", values.consts.state_path) %}
+{% do ts.environment.add_env("TS_SOCKET", "%s/tailscaled.sock"|format(values.consts.socket_path)) %}
+{% do ts.environment.add_env("TS_USERSPACE", false) %}
+{% do ts.add_storage(values.consts.state_path, values.storage.state) %}
+{% set socket_volume = {"type": "volume", "volume_config": {"volume_name": "tailscale-socket"}} %}
+{% do ts.add_storage(values.consts.socket_path, socket_volume) %}
+{% do ts.healthcheck.set_custom_test(["CMD", "test", "-S", "%s/tailscaled.sock"|format(values.consts.socket_path)]) %}
+{% do ts.healthcheck.set_interval(5) %}
+{% do ts.healthcheck.set_retries(30) %}
+
+{# Catalog CI has no tailnet credentials. Exercise the real daemon and shared
+   socket offline, without containerboot attempting to enroll the fixture key. #}
+{% if values.ci %}
+  {% do ts.set_entrypoint(["tailscaled"]) %}
+  {% do ts.set_command(["--statedir=%s"|format(values.consts.state_path), "--socket=%s/tailscaled.sock"|format(values.consts.socket_path)]) %}
+{% endif %}
+
+{% set app = tpl.add_container(values.consts.docktail_container_name, "image") %}
+{% do app.set_user(0, 0) %}
+{% do app.add_docker_socket() %}
+{% do app.add_storage(values.consts.socket_path, socket_volume) %}
+{% do app.depends.add_dependency(values.consts.tailscale_container_name, "service_healthy") %}
+{% do app.healthcheck.set_custom_test(["CMD", "/app/docktail", "health"]) %}
+
+{% if values.docktail.credentials_type == "oauth" %}
+  {% do app.environment.add_env("TAILSCALE_OAUTH_CLIENT_ID", values.docktail.oauth_client_id) %}
+  {% do app.environment.add_env("TAILSCALE_OAUTH_CLIENT_SECRET", values.docktail.oauth_client_secret) %}
+{% else %}
+  {% do app.environment.add_env("TAILSCALE_API_KEY", values.docktail.api_key) %}
+{% endif %}
+{% do app.environment.add_env("DOCKTAIL_CLOUD_KEY", values.docktail.cloud_key) %}
+{% do app.environment.add_user_envs(values.docktail.additional_envs) %}
+
+{% do tpl.notes.add_info("Configure Tailscale tagOwners and autoApprovers.services before using DockTail. See https://docktail.org/docs/tailscale-admin/") %}
+{% do tpl.notes.add_info("DockTail has no local web interface. Add docktail.service.* labels to application containers to create Tailscale Services.") %}
+
+{{ tpl.render() | tojson }}
