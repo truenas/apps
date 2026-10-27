@@ -412,22 +412,40 @@ def test_add_postgres_max_connections_in_additional_options(mock_values):
         )
 
 
-def test_add_redis_with_password_with_spaces(mock_values):
+@pytest.mark.parametrize(
+    "password, match",
+    [
+        pytest.param("test password", r"\[ \]", id="space"),
+        pytest.param("test'password", r"\[\'\]", id="single_quote"),
+        pytest.param("test#password", r"\[#\]", id="hash"),
+        pytest.param("test\npassword", r"\[\\n\]", id="newline"),
+        pytest.param("test\rpassword", r"\[\\r\]", id="carriage_return"),
+    ],
+)
+def test_add_redis_with_invalid_password(mock_values, password, match):
     mock_values["images"]["redis_image"] = {
-        "repository": "redis",
+        "repository": "valkey/valkey",
         "tag": "latest",
     }
     render = Render(mock_values)
     c1 = render.add_container("test_container", "test_image")
     c1.healthcheck.disable()
     perms_container = render.deps.perms("perms_container")
-    with pytest.raises(RenderError, match=r"Redis password cannot contain \[ \]"):
+    with pytest.raises(RenderError, match=rf"Redis password cannot contain {match}"):
         render.deps.redis(
             "redis_container",
             "redis_image",
-            {"password": "test password", "volume": {}},  # type: ignore
+            {"password": password, "volume": {}},  # type: ignore
             perms_container,
         )
+
+
+def test_add_redis_unsupported_redis_repo(mock_values):
+    mock_values["images"]["redis_image"] = {"repository": "redis", "tag": "latest"}
+    render = Render(mock_values)
+    perms_container = render.deps.perms("perms_container")
+    with pytest.raises(RenderError, match=r"Unsupported repo \[redis\] for redis\."):
+        render.deps.redis("redis_container", "redis_image", {"password": "test", "volume": _volume()}, perms_container)
 
 
 def test_add_redis(mock_values):
@@ -521,6 +539,14 @@ def test_add_redis(mock_values):
         "REDIS_PASSWORD": "test&password@",
         "REDISCLI_AUTH": "test&password@",
     }
+    # The password is read from the env by the shell, so it is in no process arguments.
+    # $$ is compose's escape for a literal $
+    assert output["services"]["redis_container"]["command"] == [
+        "sh",
+        "-c",
+        "exec valkey-server - <<EOF\nport 6379\nrequirepass '$$REDIS_PASSWORD'\nEOF",
+    ]
+    assert "test&password@" not in str(output["services"]["redis_container"]["command"])
     assert output["services"]["redis_container"]["depends_on"] == {
         "perms_container": {"condition": "service_completed_successfully"}
     }

@@ -16,7 +16,7 @@ class RedisConfig(TypedDict):
     volume: "IxStorage"
 
 
-SUPPORTED_REPOS = ["redis", "valkey/valkey", "ghcr.io/valkey-io/valkey"]
+SUPPORTED_REPOS = ["valkey/valkey", "ghcr.io/valkey-io/valkey"]
 
 
 class RedisContainer:
@@ -47,12 +47,18 @@ class RedisContainer:
         c.set_grace_period(60)
         c.healthcheck.set_test("redis", {"port": port})
 
-        cmd = []
-        cmd.extend(["--port", str(port)])
-        cmd.extend(["--requirepass", config["password"]])
         c.environment.add_env("REDIS_PASSWORD", config["password"])
         c.environment.add_env("REDISCLI_AUTH", config["password"])
-        c.set_command(cmd)
+        # The config goes to the server on stdin, so the password is in no process arguments.
+        # The image's entrypoint (tini) keeps its arguments, which every user on the host can read.
+        # The image's entrypoint execs a command that is not an option as is.
+        # The shell expands $REDIS_PASSWORD, its value is single quoted for the server's config parser.
+        config_lines = [
+            f"port {port}",
+            "requirepass '$REDIS_PASSWORD'",
+        ]
+        server_config = "\n".join(config_lines)
+        c.set_command(["sh", "-c", f"exec valkey-server - <<EOF\n{server_config}\nEOF"])
 
         c.add_storage("/data", config["volume"])
         perms_instance.add_or_skip_action(

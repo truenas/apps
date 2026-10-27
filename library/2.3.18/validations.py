@@ -116,10 +116,11 @@ def valid_sysctl_or_raise(sysctl: str, host_network: bool):
 
 
 def valid_redis_password_or_raise(password: str):
-    forbidden_chars = [" ", "'", "#"]
-    for char in forbidden_chars:
+    # The password is a single quoted value in a line of the server's config
+    forbidden_chars = {" ": " ", "'": "'", "#": "#", "\n": "\\n", "\r": "\\r"}
+    for char, shown in forbidden_chars.items():
         if char in password:
-            raise RenderError(f"Redis password cannot contain [{char}]")
+            raise RenderError(f"Redis password cannot contain [{shown}]")
 
 
 def valid_octal_mode_or_raise(mode: str):
