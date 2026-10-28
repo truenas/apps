@@ -1,4 +1,4 @@
-> Unvalidated update candidate: ERPNext 16.52.1 / bundled Frappe 16.53.0. Only the exact pinned 16.51.1 source is eligible. Docker and TrueNAS acceptance tests are pending; do not deploy to production.
+> ERPNext 16.52.1 / bundled Frappe 16.53.0. Automated Docker and TrueNAS 25.10.7 install, upgrade, failure/recovery and reboot checks passed. Maintainer review and full catalog CI remain pending.
 
 # ERPNext
 
