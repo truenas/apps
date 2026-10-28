@@ -1,3 +1,5 @@
+> Unvalidated update candidate: ERPNext 16.52.1 / bundled Frappe 16.53.0. Only the exact pinned 16.51.1 source is eligible. Docker and TrueNAS acceptance tests are pending; do not deploy to production.
+
 # ERPNext
 
 [ERPNext](https://erpnext.com) is an open-source business management system for accounting, inventory, sales and support.
@@ -8,7 +10,7 @@ Choose the site name and database password once. Changing the initial
 Administrator password field later does not reset an existing account.
 
 Images are pinned. The reviewed lifecycle supports fresh installation and only
-the exact ERPNext 16.51.0 to 16.51.1 patch transition. Other ERPNext image/version changes
+the exact ERPNext 16.51.1 to 16.52.1 patch transition. Other ERPNext image/version changes
 and importing an unmanaged existing site are blocked. Background jobs must be
 drained or reviewed before a new upgrade can proceed.
 
