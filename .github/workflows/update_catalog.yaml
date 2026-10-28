@@ -10,12 +10,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  validate:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    uses: ./.github/workflows/dev_apps_validate.yml
+
   publish_catalog:
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    needs: validate
     runs-on: ubuntu-latest
 
     container:
-      image: ghcr.io/truenas/apps_validation:latest
+      image: ghcr.io/truenas/apps_validation:slim
       env:
         FAKE_ENV: 1
 
@@ -31,7 +36,7 @@ jobs:
         run: |
           /bin/bash -c "PWD=${pwd}; /usr/local/bin/apps_catalog_update publish --path $PWD"
       - name: Check untracked files existence
-        run: echo "CHANGES=$(git -C $(pwd) --no-pager status --porcelain | wc -l)" >> "$GITHUB_ENV"
+        run: echo "CHANGES=$(git -C "$(pwd)" --no-pager status --porcelain | wc -l)" >> "$GITHUB_ENV"
 
       - uses: stefanzweifel/git-auto-commit-action@v7
         if: env.CHANGES != '0'
