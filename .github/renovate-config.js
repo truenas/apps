@@ -187,7 +187,7 @@ module.exports = {
     customVersioning(
       // RELEASE.2024-08-26T15-33-07Z
       "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
-      ["minio/minio", "quay.io/minio/aistor/minio"],
+      ["quay.io/minio/aistor/minio"],
     ),
     customVersioning(
       // version-6.0.0
@@ -297,11 +297,6 @@ module.exports = {
       // 335
       "^(?<patch>\\d+)$",
       ["quay.io/cockpit/ws"],
-    ),
-    customVersioning(
-      // 0.3_0.18
-      "^(?<major>\\d+)\\.(?<minor>\\d+)_(?<patch>\\d+)\\.(?<build>\\d+)$",
-      ["ghcr.io/magicgrants/monero-lws"],
     ),
     customVersioning(
       // 6.1.4.2
@@ -462,6 +457,11 @@ module.exports = {
       // jumps to a -full tag. The ubuntu-* tags are intentionally skipped.
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?(-(?<compatibility>full))?$",
       ["nicolargo/glances"],
+    ),
+    customVersioning(
+      // build-1284
+      "^build-(?<minor>\\d+)$",
+      ["ghcr.io/silo-server/silo-server"],
     ),
   ],
 };

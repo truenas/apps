@@ -26,9 +26,9 @@ from common import (
     RENDERED_COMPOSE_PATH,
     TEST_VALUES_DIR,
     YAML_LOADER,
-    hash_generate_cmd,
     render_app_cmd,
 )
+from prepare_libs import prepare_app_libs
 
 CHANGE_PLATFORM_FOR_IMAGES = [
     "redis",
@@ -487,17 +487,10 @@ def check_app_dir_exists():
 
 
 def copy_lib():
-    cmd = hash_generate_cmd(
-        [f"--train={args['train']}", f"--app={args['app']}"]
-    )
-    print_cmd(shlex.join(cmd))
-    separator_start()
-    res = subprocess.run(cmd, capture_output=True)
-    print_stderr(res.stdout.decode("utf-8"))
-    separator_end()
-    if res.returncode != 0:
-        print_stderr("Failed to generate hashes and copy lib")
-        print_stderr(res.stderr.decode("utf-8"))
+    try:
+        prepare_app_libs(get_app_dir())
+    except Exception as e:
+        print_stderr(f"Failed to copy lib: {e}")
         sys.exit(1)
 
 
