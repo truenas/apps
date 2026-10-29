@@ -53,6 +53,7 @@ RE_README_WARNINGS = re.compile(
     rf"\n*{re.escape(README_WARNINGS_START)}.*?{re.escape(README_WARNINGS_END)}\n*", re.S
 )
 # The UI shows what follows the README's first </h1> and removes the tags not in this list
+# https://github.com/truenas/webui/blob/459561a05754239e04c7e8a09d718f1594002c0e/src/app/pages/apps/components/app-detail-view/app-details-header/app-details-header.component.ts#L48
 README_ALLOWED_TAGS = {"a", "b", "br", "em", "i", "p", "strong"}
 
 # Special apps excluded from test train
