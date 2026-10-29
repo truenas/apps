@@ -23,6 +23,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 
 from common import (
@@ -34,6 +35,7 @@ from common import (
     RENDERED_COMPOSE_PATH,
     TEST_VALUES_DIR,
     hash_generate_cmd,
+    markdown_to_html_cmd,
     read_yaml,
     render_app_cmd,
     write_yaml,
@@ -50,6 +52,8 @@ README_WARNINGS_END = "<!-- x-readme:warnings:end -->"
 RE_README_WARNINGS = re.compile(
     rf"\n*{re.escape(README_WARNINGS_START)}.*?{re.escape(README_WARNINGS_END)}\n*", re.S
 )
+# The UI shows what follows the README's first </h1> and removes the tags not in this list
+README_ALLOWED_TAGS = {"a", "b", "br", "em", "i", "p", "strong"}
 
 # Special apps excluded from test train
 EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
@@ -672,6 +676,32 @@ def validate_images(app: App) -> None:
             )
 
 
+class TagCollector(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.tags: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        self.tags.append(tag)
+
+
+def validate_readme(app: App, readme: str) -> None:
+    """Fail on a README with anything the UI does not show: no title or elements other than the allowed ones."""
+    result = subprocess.run(markdown_to_html_cmd(), input=readme, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Converting the README of {app.name} to HTML failed:\n{result.stderr}")
+
+    collector = TagCollector()
+    collector.feed(result.stdout)
+    if collector.tags[:1] != ["h1"]:
+        raise ValueError(f"{app.path / README_FILE} must start with a [# <title>] line")
+    if disallowed := sorted(set(collector.tags[1:]) - README_ALLOWED_TAGS):
+        raise ValueError(
+            f"{app.path / README_FILE} has elements the UI does not show: {disallowed}. "
+            f"Only the title and {sorted(README_ALLOWED_TAGS)} are allowed"
+        )
+
+
 def validate_app_config(app: App, app_config: dict) -> None:
     categories = app_config.get("categories", [])
     if len(categories) > 1:
@@ -789,6 +819,7 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     readme = readme_path.read_text()
     # Sorted, a set's order changes between runs
     new_readme = build_readme(readme, sorted(analysis.readme_warnings), analysis.readme_warnings_footer)
+    validate_readme(app, new_readme)
     if new_readme != readme:
         logger.info(f"Updated {app.name} README warnings: {len(analysis.readme_warnings)}")
         readme_path.write_text(new_readme)

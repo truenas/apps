@@ -72,6 +72,14 @@ def render_app_cmd(app_path: Path | str, values_path: Path | str, readme: bool =
     return catalog_container_cmd(options, ["-c", f"{drop_privs} {render}"])
 
 
+def markdown_to_html_cmd() -> list[str]:
+    """Convert the markdown on stdin to HTML, the way apps_validation converts an app's README for the catalog."""
+    return catalog_container_cmd(
+        ["-i", "--entrypoint=python3"],
+        ["-c", "import sys, markdown; sys.stdout.write(markdown.markdown(sys.stdin.read()))"],
+    )
+
+
 def hash_generate_cmd(args: list[str]) -> list[str]:
     """Copy the library into the apps and update their lib_version_hash."""
     return catalog_container_cmd(
