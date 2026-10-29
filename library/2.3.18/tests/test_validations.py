@@ -52,6 +52,9 @@ def mock_resolve(self):
         ("/var/run/docker.sock", True),
         ("/run/udev", True),
         ("/var/lib/something", True),
+        # Restricted devices are blocked, but not their parents
+        ("/dev/zfs", False),
+        ("/dev", True),
     ],
 )
 @patch.object(Path, "resolve", mock_resolve)

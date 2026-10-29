@@ -51,6 +51,11 @@ def test_add_volume_duplicate_mount_path(c1):
             r"Path \[/mnt\] is not allowed to be mounted",
             id="host_path_with_disallowed_path",
         ),
+        pytest.param(
+            {"type": "host_path", "host_path_config": {"path": "/dev/zfs"}},
+            r"Path \[/dev/zfs\] is not allowed to be mounted",
+            id="host_path_with_zfs_device",
+        ),
     ],
 )
 def test_add_host_path_volume_invalid(c1, host_path_config, match):

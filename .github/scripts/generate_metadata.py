@@ -580,7 +580,7 @@ def build_readme(readme: str, warnings: list[str], footer: str) -> str:
     if not warnings:
         return stripped
 
-    lines = [README_WARNINGS_START, *(f"> ⚠️ **WARNING:** {w}" for w in warnings)]
+    lines = [README_WARNINGS_START, *(f"⚠️ **WARNING:** {w}" for w in warnings)]
     if footer:
         lines.append(footer)
     block = "\n\n".join([*lines, README_WARNINGS_END])

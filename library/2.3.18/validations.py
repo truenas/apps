@@ -24,6 +24,11 @@ RESTRICTED: tuple[Path, ...] = (
     Path("/boot"),
     Path("/var/log"),
 )
+# Only the exact paths, unlike RESTRICTED, as some apps mount all of /dev
+RESTRICTED_DEVICES: tuple[Path, ...] = (
+    # Gives control over the ZFS pools
+    Path("/dev/zfs"),
+)
 
 
 def is_truenas_system():
@@ -264,6 +269,9 @@ def is_allowed_path(input_path: str, is_ix_volume: bool = False) -> bool:
 
 
 def _is_allowed_real_path(real_path: Path, is_ix_volume: bool) -> bool:
+    if real_path in RESTRICTED_DEVICES:
+        return False
+
     for restricted in RESTRICTED if not is_ix_volume else [r for r in RESTRICTED if r != Path("/mnt/.ix-apps")]:
         if real_path.is_relative_to(restricted) or restricted.is_relative_to(real_path):
             return False
@@ -299,6 +307,16 @@ def allowed_device_or_raise(path: str):
     if path in disallowed_devices:
         raise RenderError(f"Device [{path}] is not allowed to be manually added.")
     return path
+
+
+def unrestricted_device_or_raise(path: str) -> str:
+    """Returns the device's resolved path.
+
+    Unlike allowed_device_or_raise, this applies to the devices the lib adds too."""
+    real_path = Path(path).resolve()
+    if real_path in RESTRICTED_DEVICES:
+        raise RenderError(f"Device [{path}] is not allowed.")
+    return str(real_path)
 
 
 def valid_network_mode_or_raise(mode: str, containers: list[str]):

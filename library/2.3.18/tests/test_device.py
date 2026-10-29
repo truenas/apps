@@ -39,11 +39,27 @@ def test_add_device(render, c1):
             r"Device \[/dev/bus/usb\] is not allowed to be manually added",
             id="add_usb_bus_disallowed",
         ),
+        pytest.param("/dev/zfs", "/dev/zfs", r"Device \[/dev/zfs\] is not allowed\.", id="add_zfs_device"),
     ],
 )
 def test_add_invalid_device(c1, host_path, container_path, error):
     with pytest.raises(RenderError, match=error):
         c1.devices.add_device(host_path, container_path)
+
+
+def test_add_zfs_device_with_allow_disallowed(c1):
+    with pytest.raises(RenderError, match=r"Device \[/dev/zfs\] is not allowed\."):
+        c1.devices.add_device("/dev/zfs", "/dev/zfs", allow_disallowed=True)
+
+
+def test_add_zfs_device_via_symlink(c1, monkeypatch):
+    # Symlinks resolve on the machine that renders, so this one is faked
+    def mock_resolve(self):
+        return Path("/dev/zfs") if str(self) == "/dev/zfs-link" else self
+
+    monkeypatch.setattr(Path, "resolve", mock_resolve)
+    with pytest.raises(RenderError, match=r"Device \[/dev/zfs-link\] is not allowed\."):
+        c1.devices.add_device("/dev/zfs-link", "/dev/zfs")
 
 
 def test_add_duplicate_device(c1):
