@@ -1,0 +1,83 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set server = tpl.add_container(values.consts.server_container_name, "image") %}
+{% set web = tpl.add_container(values.consts.web_container_name, "image") %}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": 0, "gid": 0, "mode": "check"} %}
+{% if values.turn.enabled %}
+  {% set turn_secret = tpl.funcs.secure_string(48) %}
+  {% set turn = tpl.add_container(values.consts.turn_container_name, "turn_image") %}
+{% endif %}
+
+{% do server.set_user(0, 0) %}
+{% do server.environment.add_env("WIRE_STATE", "/data") %}
+{% do server.environment.add_env("WIRE_BACKUP_DIR", "/data/backups") %}
+{% do server.environment.add_env("WIRE_BACKUP_INTERVAL", "21600") %}
+{% do server.environment.add_env("WIRE_BACKUP_RETAIN", "28") %}
+{% if values.turn.enabled %}
+  {% do server.environment.add_env("WIRE_TURN_URLS", "turn:%s:3478?transport=udp,turn:%s:3478?transport=tcp"|format(values.turn.hostname, values.turn.hostname)) %}
+  {% do server.environment.add_env("WIRE_TURN_SECRET", turn_secret) %}
+{% endif %}
+{% do server.add_port(values.network.server_port, {"container_port": values.consts.server_internal_port}) %}
+{% do server.add_storage("/data", values.storage.data) %}
+{% do server.healthcheck.set_test("tcp", {"port": values.consts.server_internal_port}) %}
+
+{% do web.set_user(0, 0) %}
+{% do web.set_command(["python", "/app/wire-web.py"]) %}
+{% do web.environment.add_env("WIRE_STATE", "/data") %}
+{% do web.environment.add_env("WIRE_BACKUP_DIR", "/data/backups") %}
+{% if values.turn.enabled %}
+  {% do web.environment.add_env("WIRE_TURN_PROBE_HOST", values.turn.private_ip) %}
+  {% do web.environment.add_env("WIRE_TURN_PROBE_PORT", "3478") %}
+{% endif %}
+{% do web.add_port(values.network.web_port, {"container_port": values.consts.web_internal_port}) %}
+{% do web.add_storage("/data", dict(values.storage.data, **{"read_only": true})) %}
+{% do web.healthcheck.set_test("tcp", {"port": values.consts.web_internal_port}) %}
+
+{% if values.turn.enabled %}
+  {% do turn.set_network_mode("host") %}
+  {% do turn.healthcheck.set_test("tcp", {"port": 3478}) %}
+  {% do turn.set_command([
+    "--fingerprint",
+    "--use-auth-secret",
+    "--static-auth-secret=%s"|format(turn_secret),
+    "--realm=%s"|format(values.turn.hostname),
+    "--listening-ip=%s"|format(values.turn.private_ip),
+    "--relay-ip=%s"|format(values.turn.private_ip),
+    "--external-ip=%s/%s"|format(values.turn.public_ip, values.turn.private_ip),
+    "--min-port=49160",
+    "--max-port=49200",
+    "--no-cli",
+    "--no-tls",
+    "--no-dtls",
+    "--no-multicast-peers",
+    "--stale-nonce=600",
+    "--user-quota=4",
+    "--total-quota=100",
+    "--max-bps=25000000",
+    "--denied-peer-ip=0.0.0.0-0.255.255.255",
+    "--denied-peer-ip=10.0.0.0-10.255.255.255",
+    "--denied-peer-ip=100.64.0.0-100.127.255.255",
+    "--denied-peer-ip=127.0.0.0-127.255.255.255",
+    "--denied-peer-ip=169.254.0.0-169.254.255.255",
+    "--denied-peer-ip=172.16.0.0-172.31.255.255",
+    "--denied-peer-ip=192.168.0.0-192.168.255.255",
+    "--denied-peer-ip=224.0.0.0-255.255.255.255",
+    "--log-file=stdout",
+  ]) %}
+{% endif %}
+
+{% do perms.add_or_skip_action("data", values.storage.data, perms_config) %}
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do server.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do web.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"name": "Wire Web UI", "scheme": "http", "path": "/"}) %}
+{% do tpl.notes.add_info("Connect a client with /private <TrueNAS-IP>. Wire uses TCP port %s."|format(values.network.server_port.port_number)) %}
+{% do tpl.notes.add_warning("This app is LAN-only by default. Do not expose the TrueNAS management UI. For remote users, prefer Tailscale and give them the NAS Tailscale IP.") %}
+{% if values.turn.enabled %}
+  {% do tpl.notes.add_info("TURN is enabled. Forward TCP/UDP 3478 and UDP 49160-49200 to %s, then verify a relay candidate with /diagnose network from an outside network."|format(values.turn.private_ip)) %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
