@@ -49,12 +49,13 @@
 
 {# Reminders, cleanup, CardDAV sync and geocoding run when these endpoints are called #}
 {% set cron_url = "http://%s:%d/api/cron"|format(values.consts.nametag_container_name, values.network.web_port.port_number) %}
+{% set cron_cmd = "curl --silent --show-error --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/%s'" %}
 {% set cron_config = {
   "tasks": [
-    {"schedule": "0 8 * * *", "command": "curl --silent --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/send-reminders'"|format(cron_url)},
-    {"schedule": "0 3 * * *", "command": "curl --silent --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/purge-deleted'"|format(cron_url)},
-    {"schedule": "0 2,10,18 * * *", "command": "curl --silent --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/carddav-sync'"|format(cron_url)},
-    {"schedule": "*/5 * * * *", "command": "curl --silent --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/geocode'"|format(cron_url)},
+    {"schedule": "0 8 * * *", "command": cron_cmd|format(cron_url, "send-reminders")},
+    {"schedule": "0 3 * * *", "command": cron_cmd|format(cron_url, "purge-deleted")},
+    {"schedule": "0 2,10,18 * * *", "command": cron_cmd|format(cron_url, "carddav-sync")},
+    {"schedule": "*/5 * * * *", "command": cron_cmd|format(cron_url, "geocode")},
   ]
 } %}
 {% set cron = tpl.deps.cron(values.consts.cron_container_name, "cron_image", cron_config) %}
