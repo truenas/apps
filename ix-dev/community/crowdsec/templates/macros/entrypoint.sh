@@ -9,6 +9,14 @@ if [ ! -e /etc/crowdsec/local_api_credentials.yaml ] && [ ! -e /etc/crowdsec/con
   rsync -av --ignore-existing /staging/etc/crowdsec/* /etc/crowdsec
 fi
 
+# Stop on invalid YAML
+for f in "$cfg" "$cfg.local"; do
+  if [ -f "$f" ] && ! yq e '.' "$f" >/dev/null; then
+    echo "$f is not valid YAML, fix it and restart the app"
+    exit 1
+  fi
+done
+
 # pin <key> <value>: keep <key> at <value> in the config file and out of its .local overlay
 pin() {
   local key="$1"
@@ -34,10 +42,10 @@ pin .api.server.listen_uri "0.0.0.0:{{ values.consts.internal_lapi_port }}"
 pin .prometheus.enabled "{{ values.network.enable_metrics | lower }}"
 pin .prometheus.listen_addr "0.0.0.0"
 pin .prometheus.listen_port "{{ values.consts.internal_metrics_port }}"
-{% if not values.crowdsec.external_db %}
+{%- if not values.crowdsec.external_db %}
 pin .db_config.type "sqlite"
 pin .db_config.db_path "/var/lib/crowdsec/data/crowdsec.db"
-{% endif %}
+{%- endif %}
 pin .config_paths.data_dir "/var/lib/crowdsec/data/"
 
 exec /bin/bash /docker_start.sh "$@"
