@@ -1,18 +1,20 @@
 groups:
-  - name: Dawarich Configuration
-    description: Configure Dawarich
+  - name: Minecraft Bedrock Configuration
+    description: Configure Minecraft Bedrock
+  - name: User and Group Configuration
+    description: Configure User and Group for Minecraft Bedrock
   - name: Network Configuration
-    description: Configure Network for Dawarich
+    description: Configure Network for Minecraft Bedrock
   - name: Storage Configuration
-    description: Configure Storage for Dawarich
+    description: Configure Storage for Minecraft Bedrock
   - name: Labels Configuration
-    description: Configure Labels for Dawarich
+    description: Configure Labels for Minecraft Bedrock
   - name: Resources Configuration
-    description: Configure Resources for Dawarich
+    description: Configure Resources for Minecraft Bedrock
 
 questions:
   - variable: TZ
-    group: Dawarich Configuration
+    group: Minecraft Bedrock Configuration
     label: Timezone
     schema:
       type: string
@@ -20,65 +22,267 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: dawarich
+
+  - variable: minecraft_bedrock
     label: ""
-    group: Dawarich Configuration
+    group: Minecraft Bedrock Configuration
     schema:
       type: dict
       attrs:
-        - variable: postgres_image_selector
-          label: Postgres Image (CAUTION)
+        - variable: eula
+          label: EULA
           description: |
-            If you are changing this after the postgres directory has been initialized,</br>
-            STOP! and make sure you have a backup of your data.</br>
-            Changing this will trigger an one way database upgrade.</br>
-            You can only select newer versions of postgres.</br>
-            Selecting an older version will refuse to start.</br>
-            If something goes wrong, you will have to restore from backup.
+            The end user license agreement for Minecraft Bedrock. </br>
+            https://www.minecraft.net/en-us/eula
+            Must be checked...
+          schema:
+            type: boolean
+            default: false
+            required: true
+        - variable: version
+          label: Version
+          description: |
+            Version of the minecraft server to load on startup : </br>
+            LATEST : determines the latest version (can be used to auto-upgrade on start). </br>
+            PREVIOUS : uses the previously maintained major version. (Useful when the mobile app is gradually being upgraded across devices.) </br>
+            otherwise any specific server version can be provided to allow for temporary bug avoidance, etc. </br>
+            https://github.com/truenas/apps/issues/1641
           schema:
             type: string
-            default: postgis_18_image
+            default: "LATEST"
+            required: true
+        - variable: server_name
+          label: Server Name
+          schema:
+            type: string
+            default: "Minecraft Bedrock Server"
+            required: true
+        - variable: level_name
+          label: Level Name
+          description: The name of which level used/generated. Each level has its own folder in /worlds.
+          schema:
+            type: string
+            default: "Bedrock level"
+            valid_chars: "^[^\\n\\r\\t\\f`?*\\<>|\"':]+$"
+            valid_chars_error: |
+              Cannot contain illegal filename characters: /\n\r\t\f`?*\\<>|\":
+            required: true
+        - variable: level_type
+          label: Level Type
+          description: |
+            Type of generation for the world. </br>
+            Only used on world creation during install. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> level-type
+          schema:
+            type: string
+            default: "DEFAULT"
             required: true
             enum:
-              - value: postgis_17_image
-                description: Postgres 17
-              - value: postgis_18_image
-                description: Postgres 18
-        - variable: db_password
-          label: Database Password
+              - value: DEFAULT
+                description: Default
+              - value: FLAT
+                description: Flat
+              - value: LEGACY
+                description: Legacy
+        - variable: level_seed
+          label: Level Seed
+          description: |
+            The seed for the world generator in the Minecraft Bedrock server.</br>
+            If left empty, a seed is chosen at random. </br>
+            Only used on world creation during install. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> seed
           schema:
             type: string
             default: ""
-            required: true
-            private: true
-        - variable: redis_password
-          label: Redis Password
+        - variable: game_mode
+          label: Game Mode
           schema:
             type: string
-            default: ""
+            default: "survival"
             required: true
-            private: true
-        - variable: secret_key_base
-          label: Secret Key Base
-          description: The secret key base for Rails.
+            enum:
+              - value: survival
+                description: Survival
+              - value: creative
+                description: Creative
+              - value: adventure
+                description: Adventure
+        - variable: force_game_mode
+          label: Force Game Mode
+          schema:
+            type: boolean
+            default: false
+        - variable: difficulty
+          label: Difficulty
           schema:
             type: string
-            default: ""
-            min_length: 32
+            default: "easy"
             required: true
-            private: true
-        - variable: application_hosts
-          label: Application Hosts
-          description: The hosts that the application can be accessed from.
+            enum:
+              - value: peaceful
+                description: Peaceful
+              - value: easy
+                description: Easy
+              - value: normal
+                description: Normal
+              - value: hard
+                description: Hard
+        - variable: allow_cheats
+          label: Allow Cheats
+          description: |
+            Allow usage of cheat like commands within game. </br>
+            https://minecraft.fandom.com/wiki/Commands#List_and_summary_of_commands
+          schema:
+            type: boolean
+            default: false
+        - variable: view_distance
+          label: View Distance
+          schema:
+            type: int
+            default: 32
+            min: 5
+            required: true
+        - variable: tick_distance
+          label: Tick Distance
+          schema:
+            type: int
+            default: 4
+            min: 4
+            max: 12
+            required: true
+        - variable: emit_server_telemetry
+          label: Emit Server Telemetry
+          schema:
+            type: boolean
+            default: false
+        - variable: texture_pack_required
+          label: Texture Pack Required
+          schema:
+            type: boolean
+            default: false
+        - variable: enable_lan_visibility
+          label: Enable LAN Visibility
+          schema:
+            type: boolean
+            default: false
+        - variable: online_mode
+          label: Online Mode
+          description: |
+            Enable online mode. </br>
+            When enabled, all connected players must be authenticated to Xbox Live. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> Online Mode
+          schema:
+            type: boolean
+            default: true
+        - variable: max_players
+          label: Max Players Number
+          description: |
+            Maximum number of player that can be connected at the same Time. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> max-players
+          schema:
+            type: int
+            default: 10
+            min: 1
+            required: true
+        - variable: player_idle_timeout
+          label: Player Idle Timeout
+          description: |
+            Number of minutes a player can be idle before being kicked from the server.</br>
+            0 to disable. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> player-idle-timeout
+          schema:
+            type: int
+            default: 30
+            min: 0
+            required: true
+        - variable: default_player_permission_level
+          label: Default Player Permission Level
+          description: |
+            Permission level for new players joining for the first time. </br>
+            https://minecraft.fandom.com/wiki/Server.properties#Option_keys -> default-player-permission-level
+          schema:
+            type: string
+            default: "member"
+            required: true
+            enum:
+              - value: visitor
+                description: Visitor
+              - value: member
+                description: Member
+              - value: operator
+                description: Operator
+        - variable: ops
+          label: Operators
+          description: |
+            Sets operator permissions for listed players.</br>
+            Operator can use commands. </br>
+            https://hub.docker.com/r/itzg/minecraft-bedrock-server -> Permissions</br>
+            One XUID per field. (Xbox User ID can be found at https://www.cxkes.me/xbox/xuid)
           schema:
             type: list
             default: []
             items:
-              - variable: host
-                label: Host
+              - variable: op
+                label: Op
                 schema:
                   type: string
+                  default: ""
                   required: true
+        - variable: members
+          label: Members
+          description: |
+            Sets member permissions for listed players.</br>
+            https://hub.docker.com/r/itzg/minecraft-bedrock-server -> Permissions </br>
+            One XUID per field. (Xbox User ID can be found at https://www.cxkes.me/xbox/xuid)
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: member
+                label: Member
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+        - variable: visitors
+          label: Visitors
+          description: |
+            Sets visitor permissions for listed players. </br>
+            https://hub.docker.com/r/itzg/minecraft-bedrock-server -> Permissions </br>
+            One XUID per field. (Xbox User ID can be found at https://www.cxkes.me/xbox/xuid)
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: visitor
+                label: Visitor
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+        - variable: allow_list_users
+          label: Allow List Users
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: allow_list_user
+                label: Allow List User
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: uuid
+                      label: UUID
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -99,6 +303,28 @@ questions:
                       label: Value
                       schema:
                         type: string
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Minecraft Bedrock files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Minecraft Bedrock files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
@@ -106,8 +332,8 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
+        - variable: server_port
+          label: Server Port
           schema:
             type: dict
             attrs:
@@ -134,9 +360,95 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30161
+                  default: 19132
                   min: 1
                   max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: udp_port_range
+          label: Gameplay UDP Port Range
+          description: |
+            The range of UDP ports used for gameplay by the NetherNet transport.</br>
+            Each connected player uses one port, so the range should have at least as many ports as Max Players.</br>
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: start
+                label: Start
+                description: The start of the range.
+                schema:
+                  type: int
+                  default: 19140
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: end
+                label: End
+                description: The end of the range.
+                schema:
+                  type: int
+                  default: 19155
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: advertise_mode
+                label: Advertised IP
+                description: |
+                  The IP address that the server sends to clients to reach the gameplay ports.</br>
+                  When not using host network, or when clients connect through NAT, this is required for clients to connect.</br>
+                  - None: The server advertises its own addresses (only reachable with host network).</br>
+                  - Public IP: The public IP of the host is detected on startup (for internet access).</br>
+                  - Specific IP: Use the given IP (e.g. the IP of the TrueNAS host for LAN access).
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: ""
+                      description: None
+                    - value: "public_ip"
+                      description: Public IP (auto-detected)
+                    - value: "specific_ip"
+                      description: Specific IP
+              - variable: advertised_ip
+                label: Specific IP
+                description: The IPv4 or IPv6 address that clients use to reach the gameplay ports.
+                schema:
+                  type: ipaddr
+                  show_if: [["advertise_mode", "=", "specific_ip"]]
+                  default: ""
                   required: true
               - variable: host_ips
                 label: Host IPs
@@ -158,6 +470,7 @@ questions:
           description: The docker networks to join
           schema:
             type: list
+            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -191,14 +504,8 @@ questions:
                                     type: string
                                     required: true
                                     enum:
-                                      - value: app
-                                        description: app
-                                      - value: sidekiq
-                                        description: sidekiq
-                                      - value: postgis
-                                        description: postgis
-                                      - value: redis
-                                        description: redis
+                                      - value: minecraft-bedrock
+                                        description: minecraft-bedrock
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -247,14 +554,23 @@ questions:
                                         schema:
                                           type: int
                                           "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
+
   - variable: storage
     label: ""
     group: Storage Configuration
     schema:
       type: dict
       attrs:
-        - variable: public
-          label: Public Storage
+        - variable: data
+          label: Minecraft Bedrock Data Storage
+          description: The path to store Minecraft Bedrock Data.
           schema:
             type: dict
             attrs:
@@ -294,7 +610,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "public"
+                        default: "data"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -328,244 +644,6 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: watched
-          label: Watched Storage
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "watched"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: storage
-          label: Storage
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "storage"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-        - variable: postgres_data
-          label: Postgres Data Storage
-          description: The path to store Postgres Data.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "pg_data"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this, will check the top level directory,</br>
-                        If it finds incorrect permissions, it will `chown` the
-                        host path to the user and group required for the
-                        postgres container.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
           schema:
@@ -664,8 +742,6 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
-                              $ref:
-                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -756,14 +832,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: app
-                            description: app
-                          - value: sidekiq
-                            description: sidekiq
-                          - value: postgis
-                            description: postgis
-                          - value: redis
-                            description: redis
+                          - value: minecraft-bedrock
+                            description: minecraft-bedrock
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -777,14 +847,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Dawarich.
+                description: CPUs limit for Minecraft Bedrock.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Dawarich.
+                description: Memory limit for Minecraft Bedrock.
                 schema:
                   type: int
                   default: 4096
