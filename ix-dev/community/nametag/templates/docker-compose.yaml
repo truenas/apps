@@ -22,23 +22,22 @@
 {% do postgres.container.add_network(nametag_net) %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/api/health"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("DATABASE_URL", postgres.get_url("postgresql")) %}
 {% do c1.environment.add_env("NEXTAUTH_URL", app_url) %}
 {% do c1.environment.add_env("NEXTAUTH_SECRET", values.nametag.nextauth_secret) %}
 {% do c1.environment.add_env("CRON_SECRET", cron_secret) %}
 {% do c1.environment.add_user_envs(values.nametag.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage("/app/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
-{# The image builds .next/cache owned by 1001. A temporary volume gets its
-   ownership set by the permissions container, so the app can run as 568. #}
+{# The image builds .next/cache owned by 1001. #}
 {% set next_cache = {"type": "temporary", "volume_config": {"volume_name": "nametag-next-cache"}} %}
 {% do c1.add_storage("/app/.next/cache", next_cache) %}
 {% do perm_container.add_or_skip_action("next_cache", next_cache, perms_config) %}
@@ -49,7 +48,7 @@
 {% endfor %}
 
 {# Reminders, cleanup, CardDAV sync and geocoding run when these endpoints are called #}
-{% set cron_url = "http://%s:%d/api/cron"|format(values.consts.nametag_container_name, values.consts.internal_web_port) %}
+{% set cron_url = "http://%s:%d/api/cron"|format(values.consts.nametag_container_name, values.network.web_port.port_number) %}
 {% set cron_config = {
   "tasks": [
     {"schedule": "0 8 * * *", "command": "curl --silent --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/send-reminders'"|format(cron_url)},
