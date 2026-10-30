@@ -2,21 +2,24 @@ groups:
   - name: Scryer Configuration
     description: Configure Scryer
   - name: User and Group Configuration
-    description: Configure the identity used to access configuration and shared media
+    description: Configure User and Group for Scryer
   - name: Network Configuration
-    description: Configure network access to Scryer
+    description: Configure Network for Scryer
   - name: Storage Configuration
-    description: Configure persistent storage for Scryer
+    description: Configure Storage for Scryer
+  - name: Labels Configuration
+    description: Configure Labels for Scryer
   - name: Resources Configuration
-    description: Configure resources for Scryer
+    description: Configure Resources for Scryer
 
 questions:
   - variable: TZ
-    label: Timezone
     group: Scryer Configuration
+    label: Timezone
     schema:
       type: string
       default: Etc/UTC
+      required: true
       $ref:
         - definitions/timezone
   - variable: scryer
@@ -26,34 +29,49 @@ questions:
       type: dict
       attrs:
         - variable: admin_username
-          label: Bootstrap Administrator Username
-          description: Used to create the administrator on a fresh installation.
+          label: Initial Admin Username
+          description: Username of the administrator created on first start.
           schema:
             type: string
+            default: "admin"
             required: true
-            default: admin
-        - variable: admin_password_file
-          label: Bootstrap Password File
-          description: |
-            Absolute host path to an existing plain-text file containing a strong,
-            unique temporary password. This is a file, not a directory.
-            Grant the configured UID/GID read access and directory traversal;
-            restrict access by other users. It is mounted read-only and must remain
-            available on every start. Its contents are not stored in app settings.
-            The password must be changed at first login. Changing this file does
-            not reset the password of an existing administrator.
-          schema:
-            type: path
-            required: true
-        - variable: public_url
-          label: Public URL (Optional)
-          description: |
-            Browser-facing origin, for example https://scryer.example.com when using
-            a reverse proxy. This does not enable HTTPS inside Scryer.
+            immutable: true
+        - variable: admin_password
+          label: Initial Admin Password
+          description: Temporary password for the first sign-in. Scryer asks you to change it.
           schema:
             type: string
             default: ""
-
+            required: true
+            private: true
+            immutable: true
+        - variable: public_url
+          label: Public URL
+          description: |
+            Optional browser-facing URL, for example https://scryer.example.com when using a reverse proxy.
+          schema:
+            type: string
+            default: ""
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -62,7 +80,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: Must have access to configuration, media, and the password file.
+          description: The user id that Scryer files will be owned by.
           schema:
             type: int
             min: 568
@@ -70,7 +88,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: Use a shared media group when working with a download client.
+          description: The group id that Scryer files will be owned by.
           schema:
             type: int
             min: 568
@@ -91,15 +109,19 @@ questions:
               - variable: bind_mode
                 label: Port Bind Mode
                 description: |
-                  Publish allows host access. Expose allows container-network access.
-                  None disables explicit port mappings; the image still exposes port 8080.
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
-                  default: published
+                  default: "published"
                   enum:
-                    - value: published
-                      description: Publish port on the host
-                    - value: exposed
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
                       description: Expose port for inter-container communication
                     - value: ""
                       description: None
@@ -113,9 +135,7 @@ questions:
                   required: true
               - variable: host_ips
                 label: Host IPs
-                description: |
-                  Restrict access to selected host addresses. Empty binds on all
-                  host addresses. Use a trusted network or an HTTPS reverse proxy.
+                description: IPs on the host to bind this port
                 schema:
                   type: list
                   show_if: [["bind_mode", "=", "published"]]
@@ -130,9 +150,10 @@ questions:
                           - definitions/node_bind_ip
         - variable: networks
           label: Networks
-          description: Existing Docker networks to join, for example a reverse proxy network.
+          description: The docker networks to join
           schema:
             type: list
+            show_if: [["host_network", "=", false]]
             default: []
             items:
               - variable: network
@@ -142,12 +163,16 @@ questions:
                   attrs:
                     - variable: name
                       label: Name
-                      description: The Docker network must already exist.
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
                       schema:
                         type: string
+                        default: ""
                         required: true
                     - variable: containers
                       label: Containers
+                      description: The containers to add to this network.
                       schema:
                         type: list
                         items:
@@ -163,7 +188,7 @@ questions:
                                     required: true
                                     enum:
                                       - value: scryer
-                                        description: Scryer
+                                        description: scryer
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -171,6 +196,7 @@ questions:
                                     attrs:
                                       - variable: aliases
                                         label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
                                         schema:
                                           type: list
                                           default: []
@@ -179,7 +205,45 @@ questions:
                                               label: Alias
                                               schema:
                                                 type: string
-
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -187,45 +251,48 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: Configuration Storage
-          description: |
-            Mounted at /config. Contains SQLite, encryption.key, backups and runtime
-            data. Use local storage, not SMB/NFS. For permanent installations prefer
-            a dedicated host-path dataset and back up the entire directory.
+          label: Scryer Config Storage
+          description: The path to store Scryer Config.
           schema:
             type: dict
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
-                  default: ix_volume
+                  default: "ix_volume"
                   enum:
-                    - value: ix_volume
-                      description: ixVolume (automatically created dataset)
-                    - value: host_path
-                      description: Host Path (existing dataset)
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
-                    - normalize/ix_volume
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: config
+                        default: "config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -240,6 +307,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -250,66 +318,206 @@ questions:
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
                         $ref:
-                          - normalize/acl
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Initialize ownership of an empty configuration directory.
-                        Does not recursively change existing files. Otherwise grant
-                        the configured UID/GID access before starting the app.
-                      schema:
-                        type: boolean
-                        show_if: [["acl_enable", "=", false]]
-                        default: false
-        - variable: data
-          label: Media and Downloads Storage
-          description: |
-            One existing parent dataset mounted at /data. Use ordinary subdirectories
-            such as downloads, movies and series; separate child datasets prevent
-            hardlinks. Use the same /data mapping in the download client. Grant the
-            configured UID/GID appropriate read/write and traversal permissions.
-            Scryer packaging never automatically changes ownership of this storage.
-            New files use umask 002 for group sharing.
+        - variable: additional_storage
+          label: Additional Storage
           schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                schema:
-                  type: string
-                  default: host_path
-                  hidden: true
-              - variable: host_path_config
-                label: Host Path Configuration
+            type: list
+            default: []
+            items:
+              - variable: storageEntry
+                label: Storage Entry
                 schema:
                   type: dict
                   attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
+                    - variable: type
+                      label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
+                      schema:
+                        type: string
+                        required: true
+                        default: "ix_volume"
+                        enum:
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
+                    - variable: read_only
+                      label: Read Only
+                      description: Mount the volume as read only.
                       schema:
                         type: boolean
                         default: false
-                    - variable: acl
-                      label: ACL Configuration
+                    - variable: mount_path
+                      label: Mount Path
+                      description: The path inside the container to mount the storage.
+                      schema:
+                        type: path
+                        required: true
+                    - variable: host_path_config
+                      label: Host Path Configuration
                       schema:
                         type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - normalize/acl
-                    - variable: path
-                      label: Host Path
+                        show_if: [["type", "=", "host_path"]]
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: acl
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                          - variable: path
+                            label: Host Path
+                            description: The host path to use for storage.
+                            schema:
+                              type: hostpath
+                              show_if: [["acl_enable", "=", false]]
+                              required: true
+                    - variable: ix_volume_config
+                      label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
                       schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
+                        type: dict
+                        show_if: [["type", "=", "ix_volume"]]
+                        $ref:
+                          - "normalize/ix_volume"
+                        attrs:
+                          - variable: acl_enable
+                            label: Enable ACL
+                            description: Enable ACL for the storage.
+                            schema:
+                              type: boolean
+                              default: false
+                          - variable: dataset_name
+                            label: Dataset Name
+                            description: The name of the dataset to use for storage.
+                            schema:
+                              type: string
+                              required: true
+                              default: "storage_entry"
+                          - variable: acl_entries
+                            label: ACL Configuration
+                            schema:
+                              type: dict
+                              show_if: [["acl_enable", "=", true]]
+                              attrs: []
+                              $ref:
+                                - "normalize/acl"
+                    - variable: cifs_config
+                      label: SMB Configuration
+                      description: The configuration for the SMB dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "cifs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: username
+                            label: Username
+                            description: The username to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: password
+                            label: Password
+                            description: The password to use for the SMB share.
+                            schema:
+                              type: string
+                              required: true
+                              private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+  - variable: labels
+    label: ""
+    group: Labels Configuration
+    schema:
+      type: list
+      default: []
+      items:
+        - variable: label
+          label: Label
+          schema:
+            type: dict
+            attrs:
+              - variable: key
+                label: Key
+                schema:
+                  type: string
+                  required: true
+              - variable: value
+                label: Value
+                schema:
+                  type: string
+                  required: true
+              - variable: containers
+                label: Containers
+                description: Containers where the label should be applied
+                schema:
+                  type: list
+                  items:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
                         required: true
-
+                        enum:
+                          - value: scryer
+                            description: scryer
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -323,15 +531,15 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
+                description: CPUs limit for Scryer.
                 schema:
                   type: int
-                  min: 1
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
+                description: Memory limit for Scryer.
                 schema:
                   type: int
-                  min: 512
-                  default: 2048
+                  default: 4096
                   required: true
