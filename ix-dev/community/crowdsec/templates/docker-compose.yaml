@@ -1,0 +1,52 @@
+{% from "macros/entrypoint.sh" import entrypoint %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{# ----- Without the Local API, the agent needs the URL and credentials of a remote one #}
+{% if values.network.disable_lapi %}
+  {% set envs = {} %}
+  {% for env in values.crowdsec.additional_envs if env.value %}
+    {% do envs.update({env.name: env.value}) %}
+  {% endfor %}
+  {% set password_auth = envs.get("AGENT_USERNAME") and envs.get("AGENT_PASSWORD") %}
+  {% set tls_auth = (envs.get("USE_TLS", "") | lower == "true") and envs.get("CLIENT_CERT_FILE") and envs.get("CLIENT_KEY_FILE") %}
+  {% if not envs.get("LOCAL_API_URL") or not (password_auth or tls_auth) %}
+    {% do tpl.funcs.fail("Disable Local API requires [LOCAL_API_URL] and either [AGENT_USERNAME] and [AGENT_PASSWORD], or [USE_TLS=true], [CLIENT_CERT_FILE] and [CLIENT_KEY_FILE] in Additional Environment Variables") %}
+  {% endif %}
+{% endif %}
+
+{% set c1 = tpl.add_container(values.consts.crowdsec_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"]) %}
+
+{% if values.network.disable_lapi %}
+  {% do c1.healthcheck.set_custom_test("cscli lapi status") %}
+{% else %}
+  {% set health_path = "127.0.0.1:%d/health"|format(values.consts.internal_lapi_port) %}
+  {% do c1.healthcheck.set_custom_test(
+    "wget --quiet --spider http://%s || wget --quiet --spider --no-check-certificate https://%s"|format(health_path, health_path)
+  ) %}
+{% endif %}
+
+{% do c1.configs.add("entrypoint.sh", entrypoint(values), "/entrypoint.sh", "0500") %}
+{% do c1.set_entrypoint(["/entrypoint.sh"]) %}
+
+{% do c1.environment.add_env("DISABLE_LOCAL_API", values.network.disable_lapi) %}
+{% do c1.environment.add_env("METRICS_PORT", values.consts.internal_metrics_port) %}
+{% do c1.environment.add_user_envs(values.crowdsec.additional_envs) %}
+
+{% if not values.network.disable_lapi %}
+  {% do c1.add_port(values.network.lapi_port, {"container_port": values.consts.internal_lapi_port}) %}
+{% endif %}
+{% if values.network.enable_metrics %}
+  {% do c1.add_port(values.network.metrics_port, {"container_port": values.consts.internal_metrics_port}) %}
+{% endif %}
+{% for port in values.network.acquisition_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{% do c1.add_storage("/etc/crowdsec", values.storage.config) %}
+{% do c1.add_storage("/var/lib/crowdsec/data", values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
