@@ -1,0 +1,46 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set game_start = values.network.game_port_range.start %}
+{% set game_end = values.network.game_port_range.end %}
+
+{% if game_start % 2 != 0 %}
+  {% do tpl.funcs.fail("Game UDP base port must be even. Each world reserves two consecutive ports.") %}
+{% endif %}
+{% if game_end > 65535 %}
+  {% do tpl.funcs.fail("Game UDP range must end at or below port 65535.") %}
+{% endif %}
+{% if game_end < game_start %}
+  {% do tpl.funcs.fail("Game UDP range start must not exceed its end.") %}
+{% endif %}
+{% if (game_end - game_start + 1) % 2 != 0 %}
+  {% do tpl.funcs.fail("Game UDP range must contain complete two-port world pairs.") %}
+{% endif %}
+
+{% set c1 = tpl.add_container(values.consts.app_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "SYS_CHROOT"]) %}
+{# The upstream PHP settings handler invokes its narrowly scoped sudo timezone helper. #}
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.healthcheck.set_custom_test(["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8080/ && curl -fsS -o /dev/null http://127.0.0.1:8081/"]) %}
+{% do c1.environment.add_user_envs(values.phvalheim.additional_envs) %}
+
+{% do c1.add_port(values.network.public_port, {"container_port": 8080}) %}
+{% do c1.add_port(values.network.admin_port, {"container_port": 8081}) %}
+{% for port in range(game_start, game_end + 1) %}
+  {% do c1.add_port({
+    "port_number": port,
+    "bind_mode": values.network.game_port_range.bind_mode,
+    "host_ips": values.network.game_port_range.host_ips
+  }, {"container_port": port, "protocol": "udp"}) %}
+{% endfor %}
+
+{% do c1.add_storage("/opt/stateful", values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.admin_port, {"name": "Admin UI"}) %}
+{% do tpl.portals.add(values.network.public_port, {"name": "Player Website"}) %}
+{% do tpl.notes.add_info("Open the admin interface directly or through your reverse proxy to complete setup with your Steam Web API key, website hostname and game DNS. Set Base Port to %d and keep all world port pairs within %d-%d/udp. Published game ports must match container ports."|format(game_start, game_start, game_end)) %}
+{% do tpl.notes.add_info("Protect the admin interface with a trusted network, VPN or authenticated reverse proxy. Persist all of /opt/stateful. Optional separate backup storage can be mounted at /opt/stateful/backups using Additional Storage. World archives do not replace a full application-data backup.") %}
+
+{{ tpl.render() | tojson }}
