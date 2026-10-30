@@ -1,0 +1,30 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.maison_container_name, "image") %}
+{# Maison chowns each app folder to the configured user, so it runs as root and hands PUID/PGID to the apps. #}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/ping", "busybox": true}) %}
+
+{# Apps installed by Maison join this external network; Docker has no compose-managed way to create it with a fixed name. #}
+{% do c1.set_entrypoint(["/bin/sh", "-c", "docker network inspect %s >/dev/null 2>&1 || docker network create %s; exec /maison"|format(values.consts.app_network, values.consts.app_network)]) %}
+
+{# Apps are started by the host Docker daemon, so their bind mounts must use the data folder's HOST path. #}
+{% set data_host_path = tpl.funcs.get_host_path(values.storage.data) %}
+{% do c1.environment.add_env("DATA_ROOT", values.consts.data_path) %}
+{% do c1.environment.add_env("DATA_HOST_PATH", data_host_path) %}
+{% do c1.environment.add_env("HTTP_ADDR", ":%d"|format(values.network.web_port.port_number)) %}
+{% do c1.environment.add_env("HOST_PROC", "/host/proc") %}
+{% do c1.environment.add_user_envs(values.maison.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_docker_socket() %}
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do c1.add_storage("/host/proc", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/proc"}}) %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.add_warning("Maison has no login screen and holds the Docker socket. Keep its port on a trusted network or behind a VPN or an authenticating proxy, and never publish it to the internet.") %}
+{% do tpl.notes.add_info("Apps installed from Maison are opened on published ports of this host. Change `APP_DEFAULT_PASSWORD` in Settings > App environment before installing apps you expose.") %}
+
+{{ tpl.render() | tojson }}
