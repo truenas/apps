@@ -1,0 +1,45 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set c1 = tpl.add_container(values.consts.scryer_container_name, "image") %}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.set_grace_period(60) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/health", "busybox": true, "spider": false}) %}
+{% do c1.healthcheck.set_start_period(60) %}
+
+{% do c1.environment.add_env("SCRYER_BIND", "0.0.0.0:%d"|format(values.consts.internal_web_port)) %}
+{% do c1.environment.add_env("SCRYER_DB_PATH", "/config/scryer.db") %}
+{% do c1.environment.add_env("SCRYER_AUTH_ENABLED", true) %}
+{% do c1.environment.add_env("SCRYER_ADMIN_USERNAME", values.scryer.admin_username) %}
+{% do c1.environment.add_env("SCRYER_ADMIN_PASSWORD_FILE", values.consts.password_path) %}
+{% do c1.environment.add_env("SCRYER_DISABLE_SELF_UPGRADE", true) %}
+{% if values.scryer.public_url %}
+  {% do c1.environment.add_env("SCRYER_PUBLIC_URL", values.scryer.public_url) %}
+{% endif %}
+
+{% if values.ci %}
+  {# Catalog CI has no host-file setup hook. This public credential is only for disposable CI installs. #}
+  {% do c1.configs.add("ci_bootstrap_password", "Scryer-CI-only-$not-a-secret", values.consts.password_path, "0444") %}
+{% else %}
+  {% do c1.add_storage(values.consts.password_path, {
+    "type": "host_path", "read_only": true,
+    "host_path_config": {"path": values.scryer.admin_password_file, "create_host_path": false}
+  }) %}
+{% endif %}
+
+{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 256}}) %}
+{% do perms.add_or_skip_action("config", values.storage.config, {
+  "uid": values.run_as.user, "gid": values.run_as.group, "mode": "check", "recursive": false
+}) %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+{{ tpl.render() | tojson }}
