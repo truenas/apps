@@ -8,6 +8,11 @@
   {% set healthcheck_scheme.x = "http" if env.value|lower == "false" else "https" %}
 {% endfor %}
 
+{% set opencloud_url = values.opencloud.app_url.rstrip("/") %}
+
+{% set url = tpl.funcs.url_to_dict(opencloud_url, true) %}
+{% if url.scheme != "https" %}{% do tpl.funcs.fail("The app URL must be HTTPS") %}{% endif %}
+
 {% set c1 = tpl.add_container(values.consts.opencloud_container_name, "image") %}
 {% do c1.add_network(opencloud_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
@@ -30,10 +35,12 @@
   {% set target_path = "%s/web/assets/apps"|format(values.consts.data_path) %}
   {% set app_config = values.consts.app_map[app_name] %}
 
-  {% set app = tpl.add_container(app_config.container_name, app_config.image) %}
+  {% set source_path = app_config.source or "/usr/share/nginx/html/apps/%s"|format(app_config.id) %}
+
+  {% set app = tpl.add_container(app_config.id, "%s_image"|format(app_name)) %}
   {% do app_containers.x.append(app) %}
 
-  {% do c1.depends.add_dependency(app_config.container_name, "service_completed_successfully") %}
+  {% do c1.depends.add_dependency(app_config.id, "service_completed_successfully") %}
 
   {% do app.set_user(0, 0) %}
   {% do app.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
@@ -41,7 +48,7 @@
   {% do app.add_storage(values.consts.data_path, values.storage.data) %}
   {% do app.environment.add_env("TARGET_PATH", target_path) %}
   {% do app.environment.add_env("APP_ID", app_config.id) %}
-  {% do app.environment.add_env("SOURCE_PATH", app_config.source) %}
+  {% do app.environment.add_env("SOURCE_PATH", source_path) %}
   {% do app.environment.add_env("ENABLED", enabled) %}
   {% do app.configs.add("app_entrypoint", app_init(values), "/ix-entrypoint.sh", "0755") %}
   {% do app.set_entrypoint(["/ix-entrypoint.sh"]) %}
@@ -90,32 +97,28 @@
   {% do perm_container.add_or_skip_action("radicale_data", values.storage.radicale_data, perms_config) %}
 {% endif %}
 
+{# Yjs (Real-time Collaboration) #}
+{% if values.opencloud.yjs.enabled %}
+  {% set yjs = tpl.add_container(values.consts.yjs_container_name, "yjs_image") %}
+  {% do yjs.add_network(opencloud_net) %}
+  {% do yjs.set_user(values.run_as.user, values.run_as.group) %}
+  {% do yjs.remove_devices() %}
+  {% do yjs.healthcheck.set_test("node", {"port": values.consts.yjs_port, "path": "/healthz/ready"}) %}
+  {# Docker's grace period must outlast the server's, so it can close rooms cleanly before SIGKILL #}
+  {% do yjs.set_grace_period(values.consts.yjs_shutdown_grace_period + 5) %}
+  {% do yjs.environment.add_env("SHUTDOWN_GRACE_PERIOD_MS", values.consts.yjs_shutdown_grace_period * 1000) %}
+  {% do yjs.environment.add_env("PORT", values.consts.yjs_port) %}
+  {# Used to validate each connection against the Graph API, over the internal network #}
+  {% do yjs.environment.add_env("OPENCLOUD_URL", "%s://%s:%d"|format(healthcheck_scheme.x, values.consts.opencloud_container_name, values.network.web_port.port_number)) %}
+  {% if healthcheck_scheme.x == "https" %}
+    {# The internal hostname never matches OpenCloud's certificate #}
+    {% do yjs.environment.add_env("NODE_TLS_REJECT_UNAUTHORIZED", "0") %}
+  {% endif %}
 
-{# Networking #}
-{% do c1.environment.add_env("PROXY_HTTP_ADDR", ":%d"|format(values.network.web_port.port_number)) %}
-{% if values.network.metrics_port.bind_mode %}
-  {% do c1.environment.add_env("PROXY_DEBUG_ADDR", ":%d"|format(values.network.metrics_port.port_number)) %}
-{% endif %}
-
-{% set opencloud_url = values.opencloud.app_url.rstrip("/") %}
-
-{% set url = tpl.funcs.url_to_dict(opencloud_url, true) %}
-{% if url.scheme != "https" %}{% do tpl.funcs.fail("The app URL must be HTTPS") %}{% endif %}
-
-{% for entry in values.opencloud.extra_hosts %}
-  {% do c1.add_extra_host(entry.hostname, entry.ip_address) %}
-{% endfor %}
-
-{% do c1.environment.add_env("OC_URL", opencloud_url) %}
-{% do c1.environment.add_env("OC_INSECURE", values.opencloud.insecure) %}
-{% do c1.environment.add_env("OC_JWT_SECRET", values.opencloud.jwt_secret) %}
-{% if values.network.certificate_id %}
-  {% do c1.environment.add_env("PROXY_TRANSPORT_TLS_KEY", values.consts.ssl_key_path) %}
-  {% do c1.environment.add_env("PROXY_TRANSPORT_TLS_CERT", values.consts.ssl_cert_path) %}
-
-  {% set cert = values.ix_certificates[values.network.certificate_id] %}
-  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
-  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+  {# Unprotected, as the token is sent inside the websocket, and the yjs server validates it #}
+  {% set yjs_addr = "http://%s:%d"|format(values.consts.yjs_container_name, values.consts.yjs_port) %}
+  {% do proxy_routes.x.append({"endpoint": "/yjs", "backend": yjs_addr, "unprotected": true}) %}
+  {% do c1.environment.add_env("WEB_OPTION_YJS_SERVER_URL", "wss://%s%s/yjs"|format(url.netloc, url.path)) %}
 {% endif %}
 
 {# Collaboration #}
@@ -154,6 +157,28 @@
     {% do c1.environment.add_env("COLLABORATION_APP_ICON", "%s/web-apps/apps/documenteditor/main/resources/img/favicon.ico"|format(collaboration_url)) %}
     {% do c1.environment.add_env("COLLABORATION_WOPI_SECRET", values.opencloud.collaboration.jwt_secret) %}
   {% endif %}
+{% endif %}
+
+{# Networking #}
+{% do c1.environment.add_env("PROXY_HTTP_ADDR", ":%d"|format(values.network.web_port.port_number)) %}
+{% if values.network.metrics_port.bind_mode %}
+  {% do c1.environment.add_env("PROXY_DEBUG_ADDR", ":%d"|format(values.network.metrics_port.port_number)) %}
+{% endif %}
+
+{% for entry in values.opencloud.extra_hosts %}
+  {% do c1.add_extra_host(entry.hostname, entry.ip_address) %}
+{% endfor %}
+
+{% do c1.environment.add_env("OC_URL", opencloud_url) %}
+{% do c1.environment.add_env("OC_INSECURE", values.opencloud.insecure) %}
+{% do c1.environment.add_env("OC_JWT_SECRET", values.opencloud.jwt_secret) %}
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("PROXY_TRANSPORT_TLS_KEY", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("PROXY_TRANSPORT_TLS_CERT", values.consts.ssl_cert_path) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 {% endif %}
 
 {# SMTP #}
