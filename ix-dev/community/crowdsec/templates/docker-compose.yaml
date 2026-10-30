@@ -14,22 +14,6 @@
   {% endif %}
 {% endif %}
 
-{# ----- The database must be on writable mounted storage, otherwise it is lost when the container is recreated #}
-{% set db_path = values.crowdsec.db_path %}
-{% set writable_mounts = ["/etc/crowdsec", "/var/lib/crowdsec/data"] %}
-{% for store in values.storage.additional_storage if not store.read_only %}
-  {% do writable_mounts.append(store.mount_path.rstrip("/")) %}
-{% endfor %}
-{% set db = namespace(mounted=false) %}
-{% for mount in writable_mounts %}
-  {% if db_path.startswith(mount ~ "/") %}
-    {% set db.mounted = true %}
-  {% endif %}
-{% endfor %}
-{% if not db.mounted or ".." in db_path.split("/") %}
-  {% do tpl.funcs.fail("Database Path must be inside Config Storage, Data Storage or Additional Storage that is not read-only") %}
-{% endif %}
-
 {% set c1 = tpl.add_container(values.consts.crowdsec_container_name, "image") %}
 {% do c1.add_caps(["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"]) %}
 
@@ -47,7 +31,6 @@
 
 {% do c1.environment.add_env("DISABLE_LOCAL_API", values.network.disable_lapi) %}
 {% do c1.environment.add_env("METRICS_PORT", values.consts.internal_metrics_port) %}
-{% do c1.environment.add_env("DB_PATH", values.crowdsec.db_path) %}
 {% do c1.environment.add_user_envs(values.crowdsec.additional_envs) %}
 
 {% if not values.network.disable_lapi %}
