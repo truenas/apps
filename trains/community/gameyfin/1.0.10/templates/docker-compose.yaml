@@ -1,0 +1,25 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.gameyfin_container_name, "image") %}
+
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_test("http", {"port": 9999, "path": "/actuator/health"}) %}
+{% do c1.environment.add_env("APP_KEY", values.gameyfin.app_key) %}
+{% do c1.environment.add_env("SERVER_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("MANAGEMENT_SERVER_PORT", 9999) %}
+{% do c1.environment.add_user_envs(values.gameyfin.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/opt/gameyfin/data", values.storage.data) %}
+{% do c1.add_storage("/opt/gameyfin/db", values.storage.db) %}
+{% do c1.add_storage("/opt/gameyfin/logs", values.storage.logs) %}
+{% do c1.add_storage("/opt/gameyfin/plugindata", values.storage.plugin_data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}

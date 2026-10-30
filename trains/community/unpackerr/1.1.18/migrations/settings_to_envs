@@ -1,0 +1,49 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    settings = values["unpackerr"].pop("settings")
+
+    counts = {}
+    for cfg in settings:
+        app_type = cfg["type"]
+        idx = counts.get(app_type, 0)
+        counts[app_type] = idx + 1
+
+        # Whisparr is configured as a named Radarr instance since v1.0.0
+        if app_type == "whisparr":
+            prefix = f"UN_RADARR_whisparr{idx}"
+        else:
+            prefix = f"UN_{app_type.upper()}_{idx}"
+
+        envs = {
+            "URL": cfg["url"],
+            "API_KEY": cfg["api_key"],
+            "PROTOCOLS": ",".join(cfg["protocols"]),
+            "TIMEOUT": f"{cfg['timeout']}s",
+            "DELETE_DELAY": f"{cfg['delete_delay']}s",
+            "DELETE_ORIG": str(cfg["delete_orig"]).lower(),
+            "SYNCTHING": str(cfg["syncthing"]).lower(),
+        }
+        for path_idx, path in enumerate(cfg["paths"]):
+            envs[f"PATHS_{path_idx}"] = path
+
+        for key, value in envs.items():
+            values["unpackerr"]["additional_envs"].append(
+                {"name": f"{prefix}_{key}", "value": value}
+            )
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

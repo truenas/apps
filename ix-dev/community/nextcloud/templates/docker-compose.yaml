@@ -229,7 +229,11 @@
   {% do harp_container.remove_devices() %}
   {% do harp_container.healthcheck.set_custom_test(["CMD", "/healthcheck.sh"]) %}
   {% do harp_container.add_docker_socket() %}
-  {% do harp_container.environment.add_env("NC_INSTANCE_URL", "%s://%s" |format(ext_protocol, ext_host_port.x)) %}
+  {# Certificates are only generated when missing, ExApps fail to connect if they change #}
+  {% do harp_container.add_storage("/certs", values.storage.harp_certs) %}
+  {# Reach Nextcloud internally, going through the external URL can be blocked by reverse proxies #}
+  {% set nc_internal_url = "http://%s:%d" | format(values.consts.nginx_container_name, values.consts.internal_nginx_http_port) %}
+  {% do harp_container.environment.add_env("NC_INSTANCE_URL", nc_internal_url) %}
   {% do harp_container.environment.add_env("HP_SHARED_KEY", values.nextcloud.harp.shared_key) %}
   {% do harp_container.environment.add_env("HP_EXAPPS_ADDRESS", "0.0.0.0:%d"| format(values.consts.internal_harp_port)) %}
   {% do harp_container.environment.add_env("HP_FRP_ADDRESS", "0.0.0.0:%d"| format(values.consts.internal_harp_frp_port)) %}
@@ -245,7 +249,7 @@
   {% do nc_container.environment.add_env("IX_HARP_SHARED_KEY", values.nextcloud.harp.shared_key) %}
   {% do nc_container.environment.add_env("IX_HARP_INTERNAL_ADDRESS", "%s:%d" | format(values.consts.harp_container_name, values.consts.internal_harp_port)) %}
   {% do nc_container.environment.add_env("IX_HARP_INTERNAL_FRP_ADDRESS", "%s:%d" | format(values.consts.harp_container_name, values.consts.internal_harp_frp_port)) %}
-  {% do nc_container.environment.add_env("IX_HARP_NC_INTERNAL_URL", "http://%s:%d" | format(values.consts.nginx_container_name, values.network.web_port.port_number)) %}
+  {% do nc_container.environment.add_env("IX_HARP_NC_INTERNAL_URL", nc_internal_url) %}
   {% do nc_container.environment.add_env("IX_HARP_COMPUTE_DEVICE", values.nextcloud.harp.compute_device) %}
   {# We only want to ensure the harp container has started before nginx starts, so it can resolve the address #}
   {% do nginx_container.depends.add_dependency(values.consts.harp_container_name, "service_started") %}

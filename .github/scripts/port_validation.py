@@ -8,10 +8,10 @@
 # ///
 
 import sys
-import yaml
 
 from collections import defaultdict
-from os import scandir
+
+from common import APPS_ROOT_DIR, QUESTIONS_FILE, read_yaml
 
 
 def extract_ports_from_items(items):
@@ -70,37 +70,21 @@ def extract_ports(quests):
     return ports
 
 
-def scan_directory(path: str, current_depth: int = 0, to_depth: int = 2):
-    """Iterate over `path` to depth level `to_depth`
-    and yield any file paths at that level."""
-    if current_depth > to_depth:
-        return
-
-    with scandir(path) as sdir:
-        for entry in sdir:
-            if current_depth == to_depth and entry.is_file():
-                yield entry.path
-            elif (current_depth < to_depth) and entry.is_dir():
-                yield from scan_directory(entry.path, current_depth + 1)
-
-
 def get_current_port_map():
     port_map = defaultdict(list)
     ignore_ports = (53, 22000)
     dupe_found = False
     port_docs = []
-    for path in filter(lambda x: x.endswith("questions.yaml"), scan_directory("ix-dev")):
-        with open(path) as f:
-            parts = path.split("/")
-            app_info = f"{parts[-3]}/{parts[-2]}"
-            for item in extract_ports(yaml.load(f, Loader=yaml.FullLoader)["questions"]):
-                app_port, port_name = item["port"], item["name"]
-                port_map[app_port].append(f"{app_info} ({port_name})")
-                port_docs.append((app_info, port_name, app_port))
-                if len(port_map[app_port]) > 1 and app_port not in ignore_ports:
-                    dupe_found = True
-                    dup_apps = ", ".join(port_map[app_port])
-                    print(f"Duplicate port [{app_port}] in apps: {dup_apps}")
+    for path in sorted(APPS_ROOT_DIR.glob(f"*/*/{QUESTIONS_FILE}")):
+        app_info = f"{path.parent.parent.name}/{path.parent.name}"
+        for item in extract_ports(read_yaml(path)["questions"]):
+            app_port, port_name = item["port"], item["name"]
+            port_map[app_port].append(f"{app_info} ({port_name})")
+            port_docs.append((app_info, port_name, app_port))
+            if len(port_map[app_port]) > 1 and app_port not in ignore_ports:
+                dupe_found = True
+                dup_apps = ", ".join(port_map[app_port])
+                print(f"Duplicate port [{app_port}] in apps: {dup_apps}")
     return port_map, dupe_found, port_docs
 
 

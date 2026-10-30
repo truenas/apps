@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    msg = "The guacd container has been removed, as Termix now runs remote desktop connections itself."
+
+    if any(c["name"] == "guacd" for n in values["network"].get("networks", []) for c in n["containers"]):
+        raise Exception(f"{msg} Please remove guacd from the containers of all networks and re-run the upgrade.")
+
+    if any("guacd" in label["containers"] for label in values["labels"]):
+        raise Exception(f"{msg} Please remove guacd from the containers of all labels and re-run the upgrade.")
+
+    values["network"].pop("guacd_port", None)
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))
