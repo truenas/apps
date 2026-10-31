@@ -1,0 +1,116 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set frontend_url = (values.cellarion.frontend_url | trim).rstrip("/") %}
+{% set https = frontend_url.startswith("https://") %}
+{# V8 sizes its heap from host RAM unless told otherwise; keep it under the container limit. #}
+{% set heap_mb = [((values.resources.limits.memory | int) * 0.7) | int, 256] | max %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{# MongoDB #}
+{% set mongo_config = {
+  "user": values.consts.db_user,
+  "password": values.cellarion.mongo_db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.mongodb_data,
+} %}
+{% set mongo = tpl.deps.mongodb(values.consts.mongo_container_name, "mongo_image", mongo_config, perm_container) %}
+{% do mongo.container.set_command(["mongod", "--wiredTigerCacheSizeGB", "0.25"]) %}
+
+{# Meilisearch #}
+{% set meili_config = {"master_key": values.cellarion.meili_master_key, "volume": values.storage.meili_data} %}
+{% set meilisearch = tpl.deps.meilisearch(values.consts.meilisearch_container_name, "meilisearch_image", meili_config, perm_container) %}
+{% do meilisearch.container.environment.add_env("MEILI_ENV", "production") %}
+{% do meilisearch.container.environment.add_env("MEILI_MAX_INDEXING_MEMORY", "128Mb") %}
+{% do meilisearch.container.environment.add_env("MEILI_MAX_INDEXING_THREADS", 2) %}
+
+{# rembg: label background removal, CPU only, runs as the image's own user #}
+{% set rembg = tpl.add_container(values.consts.rembg_container_name, "rembg_image") %}
+{% do rembg.set_user(values.consts.rembg_uid, values.consts.rembg_gid) %}
+{% do rembg.remove_devices() %}
+{% do rembg.healthcheck.set_test("curl", {"port": values.consts.rembg_port, "path": "/health"}) %}
+{% do rembg.healthcheck.set_start_period(60) %}
+{% do rembg.healthcheck.set_interval(30) %}
+{% do rembg.healthcheck.set_timeout(10) %}
+{% do rembg.healthcheck.set_retries(3) %}
+
+{# Backend API #}
+{% set backend = tpl.add_container(values.consts.backend_container_name, "image") %}
+{% do backend.set_user(values.run_as.user, values.run_as.group) %}
+{% do backend.set_init(true) %}
+{% do backend.set_grace_period(15) %}
+{% do backend.remove_devices() %}
+{% do backend.healthcheck.set_test("wget", {"port": values.consts.backend_port, "path": "/api/health", "busybox": true}) %}
+{% do backend.depends.add_dependency(values.consts.mongo_container_name, "service_healthy") %}
+{% do backend.depends.add_dependency(values.consts.meilisearch_container_name, "service_healthy") %}
+
+{% do backend.environment.add_env("NODE_ENV", "production") %}
+{% do backend.environment.add_env("NODE_OPTIONS", "--max-old-space-size=%d" | format(heap_mb)) %}
+{% do backend.environment.add_env("PORT", values.consts.backend_port) %}
+{% do backend.environment.add_env("MONGO_URI", mongo.get_url("mongodb") ~ "?authSource=admin") %}
+{% do backend.environment.add_env("MEILI_URL", meilisearch.get_url()) %}
+{% do backend.environment.add_env("MEILI_MASTER_KEY", values.cellarion.meili_master_key) %}
+{% do backend.environment.add_env("REMBG_URL", "http://%s:%d" | format(values.consts.rembg_container_name, values.consts.rembg_port)) %}
+{% do backend.environment.add_env("JWT_SECRET", values.cellarion.jwt_secret) %}
+{% do backend.environment.add_env("FRONTEND_URL", frontend_url) %}
+{% do backend.environment.add_env("COOKIE_SECURE", https) %}
+{% do backend.environment.add_env("TRUST_PROXY_HOPS", values.cellarion.trust_proxy_hops) %}
+{% if values.cellarion.anthropic_api_key %}
+  {% do backend.environment.add_env("ANTHROPIC_API_KEY", values.cellarion.anthropic_api_key) %}
+{% endif %}
+{% if values.cellarion.voyage_api_key %}
+  {% do backend.environment.add_env("VOYAGE_API_KEY", values.cellarion.voyage_api_key) %}
+{% endif %}
+{% if values.cellarion.registry_bridge_key %}
+  {% do backend.environment.add_env("REGISTRY_BRIDGE_URL", values.cellarion.registry_bridge_url) %}
+  {% do backend.environment.add_env("REGISTRY_BRIDGE_KEY", values.cellarion.registry_bridge_key) %}
+  {% if values.cellarion.registry_bridge_refresh %}
+    {% do backend.environment.add_env("REGISTRY_BRIDGE_REFRESH", values.cellarion.registry_bridge_refresh) %}
+  {% endif %}
+{% endif %}
+{% do backend.environment.add_user_envs(values.cellarion.additional_envs) %}
+
+{% do backend.add_storage("/app/uploads", values.storage.uploads) %}
+{% do perm_container.add_or_skip_action("uploads", values.storage.uploads, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do backend.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{# Frontend: nginx serving the app and proxying /api to the backend #}
+{% set frontend = tpl.add_container(values.consts.frontend_container_name, "frontend_image") %}
+{% do frontend.set_user(values.consts.frontend_uid, values.consts.frontend_gid) %}
+{% do frontend.remove_devices() %}
+{% do frontend.healthcheck.set_test("wget", {"port": values.consts.frontend_port, "path": "/", "busybox": true}) %}
+{% do frontend.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
+{# Self-hosted installs are not indexed by search engines; only the hosted site is. #}
+{% do frontend.environment.add_env("CELLARION_INDEXABLE_HOST", "cellarion.app") %}
+{% do frontend.add_port(values.network.web_port, {"container_port": values.consts.frontend_port}) %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do backend.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do mongo.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do meilisearch.container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{% set notes = ["## First steps"] %}
+{% do notes.append("1. Open the Web UI and register your account; the first account is an ordinary member.") %}
+{% do notes.append("2. Make it an administrator: open a shell on the **backend** container and run `node src/scripts/make-admin.js you@example.com`.") %}
+{% do notes.append("3. Sign in again. Settings → Registry Bridge connects the install to the shared wine registry, and Admin → AI holds the optional AI features.") %}
+{% do notes.append("") %}
+{% do notes.append("## Web address and HTTPS") %}
+{% do notes.append("The **Web Address** must be exactly what the browser shows (scheme, host and port): the backend only allows requests from that origin and builds every link from it. Behind a reverse proxy that terminates HTTPS, enter the public `https://` address and set **Reverse proxy hops** to 2. With an `http://` address the login cookie is sent without the Secure flag, which is fine on a LAN but not on the internet.") %}
+{% do notes.append("") %}
+{% do notes.append("## Moving from a Docker Compose install") %}
+{% do notes.append("This app starts MongoDB with authentication, which a Compose install does not. Before pointing the app at an existing MongoDB dataset, create the user in the old install (`mongosh winecellar --eval 'db.getSiblingDB(\"admin\").createUser({user: \"cellarion\", pwd: \"<MongoDB password>\", roles: [\"root\"]})'`), or start empty and use Export cellar / Import in the app.") %}
+{% do notes.append("") %}
+{% do notes.append("## Optional keys") %}
+{% do notes.append("Label scanning and the cellar chat need an Anthropic API key; similar-wine search needs a Voyage AI key. Without them the rest of the app works as usual. Both can also be set later under Admin → AI.") %}
+{% do tpl.notes.set_body(notes | join("\n")) %}
+
+{{ tpl.render() | tojson }}
