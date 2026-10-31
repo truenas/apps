@@ -463,6 +463,12 @@ module.exports = {
       "^build-(?<minor>\\d+)$",
       ["ghcr.io/silo-server/silo-server"],
     ),
+    customVersioning(
+      // 0.9.14, later 1.0.0. A "-beta" tag only updates to a newer beta tag; the "-beta" part is the
+      // "compatibility", so moving to the first stable tag (no suffix) stays a manual change.
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?<compatibility>-beta)?$",
+      ["ghcr.io/kryspal/kryspal-media"],
+    ),
   ],
 };
 
