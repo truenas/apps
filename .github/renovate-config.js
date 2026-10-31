@@ -464,17 +464,10 @@ module.exports = {
       ["ghcr.io/silo-server/silo-server"],
     ),
     customVersioning(
-      // 0.9.10-beta, later 1.0.0. A "-beta" tag only updates to a newer beta tag; the "-beta" part is the
+      // 0.9.14, later 1.0.0. A "-beta" tag only updates to a newer beta tag; the "-beta" part is the
       // "compatibility", so moving to the first stable tag (no suffix) stays a manual change.
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?<compatibility>-beta)?$",
       ["ghcr.io/kryspal/kryspal-media"],
-    ),
-    customVersioning(
-      // 16-0.9.10-beta, later 16-1.0.0. Without this the default docker versioning reads the tag as major 16 with
-      // a suffix and never updates it. The PostgreSQL major (16) is fixed in the regex: a major upgrade needs a
-      // data migration anyway.
-      "^16-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?<compatibility>-beta)?$",
-      ["ghcr.io/kryspal/kryspal-media-postgres"],
     ),
   ],
 };
