@@ -17,22 +17,38 @@ for f in "$cfg" "$cfg.local"; do
   fi
 done
 
-# pin <key> <value>: keep <key> at <value> in the config file and out of its .local overlay
+# pin <key> <value>: keep <key> at <value> in the config file and stop .local from overriding it
 pin() {
   local key="$1"
-  local value="$2"
+  local value="$(value="$2" yq -n -o=json 'env(value)')"
 
   if [ -f "$cfg" ]; then
-    if [ "$(yq e "$key" "$cfg")" != "$value" ]; then
-      echo "Overriding $key in $cfg with $value, it is managed by the app"
+    if [ "$(yq e -o=json "$key" "$cfg")" != "$value" ]; then
       value="$value" yq e -i "$key = env(value)" "$cfg"
+      if [ "$(yq e -o=json "$key" "$cfg")" != "$value" ]; then
+        echo "Unable to set $key in $cfg, check that its parent keys are maps"
+        exit 1
+      fi
+      echo "Overrode $key in $cfg with $value, it is managed by the app"
     fi
   fi
 
   if [ -f "$cfg.local" ]; then
-    if [ "$(yq e "$key" "$cfg.local")" != "null" ]; then
-      echo "Removing $key from $cfg.local, it is managed by the app"
-      yq e -i "del($key)" "$cfg.local"
+    # Drop the key or a parent that isn't a map
+    local drop="del($key)"
+    local parent="${key%.*}"
+
+    while [ -n "$parent" ]; do
+      drop="del($parent | select(tag != \"!!map\")) | $drop"
+      parent="${parent%.*}"
+    done
+
+    if [ "$(yq e -o=json "$drop" "$cfg.local")" != "$(yq e -o=json '.' "$cfg.local")" ]; then
+      if ! yq e -i "$drop" "$cfg.local"; then
+        echo "Unable to remove $key, or a parent that isn't a map, from $cfg.local"
+        exit 1
+      fi
+      echo "Removed $key, or a parent that isn't a map, from $cfg.local, it is managed by the app"
     fi
   fi
 }
