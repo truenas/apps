@@ -58,10 +58,8 @@ pin .api.server.listen_uri "0.0.0.0:{{ values.consts.internal_lapi_port }}"
 pin .prometheus.enabled "{{ values.network.enable_metrics | lower }}"
 pin .prometheus.listen_addr "0.0.0.0"
 pin .prometheus.listen_port "{{ values.consts.internal_metrics_port }}"
-{%- if not values.crowdsec.external_db %}
 pin .db_config.type "sqlite"
 pin .db_config.db_path "/var/lib/crowdsec/data/crowdsec.db"
-{%- endif %}
 pin .config_paths.data_dir "/var/lib/crowdsec/data/"
 
 exec /bin/bash /docker_start.sh "$@"
