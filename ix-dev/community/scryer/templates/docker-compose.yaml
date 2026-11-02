@@ -7,18 +7,18 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health", "busybox": true, "spider": false}) %}
 {% do c1.environment.add_env("SCRYER_BIND", "0.0.0.0:%d"|format(values.network.web_port.port_number)) %}
-{% do c1.environment.add_env("SCRYER_DB_PATH", "/config/scryer.db") %}
+{% do c1.environment.add_env("SCRYER_DB_PATH", "%s/scryer.db"|format(values.consts.config_path)) %}
 {% do c1.environment.add_env("SCRYER_ADMIN_USERNAME", values.scryer.admin_username) %}
 {% do c1.environment.add_env("SCRYER_ADMIN_PASSWORD", values.scryer.admin_password) %}
 {% do c1.environment.add_env("SCRYER_DISABLE_SELF_UPGRADE", true) %}
 {% if values.scryer.public_url %}
-  {% do c1.environment.add_env("SCRYER_PUBLIC_URL", values.scryer.public_url) %}
+  {% do c1.environment.add_env("SCRYER_PUBLIC_URL", values.scryer.public_url.rstrip("/")) %}
 {% endif %}
 {% do c1.environment.add_user_envs(values.scryer.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
