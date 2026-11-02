@@ -343,11 +343,6 @@ module.exports = {
       ["pgvector/pgvector"],
     ),
     customVersioning(
-      // 2.4-dev
-      "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
-      ["wger/server"],
-    ),
-    customVersioning(
       // 18-vectorchord0.3.0
       "^18-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/immich-app/postgres"],
