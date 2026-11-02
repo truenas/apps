@@ -1,0 +1,23 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set c1 = tpl.add_container(values.consts.container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.healthcheck.disable() %}
+{% do c1.add_caps(["NET_ADMIN", "NET_RAW"]) %}
+{% do c1.add_storage("/config", {"type": "host_path", "host_path_config": {"path": values.storage.data_path, "acl_enable": false}}) %}
+{% do c1.add_port({"bind_mode": "published", "port_number": values.app.host_port, "host_ips": [], "container_port": 22, "protocol": "tcp"}) %}
+{% do c1.environment.add_env("DEFAULT_ADMIN", "true") %}
+{% do c1.environment.add_env("ADMIN_USER", values.app.admin_user) %}
+{% do c1.environment.add_env("ADMIN_PASS", values.app.admin_pass) %}
+{% do c1.environment.add_env("PASSWORD_AUTH", values.app.password_auth) %}
+{% do c1.environment.add_env("AUTO_UPDATE", values.app.auto_update) %}
+{% if values.app.allow_users %}
+{% do c1.environment.add_env("ALLOW_USERS", values.app.allow_users) %}
+{% endif %}
+{% do c1.environment.add_env("PUID", "0") %}
+{% do c1.environment.add_env("PGID", "0") %}
+{% do c1.environment.add_env("F2B_CONFIG_MODE", values.app.f2b_config_mode) %}
+{% do c1.environment.add_env("LOG_STREAMS", values.app.log_streams) %}
+{% do c1.environment.add_env("TAIL_LOGS", "true" if values.app.tail_logs else "false") %}
+{% do c1.environment.add_env("CLEAR_LOGS", "true" if values.app.clear_logs else "false") %}
+{% do c1.environment.add_user_envs(values.app.additional_envs) %}
+{{ tpl.render() | tojson }}
