@@ -30,9 +30,6 @@ def process(changed_files: list[str] | None = None, added_files: list[str] | Non
             continue
 
         app = file.split("/")[2]
-        if file.startswith(f"ix-dev/{train}/{app}/templates/library/base_"):
-            continue
-
         if train not in changes:
             changes[train] = {"apps": {}}
 
