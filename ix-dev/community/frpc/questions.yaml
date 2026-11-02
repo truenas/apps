@@ -25,7 +25,9 @@ questions:
             Provide the full frpc configuration (TOML) yourself.</br>
             Use this if you already have a working frpc.toml (advanced proxy setups,
             stcp/sudp visitors, plugins, multiple proxies, etc).</br>
-            When enabled, the wizard fields below are not rendered.
+            When enabled, the connection wizard fields below are not rendered.
+            If you also want the web dashboard published, enable it below and
+            define the matching `webServer` section in your TOML.
           schema:
             type: boolean
             default: false
@@ -62,7 +64,7 @@ questions:
           label: Login User
           description: |
             frps authentication user.</br>
-            Same as `loginUser` in frpc.toml. Leave empty if the server does not require it.
+            Same as `user` in frpc.toml. Leave empty if the server does not require it.
           schema:
             type: string
             default: ""
@@ -125,21 +127,14 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network.</br>
-            Recommended: frpc connects outbound to the frps server, and visitor
-            proxies (remotePort) become reachable directly on the TrueNAS host.
-          schema:
-            type: boolean
-            default: true
         - variable: web_server
           label: Enable Web UI
           description: |
             Enable the frpc web server (dashboard) so proxies can be viewed and
             managed in the browser.</br>
-            Same as the `webServer` section in frpc.toml.
+            In wizard mode, the `webServer` section is added to frpc.toml automatically.</br>
+            In custom TOML mode, add the `webServer` section yourself; the port published
+            by this app is the one configured below.
           schema:
             type: boolean
             default: false
@@ -196,7 +191,7 @@ questions:
             type: string
             default: "admin"
             required: true
-            show_if: [["web_server", "=", true]]
+            show_if: [["web_server", "=", true], ["custom_toml", "=", false]]
         - variable: web_server_password
           label: Web UI Password
           description: Web server basic auth password (`webServer.password`).
@@ -205,7 +200,7 @@ questions:
             default: ""
             required: true
             private: true
-            show_if: [["web_server", "=", true]]
+            show_if: [["web_server", "=", true], ["custom_toml", "=", false]]
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -390,12 +385,12 @@ questions:
                 description: CPUs limit for Frpc.
                 schema:
                   type: int
-                  default: 1
+                  default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
                 description: Memory limit for Frpc.
                 schema:
                   type: int
-                  default: 256
+                  default: 4096
                   required: true
