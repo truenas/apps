@@ -185,8 +185,9 @@ module.exports = {
       ["photoprism/photoprism"],
     ),
     customVersioning(
-      // RELEASE.2024-08-26T15-33-07Z
-      "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
+      // RELEASE.2024-08-26T15-33-07Z (stable), RELEASE.2024-08-26T15-33-07Z.oem (enterprise)
+      // compatibility keeps each app on its own tag flavor
+      "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z(?<compatibility>\\.oem)?$",
       ["quay.io/minio/aistor/minio"],
     ),
     customVersioning(
