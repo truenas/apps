@@ -21,6 +21,8 @@
 {# The upstream PHP settings handler invokes its narrowly scoped sudo timezone helper. #}
 {% do c1.remove_security_opt("no-new-privileges") %}
 {% do c1.healthcheck.set_custom_test(["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8080/ && curl -fsS -o /dev/null http://127.0.0.1:8081/"]) %}
+{% do c1.environment.add_env("PHVALHEIM_GAME_PORT_START", game_start) %}
+{% do c1.environment.add_env("PHVALHEIM_GAME_PORT_END", game_end) %}
 {% do c1.environment.add_user_envs(values.phvalheim.additional_envs) %}
 
 {% do c1.add_port(values.network.public_port, {"container_port": 8080}) %}
@@ -40,7 +42,7 @@
 
 {% do tpl.portals.add(values.network.admin_port, {"name": "Admin UI"}) %}
 {% do tpl.portals.add(values.network.public_port, {"name": "Player Website"}) %}
-{% do tpl.notes.add_info("Open the admin interface directly or through your reverse proxy to complete setup with your Steam Web API key, website hostname and game DNS. Set Base Port to %d and keep all world port pairs within %d-%d/udp. Published game ports must match container ports."|format(game_start, game_start, game_end)) %}
+{% do tpl.notes.add_info("Open the admin interface directly or through your reverse proxy to complete setup with your Steam Web API key, website hostname and game DNS. Game UDP range %d-%d is supplied automatically from this app configuration; no duplicate Base Port entry is needed. Published game ports must match container ports."|format(game_start, game_end)) %}
 {% do tpl.notes.add_info("Protect the admin interface with a trusted network, VPN or authenticated reverse proxy. Persist all of /opt/stateful. Optional separate backup storage can be mounted at /opt/stateful/backups using Additional Storage. World archives do not replace a full application-data backup.") %}
 
 {{ tpl.render() | tojson }}
