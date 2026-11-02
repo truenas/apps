@@ -1,0 +1,44 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.adguard_container_name, "image") %}
+{% do c1.healthcheck.set_test("wget", {
+  "port": values.adguard.https_port_to_probe if values.adguard.use_https_probe else values.network.web_port.port_number,
+  "scheme": "https" if values.adguard.use_https_probe else "http",
+  "path": "/",
+}) %}
+{% do c1.environment.add_user_envs(values.adguard.additional_envs) %}
+
+{% do c1.add_caps(["NET_BIND_SERVICE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+{% if values.network.dhcp_enabled %}
+  {% do c1.add_caps(["NET_RAW"]) %}
+  {% do c1.set_network_mode("host") %}
+{% endif %}
+
+{% do c1.set_command([
+  "--no-check-update",
+  "--web-addr",
+  "0.0.0.0:%d"|format(values.network.web_port.port_number),
+  "--config",
+  "%s/AdGuardHome.yaml"|format(values.consts.config_path),
+  "--work-dir",
+  values.consts.work_path,
+]) %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do c1.add_port(values.network.dns_port, {"container_port": 53}) %}
+{% do c1.add_port(values.network.dns_port, {"container_port": 53, "protocol": "udp"}) %}
+
+{% for port in values.network.additional_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
+{% do c1.add_storage(values.consts.work_path, values.storage.work) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
