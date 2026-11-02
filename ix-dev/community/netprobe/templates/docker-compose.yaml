@@ -1,0 +1,19 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set c1 = tpl.add_container(values.consts.container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["NET_RAW", "CHOWN"]) %}
+{# No verified in-container probe yet; avoid inventing a failing healthcheck. #}
+{% do c1.healthcheck.disable() %}
+{% do c1.add_storage("/config", {"type": "host_path", "host_path_config": {"path": values.storage.data_path, "acl_enable": false}}) %}
+{% do c1.add_port({"bind_mode": "published", "port_number": values.app.host_port, "host_ips": [], "container_port": 8443, "protocol": "tcp"}) %}
+{% do c1.add_port({"bind_mode":"published","port_number":values.app.http_port,"host_ips":[],"container_port":80,"protocol":"tcp"}) %}
+{% do c1.environment.add_env("NETPROBE_CONFIG_DIR", "/config") %}
+{% do c1.environment.add_env("DB_ENGINE", values.app.db_engine) %}
+{% do c1.environment.add_env("DB_PATH", values.app.db_path) %}
+{% do c1.environment.add_env("NETPROBE_AUTOSTART_CONFIGURED", "true" if values.app.autostart_configured else "false") %}
+{% do c1.environment.add_env("APP_TIMEZONE", values.app.app_timezone) %}
+{% do c1.environment.add_env("SPEEDTEST_BACKEND", values.app.speedtest_backend) %}
+{% do c1.environment.add_env("SPEEDTEST_ENABLED", "true" if values.app.speedtest_enabled else "false") %}
+{% do c1.environment.add_user_envs(values.app.additional_envs) %}
+{% do tpl.portals.add({"bind_mode":"published","port_number":values.app.host_port,"host_ips":[],"protocol":"tcp"}, {"scheme":"https","path":"/"}) %}
+{{ tpl.render() | tojson }}
