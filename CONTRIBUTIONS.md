@@ -206,22 +206,68 @@ Each app lives in `/ix-dev/{train}/{app}/` and has this structure:
 ```txt
 /ix-dev/{train}/{app}/
 ├── app.yaml                    # App metadata (required)
-├── item.yaml                   # Auto-generated catalog entry
-├── ix_values.yaml              # Static default values (required)
-├── questions.yaml              # User configuration schema (required)
+├── item.yaml                   # Catalog entry (generated from app.yaml)
+├── ix_values.yaml              # Static values, not shown to users (required)
+├── questions.yaml              # Install/edit form shown to users (required)
 ├── README.md                   # Short app description (required)
 ├── app_migrations.yaml         # Migration definitions (optional)
+├── deprecations.yaml           # Deprecation notices (optional)
 ├── migrations/                 # Migration scripts (optional)
 │   └── migration_script        # Python migration script
 └── templates/
     ├── docker-compose.yaml     # Jinja2 template (required)
-    ├── library/                # Auto-copied library files (auto-generated)
-    │   └── base_v2_x_xx/       # Library version (auto-generated)
-    ├── rendered/               # Temporary (gitignored)
-    │   └── docker-compose.yaml # Rendered compose file (auto-generated)
+    ├── macros/                 # Extra Jinja2 macros/config templates (optional)
+    ├── library/                # Copy of the library (generated, gitignored)
+    │   └── base_v2_x_xx/       # Library version from lib_version
+    ├── rendered/               # Rendered output (generated, gitignored)
+    │   └── docker-compose.yaml # Rendered compose file
     └── test_values/            # CI test configurations (required)
         └── basic-values.yaml   # Basic test scenario (required)
 ```
+
+What each file is for:
+
+- **`app.yaml`**: The app's metadata: its name, title, description, upstream version (`app_version`),
+  app version (`version`), library version, icon, screenshots, categories and the user it runs as.
+  TrueNAS uses it to show the app in the catalog and to decide which upgrades are available.
+  Some fields (like `capabilities` and `lib_version_hash`) are filled in by scripts.
+  See [Step 2](#step-2-modify-appyaml).
+- **`item.yaml`**: The app's entry in the catalog listing (categories, icon, screenshots and tags).
+  It only mirrors fields of `app.yaml`, and is regenerated from it by
+  [the metadata script](#metadata-generation--validation). Don't edit it by hand.
+- **`ix_values.yaml`**: Values the app always needs but users never see or change,
+  such as the container images and tags (`images`) and constants like container names (`consts`).
+  They are merged with the user's answers before rendering.
+  See [Step 3](#step-3-define-static-values-ix_valuesyaml).
+- **`questions.yaml`**: Describes the form the user fills in when installing or editing the app in the TrueNAS UI:
+  every field, its type, default and validation.
+  The user's answers become the values your template reads.
+  See [Step 4](#step-4-create-user-configuration-schema-questionsyaml).
+- **`README.md`**: A short description of the app, shown to users in the catalog.
+  A warnings block between `<!-- x-readme:warnings:... -->` markers may be added by the metadata script, don't edit that part.
+  See [Step 7](#step-7-create-readmemd).
+- **`app_migrations.yaml`** and **`migrations/`**: Only needed when an update changes the shape of the user's saved values
+  (a renamed or removed question, for example). `app_migrations.yaml` lists which script runs for which version range,
+  and each script in `migrations/` converts the old values to the new shape.
+  See [Updates and Migrations](#updates-and-migrations).
+- **`deprecations.yaml`**: Notices about features or options that are going away,
+  with the dates and the steps users should take. A new app doesn't have one.
+- **`templates/docker-compose.yaml`**: The Jinja2 template that, using the library, turns the merged values into a Docker Compose file.
+  This is where the app's containers, storage, ports and dependencies are defined.
+  See [Step 5](#step-5-create-the-docker-compose-template).
+- **`templates/macros/`**: Optional extra Jinja2 files the main template includes,
+  for example to generate a config file for the app. Most apps don't need it.
+- **`templates/library/`**: A copy of the [rendering library](#2-the-library-system) matching `lib_version` in `app.yaml`.
+  It is made by the CI script (or `devbox run prepare-libs`), is gitignored and is never edited or committed.
+- **`templates/rendered/`**: Where the CI script writes the rendered compose file, so you can inspect what your template produced.
+  Gitignored.
+- **`templates/test_values/`**: Sets of values that stand in for a user's answers, used by CI to render and deploy the app.
+  `basic-values.yaml` is required, add more files for other configurations that **REALLY** worth testing.
+  See [Step 6](#step-6-create-test-files).
+
+Outside the app directory, the publish workflow generates `trains/{train}/{app}/`:
+the published copy of each app version, plus `app_versions.json`, which lists every published version
+with its metadata, and a copy of `item.yaml`. These are build output, never edit them.
 
 #### 2. The Library System
 
@@ -353,7 +399,7 @@ devbox run copy-lib
 ```
 
 Re-run it whenever you change `lib_version`.
-The generated library **must be committed** with the rest of the app, it is part of what ships.
+The copied library is gitignored and **must not be committed**, the publish workflow builds it.
 
 **About icons and screenshots:**
 
