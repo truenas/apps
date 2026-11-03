@@ -1,6 +1,6 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set immich_net = tpl.networks.create_internal("frameleaf-net") %}
+{% set frameleaf_net = tpl.networks.create_internal("frameleaf-net") %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
@@ -14,23 +14,24 @@
 {% do postgres.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
 {% do postgres.environment.add_env("POSTGRES_PASSWORD", values.frameleaf.db_password) %}
 {% do postgres.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+{% do postgres.environment.add_env("PGPORT", values.consts.db_port) %}
 {% do postgres.environment.add_env("POSTGRES_INITDB_ARGS", "--data-checksums") %}
 {% do postgres.environment.add_env("PGDATA", "/var/lib/postgresql/19/docker") %}
-{% do postgres.healthcheck.set_test("postgres", {"user": values.consts.db_user, "db": values.consts.db_name, "port": 5432}) %}
+{% do postgres.healthcheck.set_test("postgres", {"user": values.consts.db_user, "db": values.consts.db_name, "port": values.consts.db_port}) %}
 {% do postgres.add_storage("/var/lib/postgresql", values.storage.postgres_data) %}
 {% do perm_container.add_or_skip_action("postgres_data", values.storage.postgres_data, {"uid": 999, "gid": 999, "mode": "check"}) %}
-{% do postgres.add_network(immich_net) %}
+{% do postgres.add_network(frameleaf_net) %}
 
 
 {% set ml_container = namespace(x=None) %}
 
 {% set server_container = tpl.add_container(values.consts.server_container_name, "image") %}
-{% do server_container.add_network(immich_net) %}
+{% do server_container.add_network(frameleaf_net) %}
 {% do server_container.set_user(values.run_as.user, values.run_as.group) %}
 {# FL-291: must exceed FRAMELEAF_SHUTDOWN_DEADLINE_SECONDS (9 s by default); running jobs finish or go back to waiting first #}
 {% do server_container.set_grace_period(10) %}
 {# FL-721: encrypted Locked files are decrypted into /dev/shm (RAM); Docker's 64 MB default is too small for videos #}
-{% do server_container.set_shm_size_mb(2048) %}
+{% do server_container.set_shm_size_mb(values.frameleaf.shm_size_mb) %}
 {% do server_container.healthcheck.set_custom_test(["CMD", "frameleaf-healthcheck"]) %}
 {% do server_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
@@ -54,24 +55,22 @@
 {% do server_container.add_port(values.network.web_port) %}
 
 {% do server_container.environment.add_env("NODE_ENV", "production") %}
-{% do server_container.environment.add_env("FRAMELEAF_LOG_LEVEL", values.frameleaf.log_level) %}
 {% do server_container.environment.add_env("FRAMELEAF_PORT", values.network.web_port.port_number) %}
 {% do server_container.environment.add_env("DB_USERNAME", values.consts.db_user) %}
 {% do server_container.environment.add_env("DB_PASSWORD", values.frameleaf.db_password) %}
 {% do server_container.environment.add_env("DB_HOSTNAME", values.consts.postgres_container_name) %}
 {% do server_container.environment.add_env("DB_DATABASE_NAME", values.consts.db_name) %}
-{% do server_container.environment.add_env("DB_PORT", "5432") %}
+{% do server_container.environment.add_env("DB_PORT", values.consts.db_port) %}
 {% do server_container.environment.add_user_envs(values.frameleaf.additional_envs) %}
 
 {% do server_container.environment.add_env("FRAMELEAF_MACHINE_LEARNING_ENABLED", "true" if values.frameleaf.enable_ml else "false") %}
 
 {% if values.frameleaf.enable_ml %}
   {% set ml_container.x = tpl.add_container(values.consts.ml_container_name, values.frameleaf.ml_image_selector) %}
-  {% do ml_container.x.add_network(immich_net) %}
+  {% do ml_container.x.add_network(frameleaf_net) %}
   {% do ml_container.x.set_user(values.run_as.user, values.run_as.group) %}
   {% do ml_container.x.healthcheck.set_custom_test(["CMD" ,"python3", "healthcheck.py"]) %}
   {% do ml_container.x.environment.add_env("NODE_ENV", "production") %}
-  {% do ml_container.x.environment.add_env("FRAMELEAF_LOG_LEVEL", values.frameleaf.log_level) %}
   {% do ml_container.x.environment.add_env("FRAMELEAF_PORT", values.consts.ml_port) %}
   {% do ml_container.x.environment.add_env("MACHINE_LEARNING_CACHE_FOLDER", values.consts.ml_cache_path) %}
   {% do ml_container.x.environment.add_env("TRANSFORMERS_CACHE", values.consts.ml_cache_path) %}
