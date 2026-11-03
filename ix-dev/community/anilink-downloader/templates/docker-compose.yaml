@@ -5,13 +5,10 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {
-  "port": values.consts.web_port,
-  "path": "/health/live",
-  "spider": False,
-  "busybox": True,
-}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health/live", "spider": false, "busybox": true}) %}
 
+{% do c1.environment.add_env("ASPNETCORE_HTTP_PORTS", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("Downloads__Root", values.consts.downloads_path) %}
 {% do c1.environment.add_env("Debrid_ApiKey", values.anilink.debrid_api_key) %}
 {% do c1.environment.add_env("Debrid_Request_Delay", values.anilink.debrid_request_delay) %}
 {% do c1.environment.add_env("Concurrent_Downloads", values.anilink.concurrent_downloads) %}
@@ -20,7 +17,7 @@
 {% endfor %}
 {% do c1.environment.add_user_envs(values.anilink.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.web_port}) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% do c1.add_storage(values.consts.downloads_path, values.storage.downloads) %}
 {% do perm_container.add_or_skip_action(values.consts.downloads_path, values.storage.downloads, perms_config) %}
