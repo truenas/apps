@@ -1,8 +1,9 @@
 groups:
   - name: Application Configuration
-    description: Configure application ports
+    description: Configure Plex DBRepair maintenance options
   - name: Storage Configuration
-    description: Select existing TrueNAS host paths
+    description: Configure persistent repair logs
+
 questions:
   - variable: app
     label: ""
@@ -10,11 +11,128 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: description
-          label: Job description
+        - variable: mode
+          label: Maintenance Mode
+          description: Select the DBRepair maintenance operation.
           schema:
             type: string
-            default: Plex database repair
+            default: automatic
+            required: true
+            enum:
+              - value: automatic
+                description: Automatic upstream maintenance
+              - value: check
+                description: Database integrity checks
+              - value: vacuum
+                description: Compact database
+              - value: repair
+                description: Repair and rebuild database structures
+              - value: reindex
+                description: Rebuild indexes
+              - value: deflate
+                description: Compact database only if needed
+              - value: prune
+                description: PhotoTranscoder cache cleanup
+
+        - variable: plex_container_name
+          label: Plex Container Name
+          description: Use auto when exactly one supported Plex container is present, or enter the exact Plex Docker container name.
+          schema:
+            type: string
+            default: auto
+            required: true
+
+        - variable: enable_backups
+          label: Enable Database Backups
+          description: Create timestamped cold database backups before maintenance where supported.
+          schema:
+            type: boolean
+            default: true
+
+        - variable: restart_plex
+          label: Restart Plex After Success
+          description: Restart the target Plex container after successful maintenance.
+          schema:
+            type: boolean
+            default: true
+
+        - variable: prune_days
+          label: Prune Days
+          description: For prune mode, remove eligible PhotoTranscoder cached files older than this number of days.
+          schema:
+            type: int
+            default: 30
+            min: 1
+            required: true
+
+        - variable: plex_container_match
+          label: Plex Container Match
+          description: Case-insensitive substring used when automatic container discovery is enabled.
+          schema:
+            type: string
+            default: plex
+            required: true
+
+        - variable: plex_mount
+          label: Plex Internal Config Mount
+          description: Path inside the target Plex container to its Plex configuration mount.
+          schema:
+            type: string
+            default: /config
+            required: true
+
+        - variable: plex_relative_path
+          label: Plex Internal Relative Path
+          description: Relative Plex Media Server path inside the target Plex configuration mount.
+          schema:
+            type: string
+            default: Library/Application Support/Plex Media Server
+            required: true
+
+        - variable: allow_plex_kill
+          label: Allow Plex Process Shutdown Fallback
+          description: Allow SIGTERM fallback if upstream DBRepair cannot stop Plex cleanly.
+          schema:
+            type: boolean
+            default: true
+
+        - variable: dbrepair_timeout
+          label: Maintenance Timeout Seconds
+          schema:
+            type: int
+            default: 7200
+            min: 1
+            required: true
+
+        - variable: stop_timeout
+          label: Plex Shutdown Timeout Seconds
+          schema:
+            type: int
+            default: 90
+            min: 1
+            required: true
+
+        - variable: additional_envs
+          label: Additional Environment Variables
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: env
+                label: Environment Variable
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value
+                      schema:
+                        type: string
+
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -22,7 +140,8 @@ questions:
       type: dict
       attrs:
         - variable: logs_path
-          label: logs path
+          label: Persistent Repair Logs
+          description: Existing TrueNAS dataset used for DBRepair execution logs.
           schema:
             type: hostpath
             required: true

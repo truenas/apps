@@ -1,12 +1,18 @@
 # Plex DB Repair
 
-One-shot Plex database repair and backup job; expected to exit after completion.
+[Plex DB Repair](https://github.com/bmartino1/plex-dbrepair-docker) is a one-shot Plex database maintenance utility using ChuckPa DBRepair.
 
-Source: [Apps/plex-dbrepair](https://github.com/bmartino1/bmartino1TrueNasCharts/tree/main/Apps/plex-dbrepair).
+The application discovers a running Plex Docker container through the host Docker socket, performs the selected database maintenance operation, writes persistent logs, and exits when finished.
 
-WARNING: This one-shot utility requires Docker socket access and may stop or restart Plex. A completed exit is expected; don't treat it as a long-running service.
+A running Plex installation is required before starting this application.
 
-Experimental and unsupported TrueNAS SCALE 25.10 test VM application. Validate installation and runtime before production use.
+The application may stop the Plex Media Server process during maintenance and can restart the Plex container after successful completion.
+
+The Docker socket grants this application host-level Docker control. Verify Plex database backups before performing maintenance.
+
+This application is intentionally configured as a one-shot job and does not automatically restart after completion.
+
+For source code and deployment documentation, see the [plex-dbrepair-docker GitHub repository](https://github.com/bmartino1/plex-dbrepair-docker).
 
 <!-- x-readme:warnings:start -->
 
