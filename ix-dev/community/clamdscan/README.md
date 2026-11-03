@@ -1,7 +1,9 @@
-# clamdscan
+# ClamAV clamdscan
 
-Experimental TrueNAS community catalog definition for clamdscan.
+[ClamAV clamdscan](https://github.com/bmartino1/clamav-alpine) is a one-shot filesystem malware scanner using ClamAV and clamdscan.
 
-This entry is being tested on TrueNAS SCALE 25.10.7. Installation settings, container security, storage, ports, and functionality are not verified for production use.
+When started, the container updates virus signatures, starts clamd, scans the configured filesystem path, stores persistent scan logs, and exits when the scan completes.
 
-The application must pass catalog rendering and runtime testing before publication. Its TrueNAS media icon URL is currently an unpublished testing placeholder.
+The scan target is mounted read-only by default.
+
+For source code and deployment documentation, see the [clamav-alpine GitHub repository](https://github.com/bmartino1/clamav-alpine).
