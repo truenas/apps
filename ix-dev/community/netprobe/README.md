@@ -1,7 +1,7 @@
 # NetProbe
 
-NetProbe provides a web interface for network monitoring and diagnostics.
+[NetProbe](https://github.com/bmartino1/NetProbe_Python) is a self-hosted network monitoring and diagnostics dashboard.
 
-This is an experimental TrueNAS community catalog definition. Its installation form, network ports, storage settings, and runtime behavior must be tested before production use.
+It provides Ping, DNS, latency, jitter, packet-loss, and optional Speedtest monitoring through a web interface.
 
-Application files are maintained in the bmartino1TrueNasCharts development repository. A GitHub source repository is not itself a supported TrueNAS Discover catalog subscription.
+For source code and application documentation, see the [NetProbe GitHub repository](https://github.com/bmartino1/NetProbe_Python).
