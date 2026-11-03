@@ -1,7 +1,9 @@
-# sftp-fail2ban
+# SFTP Fail2ban
 
-Experimental TrueNAS community catalog definition for sftp-fail2ban.
+[SFTP Fail2ban](https://github.com/bmartino1/sftp-debian) provides an OpenSSH SFTP server with Fail2ban protection against brute-force login attempts.
 
-This entry is being tested on TrueNAS SCALE 25.10.7. Installation settings, container security, storage, ports, and functionality are not verified for production use.
+Persistent application configuration, SSH host keys, Fail2ban configuration, and logs are stored under /config.
 
-The application must pass catalog rendering and runtime testing before publication. Its TrueNAS media icon URL is currently an unpublished testing placeholder.
+The configured shared host path is mounted for the default SFTP user at /home/admin/sftp.
+
+For source code and deployment documentation, see the [sftp-debian GitHub repository](https://github.com/bmartino1/sftp-debian).
