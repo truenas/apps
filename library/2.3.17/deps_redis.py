@@ -16,7 +16,7 @@ class RedisConfig(TypedDict):
     volume: "IxStorage"
 
 
-SUPPORTED_REPOS = ["redis", "valkey/valkey"]
+SUPPORTED_REPOS = ["redis", "valkey/valkey", "ghcr.io/valkey-io/valkey"]
 
 
 class RedisContainer:

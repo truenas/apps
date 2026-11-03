@@ -13,8 +13,8 @@ fi
 
 echo "Downloading stalwart-cli {{ ver }}..."
 cd /tmp
-wget -qO "{{ asset }}.tar.xz" "{{ base }}/{{ asset }}.tar.xz"
-wget -qO "{{ asset }}.tar.xz.sha256" "{{ base }}/{{ asset }}.tar.xz.sha256"
+curl -fsSLo "{{ asset }}.tar.xz" "{{ base }}/{{ asset }}.tar.xz"
+curl -fsSLo "{{ asset }}.tar.xz.sha256" "{{ base }}/{{ asset }}.tar.xz.sha256"
 grep -F "{{ asset }}.tar.xz" "{{ asset }}.tar.xz.sha256" | sha256sum -c -
 
 echo "Extracting stalwart-cli to {{ values.consts.cli_dir }}..."

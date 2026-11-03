@@ -17,7 +17,7 @@ class CronConfig(TypedDict):
     tasks: list[TasksConfig]
 
 
-SUPPORTED_REPOS = ["ixsystems/cron"]
+SUPPORTED_REPOS = ["ixsystems/cron", "ghcr.io/truenas/containers/cron"]
 
 
 class CronContainer:
