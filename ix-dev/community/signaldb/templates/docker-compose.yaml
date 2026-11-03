@@ -12,38 +12,37 @@
 
 {% set pg_config = {
   "user": values.consts.db_user,
-  "password": values.signaldb.database.password,
+  "password": values.signaldb.db_password,
   "database": values.consts.db_name,
   "volume": values.storage.postgres_data,
 } %}
-{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.signaldb.database.postgres_image_selector, pg_config, perm_container) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.signaldb.postgres_image_selector, pg_config, perm_container) %}
 {% do postgres.container.add_network(signaldb_net) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
 {% set pg_url = postgres.get_url("postgres") %}
-{% set shared_env = {
-  "SIGNALDB_DATABASE_DSN": pg_url,
-  "SIGNALDB_DISCOVERY_DSN": pg_url,
-  "SIGNALDB__SCHEMA__CATALOG_TYPE": "sql",
-  "SIGNALDB__SCHEMA__CATALOG_URI": pg_url,
-  "SIGNALDB__WAL__WAL_DIR": values.consts.wal_path,
-  "SIGNALDB__STORAGE__DSN": "file://%s" | format(values.consts.signal_data_path),
-} %}
-{% for key, value in shared_env.items() %}
-  {% do c1.environment.add_env(key, value) %}
-{% endfor %}
+{% do c1.environment.add_env("SIGNALDB__DATABASE__DSN", pg_url) %}
+{% do c1.environment.add_env("SIGNALDB__DISCOVERY__DSN", pg_url) %}
+{% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_TYPE", "sql") %}
+{% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_URI", pg_url) %}
+{% do c1.environment.add_env("SIGNALDB__WAL__WAL_DIR", values.consts.wal_path) %}
+{% do c1.environment.add_env("SIGNALDB__STORAGE__DSN", "file://%s" | format(values.consts.signal_data_path)) %}
 
 {% set memory_mb = values.resources.limits.memory %}
 {% do c1.environment.add_env("SIGNALDB__QUERIER__MEMORY_LIMIT_MB", memory_mb // 2) %}
 {% do c1.environment.add_env("SIGNALDB__COMPACTOR__MEMORY_LIMIT_MB", [512, memory_mb // 8] | min) %}
 
-{% for key in ["api_url", "otlp_grpc_url", "otlp_http_url"] %}
-  {% if values.signaldb.public[key] %}
-    {% do c1.environment.add_env("SIGNALDB__PUBLIC__%s" | format(key | upper), values.signaldb.public[key]) %}
-  {% endif %}
-{% endfor %}
-{% if values.signaldb.mcp.enabled and values.signaldb.mcp.public_url %}
-  {% do c1.environment.add_env("SIGNALDB__PUBLIC__MCP_URL", values.signaldb.mcp.public_url) %}
+{% if values.signaldb.api_public_url %}
+  {% do c1.environment.add_env("SIGNALDB__PUBLIC__API_URL", values.signaldb.api_public_url) %}
+{% endif %}
+{% if values.signaldb.otlp_grpc_public_url %}
+  {% do c1.environment.add_env("SIGNALDB__PUBLIC__OTLP_GRPC_URL", values.signaldb.otlp_grpc_public_url) %}
+{% endif %}
+{% if values.signaldb.otlp_http_public_url %}
+  {% do c1.environment.add_env("SIGNALDB__PUBLIC__OTLP_HTTP_URL", values.signaldb.otlp_http_public_url) %}
+{% endif %}
+{% if values.signaldb.enable_mcp and values.signaldb.mcp_public_url %}
+  {% do c1.environment.add_env("SIGNALDB__PUBLIC__MCP_URL", values.signaldb.mcp_public_url) %}
 {% endif %}
 
 {% if values.signaldb.admin_api_key %}
@@ -74,29 +73,28 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% if values.signaldb.mcp.enabled %}
+{% if values.signaldb.enable_mcp %}
   {% set mcp = tpl.add_container(values.consts.mcp_container_name, "image") %}
   {% do mcp.set_user(values.run_as.user, values.run_as.group) %}
   {% do mcp.set_command(["mcp"]) %}
   {% do mcp.add_network(signaldb_net) %}
   {% do mcp.depends.add_dependency(values.consts.signaldb_container_name, "service_healthy") %}
-  {% do mcp.healthcheck.set_test("netcat", {"port": values.consts.internal_mcp_port}) %}
-  {% set allowed_hosts = values.signaldb.mcp.allowed_hosts | list %}
-  {% if values.signaldb.mcp.public_url %}
-    {% do allowed_hosts.append(values.signaldb.mcp.public_url.split("://")[-1].split("/")[0]) %}
+  {% do mcp.healthcheck.set_test("netcat", {"port": values.network.mcp_port.port_number}) %}
+  {% set allowed_hosts = values.signaldb.mcp_allowed_hosts | list %}
+  {% if values.signaldb.mcp_public_url %}
+    {% do allowed_hosts.append(tpl.funcs.url_to_dict(values.signaldb.mcp_public_url).netloc) %}
   {% endif %}
-  {% do mcp.environment.add_env("SIGNALDB__MCP__BIND_ADDRESS", "0.0.0.0:%d" | format(values.consts.internal_mcp_port)) %}
+  {% do mcp.environment.add_env("SIGNALDB__MCP__BIND_ADDRESS", "0.0.0.0:%d" | format(values.network.mcp_port.port_number)) %}
   {% do mcp.environment.add_env("SIGNALDB__MCP__ROUTER_URL", "http://%s:%d" | format(values.consts.signaldb_container_name, values.consts.internal_web_port)) %}
   {% if allowed_hosts %}
     {% do mcp.environment.add_env("SIGNALDB__MCP__ALLOWED_HOSTS", allowed_hosts | join(",")) %}
   {% endif %}
-  {% if values.signaldb.public.api_url %}
-    {% do mcp.environment.add_env("SIGNALDB__MCP__UI_BASE_URL", values.signaldb.public.api_url) %}
+  {% if values.signaldb.api_public_url %}
+    {% do mcp.environment.add_env("SIGNALDB__MCP__UI_BASE_URL", values.signaldb.api_public_url) %}
   {% endif %}
-  {% do mcp.add_port(values.network.mcp_port, {"container_port": values.consts.internal_mcp_port}) %}
+  {% do mcp.add_port(values.network.mcp_port) %}
 {% endif %}
 
-{% do tpl.notes.add_info("Configure tenants and API keys in /data/signaldb.toml on the Data storage volume, then restart SignalDB. See the app README for an example.") %}
 {% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}

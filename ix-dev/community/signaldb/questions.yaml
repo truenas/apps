@@ -29,107 +29,95 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: admin_api_key
-          label: Admin API Key (optional)
+        - variable: postgres_image_selector
+          label: Postgres Image (CAUTION)
           description: |
-            API key for the `/api/v1/admin/*` management endpoints (creating
-            further tenants, datasets and keys after install). Leave blank
-            to leave the admin API disabled.
+            If you are changing this after the postgres directory has been initialized,</br>
+            STOP! and make sure you have a backup of your data.</br>
+            Changing this will trigger an one way database upgrade.</br>
+            You can only select newer versions of postgres.</br>
+            Selecting an older version will refuse to start.</br>
+            If something goes wrong, you will have to restore from backup.
+          schema:
+            type: string
+            default: postgres_18_image
+            required: true
+            enum:
+              - value: postgres_18_image
+                description: Postgres 18
+        - variable: db_password
+          label: Database Password
+          description: The password for the bundled PostgreSQL database.
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: admin_api_key
+          label: Admin API Key
+          description: |
+            The API key for the admin endpoints, used to create tenants, datasets and keys.</br>
+            Leave empty to keep the admin API disabled.
           schema:
             type: string
             default: ""
             private: true
-        - variable: database
-          label: ""
-          schema:
-            type: dict
-            attrs:
-              - variable: postgres_image_selector
-                label: Postgres Image (CAUTION)
-                description: |
-                  If you are changing this after the postgres directory has been initialized,</br>
-                  STOP! and make sure you have a backup of your data.</br>
-                  Changing this will trigger an one way database upgrade.</br>
-                  You can only select newer versions of postgres.</br>
-                  Selecting an older version will refuse to start.</br>
-                  If something goes wrong, you will have to restore from backup.
-                schema:
-                  type: string
-                  default: postgres_18_image
-                  required: true
-                  enum:
-                    - value: postgres_18_image
-                      description: Postgres 18
-              - variable: password
-                label: Postgres Password
-                description: Password for the bundled PostgreSQL container.
-                schema:
-                  type: string
-                  default: ""
-                  required: true
-                  private: true
-        - variable: public
-          label: Public URLs
+        - variable: api_public_url
+          label: API and UI URL
           description: |
-            How clients outside the NAS reach SignalDB, for example through a reverse proxy.
-            Leave empty to use the local defaults.
+            The URL where clients reach the query API and Explore UI, when it differs from the NAS address.</br>
+            For example https://signaldb.example.com
           schema:
-            type: dict
-            attrs:
-              - variable: api_url
-                label: API and UI URL
-                description: Base URL of the query API and Explore UI, e.g. https://signaldb.example.com
-                schema:
-                  type: string
-                  default: ""
-              - variable: otlp_grpc_url
-                label: OTLP gRPC URL
-                description: e.g. https://otlp.example.com:4317
-                schema:
-                  type: string
-                  default: ""
-              - variable: otlp_http_url
-                label: OTLP HTTP URL
-                description: e.g. https://otlp.example.com
-                schema:
-                  type: string
-                  default: ""
-        - variable: mcp
-          label: MCP Server
+            type: uri
+            default: ""
+        - variable: otlp_grpc_public_url
+          label: OTLP gRPC URL
+          description: |
+            The URL where clients send OTLP over gRPC, when it differs from the NAS address.</br>
+            For example https://otlp.example.com:4317
           schema:
-            type: dict
-            attrs:
-              - variable: enabled
-                label: Enable MCP Server
-                description: |
-                  Runs SignalDB's Model Context Protocol server as a second container,
-                  so AI agents can query your telemetry. Clients authenticate with a
-                  SignalDB API key.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: public_url
-                label: Public MCP URL
-                description: Public URL of the MCP endpoint, e.g. https://mcp.example.com/mcp
+            type: uri
+            default: ""
+        - variable: otlp_http_public_url
+          label: OTLP HTTP URL
+          description: |
+            The URL where clients send OTLP over HTTP, when it differs from the NAS address.</br>
+            For example https://otlp.example.com
+          schema:
+            type: uri
+            default: ""
+        - variable: enable_mcp
+          label: Enable MCP Server
+          description: |
+            Runs the SignalDB Model Context Protocol server, so AI agents can query your telemetry.</br>
+            Clients authenticate with a SignalDB API key.
+          schema:
+            type: boolean
+            default: false
+        - variable: mcp_public_url
+          label: MCP URL
+          description: |
+            The URL of the MCP endpoint, when it differs from the NAS address.</br>
+            For example https://mcp.example.com/mcp
+          schema:
+            type: uri
+            default: ""
+            show_if: [["enable_mcp", "=", true]]
+        - variable: mcp_allowed_hosts
+          label: MCP Allowed Hosts
+          description: |
+            Host headers the MCP server accepts besides loopback, for example 192.168.1.10:30555.</br>
+            The host of the MCP URL is added automatically.
+          schema:
+            type: list
+            default: []
+            show_if: [["enable_mcp", "=", true]]
+            items:
+              - variable: host
+                label: Host
                 schema:
                   type: string
-                  default: ""
-                  show_if: [["enabled", "=", true]]
-              - variable: allowed_hosts
-                label: Allowed Hosts
-                description: |
-                  Host headers the MCP server accepts besides loopback, e.g. 192.168.1.10:30550
-                  or mcp.example.com. The host of the Public MCP URL is added automatically.
-                schema:
-                  type: list
-                  default: []
-                  show_if: [["enabled", "=", true]]
-                  items:
-                    - variable: host
-                      label: Host
-                      schema:
-                        type: string
-                        required: true
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -208,7 +196,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30547
+                  default: 30552
                   min: 1
                   max: 65535
                   required: true
@@ -256,7 +244,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30548
+                  default: 30553
                   min: 1
                   max: 65535
                   required: true
@@ -304,7 +292,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30549
+                  default: 30554
                   min: 1
                   max: 65535
                   required: true
@@ -352,7 +340,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30550
+                  default: 30555
                   min: 1
                   max: 65535
                   required: true
