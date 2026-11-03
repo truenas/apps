@@ -1,8 +1,9 @@
 groups:
   - name: Application Configuration
-    description: Configure application environment and network
+    description: Configure Time Machine and Samba
   - name: Storage Configuration
     description: Choose an existing TrueNAS dataset
+
 questions:
   - variable: app
     label: ""
@@ -11,13 +12,73 @@ questions:
       type: dict
       attrs:
         - variable: host_port
-          label: Host Port
+          label: SMB Port
+          description: TCP port used by this Time Machine Samba server. Port 445 conflicts with the TrueNAS SMB service if it is enabled.
           schema:
             type: int
             default: 445
             min: 1
             max: 65535
             required: true
+
+        - variable: username
+          label: Time Machine Username
+          schema:
+            type: string
+            default: timemachine
+            required: true
+
+        - variable: password
+          label: Time Machine Password
+          schema:
+            type: string
+            private: true
+            required: true
+
+        - variable: uid
+          label: User ID
+          schema:
+            type: int
+            default: 1000
+            min: 0
+            required: true
+
+        - variable: gid
+          label: Group ID
+          schema:
+            type: int
+            default: 1000
+            min: 0
+            required: true
+
+        - variable: share_name
+          label: Share Name
+          schema:
+            type: string
+            default: TimeMachine
+            required: true
+
+        - variable: volume_size_limit
+          label: Backup Size Limit
+          description: Maximum Time Machine backup size. Use 0 for unlimited or a value supported by Samba such as 1 T.
+          schema:
+            type: string
+            default: "0"
+            required: true
+
+        - variable: set_permissions
+          label: Set Storage Permissions
+          schema:
+            type: boolean
+            default: false
+
+        - variable: workgroup
+          label: SMB Workgroup
+          schema:
+            type: string
+            default: WORKGROUP
+            required: true
+
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -38,6 +99,7 @@ questions:
                       label: Value
                       schema:
                         type: string
+
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -45,8 +107,8 @@ questions:
       type: dict
       attrs:
         - variable: data_path
-          label: Application Host Dataset Path
-          description: Existing absolute path under /mnt/<pool> to store application data
+          label: Time Machine Backup Dataset
+          description: Existing TrueNAS dataset used to store Time Machine backups.
           schema:
             type: hostpath
             required: true

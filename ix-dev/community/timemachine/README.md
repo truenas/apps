@@ -1,7 +1,11 @@
-# timemachine
+# Time Machine Samba
 
-Experimental TrueNAS community catalog definition for timemachine.
+[Time Machine Samba](https://github.com/mbentley/docker-timemachine) provides a Samba-based Time Machine backup destination for macOS.
 
-This entry is being tested on TrueNAS SCALE 25.10.7. Installation settings, container security, storage, ports, and functionality are not verified for production use.
+Backup data is stored persistently under /opt/timemachine.
 
-The application must pass catalog rendering and runtime testing before publication. Its TrueNAS media icon URL is currently an unpublished testing placeholder.
+The application supports configurable Time Machine credentials, user and group IDs, share name, backup size limit, SMB workgroup, and Samba listening port.
+
+Port 445 may conflict with the TrueNAS host SMB service if that service is enabled.
+
+For upstream documentation, see the [docker-timemachine GitHub repository](https://github.com/mbentley/docker-timemachine).
