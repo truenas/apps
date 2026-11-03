@@ -1,6 +1,7 @@
 {% from "macros/entrypoint.sh" import entrypoint %}
 {% set tpl = ix_lib.base.render.Render(values) %}
 {% set disable_lapi = not values.network.lapi_port.bind_mode %}
+{% set disable_metrics = not values.network.metrics_port.bind_mode %}
 
 {# ----- Without the Local API, the agent needs the URL and credentials of a remote one #}
 {% if disable_lapi %}
@@ -27,7 +28,7 @@
   ) %}
 {% endif %}
 
-{% do c1.configs.add("entrypoint.sh", entrypoint(values, disable_lapi), "/entrypoint.sh", "0500") %}
+{% do c1.configs.add("entrypoint.sh", entrypoint(values, disable_lapi, disable_metrics), "/entrypoint.sh", "0500") %}
 {% do c1.set_entrypoint(["/entrypoint.sh"]) %}
 
 {% do c1.environment.add_env("DISABLE_LOCAL_API", disable_lapi) %}
@@ -35,9 +36,7 @@
 {% do c1.environment.add_user_envs(values.crowdsec.additional_envs) %}
 
 {% do c1.add_port(values.network.lapi_port, {"container_port": values.consts.internal_lapi_port}) %}
-{% if values.network.enable_metrics %}
-  {% do c1.add_port(values.network.metrics_port, {"container_port": values.consts.internal_metrics_port}) %}
-{% endif %}
+{% do c1.add_port(values.network.metrics_port, {"container_port": values.consts.internal_metrics_port}) %}
 {% for port in values.network.acquisition_ports %}
   {% do c1.add_port(port) %}
 {% endfor %}

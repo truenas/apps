@@ -1,4 +1,4 @@
-{% macro entrypoint(values, disable_lapi) -%}
+{% macro entrypoint(values, disable_lapi, disable_metrics) -%}
 #!/bin/bash
 
 cfg="${CONFIG_FILE:-/etc/crowdsec/config.yaml}"
@@ -55,7 +55,7 @@ pin() {
 
 pin .api.server.enable "{{ "false" if disable_lapi else "true" }}"
 pin .api.server.listen_uri "0.0.0.0:{{ values.consts.internal_lapi_port }}"
-pin .prometheus.enabled "{{ values.network.enable_metrics | lower }}"
+pin .prometheus.enabled "{{ "false" if disable_metrics else "true" }}"
 pin .prometheus.listen_addr "0.0.0.0"
 pin .prometheus.listen_port "{{ values.consts.internal_metrics_port }}"
 pin .db_config.type "sqlite"
