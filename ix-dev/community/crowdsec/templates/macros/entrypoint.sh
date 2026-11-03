@@ -1,4 +1,4 @@
-{% macro entrypoint(values) -%}
+{% macro entrypoint(values, disable_lapi) -%}
 #!/bin/bash
 
 cfg="${CONFIG_FILE:-/etc/crowdsec/config.yaml}"
@@ -53,7 +53,7 @@ pin() {
   fi
 }
 
-pin .api.server.enable "{{ (not values.network.disable_lapi) | lower }}"
+pin .api.server.enable "{{ "false" if disable_lapi else "true" }}"
 pin .api.server.listen_uri "0.0.0.0:{{ values.consts.internal_lapi_port }}"
 pin .prometheus.enabled "{{ values.network.enable_metrics | lower }}"
 pin .prometheus.listen_addr "0.0.0.0"
