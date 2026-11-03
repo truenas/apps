@@ -1,0 +1,104 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set immich_net = tpl.networks.create_internal("frameleaf-net") %}
+
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{# The generic Postgres helper only accepts its own repository allowlist. #}
+{% set postgres = tpl.add_container(values.consts.postgres_container_name, values.frameleaf.postgres_image_selector) %}
+{% do postgres.set_user(999, 999) %}
+{% do postgres.remove_devices() %}
+{% do postgres.set_shm_size_mb(256) %}
+{% do postgres.set_grace_period(60) %}
+{% do postgres.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
+{% do postgres.environment.add_env("POSTGRES_PASSWORD", values.frameleaf.db_password) %}
+{% do postgres.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+{% do postgres.environment.add_env("POSTGRES_INITDB_ARGS", "--data-checksums") %}
+{% do postgres.environment.add_env("PGDATA", "/var/lib/postgresql/19/docker") %}
+{% do postgres.healthcheck.set_test("postgres", {"user": values.consts.db_user, "db": values.consts.db_name, "port": 5432}) %}
+{% do postgres.add_storage("/var/lib/postgresql", values.storage.postgres_data) %}
+{% do perm_container.add_or_skip_action("postgres_data", values.storage.postgres_data, {"uid": 999, "gid": 999, "mode": "check"}) %}
+{% do postgres.add_network(immich_net) %}
+
+
+{% set ml_container = namespace(x=None) %}
+
+{% set server_container = tpl.add_container(values.consts.server_container_name, "image") %}
+{% do server_container.add_network(immich_net) %}
+{% do server_container.set_user(values.run_as.user, values.run_as.group) %}
+{# FL-291: must exceed FRAMELEAF_SHUTDOWN_DEADLINE_SECONDS (9 s by default); running jobs finish or go back to waiting first #}
+{% do server_container.set_grace_period(10) %}
+{# FL-721: encrypted Locked files are decrypted into /dev/shm (RAM); Docker's 64 MB default is too small for videos #}
+{% do server_container.set_shm_size_mb(2048) %}
+{% do server_container.healthcheck.set_custom_test(["CMD", "frameleaf-healthcheck"]) %}
+{% do server_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{% set cli_temp_storage = tpl.funcs.temp_config("cli-temp-storage") %}
+{% do server_container.add_storage("/.config", cli_temp_storage) %}
+{% do perm_container.add_or_skip_action("/.config", cli_temp_storage, perms_config) %}
+
+{% do server_container.add_storage(values.consts.base_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{# FL-408: the bundled Studio worker's enrolment; the server writes it, machine learning reads it #}
+{% set studio_worker_config = {"type": "volume", "volume_config": {"volume_name": "studio-worker", "auto_permissions": true}} %}
+{% do server_container.add_storage(values.consts.studio_worker_path, studio_worker_config) %}
+{% do perm_container.add_or_skip_action("studio-worker", studio_worker_config, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do server_container.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% do server_container.add_port(values.network.web_port) %}
+
+{% do server_container.environment.add_env("NODE_ENV", "production") %}
+{% do server_container.environment.add_env("FRAMELEAF_LOG_LEVEL", values.frameleaf.log_level) %}
+{% do server_container.environment.add_env("FRAMELEAF_PORT", values.network.web_port.port_number) %}
+{% do server_container.environment.add_env("DB_USERNAME", values.consts.db_user) %}
+{% do server_container.environment.add_env("DB_PASSWORD", values.frameleaf.db_password) %}
+{% do server_container.environment.add_env("DB_HOSTNAME", values.consts.postgres_container_name) %}
+{% do server_container.environment.add_env("DB_DATABASE_NAME", values.consts.db_name) %}
+{% do server_container.environment.add_env("DB_PORT", "5432") %}
+{% do server_container.environment.add_user_envs(values.frameleaf.additional_envs) %}
+
+{% do server_container.environment.add_env("FRAMELEAF_MACHINE_LEARNING_ENABLED", "true" if values.frameleaf.enable_ml else "false") %}
+
+{% if values.frameleaf.enable_ml %}
+  {% set ml_container.x = tpl.add_container(values.consts.ml_container_name, values.frameleaf.ml_image_selector) %}
+  {% do ml_container.x.add_network(immich_net) %}
+  {% do ml_container.x.set_user(values.run_as.user, values.run_as.group) %}
+  {% do ml_container.x.healthcheck.set_custom_test(["CMD" ,"python3", "healthcheck.py"]) %}
+  {% do ml_container.x.environment.add_env("NODE_ENV", "production") %}
+  {% do ml_container.x.environment.add_env("FRAMELEAF_LOG_LEVEL", values.frameleaf.log_level) %}
+  {% do ml_container.x.environment.add_env("FRAMELEAF_PORT", values.consts.ml_port) %}
+  {% do ml_container.x.environment.add_env("MACHINE_LEARNING_CACHE_FOLDER", values.consts.ml_cache_path) %}
+  {% do ml_container.x.environment.add_env("TRANSFORMERS_CACHE", values.consts.ml_cache_path) %}
+  {% do ml_container.x.environment.add_env("HF_HOME", values.consts.ml_cache_path) %}
+  {% do ml_container.x.environment.add_env("MPLCONFIGDIR", "%s/matplotlib"|format(values.consts.ml_cache_path)) %}
+  {% if values.frameleaf.hugging_face_endpoint %}
+    {% do ml_container.x.environment.add_env("HF_ENDPOINT", values.frameleaf.hugging_face_endpoint) %}
+  {% endif %}
+  {% do ml_container.x.environment.add_user_envs(values.frameleaf.ml_additional_envs | default([])) %}
+  {% do ml_container.x.environment.add_env("FRAMELEAF_STUDIO_WORKER_SERVER_URL", "http://%s:%d"|format(values.consts.server_container_name, values.network.web_port.port_number)) %}
+  {% do ml_container.x.add_storage(values.consts.studio_worker_path, dict(studio_worker_config, read_only=true)) %}
+  {% set ml_cache_config = dict(values.storage.ml_cache, **{"volume_config": {"volume_name": "ml-cache"}}) %}
+  {% do ml_container.x.add_storage(values.consts.ml_cache_path, ml_cache_config) %}
+  {% do perm_container.add_or_skip_action("ml-cache", ml_cache_config, perms_config) %}
+
+  {% do server_container.environment.add_env("FRAMELEAF_MACHINE_LEARNING_URL", "http://%s:%d"|format(values.consts.ml_container_name, values.consts.ml_port)) %}
+{% endif %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do postgres.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do server_container.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% if values.frameleaf.enable_ml %}
+    {% do ml_container.x.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endif %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
