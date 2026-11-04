@@ -1,0 +1,49 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.frigate_container_name, values.frigate.image_selector) %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID", "PERFMON", "KILL"]) %}
+{% do c1.set_shm_size_mb(tpl.funcs.or_default(values.frigate.shm_size_mb, 30)) %}
+{% if values.frigate.mount_usb_bus %}
+  {% do c1.devices.add_usb_bus() %}
+{% endif %}
+{% for device in values.frigate.devices %}
+  {% do c1.devices.add_device(device.host_device, device.container_device) %}
+{% endfor %}
+
+{% do c1.environment.add_user_envs(values.frigate.additional_envs) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_no_auth_port, "path": "/api"}) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage("/media", values.storage.media) %}
+{% do c1.add_storage("/tmp/cache", values.storage.cache) %}
+{% do c1.add_storage("/tmp", {"type": "anonymous", "volume_config": {}}) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+  {% do c1.add_port(values.network.no_auth_port, {"container_port": values.consts.internal_no_auth_port}) %}
+  {% do c1.add_port(values.network.rtsp_port, {"container_port": values.consts.internal_rtsp_port}) %}
+  {% do c1.add_port(values.network.go2rtc_port, {"container_port": values.consts.internal_go2rtc_port}) %}
+  {% do c1.add_port(values.network.webrtc_port, {"container_port": values.consts.internal_webrtc_port}) %}
+  {% do c1.add_port(values.network.webrtc_port, {"container_port": values.consts.internal_webrtc_port, "protocol": "udp"}) %}
+{% endif %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https", "port": values.consts.internal_web_port if values.network.host_network else None}) %}
+{% if values.network.host_network or values.network.no_auth_port.bind_mode %}
+  {% do tpl.portals.add(values.network.no_auth_port, {"name": "Web UI (No Auth)", "port": values.consts.internal_no_auth_port if values.network.host_network else None}) %}
+{% endif %}
+
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}
