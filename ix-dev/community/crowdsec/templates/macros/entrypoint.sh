@@ -1,9 +1,9 @@
 {% macro entrypoint(values, disable_lapi, disable_metrics) -%}
 #!/bin/bash
 
-cfg="${CONFIG_FILE:-/etc/crowdsec/config.yaml}"
+cfg=/etc/crowdsec/config.yaml
 
-if [ ! -e /etc/crowdsec/local_api_credentials.yaml ] && [ ! -e /etc/crowdsec/config.yaml ]; then
+if [ ! -e /etc/crowdsec/local_api_credentials.yaml ] && [ ! -e "$cfg" ]; then
   # Copy default files on first start
   echo "Populating configuration directory..."
   rsync -av --ignore-existing /staging/etc/crowdsec/* /etc/crowdsec
