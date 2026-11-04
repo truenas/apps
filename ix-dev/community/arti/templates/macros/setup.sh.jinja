@@ -1,0 +1,34 @@
+{% macro setup_sh(values) -%}
+{%- set cfg_file = "/arti/arti.toml" -%}
+{%- set cfg = {
+  ".vanguards.mode": values.arti.vanguards_mode,
+  ".onion_services": {},
+} %}
+{%- for service in values.arti.hidden_services %}
+  {#- Services without an IP point to the host, resolved at runtime and substituted below -#}
+  {%- do cfg.update({".onion_services.%s.proxy_ports" | format(service.name): [
+    [
+      service.hidden_service_port | string,
+      "%s:%d" | format(service.ip or "${HOST_IP}", service.port),
+    ],
+    ["*", "destroy"],
+  ]}) %}
+{%- endfor -%}
+#!/bin/sh
+set -e
+
+touch "{{ cfg_file }}"
+chmod 0664 "{{ cfg_file }}"
+
+HOST_IP=$(getent ahostsv4 host.docker.internal | head -n1 | cut -d' ' -f1)
+export HOST_IP
+
+{%- for key, value in cfg.items() %}
+echo "Setting [{{ key }}] to [{{ value | tojson }}]"
+yq -i -p toml -o toml '{{ key }} = {{ value | tojson }}' "{{ cfg_file }}"
+{%- endfor %}
+
+yq -i -p toml -o toml '(.onion_services[].proxy_ports[][] | select(tag == "!!str")) |= envsubst' "{{ cfg_file }}"
+
+echo 'Arti config updated successfully!'
+{%- endmacro %}

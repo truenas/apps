@@ -1,0 +1,20 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.ollama_container_name, values.ollama.image_selector) %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_storage("/root/.ollama", values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.api_port) %}
+
+{% do c1.environment.add_user_envs(values.ollama.additional_envs) %}
+{% do c1.environment.add_env("OLLAMA_HOST", "0.0.0.0:%d"|format(values.network.api_port.port_number)) %}
+
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.api_port.port_number}) %}
+
+{{ tpl.render() | tojson }}

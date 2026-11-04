@@ -379,6 +379,92 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
+        - variable: udp_port_range
+          label: Gameplay UDP Port Range
+          description: |
+            The range of UDP ports used for gameplay by the NetherNet transport.</br>
+            Each connected player uses one port, so the range should have at least as many ports as Max Players.</br>
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: start
+                label: Start
+                description: The start of the range.
+                schema:
+                  type: int
+                  default: 19140
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: end
+                label: End
+                description: The end of the range.
+                schema:
+                  type: int
+                  default: 19155
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: advertise_mode
+                label: Advertised IP
+                description: |
+                  The IP address that the server sends to clients to reach the gameplay ports.</br>
+                  When not using host network, or when clients connect through NAT, this is required for clients to connect.</br>
+                  - None: The server advertises its own addresses (only reachable with host network).</br>
+                  - Public IP: The public IP of the host is detected on startup (for internet access).</br>
+                  - Specific IP: Use the given IP (e.g. the IP of the TrueNAS host for LAN access).
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: ""
+                      description: None
+                    - value: "public_ip"
+                      description: Public IP (auto-detected)
+                    - value: "specific_ip"
+                      description: Specific IP
+              - variable: advertised_ip
+                label: Specific IP
+                description: The IPv4 or IPv6 address that clients use to reach the gameplay ports.
+                schema:
+                  type: ipaddr
+                  show_if: [["advertise_mode", "=", "specific_ip"]]
+                  default: ""
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
         - variable: networks
           label: Networks
           description: The docker networks to join
