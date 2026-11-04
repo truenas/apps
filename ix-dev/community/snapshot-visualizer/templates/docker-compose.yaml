@@ -12,23 +12,24 @@
 {% do c1.add_extra_host("host.docker.internal", "host-gateway") %}
 
 {% do c1.environment.add_env("SNAPVIZ_PORT", values.network.web_port.port_number) %}
-{% do c1.environment.add_env("SNAPVIZ_SOURCE", values.snapshot_visualizer.source) %}
-{% do c1.environment.add_env("SNAPVIZ_TLS", "auto" if values.snapshot_visualizer.https else "off") %}
+{% do c1.environment.add_env("SNAPVIZ_DATA_DIR", values.consts.data_path) %}
+{% do c1.environment.add_env("SNAPVIZ_SOURCE", "truenas") %}
+{% do c1.environment.add_env("TRUENAS_VERIFY_TLS", false) %}
+{% do c1.environment.add_env("TRUENAS_HOST", "host.docker.internal") %}
+{% do c1.environment.add_env("TRUENAS_API_KEY", values.snapshot_visualizer.api_key) %}
+{% do c1.environment.add_env("SNAPVIZ_TLS", "auto" if values.snapshot_visualizer.use_https else "off") %}
 {% if values.snapshot_visualizer.password %}
   {% do c1.environment.add_env("SNAPVIZ_PASSWORD", values.snapshot_visualizer.password) %}
 {% endif %}
 {% do c1.environment.add_env("SNAPVIZ_CACHE_SECONDS", values.snapshot_visualizer.cache_minutes * 60) %}
 {% do c1.environment.add_env("SNAPVIZ_ALLOW_IMPORT", values.snapshot_visualizer.allow_import) %}
-{# "ui": deleting can be switched on in the web UI settings; "false": locked #}
 {% do c1.environment.add_env("SNAPVIZ_ALLOW_DELETE", "ui" if values.snapshot_visualizer.allow_delete else "false") %}
-{% if values.snapshot_visualizer.source == "truenas" %}
-  {% do c1.environment.add_env("TRUENAS_HOST", values.snapshot_visualizer.truenas_host) %}
-  {% do c1.environment.add_env("TRUENAS_API_KEY", values.snapshot_visualizer.api_key) %}
-  {% do c1.environment.add_env("TRUENAS_VERIFY_TLS", values.snapshot_visualizer.verify_tls) %}
-{% endif %}
 {% do c1.environment.add_user_envs(values.snapshot_visualizer.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
@@ -42,6 +43,6 @@
 
 {% do tpl.notes.add_risk_warning("truenas_api_access") %}
 
-{% do tpl.portals.add(values.network.web_port, {"scheme": "https" if values.snapshot_visualizer.https else "http"}) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https" if values.snapshot_visualizer.use_https else "http"}) %}
 
 {{ tpl.render() | tojson }}
