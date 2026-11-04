@@ -3,10 +3,14 @@
 
 cfg="${CONFIG_FILE:-/etc/crowdsec/config.yaml}"
 
-# Copy default files on first start so the pins apply
 if [ ! -e /etc/crowdsec/local_api_credentials.yaml ] && [ ! -e /etc/crowdsec/config.yaml ]; then
+  # Copy default files on first start
   echo "Populating configuration directory..."
   rsync -av --ignore-existing /staging/etc/crowdsec/* /etc/crowdsec
+else
+  # Only restore a missing config or credentials file, other files may have been removed on purpose
+  rsync -a --ignore-existing --out-format="Restored missing /etc/crowdsec/%n from the defaults" \
+    /staging/etc/crowdsec/{config,local_api_credentials}.yaml /etc/crowdsec
 fi
 
 # Stop on invalid YAML
