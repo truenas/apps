@@ -185,8 +185,9 @@ module.exports = {
       ["photoprism/photoprism"],
     ),
     customVersioning(
-      // RELEASE.2024-08-26T15-33-07Z
-      "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
+      // RELEASE.2024-08-26T15-33-07Z (stable), RELEASE.2024-08-26T15-33-07Z.oem (enterprise)
+      // compatibility keeps each app on its own tag flavor
+      "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z(?<compatibility>\\.oem)?$",
       ["quay.io/minio/aistor/minio"],
     ),
     customVersioning(
@@ -340,11 +341,6 @@ module.exports = {
       // so a pg17 pin only ever updates to another pg17 tag of the same variant
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<compatibility>pg(?:16|17|18)(?:-\\w+)?)$",
       ["pgvector/pgvector"],
-    ),
-    customVersioning(
-      // 2.4-dev
-      "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
-      ["wger/server"],
     ),
     customVersioning(
       // 18-vectorchord0.3.0
