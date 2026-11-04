@@ -1,0 +1,214 @@
+groups:
+  - name: Network Configuration
+    description: Configure the LAN ports used by Wire.
+  - name: Storage Configuration
+    description: Configure persistent encrypted identity and server state storage.
+  - name: TURN Relay Configuration
+    description: Optional public relay for calls and screen sharing on restrictive networks.
+  - name: Resources Configuration
+    description: Configure resource limits.
+
+questions:
+  - variable: turn
+    label: ""
+    group: TURN Relay Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: enabled
+          label: Enable TURN Relay
+          description: Enables authenticated Coturn. Router forwarding is still required for public use.
+          schema:
+            type: boolean
+            default: false
+        - variable: hostname
+          label: Public TURN Hostname
+          description: Public DNS name clients use, without a scheme or port (for example wire.example.net).
+          schema:
+            type: string
+            default: ""
+            required: true
+            show_if: [["enabled", "=", true]]
+            valid_chars: "^[A-Za-z0-9.-]+$"
+            valid_chars_error: Enter a DNS hostname without https://, a path, or a port.
+        - variable: public_ip
+          label: Public IPv4 Address
+          description: Router WAN address advertised by Coturn. Keep your DDNS hostname pointed at this address.
+          schema:
+            type: ipaddr
+            default: ""
+            required: true
+            show_if: [["enabled", "=", true]]
+        - variable: private_ip
+          label: TrueNAS LAN IPv4 Address
+          description: LAN address of this TrueNAS system receiving the router forwards.
+          schema:
+            type: ipaddr
+            default: ""
+            required: true
+            show_if: [["enabled", "=", true]]
+
+  - variable: network
+    label: ""
+    group: Network Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: server_port
+          label: Wire Server Port
+          description: Clients connect to this TCP port. It is local unless you explicitly expose it through your router or Tailscale.
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: published
+                  enum:
+                    - value: published
+                      description: Publish on the TrueNAS host
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 47666
+                  min: 1024
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: Leave empty for all TrueNAS addresses, or select only a LAN or Tailscale address.
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: web_port
+          label: Web UI Port
+          schema:
+            type: dict
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                schema:
+                  type: string
+                  default: published
+                  enum:
+                    - value: published
+                      description: Publish on the TrueNAS host
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  default: 30097
+                  min: 1024
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: Select a LAN address to keep the administration page private.
+                schema:
+                  type: list
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+  - variable: storage
+    label: ""
+    group: Storage Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: data
+          label: Wire Server Data
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                schema:
+                  type: string
+                  required: true
+                  default: ix_volume
+                  enum:
+                    - value: ix_volume
+                      description: ixVolume managed by TrueNAS
+                    - value: host_path
+                      description: Existing host path
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - normalize/ix_volume
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: data
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: path
+                      label: Host Path
+                      schema:
+                        type: hostpath
+                        required: true
+  - variable: resources
+    label: ""
+    group: Resources Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: limits
+          label: Limits
+          schema:
+            type: dict
+            attrs:
+              - variable: cpus
+                label: CPUs
+                schema:
+                  type: int
+                  default: 2
+                  required: true
+              - variable: memory
+                label: Memory (in MB)
+                schema:
+                  type: int
+                  default: 1024
+                  required: true
