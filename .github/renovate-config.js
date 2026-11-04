@@ -459,6 +459,11 @@ module.exports = {
       "^build-(?<minor>\\d+)$",
       ["ghcr.io/silo-server/silo-server"],
     ),
+    customVersioning(
+      // RetroAssembly: v7.261011.1345
+      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["arianrhodsandlot/retroassembly"],
+    ),
   ],
 };
 
