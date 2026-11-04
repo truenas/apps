@@ -13,6 +13,15 @@ groups:
     description: Configure Resources for bananana brain
 
 questions:
+  - variable: TZ
+    group: bananana brain Configuration
+    label: Timezone
+    schema:
+      type: string
+      default: Etc/UTC
+      required: true
+      $ref:
+        - definitions/timezone
   - variable: bananana_brain
     label: ""
     group: bananana brain Configuration
@@ -26,13 +35,14 @@ questions:
             and copy the setup token it shows (it starts with bst_). It is only used on the first start.
           schema:
             type: string
+            default: ""
             required: true
             private: true
             valid_chars: "^bst_[A-Za-z0-9_-]+$"
             valid_chars_error: The setup token starts with bst_. Copy it from https://bananana.dev/start.
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for bananana brain.
+          description: See more info at https://bananana.dev/help/docker#settings-environment-variables
           schema:
             type: list
             default: []
@@ -165,7 +175,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -183,8 +193,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: bananana brain Data Storage
-          description: The path to store bananana brain Data.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -258,13 +267,89 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: backups
+          label: Backups Storage
+          description: The path to store bananana brain nightly backups.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "backups"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: additional_storage
           label: Additional Storage
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -356,6 +441,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
