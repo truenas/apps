@@ -19,26 +19,6 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: custom_toml
-          label: Custom TOML Configuration
-          description: |
-            Provide the full frpc configuration (TOML) yourself.</br>
-            Use this if you already have a working frpc.toml (advanced proxy setups,
-            stcp/sudp visitors, plugins, multiple proxies, etc).</br>
-            When enabled, the connection wizard fields below are not rendered.
-            If you also want the web dashboard published, enable it below and
-            define the matching `webServer` section in your TOML.
-          schema:
-            type: boolean
-            default: false
-        - variable: custom_toml_text
-          label: Custom TOML
-          description: The full contents of frpc.toml.
-          schema:
-            type: text
-            default: ""
-            required: true
-            show_if: [["custom_toml", "=", true]]
         - variable: server_addr
           label: Server Address
           description: |
@@ -47,7 +27,6 @@ questions:
           schema:
             type: string
             required: true
-            show_if: [["custom_toml", "=", false]]
         - variable: server_port
           label: Server Port
           description: |
@@ -59,7 +38,6 @@ questions:
             min: 1
             max: 65535
             required: true
-            show_if: [["custom_toml", "=", false]]
         - variable: login_user
           label: Login User
           description: |
@@ -68,7 +46,6 @@ questions:
           schema:
             type: string
             default: ""
-            show_if: [["custom_toml", "=", false]]
         - variable: auth_token
           label: Auth Token
           description: |
@@ -78,7 +55,190 @@ questions:
             type: string
             default: ""
             private: true
-            show_if: [["custom_toml", "=", false]]
+        - variable: additional_settings
+          label: Additional Client Settings
+          description: |
+            Optional. Extra top-level settings added verbatim to frpc.toml (advanced).</br>
+            The value must be a valid TOML literal (quoted strings, bare numbers/booleans).</br>
+            Example: `transport.heartbeatTimeout` = `60`
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: setting
+                label: Setting
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: param
+                      label: Parameter
+                      schema:
+                        type: string
+                        required: true
+                    - variable: value
+                      label: Value (TOML literal)
+                      schema:
+                        type: string
+                        required: true
+        - variable: proxies
+          label: Proxies
+          description: |
+            Services on this TrueNAS host to expose through the frps server
+            (`[[proxies]]` sections in frpc.toml).
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: proxy
+                label: Proxy
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: Unique proxy name (`name`).
+                      schema:
+                        type: string
+                        required: true
+                    - variable: type
+                      label: Type
+                      description: Proxy type (`type`).
+                      schema:
+                        type: string
+                        required: true
+                        default: "tcp"
+                        enum:
+                          - value: "tcp"
+                            description: TCP
+                          - value: "udp"
+                            description: UDP
+                          - value: "http"
+                            description: HTTP
+                          - value: "https"
+                            description: HTTPS
+                          - value: "stcp"
+                            description: Secret TCP (stcp)
+                          - value: "sudp"
+                            description: Secret UDP (sudp)
+                          - value: "xtcp"
+                            description: P2P TCP (xtcp)
+                    - variable: local_ip
+                      label: Local IP
+                      description: Address of the local service (`localIP`).
+                      schema:
+                        type: string
+                        default: "127.0.0.1"
+                        required: true
+                    - variable: local_port
+                      label: Local Port
+                      description: Port of the local service (`localPort`).
+                      schema:
+                        type: int
+                        required: true
+                        min: 1
+                        max: 65535
+                    - variable: remote_port
+                      label: Remote Port
+                      description: Port assigned on the frps server (`remotePort`). Only valid for tcp/udp proxies.
+                      schema:
+                        type: int
+                        default: 0
+                        min: 0
+                        max: 65535
+                    - variable: secret_key
+                      label: Secret Key
+                      description: Secret key (`secretKey`). Required for stcp/sudp/xtcp proxies.
+                      schema:
+                        type: string
+                        default: ""
+                        private: true
+                    - variable: additional_settings
+                      label: Additional Proxy Settings
+                      description: |
+                        Optional. Extra keys for this proxy, added verbatim
+                        (value must be a valid TOML literal).</br>
+                        Example: `useCompression` = `true`
+                      schema:
+                        type: list
+                        default: []
+                        items:
+                          - variable: setting
+                            label: Setting
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: param
+                                  label: Parameter
+                                  schema:
+                                    type: string
+                                    required: true
+                                - variable: value
+                                  label: Value (TOML literal)
+                                  schema:
+                                    type: string
+                                    required: true
+        - variable: visitors
+          label: Visitors
+          description: |
+            Optional. Reach services shared by another frpc client
+            (`[[visitors]]` sections in frpc.toml).
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: visitor
+                label: Visitor
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: Unique visitor name (`name`).
+                      schema:
+                        type: string
+                        required: true
+                    - variable: type
+                      label: Type
+                      description: Visitor type (`type`).
+                      schema:
+                        type: string
+                        required: true
+                        default: "stcp"
+                        enum:
+                          - value: "stcp"
+                            description: Secret TCP visitor
+                          - value: "sudp"
+                            description: Secret UDP visitor
+                          - value: "xtcp"
+                            description: P2P TCP visitor (xtcp)
+                    - variable: proxy_name
+                      label: Proxy Name
+                      description: Name of the remote proxy to visit (`serverName`).
+                      schema:
+                        type: string
+                        required: true
+                    - variable: secret_key
+                      label: Secret Key
+                      description: Secret key of the remote proxy (`secretKey`).
+                      schema:
+                        type: string
+                        required: true
+                        private: true
+                    - variable: bind_addr
+                      label: Bind Address
+                      description: Local address the visitor listens on (`bindAddr`).
+                      schema:
+                        type: string
+                        default: "127.0.0.1"
+                        required: true
+                    - variable: bind_port
+                      label: Bind Port
+                      description: Local port the visitor listens on (`bindPort`).
+                      schema:
+                        type: int
+                        required: true
+                        min: 1
+                        max: 65535
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -127,22 +287,13 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_server
-          label: Enable Web UI
-          description: |
-            Enable the frpc web server (dashboard) so proxies can be viewed and
-            managed in the browser.</br>
-            In wizard mode, the `webServer` section is added to frpc.toml automatically.</br>
-            In custom TOML mode, add the `webServer` section yourself; the port published
-            by this app is the one configured below.
-          schema:
-            type: boolean
-            default: false
         - variable: web_port
           label: Web UI Port
+          description: |
+            The frpc web server (dashboard) port.</br>
+            Set the bind mode to `None` to disable the dashboard entirely.
           schema:
             type: dict
-            show_if: [["web_server", "=", true]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -186,21 +337,21 @@ questions:
                           - definitions/node_bind_ip
         - variable: web_server_user
           label: Web UI User
-          description: Web server basic auth user (`webServer.user`).
-          schema:
-            type: string
-            default: "admin"
-            required: true
-            show_if: [["web_server", "=", true], ["custom_toml", "=", false]]
-        - variable: web_server_password
-          label: Web UI Password
-          description: Web server basic auth password (`webServer.password`).
+          description: |
+            Optional basic auth user for the dashboard (`webServer.user`).</br>
+            Leave empty for no auth. Only used when the Web UI bind mode is not `None`.
           schema:
             type: string
             default: ""
-            required: true
+        - variable: web_server_password
+          label: Web UI Password
+          description: |
+            Optional basic auth password for the dashboard (`webServer.password`).</br>
+            Only used when the Web UI bind mode is not `None`.
+          schema:
+            type: string
+            default: ""
             private: true
-            show_if: [["web_server", "=", true], ["custom_toml", "=", false]]
   - variable: storage
     label: ""
     group: Storage Configuration

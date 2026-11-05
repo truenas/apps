@@ -8,17 +8,7 @@
 {% do c1.set_command(["-c", values.consts.config_path]) %}
 {% do c1.healthcheck.disable() %}
 
-{% if values.frpc.custom_toml %}
-  {% do tpl.notes.add_warning("Custom TOML is used as-is: the wizard fields (server address, auth) are ignored.") %}
-  {% if values.network.web_server %}
-    {% do tpl.notes.add_warning("Custom TOML mode: add a `webServer` section to your TOML; its port must match the Web UI Port below, which is the port published for it.") %}
-  {% endif %}
-  {% set toml_content = values.frpc.custom_toml_text %}
-{% else %}
-  {% set toml_content = frpc_toml(values) %}
-{% endif %}
-
-{% do c1.configs.add("frpc-toml", toml_content, values.consts.config_path) %}
+{% do c1.configs.add("frpc-toml", frpc_toml(values, tpl), values.consts.config_path) %}
 
 {% do c1.environment.add_user_envs(values.frpc.additional_envs) %}
 
@@ -26,9 +16,7 @@
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
 
-{% if values.network.web_server %}
-  {% do c1.add_port(values.network.web_port) %}
-  {% do tpl.portals.add(values.network.web_port) %}
-{% endif %}
+{% do c1.add_port(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
