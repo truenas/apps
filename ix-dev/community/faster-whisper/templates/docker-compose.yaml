@@ -1,0 +1,28 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.faster_whisper_container_name, values.faster_whisper.image_selector) %}
+
+{# linuxserver.io images start as root, then drop to the run_as user and group after fixing permissions #}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "SETGID", "SETUID", "DAC_OVERRIDE", "FOWNER"]) %}
+{% do c1.healthcheck.set_test("tcp", {"port": values.consts.internal_wyoming_port}) %}
+{# Model downloads on first start can take a while #}
+{% do c1.healthcheck.set_start_period(300) %}
+
+{% do c1.environment.add_env("WHISPER_MODEL", values.faster_whisper.model) %}
+{% do c1.environment.add_env("WHISPER_LANG", values.faster_whisper.language) %}
+{% do c1.environment.add_env("WHISPER_BEAM", values.faster_whisper.beam_size) %}
+{% do c1.environment.add_user_envs(values.faster_whisper.additional_envs) %}
+
+{% do c1.add_port(values.network.wyoming_port, {"container_port": values.consts.internal_wyoming_port}) %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% if values.faster_whisper.image_selector == "nvidia_image" and not c1.deploy.resources.has_gpus() %}
+  {% do tpl.notes.add_warning("The NVIDIA GPU image is selected, but no NVIDIA GPU is assigned to the app.") %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
