@@ -24,36 +24,36 @@ questions:
           description: |
             The address people (and AI assistants, over MCP) use to reach Ferret.</br>
             Behind a reverse proxy, its HTTPS address (for example https://ferret.example.com);</br>
-            otherwise the NAS address and port (for example http://192.168.1.10:30557).</br>
+            otherwise the NAS address and port (for example http://192.168.1.10:30558).</br>
             Installing on a phone, the camera and push notifications need HTTPS.
           schema:
             type: uri
             default: ""
             required: true
         - variable: auth_secret
-          label: Auth Secret (optional)
+          label: Auth Secret
           description: |
-            Leave empty: Ferret makes one the first time and keeps it in its data storage.</br>
-            To set your own: 32 or more random characters (openssl rand -base64 32).
+            Signs sign-ins and seals two-step sign-in. 32 or more random characters (openssl rand -base64 32).
           schema:
             type: string
             default: ""
+            required: true
             private: true
-            valid_chars: "^$|^.{32,}$"
-            valid_chars_error: Leave it empty, or use 32 characters or more.
+            valid_chars: "^.{32,}$"
+            valid_chars_error: Use 32 characters or more (openssl rand -base64 32).
         - variable: files_key
-          label: Files Key (optional)
+          label: Files Key
           description: |
-            The key every photo and document is sealed with. Leave empty: Ferret makes one the first time and keeps it</br>
-            in its data storage (on the apps pool, with the data). To set your own: openssl rand -base64 32.</br>
-            Either way, make a key file once Ferret runs (Settings → Server → Keys, from the app's shell) and keep it</br>
-            off the server: without the key, uploaded files and backups can't be read.
+            The key every photo, document and backup is sealed with: 32 random bytes in base64 (openssl rand -base64 32).</br>
+            Keep a copy off the server: without it, uploaded files and backups can't be read, and it can't be changed
+            once files are sealed.
           schema:
             type: string
             default: ""
+            required: true
             private: true
-            valid_chars: "^$|^[A-Za-z0-9+/]{43}=$"
-            valid_chars_error: Leave it empty, or use 32 random bytes in base64 (openssl rand -base64 32).
+            valid_chars: "^[A-Za-z0-9+/]{43}=$"
+            valid_chars_error: Use 32 random bytes in base64 (openssl rand -base64 32).
         - variable: allow_signup
           label: Allow Sign-up
           description: |
@@ -71,8 +71,8 @@ questions:
           schema:
             type: string
             default: ""
-            valid_chars: "^$|^(mailto:[^@\\s]+@[^@\\s]+|https://\\S+)$"
-            valid_chars_error: Leave it empty, or use mailto:you@example.com or an https:// address.
+            valid_chars: "^(mailto:[^@\\s]+@[^@\\s]+|https://\\S+)$"
+            valid_chars_error: Use mailto:you@example.com or an https:// address.
         - variable: trusted_proxies
           label: Trusted Proxies
           description: |
@@ -92,7 +92,7 @@ questions:
           label: Additional Environment Variables
           description: |
             Optional features switch on when their settings are present (Ferret's help at /docs/hosting/configuration):</br>
-            email (APPRISE_URL, MAIL_URL), backups (BACKUP_DIR, with an Additional Storage entry mounted there),</br>
+            email (APPRISE_URL, MAIL_URL), backup schedule (BACKUP_HOUR, BACKUP_KEEP),</br>
             AI on your own models (OLLAMA_URL, CHAT_URL, QDRANT_URL, DOCLING_URL), barcode lookups</br>
             (BARCODE_LOOKUP=upcitemdb), push (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY), single sign-on (OIDC_ISSUER, ...).
           schema:
@@ -170,7 +170,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30557
+                  default: 30558
                   min: 1
                   max: 65535
                   required: true
@@ -274,7 +274,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -292,8 +292,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Ferret Data Storage
-          description: The path to store Ferret Data.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -367,13 +366,92 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: backups
+          label: Backups Storage
+          description: |
+            Ferret's nightly backups (encrypted with the Files Key, checked after each run) go here.</br>
+            Prefer a path on another pool or machine than the data storage.</br>
+            BACKUP_HOUR (default 3) and BACKUP_KEEP (default 14) can be set in Additional Environment Variables.
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "backups"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: additional_storage
           label: Additional Storage
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -465,6 +543,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
