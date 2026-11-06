@@ -1,0 +1,81 @@
+{%- macro frpc_toml(values, tpl) %}
+serverAddr = {{ values.frpc.server_addr | tojson }}
+serverPort = {{ values.frpc.server_port }}
+{%- if values.frpc.login_user %}
+user = {{ values.frpc.login_user | tojson }}
+{%- endif %}
+{%- if values.frpc.auth_token %}
+auth.token = {{ values.frpc.auth_token | tojson }}
+{%- endif %}
+
+{%- for setting in values.frpc.additional_settings %}
+  {%- if setting.param in values.consts.reserved_params %}
+    {%- do tpl.funcs.fail("Parameter [%s] is reserved and cannot be used."|format(setting.param)) -%}
+  {%- endif %}
+{{ setting.param }} = {{ setting.value }}
+{%- endfor %}
+
+{%- if values.network.web_port.bind_mode %}
+
+webServer.addr = "0.0.0.0"
+webServer.port = {{ values.network.web_port.port_number }}
+  {%- if values.network.web_server_user %}
+webServer.user = {{ values.network.web_server_user | tojson }}
+  {%- endif %}
+  {%- if values.network.web_server_password %}
+webServer.password = {{ values.network.web_server_password | tojson }}
+  {%- endif %}
+{%- endif %}
+
+{%- set proxy_names = namespace(x=[]) -%}
+{%- for proxy in values.frpc.proxies %}
+
+  {%- if proxy.name in proxy_names.x -%}
+    {%- do tpl.funcs.fail("Proxy name [%s] is added more than once. Duplicates: [%s]"|format(proxy.name, proxy_names.x | join(", "))) -%}
+  {%- endif -%}
+  {%- do proxy_names.x.append(proxy.name) %}
+
+  {%- if proxy.type in ["stcp", "sudp", "xtcp"] and not proxy.secret_key -%}
+    {%- do tpl.funcs.fail("Proxy [%s] of type [%s] requires a secret key."|format(proxy.name, proxy.type)) -%}
+  {%- endif %}
+
+  {%- if proxy.remote_port and proxy.type not in ["tcp", "udp"] -%}
+    {%- do tpl.funcs.fail("Proxy [%s] of type [%s] does not support a remote port."|format(proxy.name, proxy.type)) -%}
+  {%- endif %}
+
+[[proxies]]
+name = {{ proxy.name | tojson }}
+type = {{ proxy.type | tojson }}
+localIP = {{ proxy.local_ip | tojson }}
+localPort = {{ proxy.local_port }}
+  {%- if proxy.remote_port %}
+remotePort = {{ proxy.remote_port }}
+  {%- endif %}
+  {%- if proxy.secret_key %}
+secretKey = {{ proxy.secret_key | tojson }}
+  {%- endif %}
+  {%- for setting in proxy.additional_settings %}
+    {%- if setting.param in values.consts.reserved_params %}
+      {%- do tpl.funcs.fail("Parameter [%s] is reserved and cannot be used."|format(setting.param)) -%}
+    {%- endif %}
+{{ setting.param }} = {{ setting.value }}
+  {%- endfor %}
+{%- endfor %}
+
+{%- set visitor_names = namespace(x=[]) -%}
+{%- for visitor in values.frpc.visitors %}
+
+  {%- if visitor.name in visitor_names.x -%}
+    {%- do tpl.funcs.fail("Visitor name [%s] is added more than once. Duplicates: [%s]"|format(visitor.name, visitor_names.x | join(", "))) -%}
+  {%- endif -%}
+  {%- do visitor_names.x.append(visitor.name) %}
+
+[[visitors]]
+name = {{ visitor.name | tojson }}
+type = {{ visitor.type | tojson }}
+serverName = {{ visitor.proxy_name | tojson }}
+secretKey = {{ visitor.secret_key | tojson }}
+bindAddr = {{ visitor.bind_addr | tojson }}
+bindPort = {{ visitor.bind_port }}
+{%- endfor %}
+{%- endmacro %}
