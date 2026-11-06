@@ -459,6 +459,13 @@ module.exports = {
       "^build-(?<minor>\\d+)$",
       ["ghcr.io/silo-server/silo-server"],
     ),
+    customVersioning(
+      // latest-2026.10.1 (CalVer with the engine/browser variant as prefix).
+      // Only the "latest" (WEBJS/chromium) variant is tracked, so the
+      // noweb-*, gows-*, chrome-* and arm-* tags are never picked.
+      "^(?<compatibility>latest)-(?<major>\\d{4})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["devlikeapro/waha"],
+    ),
   ],
 };
 
