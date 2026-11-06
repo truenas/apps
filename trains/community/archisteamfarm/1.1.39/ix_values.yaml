@@ -1,0 +1,24 @@
+images:
+  image:
+    repository: ghcr.io/justarchinet/archisteamfarm
+    tag: "6.3.11.7@sha256:884137cd5dd93c42c789008ce12016107073b1c7bfa79c59cd675b583ae30975"
+  container_utils_image:
+    repository: ghcr.io/truenas/containers/container-utils
+    tag: "1.1.2@sha256:6ddfdc314af9d18cfacb836ad266ef0ed91fecaa3686b20be72e464972860c08"
+
+consts:
+  archisteamfarm_container_name: archisteamfarm
+  perms_container_name: permissions
+
+  config:
+    Kestrel:
+      Endpoints: { "HTTP": { "Url": "http://*:%d" } }
+      KnownNetworks: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+  entrypoint: |
+    #!/bin/sh
+    set -e
+    [ -f /app/config/IPC.config ] && { echo "Removing old IPC config..."; rm /app/config/IPC.config; }
+    echo "Copying updated IPC config..."
+    cp /config/IPC.config /app/config/IPC.config || { echo "Failed to copy IPC config"; exit 1; }
+    echo "Starting ArchiSteamFarm..."
+    exec ArchiSteamFarm --no-restart --system-required
