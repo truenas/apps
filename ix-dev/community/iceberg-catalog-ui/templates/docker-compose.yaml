@@ -22,33 +22,34 @@
   {% set key_file = "%s/tls/key.pem"|format(values.consts.data_path) %}
 {% endif %}
 
-{# JSON is valid YAML, so user input cannot change the structure of the configuration. #}
-{% set config = {
-  "server": {
-    "listen": ":%d"|format(values.network.web_port.port_number),
-    "metricsListen": ":%d"|format(values.consts.metrics_port),
-    "publicUrl": values.catalog_ui.public_url,
-    "extraOrigins": values.catalog_ui.extra_origins,
-    "tlsSelfSigned": self_signed,
-    "tlsCertFile": cert_file,
-    "tlsKeyFile": key_file,
-  },
-  "session": {
-    "store": "memory",
-    "keys": [{"id": "truenas", "file": "%s/session.key"|format(values.consts.data_path), "generate": true}],
-  },
-  "auth": {"builtin": {"enabled": true}, "adminUsers": values.catalog_ui.admin_users},
-  "clusters": [{
-    "id": "aistor",
-    "name": values.catalog_ui.aistor_name,
-    "endpoint": values.catalog_ui.aistor_endpoint.rstrip("/"),
-  }],
-  "semantic": {
-    "enabled": values.catalog_ui.semantic_enabled,
-    "bucket": values.catalog_ui.semantic_bucket if values.catalog_ui.semantic_enabled else "",
-  },
-} %}
-{% do c1.configs.add("config", config | tojson, values.consts.config_path) %}
+{#
+  Configuration is environment variables only, so users can tune anything the template does not own
+  (OIDC, LDAP, timeouts, limits, ...) with Additional Environment Variables. The template sets what the
+  rendered compose depends on (ports, TLS, storage paths) and the answers to the questions.
+  The image's default config file does not exist, so these variables are the whole configuration.
+#}
+{% do c1.environment.add_env("AISTOR_UI_SERVER_LISTEN", ":%d"|format(values.network.web_port.port_number)) %}
+{% do c1.environment.add_env("AISTOR_UI_SERVER_METRICS_LISTEN", ":%d"|format(values.consts.metrics_port)) %}
+{% do c1.environment.add_env("AISTOR_UI_SERVER_PUBLIC_URL", values.catalog_ui.public_url) %}
+{% if values.catalog_ui.extra_origins %}
+  {% do c1.environment.add_env("AISTOR_UI_SERVER_EXTRA_ORIGINS", values.catalog_ui.extra_origins | join(",")) %}
+{% endif %}
+{% do c1.environment.add_env("AISTOR_UI_SERVER_TLS_SELF_SIGNED", self_signed) %}
+{% do c1.environment.add_env("AISTOR_UI_SERVER_TLS_CERT_FILE", cert_file) %}
+{% do c1.environment.add_env("AISTOR_UI_SERVER_TLS_KEY_FILE", key_file) %}
+{% do c1.environment.add_env("AISTOR_UI_SESSION_KEY_FILE", "%s/session.key"|format(values.consts.data_path)) %}
+{% do c1.environment.add_env("AISTOR_UI_SESSION_KEY_GENERATE", true) %}
+{% do c1.environment.add_env("AISTOR_UI_AUTH_BUILTIN_ENABLED", values.catalog_ui.access_key_sign_in) %}
+{% if values.catalog_ui.admin_users %}
+  {% do c1.environment.add_env("AISTOR_UI_AUTH_ADMIN_USERS", values.catalog_ui.admin_users | join(",")) %}
+{% endif %}
+{% do c1.environment.add_env("AISTOR_UI_CLUSTER_ID", "aistor") %}
+{% do c1.environment.add_env("AISTOR_UI_CLUSTER_NAME", values.catalog_ui.aistor_name) %}
+{% do c1.environment.add_env("AISTOR_UI_CLUSTER_ENDPOINT", values.catalog_ui.aistor_endpoint.rstrip("/")) %}
+{% do c1.environment.add_env("AISTOR_UI_SEMANTIC_ENABLED", values.catalog_ui.semantic_enabled) %}
+{% if values.catalog_ui.semantic_enabled %}
+  {% do c1.environment.add_env("AISTOR_UI_SEMANTIC_BUCKET", values.catalog_ui.semantic_bucket) %}
+{% endif %}
 
 {% do c1.environment.add_user_envs(values.catalog_ui.additional_envs) %}
 
