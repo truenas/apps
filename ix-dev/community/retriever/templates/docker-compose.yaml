@@ -1,0 +1,76 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.retriever_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("node", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
+
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("HOST", "0.0.0.0") %}
+{% do c1.environment.add_env("DATA_DIR", "/data") %}
+{% do c1.environment.add_env("DOWNLOADS_DIR", "/downloads") %}
+{% if values.retriever.enable_tg_api %}
+  {% do c1.environment.add_env("TELEGRAM_BOT_API_URL", "http://%s:%d"|format(values.consts.tg_api_container_name, values.consts.tg_api_port)) %}
+{% endif %}
+{% if values.retriever.enable_pot %}
+  {% do c1.environment.add_env("POT_BASE_URL", "http://%s:%d"|format(values.consts.pot_container_name, values.consts.pot_port)) %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.retriever.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+{% do c1.add_storage("/downloads", values.storage.downloads) %}
+{% do perm_container.add_or_skip_action("downloads", values.storage.downloads, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if values.retriever.enable_pot %}
+  {% set pot = tpl.add_container(values.consts.pot_container_name, "pot_image") %}
+  {% do pot.set_user(values.run_as.user, values.run_as.group) %}
+  {% do pot.healthcheck.set_test("node", {"port": values.consts.pot_port, "path": "/ping"}) %}
+  {% do c1.depends.add_dependency(values.consts.pot_container_name, "service_healthy") %}
+{% endif %}
+
+{% if values.retriever.enable_tg_api %}
+  {# Runs as the app user, so it reads the downloads with the same access Retriever has.
+     In local mode the server gets a file path, not an upload, so the mounts must match. #}
+  {% set tg_api = tpl.add_container(values.consts.tg_api_container_name, "tg_api_image") %}
+  {% do tg_api.set_user(values.run_as.user, values.run_as.group) %}
+  {% do tg_api.set_entrypoint(["telegram-bot-api"]) %}
+  {% do tg_api.set_command([
+    "--local",
+    "--http-port=%d"|format(values.consts.tg_api_port),
+    "--dir=%s"|format(values.consts.tg_api_data_path),
+    "--temp-dir=/tmp",
+  ]) %}
+  {% do tg_api.healthcheck.set_test("netcat", {"port": values.consts.tg_api_port}) %}
+  {% do tg_api.environment.add_env("TELEGRAM_API_ID", values.retriever.tg_api_id) %}
+  {% do tg_api.environment.add_env("TELEGRAM_API_HASH", values.retriever.tg_api_hash) %}
+
+  {% set tg_api_data_config = dict(values.storage.tg_api_data, **{"volume_config": {"volume_name": "tg-api-data"}}) %}
+  {% do tg_api.add_storage(values.consts.tg_api_data_path, tg_api_data_config) %}
+  {% do perm_container.add_or_skip_action("tg-api-data", tg_api_data_config, perms_config) %}
+  {% do tg_api.add_storage("/downloads", dict(values.storage.downloads, read_only=true)) %}
+  {% for store in values.storage.additional_storage %}
+    {% do tg_api.add_storage(store.mount_path, dict(store, read_only=true)) %}
+  {% endfor %}
+{% endif %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% if values.retriever.enable_tg_api %}
+    {% do tg_api.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% endif %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
