@@ -1,0 +1,142 @@
+{% macro certificate_setup_script(values) -%}
+#!/usr/bin/env python3
+import os
+import re
+import stat
+import subprocess
+import tempfile
+import xml.etree.ElementTree as ET
+
+NETWORK_CONFIG_PATH = {{ values.consts.network_config_path | tojson }}
+PKCS12_PATH = {{ values.consts.pkcs12_path | tojson }}
+CERTIFICATE_PATH = {{ values.consts.cert_file_path | tojson }}
+PRIVATE_KEY_PATH = {{ values.consts.private_key_file_path | tojson }}
+CERTIFICATE_ENABLED = {{ "True" if values.network.certificate_id else "False" }}
+
+
+def load_network_config():
+    if os.path.exists(NETWORK_CONFIG_PATH):
+        parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))
+        return ET.parse(NETWORK_CONFIG_PATH, parser=parser)
+
+    root = ET.Element(
+        "NetworkConfiguration",
+        {
+            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+        },
+    )
+    return ET.ElementTree(root)
+
+
+def get_value(root, name):
+    element = root.find(name)
+    return element.text if element is not None and element.text else ""
+
+
+def set_value(root, name, value):
+    element = root.find(name)
+    if element is None:
+        element = ET.SubElement(root, name)
+    element.text = value
+
+
+def save_network_config(tree):
+    config_directory = os.path.dirname(NETWORK_CONFIG_PATH)
+    os.makedirs(config_directory, exist_ok=True)
+    old_mode = (
+        stat.S_IMODE(os.stat(NETWORK_CONFIG_PATH).st_mode)
+        if os.path.exists(NETWORK_CONFIG_PATH)
+        else 0o644
+    )
+    file_descriptor, temporary_path = tempfile.mkstemp(
+        prefix=".network.xml.", dir=config_directory
+    )
+    os.close(file_descriptor)
+    try:
+        tree.write(temporary_path, encoding="utf-8", xml_declaration=True)
+        os.chmod(temporary_path, old_mode)
+        os.replace(temporary_path, NETWORK_CONFIG_PATH)
+    finally:
+        if os.path.exists(temporary_path):
+            os.unlink(temporary_path)
+
+
+def create_pkcs12():
+    print(f"Reading selected certificate from {CERTIFICATE_PATH}", flush=True)
+    with open(CERTIFICATE_PATH, encoding="utf-8") as certificate_file:
+        certificate_blocks = re.findall(
+            r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----",
+            certificate_file.read(),
+            flags=re.DOTALL,
+        )
+    if not certificate_blocks:
+        raise RuntimeError("The selected certificate contains no PEM certificate")
+    print(
+        f"Found {len(certificate_blocks)} certificate(s); preparing PKCS#12 bundle",
+        flush=True,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="jellyfin-certificate-") as temp_dir:
+        leaf_certificate_path = os.path.join(temp_dir, "leaf.crt")
+        chain_path = os.path.join(temp_dir, "chain.crt")
+        with open(leaf_certificate_path, "w", encoding="utf-8") as leaf_file:
+            leaf_file.write(certificate_blocks[0] + "\n")
+
+        command = [
+            "openssl",
+            "pkcs12",
+            "-export",
+            "-inkey",
+            PRIVATE_KEY_PATH,
+            "-in",
+            leaf_certificate_path,
+            "-out",
+            PKCS12_PATH,
+            "-passout",
+            "pass:",
+        ]
+        if len(certificate_blocks) > 1:
+            with open(chain_path, "w", encoding="utf-8") as chain_file:
+                chain_file.write("\n".join(certificate_blocks[1:]) + "\n")
+            command.extend(["-certfile", chain_path])
+
+        os.makedirs(os.path.dirname(PKCS12_PATH), exist_ok=True)
+        if os.path.exists(PKCS12_PATH):
+            os.unlink(PKCS12_PATH)
+        print(f"Generating PKCS#12 bundle at {PKCS12_PATH}", flush=True)
+        subprocess.run(command, check=True)
+        os.chmod(PKCS12_PATH, 0o600)
+        print("Set PKCS#12 bundle permissions to 0600", flush=True)
+        print("Successfully generated PKCS#12 bundle", flush=True)
+
+
+if CERTIFICATE_ENABLED:
+    print("A TrueNAS certificate was selected; configuring Jellyfin HTTPS", flush=True)
+    create_pkcs12()
+elif not os.path.exists(NETWORK_CONFIG_PATH):
+    print("No Jellyfin network configuration found; nothing to clean up", flush=True)
+    raise SystemExit(0)
+
+network_config = load_network_config()
+root = network_config.getroot()
+
+if CERTIFICATE_ENABLED:
+    print(f"Updating Jellyfin HTTPS settings in {NETWORK_CONFIG_PATH}", flush=True)
+    set_value(root, "EnableHttps", "true")
+    set_value(root, "CertificatePath", PKCS12_PATH)
+    set_value(root, "CertificatePassword", "")
+    save_network_config(network_config)
+    print("Jellyfin HTTPS settings updated successfully", flush=True)
+elif get_value(root, "CertificatePath") == PKCS12_PATH:
+    print("Removing previously managed Jellyfin certificate settings", flush=True)
+    set_value(root, "EnableHttps", "false")
+    set_value(root, "CertificatePath", "")
+    set_value(root, "CertificatePassword", "")
+    save_network_config(network_config)
+    if os.path.exists(PKCS12_PATH):
+        os.unlink(PKCS12_PATH)
+    print("Managed certificate settings and PKCS#12 bundle removed", flush=True)
+else:
+    print("No Jellyfin-managed certificate found; preserving existing TLS settings", flush=True)
+{%- endmacro %}
