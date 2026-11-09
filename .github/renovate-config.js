@@ -373,11 +373,6 @@ module.exports = {
       ["ghcr.io/netbootxyz/netbootxyz"],
     ),
     customVersioning(
-      // apache-2.37.0
-      "^apache-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["kimai/kimai2"],
-    ),
-    customVersioning(
       // appname-1.2.3
       "^(?<compatibility>arcade|calculator|cast|draw-io|external-sites|importer|json-viewer|maps|pastebin|progress-bars|unzip)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["opencloudeu/web-extensions"],
