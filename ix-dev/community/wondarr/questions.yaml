@@ -29,24 +29,8 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: soulseek_username
-          label: Soulseek Username
-          description: |
-            Optional. A Soulseek account just for Wondarr, since Soulseek allows one login per account.</br>
-            It can also be set in the web UI under Settings, Soulseek. A value set here locks that field.
-          schema:
-            type: string
-            default: ""
-        - variable: soulseek_password
-          label: Soulseek Password
-          description: Optional. The password for that account.
-          schema:
-            type: string
-            default: ""
-            private: true
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Any Wondarr setting, as APP__SECTION__KEY (see the configuration reference).
           schema:
             type: list
             default: []
@@ -73,7 +57,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Wondarr runs as and that owns its files.
+          description: The user id that Wondarr files will be owned by.
           schema:
             type: int
             min: 568
@@ -81,7 +65,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Wondarr runs as and that owns its files.
+          description: The group id that Wondarr files will be owned by.
           schema:
             type: int
             min: 568
@@ -121,7 +105,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30536
+                  default: 30560
                   min: 1
                   max: 65535
                   required: true
@@ -142,9 +126,6 @@ questions:
                           - definitions/node_bind_ip
         - variable: soulseek_port
           label: Soulseek Port
-          description: |
-            Port for incoming Soulseek peer connections (the bundled slskd's listen port).</br>
-            Forward it on your router for better Soulseek results.
           schema:
             type: dict
             attrs:
@@ -154,7 +135,9 @@ questions:
                   The port bind mode.</br>
                   - Publish: The port will be published on the host for external access.</br>
                   - Expose: The port will be exposed for inter-container communication.</br>
-                  - None: The port will not be exposed or published.
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
                   default: "published"
@@ -169,8 +152,8 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30537
-                  min: 1024
+                  default: 30561
+                  min: 1
                   max: 65535
                   required: true
               - variable: host_ips
@@ -273,7 +256,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -292,7 +275,7 @@ questions:
       type: dict
       attrs:
         - variable: config
-          label: Wondarr Config Storage
+          label: Config Storage
           description: The database, config.yml, logs, backups and the bundled slskd's state.
           schema:
             type: dict
@@ -368,11 +351,10 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: data
-          label: Wondarr Data Storage
+          label: Data Storage
           description: |
-            Your music and every download, mounted at /data.</br>
-            Use one dataset for both (music in /data/music, downloads in /data/downloads) and point your
-            torrent client at the same dataset, so torrent imports can hard-link instead of copying.
+            Your music and every download. Use one dataset for both and point your torrent
+            client at the same dataset, so torrent imports can hard-link instead of copying.
           schema:
             type: dict
             attrs:
@@ -448,12 +430,11 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Add paths for other folders, such as an existing music library to use as a reference library.
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict

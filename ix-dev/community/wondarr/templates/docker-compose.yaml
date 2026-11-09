@@ -4,20 +4,13 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{# The image starts as root under s6-overlay, applies PUID/PGID (set from run_as) to its own account, re-owns /config and drops to that account. #}
-{# KILL lets s6, running as root, send the app (running as PUID) its shutdown signal, so a stop is graceful. #}
 {% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID"]) %}
 
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/ping"}) %}
 {% do c1.environment.add_env("APP__SERVER__PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("APP__SERVER__BIND_ADDRESS", "*") %}
 {% do c1.environment.add_env("APP__SOULSEEK__LISTEN_PORT", values.network.soulseek_port.port_number) %}
-{% if values.wondarr.soulseek_username %}
-  {% do c1.environment.add_env("APP__SOULSEEK__USERNAME", values.wondarr.soulseek_username) %}
-{% endif %}
-{% if values.wondarr.soulseek_password %}
-  {% do c1.environment.add_env("APP__SOULSEEK__PASSWORD", values.wondarr.soulseek_password) %}
-{% endif %}
 {% do c1.environment.add_user_envs(values.wondarr.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
@@ -40,6 +33,5 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
-{% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
