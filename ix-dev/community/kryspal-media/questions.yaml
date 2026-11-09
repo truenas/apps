@@ -83,7 +83,7 @@ questions:
           description: The user id that Kryspal Media files will be owned by.
           schema:
             type: int
-            min: 2
+            min: 568
             default: 568
             required: true
         - variable: group
@@ -91,7 +91,7 @@ questions:
           description: The group id that Kryspal Media files will be owned by.
           schema:
             type: int
-            min: 2
+            min: 568
             default: 568
             required: true
 
@@ -129,8 +129,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 5797
+                  default: 30557
                   min: 1
                   max: 65535
                   required: true
@@ -152,8 +151,9 @@ questions:
         - variable: wan_port
           label: WAN Port
           description: |
-            A second web port for access from the internet. Forward only this port on your router:</br>
-            requests arriving on it are always treated as remote.
+            A second web port for access from outside your network. It serves plain HTTP,</br>
+            so point a reverse proxy with HTTPS at it instead of forwarding it directly.</br>
+            Requests arriving on it are always treated as remote.
           schema:
             type: dict
             attrs:
@@ -180,8 +180,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  show_if: [["bind_mode", "=", "published"]]
-                  default: 5798
+                  default: 30558
                   min: 1
                   max: 65535
                   required: true
@@ -286,7 +285,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -297,7 +296,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: Kryspal Media Data Storage
+          label: Data Storage
           description: The path to store settings, plugins, backups and the image cache.
           schema:
             type: dict
@@ -372,9 +371,86 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
+        - variable: media
+          label: Media Storage
+          description: |
+            Your media folder, mounted at /media. Libraries can only use folders under /media.</br>
+            Mount more media folders with Additional Storage under /media, such as /media/movies and /media/tv
+          schema:
+            type: dict
+            attrs:
+              - variable: type
+                label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
+                schema:
+                  type: string
+                  required: true
+                  default: "ix_volume"
+                  enum:
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
+              - variable: ix_volume_config
+                label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "ix_volume"]]
+                  $ref:
+                    - "normalize/ix_volume"
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: dataset_name
+                      label: Dataset Name
+                      description: The name of the dataset to use for storage.
+                      schema:
+                        type: string
+                        required: true
+                        hidden: true
+                        default: "media"
+                    - variable: acl_entries
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+              - variable: host_path_config
+                label: Host Path Configuration
+                schema:
+                  type: dict
+                  show_if: [["type", "=", "host_path"]]
+                  attrs:
+                    - variable: acl_enable
+                      label: Enable ACL
+                      description: Enable ACL for the storage.
+                      schema:
+                        type: boolean
+                        default: false
+                    - variable: acl
+                      label: ACL Configuration
+                      schema:
+                        type: dict
+                        show_if: [["acl_enable", "=", true]]
+                        attrs: []
+                        $ref:
+                          - "normalize/acl"
+                    - variable: path
+                      label: Host Path
+                      description: The host path to use for storage.
+                      schema:
+                        type: hostpath
+                        show_if: [["acl_enable", "=", false]]
+                        required: true
         - variable: postgres_data
           label: Postgres Data Storage
-          description: The path to store the PostgreSQL database.
           schema:
             type: dict
             attrs:
@@ -448,100 +524,25 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: media
-          label: Media Storage
-          description: |
-            Your media folder, mounted at /media. Required: the server does not start without a media folder.</br>
-            Mount more folders with Additional Storage at separate paths such as /movies and /tv</br>
-            (not inside /media, which would create empty folders in your media folder).
-          schema:
-            type: dict
-            attrs:
-              - variable: read_only
-                label: Read Only
-                description: |
-                  Mount the media folder read only.</br>
-                  Downloaded subtitles and NFO files are saved next to the videos, which needs write access.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "host_path"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
+                    - variable: auto_permissions
+                      label: Automatic Permissions
+                      description: |
+                        Automatically set permissions for the host path.
+                        Enabling this, will check the top level directory,</br>
+                        If it finds incorrect permissions, it will `chown` the
+                        host path to the user and group required for the
+                        postgres container.
                       schema:
                         type: boolean
                         default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "media"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
                         show_if: [["acl_enable", "=", false]]
-                        required: true
         - variable: additional_storage
           label: Additional Storage
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -633,6 +634,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
