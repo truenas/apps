@@ -1,18 +1,12 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set https_only = values.network.certificate_id and values.network.https_only %}
-
 {% set c1 = tpl.add_container(values.consts.anilink_container_name, "image") %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% if https_only %}
-  {% do c1.healthcheck.set_test("wget", {"port": values.network.https_port.port_number, "path": "/health/live", "scheme": "https", "spider": false, "busybox": true}) %}
-{% else %}
-  {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health/live", "spider": false, "busybox": true}) %}
-  {% do c1.environment.add_env("ASPNETCORE_HTTP_PORTS", values.network.web_port.port_number) %}
-{% endif %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health/live", "spider": false, "busybox": true}) %}
+{% do c1.environment.add_env("ASPNETCORE_HTTP_PORTS", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("Downloads__Root", values.consts.downloads_path) %}
 {% do c1.environment.add_env("Debrid_ApiKey", values.anilink.debrid_api_key) %}
 {% do c1.environment.add_env("Debrid_Request_Delay", values.anilink.debrid_request_delay) %}
@@ -22,21 +16,14 @@
 {% endfor %}
 {% do c1.environment.add_user_envs(values.anilink.additional_envs) %}
 
-{% if not https_only %}
-  {% do c1.add_port(values.network.web_port) %}
-{% endif %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
   {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
 
-  {% if https_only %}
-    {# ASPNETCORE_URLS wins over the HTTP port that the image sets, so only HTTPS is bound #}
-    {% do c1.environment.add_env("ASPNETCORE_URLS", "https://+:%d" | format(values.network.https_port.port_number)) %}
-  {% else %}
-    {% do c1.environment.add_env("ASPNETCORE_HTTPS_PORTS", values.network.https_port.port_number) %}
-  {% endif %}
+  {% do c1.environment.add_env("ASPNETCORE_HTTPS_PORTS", values.network.https_port.port_number) %}
   {% do c1.environment.add_env("Kestrel__Certificates__Default__Path", values.consts.ssl_cert_path) %}
   {% do c1.environment.add_env("Kestrel__Certificates__Default__KeyPath", values.consts.ssl_key_path) %}
 
@@ -56,9 +43,7 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% if not https_only %}
-  {% do tpl.portals.add(values.network.web_port) %}
-{% endif %}
+{% do tpl.portals.add(values.network.web_port) %}
 {% if values.network.certificate_id %}
   {% do tpl.portals.add(values.network.https_port, {"name": "Web UI HTTPS", "scheme": "https"}) %}
 {% endif %}
