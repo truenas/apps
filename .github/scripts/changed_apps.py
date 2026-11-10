@@ -8,6 +8,9 @@ import re
 APP_REGEX = re.compile(r"^ix-dev\/([-\w\.]+)\/([-\w\.]+)")
 TEST_VALUES_DIR = "templates/test_values"
 OUTPUT_FILE = ".github/outputs/all_changed_files.json"
+# GitHub caps a matrix at 256 jobs, the workflow has a run-apps-matrix-N job for each one
+MATRIX_SIZE = 256
+MATRIX_COUNT = 4
 EXCLUDE_TESTS = [
     "stable/storj",
 ]
@@ -24,12 +27,15 @@ def get_changed_files():
     try:
         return json.loads(json_files.replace("\\", ""))
     except json.JSONDecodeError:
-        print(f"Failed to decode JSON from [{OUTPUT_FILE}] file", file=sys.stderr)
+        print(
+            f"Failed to decode JSON from [{OUTPUT_FILE}] file", file=sys.stderr
+        )
         exit(1)
 
 
 def find_test_files(changed_files):
     seen = set()
+    checked = set()
     matrix = []
     skipped = set()
     for file in changed_files:
@@ -42,7 +48,9 @@ def find_test_files(changed_files):
             if full_name not in skipped:
                 skipped.add(full_name)
             continue
-        for file in pathlib.Path("ix-dev", full_name, TEST_VALUES_DIR).glob("*.yaml"):
+        for file in pathlib.Path("ix-dev", full_name, TEST_VALUES_DIR).glob(
+            "*.yaml"
+        ):
             item_tuple = (match.group(1), match.group(2), file.name)
             if item_tuple not in seen:
                 print(
@@ -55,23 +63,31 @@ def find_test_files(changed_files):
                         "train": match.group(1),
                         "app": match.group(2),
                         "test_file": file.name,
+                        # Metadata covers all test files, so it is checked by one job per app
+                        "check_metadata": full_name not in checked,
                     }
                 )
+                checked.add(full_name)
 
     if skipped:
         print("Skipped apps based on the EXCLUDE_TESTS list:", file=sys.stderr)
         print("\n".join(skipped), file=sys.stderr)
 
-    if len(matrix) > 256 * 3:
-        print(f"Detected test files ({len(matrix)}) exceeded 768 limit", file=sys.stderr)
-        print("Additional matrices need to be added to the workflow", file=sys.stderr)
+    if len(matrix) > MATRIX_SIZE * MATRIX_COUNT:
+        print(
+            f"Detected test files ({len(matrix)}) exceeded {MATRIX_SIZE * MATRIX_COUNT} limit",
+            file=sys.stderr,
+        )
+        print(
+            "Additional matrices need to be added to the workflow",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
-    result = {
-        "matrix1": {"include": matrix[0:256]},
-        "matrix2": {"include": matrix[256:512]},
-        "matrix3": {"include": matrix[512:768]},
-    }
+    result = {}
+    for i in range(MATRIX_COUNT):
+        start, end = i * MATRIX_SIZE, (i + 1) * MATRIX_SIZE
+        result[f"matrix{i + 1}"] = {"include": matrix[start:end]}
 
     return json.dumps(result)
 

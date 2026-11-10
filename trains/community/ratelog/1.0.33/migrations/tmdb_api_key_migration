@@ -1,0 +1,37 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    tmdb_api_key = ""
+    new_env = []
+    for env in values["ratelog"].get("additional_envs", []):
+        if env["name"] == "TMDB_API_KEY":
+            tmdb_api_key = env["value"]
+        else:
+            new_env.append(env)
+
+    if not tmdb_api_key:
+        raise Exception(
+            "TMDB API Key is now a dedicated field in the app configuration."
+            " Please add an environment variable named [TMDB_API_KEY] with your TMDB API Key"
+            " in the [Additional Environment Variables] section before upgrading,"
+            " so it can be migrated successfully."
+        )
+
+    values["ratelog"]["tmdb_api_key"] = tmdb_api_key
+    values["ratelog"]["additional_envs"] = new_env
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

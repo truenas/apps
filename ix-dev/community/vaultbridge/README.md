@@ -1,4 +1,4 @@
 # VaultBridge
 
-[VaultBridge](https://github.com/mrtrollex/VaultBridge) is a self-hosted REST and semantic search
-bridge for Obsidian Markdown vaults, with local embeddings and a bundled Web Dashboard.
+[VaultBridge](https://github.com/mrtrollex/VaultBridge) is a self-hosted knowledge search for Markdown vaults with
+local semantic indexing, REST/MCP access, and a web dashboard.
