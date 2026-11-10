@@ -1,6 +1,8 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.agent_hub_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("node_tcp", {"port": values.network.web_port.port_number}) %}
@@ -10,11 +12,7 @@
 {% do c1.environment.add_env("AGENT_HUB_HUB", "1") %}
 {% do c1.environment.add_env("AGENT_HUB_INGEST_PORT", values.network.ingest_port.port_number) %}
 {% do c1.environment.add_env("AGENT_HUB_VIEWER_PASSWORD", values.agent_hub.viewer_password) %}
-{% set machines = namespace(items=[]) %}
-{% for m in values.agent_hub.machines %}
-  {% do machines.items.append({"name": m.name, "sha256": m.sha256, "share": m.share}) %}
-{% endfor %}
-{% do c1.environment.add_env("AGENT_HUB_MACHINES", {"machines": machines.items} | tojson) %}
+{% do c1.environment.add_env("AGENT_HUB_MACHINES", {"machines": values.agent_hub.machines} | tojson) %}
 
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
@@ -31,13 +29,14 @@
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
 
-{% do tpl.portals.add(values.network.web_port) %}
-
-{% do tpl.notes.add_info("Report a PC to this hub with: npx agent-hub-ui --report-to %s://<this NAS>:%d, with the key from --new-key in the AGENT_HUB_REPORT_KEY environment variable"|format("https" if values.network.certificate_id else "http", values.network.ingest_port.port_number)) %}
-{% if not values.network.certificate_id %}
-  {% do tpl.notes.add_warning("The ingest port has no certificate: reporting PCs need --allow-http, and keys and activity cross the network unencrypted. Pick a certificate in Network Configuration to fix this.") %}
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
 
 {{ tpl.render() | tojson }}
