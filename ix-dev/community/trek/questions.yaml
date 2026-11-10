@@ -1,18 +1,18 @@
 groups:
-  - name: TREK Configuration
-    description: Configure TREK
+  - name: Trek Configuration
+    description: Configure Trek
   - name: Network Configuration
-    description: Configure the WebUI network
+    description: Configure Network for Trek
   - name: Storage Configuration
-    description: Configure persistent data and uploads
+    description: Configure Storage for Trek
   - name: Labels Configuration
-    description: Configure container labels
+    description: Configure Labels for Trek
   - name: Resources Configuration
-    description: Configure resource limits
+    description: Configure Resources for Trek
 
 questions:
   - variable: TZ
-    group: TREK Configuration
+    group: Trek Configuration
     label: Timezone
     schema:
       type: string
@@ -21,40 +21,41 @@ questions:
       $ref:
         - definitions/timezone
   - variable: trek
-    group: TREK Configuration
     label: ""
+    group: Trek Configuration
     schema:
       type: dict
       attrs:
-        - variable: encryption_key
-          label: Encryption Key
-          description: Optional 256-bit encryption key. TREK generates and persists one in its data directory if this is left blank. Keep a configured key safe and unchanged when restoring the app.
-          schema:
-            type: string
-            default: ""
-            private: true
         - variable: admin_email
           label: Initial Admin Email
-          description: Required on first install. TREK creates the initial administrator with this email. Changing it after setup does not change the existing account.
+          description: |
+            TREK creates the initial administrator with this email.
+            Changing it after setup does not change the existing account.
           schema:
             type: string
             required: true
         - variable: admin_password
           label: Initial Admin Password
-          description: Required on first install. TREK creates the initial administrator with this password. Changing it after setup does not change the existing password.
+          description: |
+            TREK creates the initial administrator with this password.
+            Changing it after setup does not change the existing password.
           schema:
             type: string
             required: true
             private: true
         - variable: cookie_secure
           label: Secure Cookies
-          description: Enable this when TREK is accessed over HTTPS. Leave disabled for direct HTTP access from the TrueNAS UI.
+          description: |
+            Enable this when TREK is accessed over HTTPS.
+            Leave disabled for direct HTTP access.
           schema:
             type: boolean
             default: false
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Use for optional TREK settings such as APP_URL, ALLOWED_ORIGINS, OIDC, SMTP, or API keys. See TREK's environment variable documentation.
+          description: |
+            Use for optional TREK settings such as APP_URL, ALLOWED_ORIGINS, OIDC, SMTP, or API keys.
+            See TREK's environment variable documentation.
           schema:
             type: list
             default: []
@@ -75,8 +76,8 @@ questions:
                         type: string
 
   - variable: network
-    group: Network Configuration
     label: ""
+    group: Network Configuration
     schema:
       type: dict
       attrs:
@@ -87,14 +88,20 @@ questions:
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
-                description: Publish the port on the host, expose it to other containers, or leave it unpublished.
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
-                  default: published
+                  default: "published"
                   enum:
-                    - value: published
+                    - value: "published"
                       description: Publish port on the host for external access
-                    - value: exposed
+                    - value: "exposed"
                       description: Expose port for inter-container communication
                     - value: ""
                       description: None
@@ -102,13 +109,13 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30082
+                  default: 30113
                   min: 1
                   max: 65535
                   required: true
               - variable: host_ips
                 label: Host IPs
-                description: IPs on the host to bind this port.
+                description: IPs on the host to bind this port
                 schema:
                   type: list
                   show_if: [["bind_mode", "=", "published"]]
@@ -123,7 +130,7 @@ questions:
                           - definitions/node_bind_ip
         - variable: networks
           label: Networks
-          description: The Docker networks TREK should join. Each network must already exist.
+          description: The docker networks to join
           schema:
             type: list
             show_if: [["host_network", "=", false]]
@@ -136,6 +143,9 @@ questions:
                   attrs:
                     - variable: name
                       label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
                       schema:
                         type: string
                         default: ""
@@ -166,6 +176,7 @@ questions:
                                     attrs:
                                       - variable: aliases
                                         label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
                                         schema:
                                           type: list
                                           default: []
@@ -176,40 +187,46 @@ questions:
                                                 type: string
                                       - variable: interface_name
                                         label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
                                         schema:
                                           type: string
                                       - variable: mac_address
                                         label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
                                         schema:
                                           type: string
                                       - variable: ipv4_address
                                         label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
                                         schema:
                                           type: string
                                       - variable: ipv6_address
                                         label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
                                         schema:
                                           type: string
                                       - variable: gw_priority
                                         label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
                                         schema:
                                           type: int
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
         - variable: host_network
           label: Host Network
-          description: Bind TREK directly to the host network. This is not required for normal access.
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
           schema:
             type: boolean
             default: false
-
   - variable: storage
-    group: Storage Configuration
     label: ""
+    group: Storage Configuration
     schema:
       type: dict
       attrs:
@@ -221,35 +238,41 @@ questions:
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
-                  default: ix_volume
+                  default: "ix_volume"
                   enum:
-                    - value: ix_volume
-                      description: ixVolume (dataset created automatically by the system)
-                    - value: host_path
-                      description: Host Path (path that already exists on the system)
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
-                    - normalize/ix_volume
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: data
+                        default: "config"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -264,6 +287,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -274,9 +298,10 @@ questions:
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
                         $ref:
-                          - normalize/acl
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
@@ -289,35 +314,41 @@ questions:
             attrs:
               - variable: type
                 label: Type
+                description: |
+                  ixVolume: Is dataset created automatically by the system.</br>
+                  Host Path: Is a path that already exists on the system.
                 schema:
                   type: string
                   required: true
-                  default: ix_volume
+                  default: "ix_volume"
                   enum:
-                    - value: ix_volume
-                      description: ixVolume (dataset created automatically by the system)
-                    - value: host_path
-                      description: Host Path (path that already exists on the system)
+                    - value: "host_path"
+                      description: Host Path (Path that already exists on the system)
+                    - value: "ix_volume"
+                      description: ixVolume (Dataset created automatically by the system)
               - variable: ix_volume_config
                 label: ixVolume Configuration
+                description: The configuration for the ixVolume dataset.
                 schema:
                   type: dict
                   show_if: [["type", "=", "ix_volume"]]
                   $ref:
-                    - normalize/ix_volume
+                    - "normalize/ix_volume"
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
                     - variable: dataset_name
                       label: Dataset Name
+                      description: The name of the dataset to use for storage.
                       schema:
                         type: string
                         required: true
                         hidden: true
-                        default: uploads
+                        default: "uploads"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -332,6 +363,7 @@ questions:
                   attrs:
                     - variable: acl_enable
                       label: Enable ACL
+                      description: Enable ACL for the storage.
                       schema:
                         type: boolean
                         default: false
@@ -342,9 +374,10 @@ questions:
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
                         $ref:
-                          - normalize/acl
+                          - "normalize/acl"
                     - variable: path
                       label: Host Path
+                      description: The host path to use for storage.
                       schema:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
@@ -355,33 +388,40 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
                   attrs:
                     - variable: type
                       label: Type
+                      description: |
+                        ixVolume: Is dataset created automatically by the system.</br>
+                        Host Path: Is a path that already exists on the system.</br>
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
                       schema:
                         type: string
                         required: true
-                        default: ix_volume
+                        default: "ix_volume"
                         enum:
-                          - value: host_path
-                            description: Host Path
-                          - value: ix_volume
-                            description: ixVolume
-                          - value: cifs
-                            description: SMB/CIFS Share
-                          - value: nfs
-                            description: NFS Share
+                          - value: "host_path"
+                            description: Host Path (Path that already exists on the system)
+                          - value: "ix_volume"
+                            description: ixVolume (Dataset created automatically by the system)
+                          - value: "cifs"
+                            description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
                     - variable: read_only
                       label: Read Only
+                      description: Mount the volume as read only.
                       schema:
                         type: boolean
                         default: false
                     - variable: mount_path
                       label: Mount Path
+                      description: The path inside the container to mount the storage.
                       schema:
                         type: path
                         required: true
@@ -393,6 +433,7 @@ questions:
                         attrs:
                           - variable: acl_enable
                             label: Enable ACL
+                            description: Enable ACL for the storage.
                             schema:
                               type: boolean
                               default: false
@@ -403,85 +444,104 @@ questions:
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
                               $ref:
-                                - normalize/acl
+                                - "normalize/acl"
                           - variable: path
                             label: Host Path
+                            description: The host path to use for storage.
                             schema:
                               type: hostpath
                               show_if: [["acl_enable", "=", false]]
                               required: true
                     - variable: ix_volume_config
                       label: ixVolume Configuration
+                      description: The configuration for the ixVolume dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "ix_volume"]]
                         $ref:
-                          - normalize/ix_volume
+                          - "normalize/ix_volume"
                         attrs:
                           - variable: acl_enable
                             label: Enable ACL
+                            description: Enable ACL for the storage.
                             schema:
                               type: boolean
                               default: false
                           - variable: dataset_name
                             label: Dataset Name
+                            description: The name of the dataset to use for storage.
                             schema:
                               type: string
-                              default: storage_entry
                               required: true
+                              default: "storage_entry"
                           - variable: acl_entries
                             label: ACL Configuration
                             schema:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
+                      description: The configuration for the SMB dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "cifs"]]
                         attrs:
                           - variable: server
                             label: Server
+                            description: The server to mount the SMB share.
                             schema:
                               type: string
                               required: true
                           - variable: path
                             label: Path
+                            description: The path to mount the SMB share.
                             schema:
                               type: string
                               required: true
                           - variable: username
                             label: Username
+                            description: The username to use for the SMB share.
                             schema:
                               type: string
                               required: true
                           - variable: password
                             label: Password
+                            description: The password to use for the SMB share.
                             schema:
                               type: string
                               required: true
                               private: true
+                          - variable: domain
+                            label: Domain
+                            description: The domain to use for the SMB share.
+                            schema:
+                              type: string
                     - variable: nfs_config
                       label: NFS Configuration
+                      description: The configuration for the NFS dataset.
                       schema:
                         type: dict
                         show_if: [["type", "=", "nfs"]]
                         attrs:
                           - variable: server
                             label: Server
+                            description: The server to mount the NFS share.
                             schema:
                               type: string
                               required: true
                           - variable: path
                             label: Path
+                            description: The path to mount the NFS share.
                             schema:
                               type: string
                               required: true
 
   - variable: labels
-    group: Labels Configuration
     label: ""
+    group: Labels Configuration
     schema:
       type: list
       default: []
@@ -503,9 +563,9 @@ questions:
                   required: true
               - variable: containers
                 label: Containers
+                description: Containers where the label should be applied
                 schema:
                   type: list
-                  default: []
                   items:
                     - variable: container
                       label: Container
@@ -515,10 +575,9 @@ questions:
                         enum:
                           - value: trek
                             description: trek
-
   - variable: resources
-    group: Resources Configuration
     label: ""
+    group: Resources Configuration
     schema:
       type: dict
       attrs:
@@ -529,12 +588,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
+                description: CPUs limit for Trek.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
+                description: Memory limit for Trek.
                 schema:
                   type: int
                   default: 4096

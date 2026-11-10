@@ -7,23 +7,23 @@
 {% do c1.set_user(0, 0) %}
 {% do c1.set_read_only(true) %}
 {% do c1.add_caps(["CHOWN", "SETUID", "SETGID", "KILL"]) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/api/health"}) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
 
 {% do c1.environment.add_env("NODE_ENV", "production") %}
-{% do c1.environment.add_env("PORT", values.consts.internal_web_port) %}
-{% do c1.environment.add_env("COOKIE_SECURE", "true" if values.trek.cookie_secure else "false") %}
+{% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("COOKIE_SECURE", values.trek.cookie_secure) %}
 {% do c1.environment.add_env("XDG_CACHE_HOME", "/tmp/kf6-cache") %}
-{% if values.trek.encryption_key %}
-  {% do c1.environment.add_env("ENCRYPTION_KEY", values.trek.encryption_key) %}
-{% endif %}
 {% do c1.environment.add_env("ADMIN_EMAIL", values.trek.admin_email) %}
 {% do c1.environment.add_env("ADMIN_PASSWORD", values.trek.admin_password) %}
 {% do c1.environment.add_user_envs(values.trek.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_port(values.network.web_port) %}
+
 {% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"size": 128}}) %}
+
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
 {% do c1.add_storage(values.consts.uploads_path, values.storage.uploads) %}
 {% do perm_container.add_or_skip_action("uploads", values.storage.uploads, perms_config) %}
 
