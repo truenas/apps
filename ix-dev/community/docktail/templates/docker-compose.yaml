@@ -1,37 +1,70 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
-
-{% set ts = tpl.add_container(values.consts.tailscale_container_name, "tailscale_image") %}
-{% do ts.set_user(0, 0) %}
-{% do ts.set_hostname(values.tailscale.hostname) %}
-{% do ts.set_network_mode("host") %}
-{# Same capabilities as the catalog Tailscale app; the library drops all others. #}
-{% do ts.add_caps(["NET_ADMIN", "NET_RAW", "SYS_MODULE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
-{% do ts.add_tun_device() %}
-{% do ts.environment.add_env("TS_AUTHKEY", values.tailscale.auth_key) %}
-{% do ts.environment.add_env("TS_EXTRA_ARGS", "--advertise-tags=%s"|format(values.tailscale.advertise_tags|join(","))) %}
-{% do ts.environment.add_env("TS_STATE_DIR", values.consts.state_path) %}
-{% do ts.environment.add_env("TS_SOCKET", "%s/tailscaled.sock"|format(values.consts.socket_path)) %}
-{% do ts.environment.add_env("TS_USERSPACE", false) %}
-{% do ts.add_storage(values.consts.state_path, values.storage.state) %}
-{% set socket_volume = {"type": "volume", "volume_config": {"volume_name": "tailscale-socket"}} %}
-{% do ts.add_storage(values.consts.socket_path, socket_volume) %}
-{% do ts.healthcheck.set_custom_test(["CMD", "test", "-S", "%s/tailscaled.sock"|format(values.consts.socket_path)]) %}
-{% do ts.healthcheck.set_interval(5) %}
-{% do ts.healthcheck.set_retries(30) %}
-
-{# Catalog CI has no tailnet credentials. Exercise the real daemon and shared
-   socket offline, without containerboot attempting to enroll the fixture key. #}
-{% if values.ci %}
-  {% do ts.set_entrypoint(["tailscaled"]) %}
-  {% do ts.set_command(["--statedir=%s"|format(values.consts.state_path), "--socket=%s/tailscaled.sock"|format(values.consts.socket_path)]) %}
-{% endif %}
+{% set socket_file = "%s/tailscaled.sock"|format(values.consts.socket_path) %}
 
 {% set app = tpl.add_container(values.consts.docktail_container_name, "image") %}
 {% do app.set_user(0, 0) %}
 {% do app.add_docker_socket() %}
-{% do app.add_storage(values.consts.socket_path, socket_volume) %}
-{% do app.depends.add_dependency(values.consts.tailscale_container_name, "service_healthy") %}
 {% do app.healthcheck.set_custom_test(["CMD", "/app/docktail", "health"]) %}
+
+{% if values.tailscale.mode == "sidecar" %}
+  {% set sidecar = values.tailscale.sidecar %}
+  {% set ts = tpl.add_container(values.consts.tailscale_container_name, "tailscale_image") %}
+  {% do ts.set_user(0, 0) %}
+  {% do ts.set_hostname(sidecar.hostname) %}
+  {% if sidecar.host_network %}
+    {% do ts.set_network_mode("host") %}
+  {% else %}
+    {% for network in sidecar.networks|unique %}
+      {% do tpl.networks.register(network) %}
+      {% do ts.add_network(network) %}
+    {% endfor %}
+  {% endif %}
+  {# Same capabilities as the catalog Tailscale app; the library drops all others. #}
+  {% do ts.add_caps(["NET_ADMIN", "NET_RAW", "SYS_MODULE", "CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+  {% do ts.add_tun_device() %}
+  {% do ts.environment.add_env("TS_AUTHKEY", sidecar.auth_key) %}
+  {% do ts.environment.add_env("TS_EXTRA_ARGS", "--advertise-tags=%s"|format(sidecar.advertise_tags|join(","))) %}
+  {% do ts.environment.add_env("TS_STATE_DIR", values.consts.state_path) %}
+  {% do ts.environment.add_env("TS_SOCKET", socket_file) %}
+  {% do ts.environment.add_env("TS_USERSPACE", false) %}
+  {% do ts.add_storage(values.consts.state_path, sidecar.state) %}
+  {% set socket_volume = {"type": "volume", "volume_config": {"volume_name": "tailscale-socket"}} %}
+  {% do ts.add_storage(values.consts.socket_path, socket_volume) %}
+  {% do ts.healthcheck.set_custom_test(["CMD", "test", "-S", socket_file]) %}
+  {% do ts.healthcheck.set_interval(5) %}
+  {% do ts.healthcheck.set_retries(30) %}
+
+  {# Catalog CI has no tailnet credentials. Exercise the real daemon and shared
+     socket offline, without containerboot attempting to enroll the fixture key. #}
+  {% if values.ci %}
+    {% do ts.set_entrypoint(["tailscaled"]) %}
+    {% do ts.set_command(["--statedir=%s"|format(values.consts.state_path), "--socket=%s"|format(socket_file)]) %}
+  {% endif %}
+
+  {% do app.add_storage(values.consts.socket_path, socket_volume) %}
+  {% do app.depends.add_dependency(values.consts.tailscale_container_name, "service_healthy") %}
+{% else %}
+  {# Reuse the tailscaled of the TrueNAS Tailscale app. Mount the directory, not the
+     socket file: tailscaled recreates the socket on restart. #}
+  {% set socket_storage = {"type": "host_path", "host_path_config": {"path": values.tailscale.socket_path, "create_host_path": values.get("ci", false)}} %}
+  {% do app.add_storage(values.consts.socket_path, socket_storage) %}
+
+  {# Catalog CI has no Tailscale app. Stand in for it with an offline tailscaled
+     that writes its socket to the same host path. #}
+  {% if values.ci %}
+    {% set ts = tpl.add_container(values.consts.tailscale_container_name, "tailscale_image") %}
+    {% do ts.set_user(0, 0) %}
+    {% do ts.set_entrypoint(["tailscaled"]) %}
+    {% do ts.set_command(["--state=mem:", "--tun=userspace-networking", "--socket=%s"|format(socket_file)]) %}
+    {% do ts.add_storage(values.consts.socket_path, socket_storage) %}
+    {% do ts.healthcheck.set_custom_test(["CMD", "test", "-S", socket_file]) %}
+    {% do ts.healthcheck.set_interval(5) %}
+    {% do ts.healthcheck.set_retries(30) %}
+    {% do app.depends.add_dependency(values.consts.tailscale_container_name, "service_healthy") %}
+  {% endif %}
+
+  {% do tpl.notes.add_info("DockTail uses the Tailscale app's node. In the Tailscale app, set Tailscale Socket Storage to Host Path with the same directory as DockTail's Tailscale Socket Directory, and give its node a tag (for example Extra Arguments --advertise-tags=tag:server).") %}
+{% endif %}
 
 {% if values.docktail.credentials_type == "oauth" %}
   {% do app.environment.add_env("TAILSCALE_OAUTH_CLIENT_ID", values.docktail.oauth_client_id) %}

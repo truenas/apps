@@ -3,12 +3,20 @@
 [DockTail](https://docktail.org) - Label-based Tailscale Services for Docker containers.
 
 DockTail watches the containers on this system and turns the ones with `docktail.*` labels into Tailscale Services.
-It brings its own Tailscale sidecar, so the Tailscale app does not need to be installed.
 Apps do not need published ports; DockTail connects to their container IPs directly.
+
+DockTail needs a Tailscale node to put the services on. Pick one under **Tailscale Mode**:
+
+- **TrueNAS Tailscale App** (default): reuse the Tailscale app you already run.
+  In the Tailscale app, set **Tailscale Socket Storage** to **Host Path** (an empty directory),
+  enter the same directory as DockTail's **Tailscale Socket Directory**, and give the node a tag,
+  for example **Extra Arguments** `--advertise-tags=tag:server`. Keep the Tailscale app on host networking (its default).
+- **Sidecar**: DockTail runs its own Tailscale container, for systems without the Tailscale app.
+  It needs an auth key allowed to apply the tags in **Advertise Tags** (default `tag:server`).
+  **Host Network** (on by default) lets the sidecar reach every app; turn it off to join only the networks you list.
 
 Before installing, you need:
 
-- A Tailscale auth key for the sidecar, allowed to apply the tags in **Advertise Tags** (default `tag:server`).
 - Optionally, a Tailscale OAuth client (recommended) or API key, so DockTail can create service definitions.
   Without one, you create each service in the Tailscale admin console yourself.
 - `tagOwners` and `autoApprovers.services` entries in your tailnet policy.
