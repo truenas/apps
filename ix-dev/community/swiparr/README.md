@@ -1,3 +1,3 @@
-# Swiparr
+# Messer Swipe
 
-[Swiparr](https://swiparr.com) is a media discovery tool featuring a Tinder-like swipe interface for browsing movies and TV shows from Jellyfin, Emby, Plex, or TMDB.
+[Messer Swipe](https://swipe.messer.wtf) is a media discovery tool featuring a swipe interface for deciding what to watch next — by yourself or together — from Jellyfin, Emby, Plex, or TMDB.

@@ -185,8 +185,9 @@ module.exports = {
       ["photoprism/photoprism"],
     ),
     customVersioning(
-      // RELEASE.2024-08-26T15-33-07Z
-      "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z$",
+      // RELEASE.2024-08-26T15-33-07Z (stable), RELEASE.2024-08-26T15-33-07Z.oem (enterprise)
+      // compatibility keeps each app on its own tag flavor
+      "^RELEASE\\.(?<major>\\d+)-(?<minor>\\d+)-(?<patch>\\d+)T\\d+-\\d+-\\d+Z(?<compatibility>\\.oem)?$",
       ["quay.io/minio/aistor/minio"],
     ),
     customVersioning(
@@ -342,11 +343,6 @@ module.exports = {
       ["pgvector/pgvector"],
     ),
     customVersioning(
-      // 2.4-dev
-      "^(?<major>\\d+)\\.(?<minor>\\d+)-dev$",
-      ["wger/server"],
-    ),
-    customVersioning(
       // 18-vectorchord0.3.0
       "^18-vectorchord(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["ghcr.io/immich-app/postgres"],
@@ -375,11 +371,6 @@ module.exports = {
       // 0.7.6-nbxyz4
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-nbxyz(?<build>\\d+)$",
       ["ghcr.io/netbootxyz/netbootxyz"],
-    ),
-    customVersioning(
-      // apache-2.37.0
-      "^apache-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
-      ["kimai/kimai2"],
     ),
     customVersioning(
       // appname-1.2.3
@@ -462,6 +453,13 @@ module.exports = {
       // build-1284
       "^build-(?<minor>\\d+)$",
       ["ghcr.io/silo-server/silo-server"],
+    ),
+    customVersioning(
+      // latest-2026.10.1 (CalVer with the engine/browser variant as prefix).
+      // Only the "latest" (WEBJS/chromium) variant is tracked, so the
+      // noweb-*, gows-*, chrome-* and arm-* tags are never picked.
+      "^(?<compatibility>latest)-(?<major>\\d{4})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["devlikeapro/waha"],
     ),
   ],
 };

@@ -1,0 +1,55 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.waha_container_name, "image") %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/ping"}) %}
+
+{# The image has no user, so HOME is "/" which a non-root user cannot write to.
+   Chromium (WEBJS engine) fails to start its crash handler without a writable HOME. #}
+{% do c1.environment.add_env("HOME", "/tmp") %}
+{% do c1.environment.add_env("WHATSAPP_API_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("WHATSAPP_API_HOSTNAME", "0.0.0.0") %}
+{% do c1.environment.add_env("WHATSAPP_DEFAULT_ENGINE", values.waha.engine) %}
+{% do c1.environment.add_env("WAHA_API_KEY", values.waha.api_key) %}
+{% do c1.environment.add_env("WAHA_MEDIA_STORAGE", "LOCAL") %}
+{% do c1.environment.add_env("WHATSAPP_FILES_FOLDER", values.consts.media_path) %}
+{% do c1.environment.add_env("WAHA_DASHBOARD_ENABLED", values.waha.dashboard_enabled) %}
+{% do c1.environment.add_env("WHATSAPP_SWAGGER_ENABLED", values.waha.dashboard_enabled) %}
+{% if values.waha.dashboard_enabled %}
+  {% do c1.environment.add_env("WAHA_DASHBOARD_USERNAME", values.waha.dashboard_username) %}
+  {% do c1.environment.add_env("WAHA_DASHBOARD_PASSWORD", values.waha.dashboard_password) %}
+  {% do c1.environment.add_env("WHATSAPP_SWAGGER_USERNAME", values.waha.dashboard_username) %}
+  {% do c1.environment.add_env("WHATSAPP_SWAGGER_PASSWORD", values.waha.dashboard_password) %}
+{% endif %}
+{% if values.waha.base_url %}
+  {% do c1.environment.add_env("WAHA_BASE_URL", values.waha.base_url.rstrip("/")) %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.waha.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% do c1.add_storage("/app/.sessions", values.storage.sessions) %}
+{% do perm_container.add_or_skip_action("sessions", values.storage.sessions, perms_config) %}
+
+{% do c1.add_storage(values.consts.media_path, values.storage.media) %}
+{% do perm_container.add_or_skip_action("media", values.storage.media, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% if values.waha.dashboard_enabled %}
+  {% do tpl.portals.add(values.network.web_port, {"path": "/dashboard"}) %}
+  {% do tpl.portals.add(values.network.web_port, {"name": "API Docs", "path": "/"}) %}
+{% endif %}
+
+{{ tpl.render() | tojson }}
