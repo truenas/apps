@@ -23,23 +23,38 @@ import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 
 from common import (
+    APP_LIBRARY_SOURCE_DIR,
     APP_METADATA_FILE,
     APPS_ROOT_DIR,
+    LIBRARY_DIR,
     QUESTIONS_FILE,
     RENDERED_COMPOSE_PATH,
     TEST_VALUES_DIR,
     hash_generate_cmd,
+    markdown_to_html_cmd,
     read_yaml,
     render_app_cmd,
     write_yaml,
 )
+from prepare_libs import prepare_app_libs
 
-LIBRARY_DIR = Path("library")
 APP_VALUES_FILE = "ix_values.yaml"
 ITEM_FILE = "item.yaml"
+README_FILE = "README.md"
+
+# The generated block of README warnings, placed at the end of the README
+README_WARNINGS_START = "<!-- x-readme:warnings:start -->"
+README_WARNINGS_END = "<!-- x-readme:warnings:end -->"
+RE_README_WARNINGS = re.compile(
+    rf"\n*{re.escape(README_WARNINGS_START)}.*?{re.escape(README_WARNINGS_END)}\n*", re.S
+)
+# The UI shows what follows the README's first </h1> and removes the tags not in this list
+# https://github.com/truenas/webui/blob/459561a05754239e04c7e8a09d718f1594002c0e/src/app/pages/apps/components/app-detail-view/app-details-header/app-details-header.component.ts#L48
+README_ALLOWED_TAGS = {"a", "b", "br", "em", "i", "p", "strong"}
 
 # Special apps excluded from test train
 EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
@@ -279,6 +294,10 @@ class Analysis:
     capabilities: dict[str, set[str]]
     # service -> (uid, gid) of each test value
     users: dict[str, list[tuple[int, int]]]
+    # README warnings of every test value
+    readme_warnings: set[str]
+    # Follows the README warnings, the same in every test value
+    readme_warnings_footer: str
 
 
 # Discovery
@@ -322,7 +341,7 @@ def render(app: App, values_file: str) -> dict:
     """Render the app with the given test values and return the compose data."""
     values_path = app.path / TEST_VALUES_DIR / values_file
     compose_path = app.path / RENDERED_COMPOSE_PATH
-    docker_cmd = render_app_cmd(app.path, values_path)
+    docker_cmd = render_app_cmd(app.path, values_path, readme=True)
 
     logger.debug(f"Rendering: {shlex.join(docker_cmd)}")
     result = subprocess.run(docker_cmd, capture_output=True, text=True)
@@ -375,11 +394,23 @@ def parse_user(service: str, user) -> tuple[int, int]:
 
 
 def analyze(app: App) -> Analysis:
-    analysis = Analysis(service_names=set(), capabilities=defaultdict(set), users=defaultdict(list))
+    analysis = Analysis(
+        service_names=set(),
+        capabilities=defaultdict(set),
+        users=defaultdict(list),
+        readme_warnings=set(),
+        readme_warnings_footer="",
+    )
 
     for values_file in app.test_values:
         logger.debug(f"Processing {app.name} with {values_file}")
-        services = render(app, values_file).get("services")
+        compose = render(app, values_file)
+        # Libraries older than 2.3.18 don't render x-readme
+        readme = compose.get("x-readme") or {}
+        analysis.readme_warnings.update(readme.get("warnings") or [])
+        analysis.readme_warnings_footer = readme.get("warnings_footer") or analysis.readme_warnings_footer
+
+        services = compose.get("services")
         if not services:
             raise ValueError(f"No services found when rendering {app.name} with {values_file}")
 
@@ -535,18 +566,6 @@ def bump_patch_version(version: str) -> str:
     return ".".join(parts)
 
 
-def rename_app_lib_dir(app: App, old_version: str, new_version: str) -> None:
-    """Keep the per-app library dir (templates/library/<train>/<app>/v<version>) in sync with the version."""
-    lib_base = app.path / "templates/library" / app.train / app.name
-    old_dir = lib_base / f"v{old_version.replace('.', '_')}"
-    new_dir = lib_base / f"v{new_version.replace('.', '_')}"
-    if not old_dir.is_dir():
-        return
-    if new_dir.exists():
-        raise ValueError(f"App {app.name} library with version {new_version} already exists")
-    old_dir.rename(new_dir)
-
-
 def build_item(app_config: dict) -> dict:
     """The catalog entry (item.yaml), it only mirrors a few fields of app.yaml."""
     return {
@@ -555,6 +574,22 @@ def build_item(app_config: dict) -> dict:
         "screenshots": app_config.get("screenshots", []),
         "tags": app_config.get("keywords", []),
     }
+
+
+def build_readme(readme: str, warnings: list[str], footer: str) -> str:
+    """The README with its generated warnings block replaced by (or removed for no) warnings."""
+    stripped = RE_README_WARNINGS.sub("", readme)
+    # Removing a block also takes the README's final newline, a README without one is left untouched
+    if stripped != readme:
+        stripped = stripped.rstrip() + "\n"
+    if not warnings:
+        return stripped
+
+    lines = [README_WARNINGS_START, *(f"⚠️ **WARNING:** {w}" for w in warnings)]
+    if footer:
+        lines.append(footer)
+    block = "\n\n".join([*lines, README_WARNINGS_END])
+    return f"{stripped.rstrip()}\n\n{block}\n"
 
 
 def get_git_date_added(app: App) -> str:
@@ -642,6 +677,32 @@ def validate_images(app: App) -> None:
             )
 
 
+class TagCollector(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.tags: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        self.tags.append(tag)
+
+
+def validate_readme(app: App, readme: str) -> None:
+    """Fail on a README with anything the UI does not show: no title or elements other than the allowed ones."""
+    result = subprocess.run(markdown_to_html_cmd(), input=readme, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Converting the README of {app.name} to HTML failed:\n{result.stderr}")
+
+    collector = TagCollector()
+    collector.feed(result.stdout)
+    if collector.tags[:1] != ["h1"]:
+        raise ValueError(f"{app.path / README_FILE} must start with a [# <title>] line")
+    if disallowed := sorted(set(collector.tags[1:]) - README_ALLOWED_TAGS):
+        raise ValueError(
+            f"{app.path / README_FILE} has elements the UI does not show: {disallowed}. "
+            f"Only the title and {sorted(README_ALLOWED_TAGS)} are allowed"
+        )
+
+
 def validate_app_config(app: App, app_config: dict) -> None:
     categories = app_config.get("categories", [])
     if len(categories) > 1:
@@ -668,9 +729,9 @@ def validate_app_lib(app: App) -> None:
     v<version> (no train or app), so two apps at the same version would silently share each other's modules.
     Sibling modules have to be reached through the ix_lib dict the template gets, eg ix_lib.<train>["<app>"].
     """
-    lib_base = app.path / "templates/library" / app.train / app.name
-    for lib_file in sorted(lib_base.glob("v*/*.py")):
-        siblings = {p.stem for p in lib_file.parent.glob("*.py")} | {lib_file.parent.name}
+    lib_files = sorted((app.path / APP_LIBRARY_SOURCE_DIR).glob("*.py"))
+    siblings = {p.stem for p in lib_files}
+    for lib_file in lib_files:
         for node in ast.walk(ast.parse(lib_file.read_text(), str(lib_file))):
             if isinstance(node, ast.ImportFrom):
                 relative, names = node.level > 0, [node.module or ""]
@@ -696,6 +757,8 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     app_config = read_yaml(app_config_path)
     app_title = app_config.get("title", app.name)
 
+    # The metadata is generated from the rendered app, which needs its libraries in place
+    prepare_app_libs(app.path)
     analysis = analyze(app)
     validate_questions(app, analysis.service_names)
     validate_images(app)
@@ -720,6 +783,14 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     )
     app_config.update(app_version=app_version, capabilities=capabilities, run_as_context=run_as_context)
 
+    # The dev validation checks the copied library against this hash, library/hashes.yaml is validated against library/
+    if lib_version := app_config.get("lib_version"):
+        lib_version_hash = read_yaml(LIBRARY_DIR / "hashes.yaml").get(lib_version)
+        if lib_version_hash and app_config.get("lib_version_hash") != lib_version_hash:
+            logger.info(f"Updated {app.name} lib_version_hash for library {lib_version}")
+            app_config["lib_version_hash"] = lib_version_hash
+            changed = True
+
     if app_config.get("maintainers", []) != MAINTAINERS:
         app_config["maintainers"] = MAINTAINERS
         changed = True
@@ -741,19 +812,33 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     item_path = app.path / ITEM_FILE
     item = build_item(app_config)
     if not item_path.exists() or read_yaml(item_path) != item:
-        write_yaml(item_path, item)
+        changed = True
+    # Written every time, so it keeps the format generate_metadata writes app.yaml in
+    write_yaml(item_path, item)
+
+    readme_path = app.path / README_FILE
+    readme = readme_path.read_text()
+    # Sorted, a set's order changes between runs
+    new_readme = build_readme(readme, sorted(analysis.readme_warnings), analysis.readme_warnings_footer)
+    validate_readme(app, new_readme)
+    if new_readme != readme:
+        logger.info(f"Updated {app.name} README warnings: {len(analysis.readme_warnings)}")
+        readme_path.write_text(new_readme)
         changed = True
 
     # A library sync in this run has already bumped the app, one bump covers both changes
-    if changed and bump_version and not already_bumped:
+    bumped = changed and bump_version and not already_bumped
+    if bumped:
         old_version = app_config["version"]
         app_config["version"] = bump_patch_version(old_version)
-        rename_app_lib_dir(app, old_version, app_config["version"])
         logger.info(f"Updated {app.name} version: {old_version} → {app_config['version']}")
         if is_ix_app(app):
             app_config["app_version"] = app_config["version"]
 
     write_yaml(app_config_path, app_config)
+    if bumped:
+        # The app library copy is named after the version, later renders of the app need it under the new one
+        prepare_app_libs(app.path)
     logger.info(f"Successfully updated {app.name} with {len(capabilities)} capabilities and {len(users)} services")
 
 
