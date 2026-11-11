@@ -6,41 +6,31 @@
 {% set scheme = "https" if values.network.certificate_id else "http" %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{# The image bundles the mc client as `mcli`. `mcli ready` reports healthy once the node can serve reads. #}
-{% do c1.healthcheck.set_custom_test(["CMD", "mcli", "ready", "--insecure", "--cluster-read", "health"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.api_port.port_number, "path": "/minio/health/cluster/read", "scheme": scheme}) %}
+{% do c1.set_command(["server", "--certs-dir", values.consts.certs_dir]) %}
 
-{% set tmp_config = {"type": "temporary", "volume_config": {"volume_name": "tmp"}} %}
-{% do c1.add_storage("/tmp", tmp_config) %}
-{% do perm_container.add_or_skip_action("tmp", tmp_config, perms_config) %}
+{% do c1.add_storage("/tmp", {"type": "tmpfs", "tmpfs_config": {"uid": values.run_as.user, "gid": values.run_as.group}}) %}
 
 {% do c1.environment.add_env("HOME", "/tmp") %}
-{% do c1.environment.add_env("MC_CONFIG_DIR", "/tmp/.mcli") %}
-{% do c1.environment.add_env("MC_HOST_health", "%s://localhost:%d"|format(scheme, values.network.api_port.port_number)) %}
 {% do c1.environment.add_env("MINIO_ROOT_USER", values.silo.root_user) %}
 {% do c1.environment.add_env("MINIO_ROOT_PASSWORD", values.silo.root_password) %}
-{% do c1.environment.add_env("MINIO_VOLUMES", values.storage.data.mount_path) %}
-
-{% set command = [
-  "server",
-  "--address", ":%d"|format(values.network.api_port.port_number),
-  "--console-address", ":%d"|format(values.network.console_port.port_number),
-] %}
+{% do c1.environment.add_env("MINIO_VOLUMES", values.consts.data_dir) %}
+{% do c1.environment.add_env("MINIO_ADDRESS", ":%d"|format(values.network.api_port.port_number)) %}
+{% do c1.environment.add_env("MINIO_CONSOLE_ADDRESS", ":%d"|format(values.network.console_port.port_number)) %}
 
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
   {% do c1.configs.add("private", cert.privatekey, "%s/private.key"|format(values.consts.certs_dir)) %}
   {% do c1.configs.add("public", cert.certificate, "%s/public.crt"|format(values.consts.certs_dir)) %}
-  {% do command.extend(["--certs-dir", values.consts.certs_dir]) %}
   {% if values.silo.domain %}
     {% do c1.environment.add_env("MINIO_SERVER_URL", "https://%s:%d"|format(values.silo.domain, values.network.api_port.port_number)) %}
     {% do c1.environment.add_env("MINIO_BROWSER_REDIRECT_URL", "https://%s:%d"|format(values.silo.domain, values.network.console_port.port_number)) %}
   {% endif %}
 {% endif %}
 
-{% do c1.set_command(command) %}
 {% do c1.environment.add_user_envs(values.silo.additional_envs) %}
 
-{% do c1.add_storage(values.storage.data.mount_path, values.storage.data) %}
+{% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% do c1.add_port(values.network.api_port) %}
