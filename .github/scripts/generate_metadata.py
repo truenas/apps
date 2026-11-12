@@ -133,6 +133,8 @@ SERVICE_TITLES = {
     "npmplus": "Nginx Proxy Manager Plus",
     "omada": "Omada Controller",
     "lms": "Lyrion Media Server",
+    "swiparr": "Messer Swipe",
+    "yunkan": "SkyView",
 }
 
 # Host ids that are the same user and group name
