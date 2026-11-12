@@ -241,6 +241,50 @@ def test_risk_warning_detected_once_for_many_containers(render, c1, monkeypatch)
     assert len(output["x-readme"]["warnings"]) == 1
 
 
+def test_host_mounts_not_rendered_by_default(render, c1):
+    output = render.render()
+    assert "x-host-mounts" not in output
+
+
+def test_host_mounts(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.add_docker_socket()
+    c1.add_storage("/host/os-release", {"type": "host_path", "host_path_config": {"path": "/etc/os-release"}})
+    c1.add_storage("/data", {"type": "host_path", "host_path_config": {"path": "/mnt/pool/data"}})
+    c1.devices.add_device("/dev/fuse", "/dev/fuse")
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+    c2.add_docker_socket()
+    output = render.render()
+    assert output["x-host-mounts"] == ["/dev/fuse", "/etc/os-release", "/var/run/docker.sock"]
+
+
+def test_host_mounts_skip_user_picked_devices(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.devices.add_device("/dev/ttyUSB0", "/dev/ttyUSB0")
+    output = render.render()
+    assert output["x-host-mounts"] == []
+    assert "/dev/ttyUSB0 - (Read/Write)" in output["x-notes"]
+
+
+def test_host_mounts_skip_auto_added_gpus(mock_values, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    mock_values["resources"] = {"gpus": {"use_all_gpus": True, "kfd_device_exists": True}}
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    c1.devices.add_dri_device()
+    output = render.render()
+    assert output["x-host-mounts"] == []
+
+
+def test_host_mounts_dri_from_template(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.devices.add_dri_device()
+    output = render.render()
+    assert output["x-host-mounts"] == ["/dev/dri"]
+
+
 def test_notes_with_deprecations(render, c1):
     render.notes.add_deprecation("this is will be removed later. fix it now!")
     render.notes.add_deprecation("that is will be removed later. fix it later!")

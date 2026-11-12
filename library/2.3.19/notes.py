@@ -28,6 +28,36 @@ RISK_WARNINGS = {
     ),
 }
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
+# Host paths the notes name. Devices only count as host mounts when they are one of these,
+# the rest of the devices are the ones the user picks in the app's questions
+KNOWN_HOST_MOUNTS = {
+    "/dev": "Device Directory",
+    "/dev/bus/usb": "USB Devices",
+    "/dev/net/tun": "TUN Device",
+    "/dev/snd": "Sound Device",
+    "/dev/fuse": "Fuse Device",
+    "/dev/hugepages": "Huge Pages",
+    "/dev/cpu": "CPU Device",
+    "/dev/uinput": "UInput Device",
+    "/dev/dvb": "DVB Devices",
+    "/dev/dri": "DRI Device",
+    "/dev/kfd": "AMD GPU Device",
+    "/etc/os-release": "OS Release File",
+    "/etc/group": "Group File",
+    "/etc/passwd": "Password File",
+    "/etc/hostname": "Hostname File",
+    "/lib/modules": "Kernel Modules",
+    "/proc": "Process Information",
+    "/sys": "System Information",
+    "/var/run/docker.sock": "Docker Socket",
+    "/run/docker.sock": "Docker Socket",
+    "/var/run/utmp": "UTMP",
+    "/var/run/dbus": "DBus Socket",
+    "/run/dbus": "DBus Socket",
+    "/run/udev": "Udev Socket",
+}
+# Bind mounts under these are host mounts too
+HOST_MOUNT_PREFIXES = ("/dev/", "/proc/", "/sys/", "/etc/", "/lib/", "/run/udev/")
 
 
 @dataclass
@@ -44,6 +74,7 @@ class Notes:
         self._info: list[str] = []
         self._warnings: list[str] = []
         self._risk_warnings: list[str] = []
+        self._host_mounts: set[str] = set()
         self._deprecations: list[str] = []
         self._security: dict[str, list[Security]] = {}
         self._header: str = ""
@@ -118,39 +149,17 @@ class Notes:
     def set_body(self, body: str):
         self._body = body
 
+    def readme_host_mounts(self) -> list[str]:
+        # The metadata generator checks that the app's app.yaml declares each of them
+        return sorted(self._host_mounts)
+
     def get_pretty_host_mount(self, hm: str) -> tuple[str, bool]:
         hm = hm.rstrip("/")
-        mapping = {
-            "/dev": "Device Directory",
-            "/dev/bus/usb": "USB Devices",
-            "/dev/net/tun": "TUN Device",
-            "/dev/snd": "Sound Device",
-            "/dev/fuse": "Fuse Device",
-            "/dev/hugepages": "Huge Pages",
-            "/dev/cpu": "CPU Device",
-            "/dev/uinput": "UInput Device",
-            "/dev/dvb": "DVB Devices",
-            "/dev/dri": "DRI Device",
-            "/dev/kfd": "AMD GPU Device",
-            "/etc/os-release": "OS Release File",
-            "/etc/group": "Group File",
-            "/etc/passwd": "Password File",
-            "/etc/hostname": "Hostname File",
-            "/lib/modules": "Kernel Modules",
-            "/proc": "Process Information",
-            "/sys": "System Information",
-            "/var/run/docker.sock": "Docker Socket",
-            "/var/run/utmp": "UTMP",
-            "/var/run/dbus": "DBus Socket",
-            "/run/dbus": "DBus Socket",
-            "/run/udev": "Udev Socket",
-        }
-        if hm in mapping:
-            return f"{mapping[hm]} ({hm})", True
+        if hm in KNOWN_HOST_MOUNTS:
+            return f"{KNOWN_HOST_MOUNTS[hm]} ({hm})", True
 
         hm = hm + "/"
-        starters = ("/dev/", "/proc/", "/sys/", "/etc/", "/lib/", "/run/udev/")
-        if any(hm.startswith(s) for s in starters):
+        if any(hm.startswith(s) for s in HOST_MOUNT_PREFIXES):
             return hm.rstrip("/"), True
 
         return "", False
@@ -261,6 +270,9 @@ class Notes:
             for dev in c.devices._devices:
                 pretty, _ = self.get_pretty_host_mount(dev.host_device)
                 host_mounts.append(f"{pretty} - ({dev.cgroup_perm or 'Read/Write'})")
+                # Automatically added devices (eg GPUs) are the user's pick, not the app's
+                if dev.host_device in KNOWN_HOST_MOUNTS and not c.devices.is_auto_added(dev):
+                    self._host_mounts.add(dev.host_device)
 
             for vm in c.storage._volume_mounts:
                 if vm.volume_mount_spec.get("type", "") == "bind":
@@ -273,6 +285,7 @@ class Notes:
                     pretty, is_host_mount = self.get_pretty_host_mount(source)
                     if is_host_mount:
                         host_mounts.append(f"{pretty} - ({'Read Only' if read_only else 'Read/Write'})")
+                        self._host_mounts.add(source.rstrip("/"))
 
             if host_mounts:
                 self._security[name].append(

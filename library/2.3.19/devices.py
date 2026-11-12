@@ -14,6 +14,8 @@ class Devices:
 
         # Tracks all container device paths to make sure they are not duplicated
         self._container_device_paths: set[str] = set()
+        # Container paths of the devices added automatically, eg the GPUs selected in the resources
+        self._auto_added_container_paths: set[str] = set()
         # Scan values for devices we should automatically add
         # for example /dev/dri for gpus
         self._auto_add_devices_from_values()
@@ -23,8 +25,13 @@ class Devices:
 
         if resources.get("gpus", {}).get("use_all_gpus", False):
             self.add_device("/dev/dri", "/dev/dri", allow_disallowed=True)
+            self._auto_added_container_paths.add("/dev/dri")
             if resources["gpus"].get("kfd_device_exists", False):
                 self.add_device("/dev/kfd", "/dev/kfd", allow_disallowed=True)  # AMD ROCm
+                self._auto_added_container_paths.add("/dev/kfd")
+
+    def is_auto_added(self, device: Device) -> bool:
+        return device.container_device in self._auto_added_container_paths
 
     def add_device(self, host_device: str, container_device: str, cgroup_perm: str = "", allow_disallowed=False):
         # Host device can be mapped to multiple container devices,
@@ -61,6 +68,7 @@ class Devices:
     def remove_devices(self):
         self._devices.clear()
         self._container_device_paths.clear()
+        self._auto_added_container_paths.clear()
 
     # Check if there are any gpu devices
     # Used to determine if we should add groups
