@@ -49,7 +49,7 @@
 {% do redis_http.set_user(values.run_as.user, values.run_as.group) %}
 {% do redis_http.remove_devices() %}
 {% do redis_http.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do redis_http.healthcheck.set_test("wget", {"port": values.consts.redis_http_port, "path": "/"}) %}
+{% do redis_http.healthcheck.set_test("wget", {"port": values.consts.redis_http_port}) %}
 {% do redis_http.environment.add_env("SRH_MODE", "env") %}
 {% do redis_http.environment.add_env("SRH_PORT", values.consts.redis_http_port) %}
 {% do redis_http.environment.add_env("SRH_TOKEN", redis_http_token) %}
@@ -62,11 +62,9 @@
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 {% do c1.depends.add_dependency(values.consts.redis_http_container_name, "service_healthy") %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/health"}) %}
-{# Migrations run on startup #}
 {% do c1.healthcheck.set_start_period(120) %}
 
 {% do c1.environment.add_env("NODE_ENV", "production") %}
-{# Docker sets HOSTNAME to the container id, which makes Next.js bind only to that address #}
 {% do c1.environment.add_env("HOSTNAME", "0.0.0.0") %}
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("NEXT_PUBLIC_BASE_URL", values.inbox_zero.base_url) %}
