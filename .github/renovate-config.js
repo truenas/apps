@@ -247,7 +247,13 @@ module.exports = {
     customVersioning(
       // 1.1.11-1 or 1.1.11
       "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?$",
-      ["ghcr.io/rustdesk/rustdesk-server", "ghcr.io/openclaw/openclaw"],
+      ["ghcr.io/rustdesk/rustdesk-server"],
+    ),
+    customVersioning(
+      // 2026.11.3, 2026.5.3-1, 2026.11.3-browser or 2026.5.3-1-browser
+      // -browser tags only update to -browser tags and vice versa
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<build>\\d+))?(?<compatibility>-browser)?$",
+      ["ghcr.io/openclaw/openclaw"],
     ),
     customVersioning(
       // 9.1.2-stable
