@@ -1,6 +1,6 @@
 # Cantinarr
 
-[Cantinarr](https://github.com/windoze95/cantinarr) is one app over your whole media stack: household
-members browse and request movies, TV, and books, while you keep Radarr, Sonarr, Chaptarr, your
-download clients, Tautulli, and Plex under control, with plain-English fixes when a download gets
-stuck.
+[Cantinarr](https://github.com/windoze95/cantinarr) brings media requests and server management
+into one app. Household members browse and request movies, shows, books, and music, follow downloads,
+and get notified when content is ready. Administrators manage connected services, review approvals,
+and investigate stuck downloads from a phone or browser. AI features are optional.
