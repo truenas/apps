@@ -4,10 +4,10 @@
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {# app.healthcheck tries https and then http, so it works with and without a certificate #}
 {% do c1.healthcheck.set_custom_test(["CMD", "python", "-m", "app.healthcheck"]) %}
-{% do c1.environment.add_env("MEDIAMAN_PORT", values.consts.internal_web_port) %}
+{% do c1.environment.add_env("MEDIAMAN_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_user_envs(values.mediaman.additional_envs) %}
 
-{% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% do c1.add_port(values.network.web_port) %}
 
 {% if values.network.certificate_id %}
   {% set cert = values.ix_certificates[values.network.certificate_id] %}
@@ -23,8 +23,8 @@
 {% do c1.add_storage("/config", values.storage.config) %}
 {% do perms.add_or_skip_action("config", values.storage.config, perms_config) %}
 
-{# the media folder is the user's existing library: never change its ownership or permissions #}
 {% do c1.add_storage("/media", values.storage.media) %}
+{% do perms.add_or_skip_action("media", values.storage.media, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
@@ -36,6 +36,5 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port, {"scheme": "https" if values.network.certificate_id else "http"}) %}
-{% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
