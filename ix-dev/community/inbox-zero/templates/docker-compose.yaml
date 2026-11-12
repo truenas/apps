@@ -134,24 +134,21 @@
 {% do worker.environment.add_env("INTERNAL_API_KEY", internal_api_key) %}
 {% do worker.environment.add_user_envs(values.inbox_zero.additional_envs) %}
 
-{# Cron (same schedule as upstream's cron service) #}
-{% set cron_endpoints = [
-  {"schedule": "*/15 * * * *", "path": "/api/cron/scheduled-actions"},
-  {"schedule": "*/15 * * * *", "path": "/api/cron/automation-jobs"},
-  {"schedule": "0 * * * *", "path": "/api/follow-up-reminders"},
-  {"schedule": "*/30 * * * *", "path": "/api/resend/digest/all"},
-  {"schedule": "*/15 * * * *", "path": "/api/meeting-briefs"},
-  {"schedule": "*/5 * * * *", "path": "/api/meeting-recorder/schedule"},
-  {"schedule": "0 */6 * * *", "path": "/api/watch/all"},
-] %}
-{% set cron_tasks = namespace(items=[]) %}
-{% for endpoint in cron_endpoints %}
-  {% do cron_tasks.items.append({
-    "schedule": endpoint.schedule,
-    "command": "curl --silent --show-error --fail --url '%s%s' --header \"Authorization: Bearer $CRON_SECRET\""|format(internal_api_url, endpoint.path),
-  }) %}
-{% endfor %}
-{% set cron = tpl.deps.cron(values.consts.cron_container_name, "cron_image", {"tasks": cron_tasks.items}) %}
+{# Upstream's cron service, plus the daily cleanups of their vercel.json #}
+{% set cron_cmd = "curl --silent --show-error --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/api/%s'" %}
+{% set cron_config = {
+  "tasks": [
+    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "cron/scheduled-actions")},
+    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "cron/automation-jobs")},
+    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "meeting-briefs")},
+    {"schedule": "*/30 * * * *", "command": cron_cmd|format(internal_api_url, "resend/digest/all")},
+    {"schedule": "0 * * * *", "command": cron_cmd|format(internal_api_url, "follow-up-reminders")},
+    {"schedule": "0 */6 * * *", "command": cron_cmd|format(internal_api_url, "watch/all")},
+    {"schedule": "0 3 * * *", "command": cron_cmd|format(internal_api_url, "cron/reasoning-retention")},
+    {"schedule": "0 4 * * *", "command": cron_cmd|format(internal_api_url, "cron/draft-cleanup")},
+  ]
+} %}
+{% set cron = tpl.deps.cron(values.consts.cron_container_name, "cron_image", cron_config) %}
 {% do cron.container.add_network(inbox_zero_net) %}
 {% do cron.container.depends.add_dependency(values.consts.app_container_name, "service_healthy") %}
 {% do cron.container.environment.add_env("CRON_SECRET", cron_secret) %}
