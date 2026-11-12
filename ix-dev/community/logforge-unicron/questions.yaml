@@ -21,10 +21,12 @@ questions:
           label: Hostname
           description: |
             The hostname used to access LogForge.</br>
-            The hostname must resolve to this TrueNAS system.
+            The hostname must resolve to this TrueNAS system.</br>
+            It cannot be changed after installation.
           schema:
             type: string
             required: true
+            immutable: true
         - variable: admin_username
           label: Initial Administrator Username
           description: The username for the administrator account created during initial setup.
@@ -36,11 +38,13 @@ questions:
           label: Initial Administrator Password
           description: |
             The password for the administrator account created during initial setup.
-            Must include uppercase, lowercase, numeric, and special characters.
+            Must be 8-128 characters and include uppercase, lowercase, numeric, and special characters.
           schema:
             type: string
             private: true
             required: true
+            min_length: 8
+            max_length: 128
         - variable: admin_recovery_override
           label: Administrator Recovery Override
           description: Enable only when intentionally resetting the administrator credentials.
@@ -49,7 +53,6 @@ questions:
             default: false
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Additional environment variables to pass to the LogForge appliance.
           schema:
             type: list
             default: []
@@ -61,13 +64,11 @@ questions:
                   attrs:
                     - variable: name
                       label: Name
-                      description: The name of the environment variable.
                       schema:
                         type: string
                         required: true
                     - variable: value
                       label: Value
-                      description: The value of the environment variable.
                       schema:
                         type: string
 
@@ -78,8 +79,7 @@ questions:
       type: dict
       attrs:
         - variable: web_port
-          label: Web UI Port
-          description: The port for accessing the LogForge web interface.
+          label: WebUI Port
           schema:
             type: dict
             attrs:
@@ -94,20 +94,19 @@ questions:
                   the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
-                  default: published
+                  default: "published"
                   enum:
-                    - value: published
-                      description: Publish port on the host
-                    - value: exposed
-                      description: Expose to other containers only
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
                     - value: ""
-                      description: Do not expose or publish
+                      description: None
               - variable: port_number
                 label: Port Number
-                description: The host port to use for the LogForge web interface when published.
                 schema:
                   type: int
-                  default: 30488
+                  default: 30578
                   min: 1
                   max: 65535
                   required: true
@@ -143,20 +142,19 @@ questions:
                   the port will still be exposed for inter-container communication regardless of this setting.
                 schema:
                   type: string
-                  default: published
+                  default: "published"
                   enum:
-                    - value: published
-                      description: Publish port on the host
-                    - value: exposed
-                      description: Expose to other containers only
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
                     - value: ""
-                      description: Do not expose or publish
+                      description: None
               - variable: port_number
                 label: Port Number
-                description: The host port to use for the LogForge agent endpoint when published.
                 schema:
                   type: int
-                  default: 30489
+                  default: 30579
                   min: 1
                   max: 65535
                   required: true
@@ -259,11 +257,10 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
-
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -271,7 +268,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: LogForge Data Storage
+          label: Data Storage
           description: Stores LogForge configuration, database, logs, certificates, and bundled service state.
           schema:
             type: dict
@@ -319,6 +316,8 @@ questions:
                         type: dict
                         show_if: [["acl_enable", "=", true]]
                         attrs: []
+                        $ref:
+                          - "normalize/acl"
               - variable: host_path_config
                 label: Host Path Configuration
                 schema:
@@ -348,7 +347,6 @@ questions:
                         required: true
         - variable: additional_storage
           label: Additional Storage
-          description: Additional storage volumes to mount inside the LogForge appliance.
           schema:
             type: list
             default: []
@@ -445,6 +443,8 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
+                              $ref:
+                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
@@ -516,19 +516,17 @@ questions:
             attrs:
               - variable: key
                 label: Key
-                description: The name of the container label.
                 schema:
                   type: string
                   required: true
               - variable: value
                 label: Value
-                description: The value of the container label.
                 schema:
                   type: string
                   required: true
               - variable: containers
                 label: Containers
-                description: Containers where the label should be applied.
+                description: Containers where the label should be applied
                 schema:
                   type: list
                   items:
@@ -540,7 +538,6 @@ questions:
                         enum:
                           - value: logforge-unicron
                             description: logforge-unicron
-
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -549,20 +546,19 @@ questions:
       attrs:
         - variable: limits
           label: Limits
-          description: Resource limits for the LogForge appliance and its bundled services.
           schema:
             type: dict
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for LogForge Unicron.
+                description: CPUs limit for LogForge.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for LogForge Unicron.
+                description: Memory limit for LogForge.
                 schema:
                   type: int
                   default: 4096
