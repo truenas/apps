@@ -7,9 +7,6 @@
 {% if not google_enabled and not microsoft_enabled %}
   {% do tpl.funcs.fail("Enable Google or Microsoft, users sign in and connect their mailboxes with them.") %}
 {% endif %}
-{% if values.inbox_zero.llm.provider in ["ollama", "openai-compatible"] and not values.inbox_zero.llm.base_url %}
-  {% do tpl.funcs.fail("LLM Base URL is required for the [%s] provider."|format(values.inbox_zero.llm.provider)) %}
-{% endif %}
 
 {# Internal secrets, only shared between the containers of this app #}
 {% set cron_secret = tpl.funcs.secure_string(32) %}
@@ -129,16 +126,7 @@
   {% do c1.environment.add_env("MICROSOFT_CLIENT_SECRET", values.inbox_zero.microsoft.client_secret) %}
 {% endif %}
 
-{% do c1.environment.add_env("DEFAULT_LLM_PROVIDER", values.inbox_zero.llm.provider) %}
-{% do c1.environment.add_env("DEFAULT_LLM_MODEL", values.inbox_zero.llm.model) %}
-{% if values.inbox_zero.llm.provider != "ollama" %}
-  {% do c1.environment.add_env("LLM_API_KEY", values.inbox_zero.llm.api_key) %}
-{% endif %}
-{% if values.inbox_zero.llm.provider == "ollama" %}
-  {% do c1.environment.add_env("OLLAMA_BASE_URL", values.inbox_zero.llm.base_url) %}
-{% elif values.inbox_zero.llm.provider == "openai-compatible" %}
-  {% do c1.environment.add_env("OPENAI_COMPATIBLE_BASE_URL", values.inbox_zero.llm.base_url) %}
-{% endif %}
+{% do c1.environment.add_env("DEFAULT_LLM_PROVIDER", values.inbox_zero.llm_provider) %}
 
 {% do c1.environment.add_user_envs(values.inbox_zero.additional_envs) %}
 
