@@ -1,0 +1,26 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.stirling_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETGID", "SETUID"]) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.consts.internal_web_port, "path": "/api/v1/info/status"}) %}
+
+{% do c1.environment.add_env("LANGS", values.stirling.langs|join(",")) %}
+{% do c1.environment.add_env("DOCKER_ENABLE_SECURITY", values.stirling.enable_security) %}
+{% do c1.environment.add_user_envs(values.stirling.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.web_port, {"container_port": values.consts.internal_web_port}) %}
+{% endif %}
+
+{% do c1.add_storage("/usr/share/tessdata", values.storage.tesseract_data) %}
+{% do c1.add_storage("/configs", values.storage.configs) %}
+{% do c1.add_storage("/customFiles", values.storage.custom_files) %}
+{% do c1.add_storage("/logs", values.storage.logs) %}
+{% do c1.add_storage("/pipeline", values.storage.pipeline) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port, {"port": values.consts.internal_web_port if values.network.host_network else None}) %}
+
+{{ tpl.render() | tojson }}

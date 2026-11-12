@@ -1,0 +1,24 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.lancache_container_name, "image") %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+{% do c1.healthcheck.set_test("tcp", {"port": 80}) %}
+{% do c1.environment.add_env("UPSTREAM_DNS", values.lancache.upstream_dns | join(" ")) %}
+{% do c1.environment.add_env("CACHE_INDEX_SIZE", "%dm" | format(values.lancache.cache_mem_size_mb)) %}
+{% do c1.environment.add_env("CACHE_DISK_SIZE", "%dg" | format(values.lancache.cache_disk_size_gb)) %}
+{% do c1.environment.add_env("CACHE_MAX_AGE", "%dd" | format(values.lancache.cache_max_age_days)) %}
+{% do c1.environment.add_user_envs(values.lancache.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.http_port, {"container_port": 80}) %}
+  {% do c1.add_port(values.network.https_port, {"container_port": 443}) %}
+{% endif %}
+
+{% do c1.add_storage("/data/cache", values.storage.cache) %}
+{% do c1.add_storage("/data/logs", values.storage.logs) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}

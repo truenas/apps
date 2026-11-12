@@ -1,0 +1,34 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.bridge_container_name, "image") %}
+{% set permissions = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("tcp", {"port": 8080}) %}
+
+{% do c1.environment.add_env("PORT", 8080) %}
+{% do c1.environment.add_env("CINEFIND_PAIRING_CODE", values.bridge.pairing_code) %}
+{% do c1.environment.add_env("SEERR_URL", values.bridge.seerr_url) %}
+{% do c1.environment.add_env("SEERR_API_KEY", values.bridge.seerr_api_key) %}
+{% do c1.environment.add_env("RADARR_URL", values.bridge.radarr_url) %}
+{% do c1.environment.add_env("RADARR_API_KEY", values.bridge.radarr_api_key) %}
+{% do c1.environment.add_env("SONARR_URL", values.bridge.sonarr_url) %}
+{% do c1.environment.add_env("SONARR_API_KEY", values.bridge.sonarr_api_key) %}
+{% do c1.environment.add_env("CINEFIND_BRIDGE_NAME", values.bridge.display_name) %}
+{% do c1.environment.add_user_envs(values.bridge.additional_envs) %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do permissions.add_or_skip_action("data", values.storage.data, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+  {% do permissions.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if permissions.has_actions() %}
+  {% do permissions.activate() %}
+  {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{{ tpl.render() | tojson }}

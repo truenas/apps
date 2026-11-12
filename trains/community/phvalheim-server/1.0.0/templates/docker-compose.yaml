@@ -1,0 +1,39 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set game_start = values.network.game_port_range.start %}
+{% set game_end = values.network.game_port_range.end %}
+
+{% if game_start % 2 or not game_end % 2 %}
+  {% do tpl.funcs.fail("Game UDP range must start on an even port and end on an odd port. Each world uses two consecutive ports.") %}
+{% endif %}
+{% if game_end < game_start %}
+  {% do tpl.funcs.fail("Game UDP range start must not exceed its end.") %}
+{% endif %}
+
+{% set c1 = tpl.add_container(values.consts.app_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "KILL", "SETGID", "SETUID", "SYS_CHROOT"]) %}
+{% do c1.remove_security_opt("no-new-privileges") %}
+{% do c1.healthcheck.set_test("curl", {"port": 8081}) %}
+{% do c1.environment.add_env("PHVALHEIM_GAME_PORT_START", game_start) %}
+{% do c1.environment.add_env("PHVALHEIM_GAME_PORT_END", game_end) %}
+{% do c1.environment.add_user_envs(values.phvalheim.additional_envs) %}
+
+{% do c1.add_port(values.network.public_port, {"container_port": 8080}) %}
+{% do c1.add_port(values.network.admin_port, {"container_port": 8081}) %}
+{% for port in range(game_start, game_end + 1) %}
+  {% do c1.add_port({
+    "port_number": port,
+    "bind_mode": values.network.game_port_range.bind_mode,
+    "host_ips": values.network.game_port_range.host_ips
+  }, {"protocol": "udp"}) %}
+{% endfor %}
+
+{% do c1.add_storage("/opt/stateful", values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.admin_port, {"name": "Admin UI"}) %}
+{% do tpl.portals.add(values.network.public_port, {"name": "Player Website"}) %}
+
+{{ tpl.render() | tojson }}
