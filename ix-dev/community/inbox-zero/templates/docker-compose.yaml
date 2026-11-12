@@ -2,8 +2,11 @@
 
 {% set inbox_zero_net = tpl.networks.create_internal("inbox-zero-net") %}
 
-{% set google_enabled = values.inbox_zero.auth_provider in ["google", "both"] %}
-{% set microsoft_enabled = values.inbox_zero.auth_provider in ["microsoft", "both"] %}
+{% set google_enabled = values.inbox_zero.google.enabled %}
+{% set microsoft_enabled = values.inbox_zero.microsoft.enabled %}
+{% if not google_enabled and not microsoft_enabled %}
+  {% do tpl.funcs.fail("Enable Google or Microsoft, users sign in and connect their mailboxes with them.") %}
+{% endif %}
 {% if values.inbox_zero.llm.provider in ["ollama", "openai-compatible"] and not values.inbox_zero.llm.base_url %}
   {% do tpl.funcs.fail("LLM Base URL is required for the [%s] provider."|format(values.inbox_zero.llm.provider)) %}
 {% endif %}
@@ -12,7 +15,6 @@
 {% set cron_secret = tpl.funcs.secure_string(32) %}
 {% set internal_api_key = tpl.funcs.secure_string(32) %}
 {% set redis_http_token = tpl.funcs.secure_string(32) %}
-
 {% set internal_api_url = "http://%s:%d"|format(values.consts.app_container_name, values.network.web_port.port_number) %}
 
 {% set c1 = tpl.add_container(values.consts.app_container_name, "image") %}
@@ -45,6 +47,25 @@
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 {% do redis.container.add_network(inbox_zero_net) %}
 
+{# Upstream's cron service, plus the daily cleanups of their vercel.json #}
+{% set cron_cmd = "curl --silent --show-error --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/api/%s'" %}
+{% set cron_config = {
+  "tasks": [
+    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "cron/scheduled-actions")},
+    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "cron/automation-jobs")},
+    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "meeting-briefs")},
+    {"schedule": "*/30 * * * *", "command": cron_cmd|format(internal_api_url, "resend/digest/all")},
+    {"schedule": "0 * * * *", "command": cron_cmd|format(internal_api_url, "follow-up-reminders")},
+    {"schedule": "0 */6 * * *", "command": cron_cmd|format(internal_api_url, "watch/all")},
+    {"schedule": "0 3 * * *", "command": cron_cmd|format(internal_api_url, "cron/reasoning-retention")},
+    {"schedule": "0 4 * * *", "command": cron_cmd|format(internal_api_url, "cron/draft-cleanup")},
+  ]
+} %}
+{% set cron = tpl.deps.cron(values.consts.cron_container_name, "cron_image", cron_config) %}
+{% do cron.container.add_network(inbox_zero_net) %}
+{% do cron.container.depends.add_dependency(values.consts.app_container_name, "service_healthy") %}
+{% do cron.container.environment.add_env("CRON_SECRET", cron_secret) %}
+
 {# Redis HTTP (Upstash compatible REST API in front of redis) #}
 {% do redis_http.set_user(values.run_as.user, values.run_as.group) %}
 {% do redis_http.remove_devices() %}
@@ -54,6 +75,21 @@
 {% do redis_http.environment.add_env("SRH_PORT", values.consts.redis_http_port) %}
 {% do redis_http.environment.add_env("SRH_TOKEN", redis_http_token) %}
 {% do redis_http.environment.add_env("SRH_CONNECTION_STRING", redis.get_url("redis")) %}
+
+{# Worker (BullMQ queue consumer, forwards jobs to the web app) #}
+{% do worker.set_user(values.run_as.user, values.run_as.group) %}
+{% do worker.set_init(true) %}
+{% do worker.remove_devices() %}
+{% do worker.set_command(["/app/docker/scripts/start-worker.sh"]) %}
+{% do worker.depends.add_dependency(values.consts.app_container_name, "service_healthy") %}
+{% do worker.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
+{% do worker.healthcheck.set_test("pidof", {"process": "node"}) %}
+{% do worker.environment.add_env("NODE_ENV", "production") %}
+{% do worker.environment.add_env("NEXT_PUBLIC_BASE_URL", values.inbox_zero.base_url) %}
+{% do worker.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
+{% do worker.environment.add_env("INTERNAL_API_URL", internal_api_url) %}
+{% do worker.environment.add_env("INTERNAL_API_KEY", internal_api_key) %}
+{% do worker.environment.add_user_envs(values.inbox_zero.additional_envs) %}
 
 {# Inbox Zero #}
 {# Runs as root, the image replaces build time placeholders under the root owned /app on every start #}
@@ -82,17 +118,11 @@
 {% do c1.environment.add_env("EMAIL_ENCRYPT_SECRET", values.inbox_zero.email_encrypt_secret) %}
 {% do c1.environment.add_env("EMAIL_ENCRYPT_SALT", values.inbox_zero.email_encrypt_salt) %}
 
-{% if google_enabled %}
-  {% do c1.environment.add_env("GOOGLE_CLIENT_ID", values.inbox_zero.google.client_id) %}
-  {% do c1.environment.add_env("GOOGLE_CLIENT_SECRET", values.inbox_zero.google.client_secret) %}
-  {# Required by the app, even when real-time Gmail notifications are not used #}
-  {% do c1.environment.add_env("GOOGLE_PUBSUB_TOPIC_NAME", values.inbox_zero.google.pubsub_topic_name or "skipped") %}
-{% else %}
-  {# Required by the app even when Google sign in is not used #}
-  {% do c1.environment.add_env("GOOGLE_CLIENT_ID", "skipped") %}
-  {% do c1.environment.add_env("GOOGLE_CLIENT_SECRET", "skipped") %}
-  {% do c1.environment.add_env("GOOGLE_PUBSUB_TOPIC_NAME", "skipped") %}
-{% endif %}
+{# Required by the app even when Google is not used, it treats "skipped" as not configured #}
+{% set google = values.inbox_zero.google if google_enabled else {} %}
+{% do c1.environment.add_env("GOOGLE_CLIENT_ID", google.client_id or "skipped") %}
+{% do c1.environment.add_env("GOOGLE_CLIENT_SECRET", google.client_secret or "skipped") %}
+{% do c1.environment.add_env("GOOGLE_PUBSUB_TOPIC_NAME", google.pubsub_topic_name or "skipped") %}
 
 {% if microsoft_enabled %}
   {% do c1.environment.add_env("MICROSOFT_CLIENT_ID", values.inbox_zero.microsoft.client_id) %}
@@ -118,40 +148,6 @@
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
 {% endfor %}
-
-{# Worker (BullMQ queue consumer, forwards jobs to the web app) #}
-{% do worker.set_user(values.run_as.user, values.run_as.group) %}
-{% do worker.set_init(true) %}
-{% do worker.remove_devices() %}
-{% do worker.set_command(["/app/docker/scripts/start-worker.sh"]) %}
-{% do worker.depends.add_dependency(values.consts.app_container_name, "service_healthy") %}
-{% do worker.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
-{% do worker.healthcheck.set_test("pidof", {"process": "node"}) %}
-{% do worker.environment.add_env("NODE_ENV", "production") %}
-{% do worker.environment.add_env("NEXT_PUBLIC_BASE_URL", values.inbox_zero.base_url) %}
-{% do worker.environment.add_env("REDIS_URL", redis.get_url("redis")) %}
-{% do worker.environment.add_env("INTERNAL_API_URL", internal_api_url) %}
-{% do worker.environment.add_env("INTERNAL_API_KEY", internal_api_key) %}
-{% do worker.environment.add_user_envs(values.inbox_zero.additional_envs) %}
-
-{# Upstream's cron service, plus the daily cleanups of their vercel.json #}
-{% set cron_cmd = "curl --silent --show-error --fail --header \"Authorization: Bearer $CRON_SECRET\" '%s/api/%s'" %}
-{% set cron_config = {
-  "tasks": [
-    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "cron/scheduled-actions")},
-    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "cron/automation-jobs")},
-    {"schedule": "*/15 * * * *", "command": cron_cmd|format(internal_api_url, "meeting-briefs")},
-    {"schedule": "*/30 * * * *", "command": cron_cmd|format(internal_api_url, "resend/digest/all")},
-    {"schedule": "0 * * * *", "command": cron_cmd|format(internal_api_url, "follow-up-reminders")},
-    {"schedule": "0 */6 * * *", "command": cron_cmd|format(internal_api_url, "watch/all")},
-    {"schedule": "0 3 * * *", "command": cron_cmd|format(internal_api_url, "cron/reasoning-retention")},
-    {"schedule": "0 4 * * *", "command": cron_cmd|format(internal_api_url, "cron/draft-cleanup")},
-  ]
-} %}
-{% set cron = tpl.deps.cron(values.consts.cron_container_name, "cron_image", cron_config) %}
-{% do cron.container.add_network(inbox_zero_net) %}
-{% do cron.container.depends.add_dependency(values.consts.app_container_name, "service_healthy") %}
-{% do cron.container.environment.add_env("CRON_SECRET", cron_secret) %}
 
 {% if perm_container.has_actions() %}
   {% do perm_container.activate() %}

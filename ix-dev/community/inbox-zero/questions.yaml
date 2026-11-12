@@ -76,9 +76,9 @@ questions:
           schema:
             type: string
             default: ""
+            min_length: 32
             required: true
             private: true
-            min_length: 32
         - variable: email_encrypt_secret
           label: Email Encryption Secret
           description: |
@@ -88,9 +88,9 @@ questions:
           schema:
             type: string
             default: ""
+            min_length: 32
             required: true
             private: true
-            min_length: 32
         - variable: email_encrypt_salt
           label: Email Encryption Salt
           description: |
@@ -100,39 +100,34 @@ questions:
           schema:
             type: string
             default: ""
+            min_length: 16
             required: true
             private: true
-            min_length: 16
-        - variable: auth_provider
-          label: Sign-in Provider
-          description: The email provider(s) users sign in with and connect their mailboxes from.
-          schema:
-            type: string
-            default: google
-            required: true
-            enum:
-              - value: google
-                description: Google (Gmail)
-              - value: microsoft
-                description: Microsoft (Outlook)
-              - value: both
-                description: Google and Microsoft
         - variable: google
-          label: Google
+          label: Google (Gmail)
+          description: |
+            Users sign in and connect their mailboxes with Google or Microsoft.</br>
+            At least one of them must be enabled.
           schema:
             type: dict
-            show_if: [["auth_provider", "!=", "microsoft"]]
             attrs:
+              - variable: enabled
+                label: Enabled
+                schema:
+                  type: boolean
+                  default: true
               - variable: client_id
                 label: Client ID
                 schema:
                   type: string
+                  show_if: [["enabled", "=", true]]
                   default: ""
                   required: true
               - variable: client_secret
                 label: Client Secret
                 schema:
                   type: string
+                  show_if: [["enabled", "=", true]]
                   default: ""
                   required: true
                   private: true
@@ -143,23 +138,30 @@ questions:
                   Example: projects/my-project/topics/inbox-zero
                 schema:
                   type: string
+                  show_if: [["enabled", "=", true]]
                   default: ""
         - variable: microsoft
-          label: Microsoft
+          label: Microsoft (Outlook)
           schema:
             type: dict
-            show_if: [["auth_provider", "!=", "google"]]
             attrs:
+              - variable: enabled
+                label: Enabled
+                schema:
+                  type: boolean
+                  default: false
               - variable: client_id
                 label: Client ID
                 schema:
                   type: string
+                  show_if: [["enabled", "=", true]]
                   default: ""
                   required: true
               - variable: client_secret
                 label: Client Secret
                 schema:
                   type: string
+                  show_if: [["enabled", "=", true]]
                   default: ""
                   required: true
                   private: true
@@ -212,7 +214,15 @@ questions:
                   Example (OpenAI-Compatible): http://lmstudio.local:1234/v1
                 schema:
                   type: uri
-                  show_if: [["provider", "!=", "anthropic"], ["provider", "!=", "openai"], ["provider", "!=", "google"], ["provider", "!=", "openrouter"], ["provider", "!=", "groq"], ["provider", "!=", "aigateway"]]
+                  show_if:
+                    [
+                      ["provider", "!=", "anthropic"],
+                      ["provider", "!=", "openai"],
+                      ["provider", "!=", "google"],
+                      ["provider", "!=", "openrouter"],
+                      ["provider", "!=", "groq"],
+                      ["provider", "!=", "aigateway"],
+                    ]
                   default: ""
                   required: true
         - variable: additional_envs
@@ -292,7 +302,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30529
+                  default: 30582
                   min: 1
                   max: 65535
                   required: true
