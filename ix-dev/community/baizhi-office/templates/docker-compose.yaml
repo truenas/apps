@@ -1,0 +1,101 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% set perms = tpl.deps.perms(values.consts.permissions_container_name) %}
+{% set db_url = "postgres://%s:%s@%s:5432/%s?sslmode=disable"|format(values.consts.db_user, tpl.funcs.url_encode(values.baizhi.db_password).replace("+", "%20"), values.consts.db_container_name, values.consts.db_name) %}
+
+{# 上游使用的镜像仓库不在通用 PostgreSQL 依赖的支持列表中，保留其固定版本和数据布局。 #}
+{% set db = tpl.add_container(values.consts.db_container_name, "postgres_image") %}
+{% do db.set_user(999, 999) %}
+{% do db.set_shm_size_mb(256) %}
+{% do db.set_grace_period(60) %}
+{% do db.environment.add_env("POSTGRES_USER", values.consts.db_user) %}
+{% do db.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+{% do db.environment.add_env("POSTGRES_PASSWORD", values.baizhi.db_password) %}
+{% do db.environment.add_env("PGDATA", "/var/lib/postgresql/18/docker") %}
+{% do db.healthcheck.set_test("postgres", {"user": values.consts.db_user, "db": values.consts.db_name}) %}
+{% do db.add_storage("/var/lib/postgresql", values.storage.postgres_data) %}
+{% do perms.add_or_skip_action("postgres", values.storage.postgres_data, {"uid": 999, "gid": 999, "mode": "check", "chmod": "0700"}) %}
+
+{% set rustfs = tpl.add_container(values.consts.rustfs_container_name, "rustfs_image") %}
+{% do rustfs.set_user(10001, 10001) %}
+{% do rustfs.environment.add_env("RUSTFS_ACCESS_KEY", values.baizhi.s3_access_key) %}
+{% do rustfs.environment.add_env("RUSTFS_SECRET_KEY", values.baizhi.s3_secret_key) %}
+{% do rustfs.environment.add_env("RUSTFS_VOLUMES", "/data") %}
+{% do rustfs.environment.add_env("RUSTFS_OBS_LOG_DIRECTORY", "/logs") %}
+{% do rustfs.environment.add_env("RUSTFS_CONSOLE_ENABLE", false) %}
+{% do rustfs.healthcheck.set_test("curl", {"port": 9000, "path": "/health"}) %}
+{% do rustfs.healthcheck.set_start_period(20) %}
+{% for key, target in [("object_data", "/data"), ("object_logs", "/logs")] %}
+  {% do rustfs.add_storage(target, values.storage[key]) %}
+  {% do perms.add_or_skip_action(key, values.storage[key], {"uid": 10001, "gid": 10001, "mode": "check"}) %}
+{% endfor %}
+
+{% set migrate = tpl.add_container(values.consts.migrate_container_name, "migrate_image") %}
+{% do migrate.set_user(568, 568) %}
+{% do migrate.setup_as_helper(disable_network=false) %}
+{% do migrate.set_command(["-path=/migrations", "-database", db_url, "up"]) %}
+{% do migrate.depends.add_dependency(values.consts.db_container_name, "service_healthy") %}
+
+{% set backend = tpl.add_container(values.consts.backend_container_name, "backend_image") %}
+{% do backend.set_user(10001, 10001) %}
+{% do backend.set_init(true) %}
+{% do backend.set_read_only(true) %}
+{% do backend.depends.add_dependency(values.consts.migrate_container_name, "service_completed_successfully") %}
+{% do backend.depends.add_dependency(values.consts.rustfs_container_name, "service_healthy") %}
+{% do backend.healthcheck.set_custom_test(["CMD", "wget", "-Y", "off", "-q", "--spider", "http://127.0.0.1:8080/readyz"]) %}
+{% do backend.healthcheck.set_start_period(90) %}
+{% for key, value in {
+  "MONKEYAI_PUBLIC_URL": values.baizhi.public_url,
+  "MONKEYAI_HTTP_ADDR": ":8080",
+  "MONKEYAI_DATABASE_URL": db_url,
+  "MONKEYAI_INITIAL_ADMIN_EMAIL": values.baizhi.admin_email,
+  "MONKEYAI_INITIAL_ADMIN_PASSWORD": values.baizhi.admin_password,
+  "MONKEYAI_INITIAL_ADMIN_NAME": "百智办公管理员",
+  "MONKEYAI_S3_ENDPOINT": "http://%s:9000"|format(values.consts.rustfs_container_name),
+  "MONKEYAI_S3_ACCESS_KEY": values.baizhi.s3_access_key,
+  "MONKEYAI_S3_SECRET_KEY": values.baizhi.s3_secret_key,
+  "MONKEYAI_S3_BUCKET": "monkeyai-resources",
+  "MONKEYAI_S3_REGION": "us-east-1",
+  "MONKEYAI_S3_FORCE_PATH_STYLE": true,
+  "MONKEYAI_RUNTIME_RELAY": values.baizhi.runtime_relay,
+  "MONKEYAI_RUNTIME_STATE_DIR": "/app/runtime",
+  "NO_PROXY": "localhost,127.0.0.1,::1,db,rustfs,backend",
+  "TMPDIR": "/app/import-tmp"
+}.items() %}
+  {% do backend.environment.add_env(key, value) %}
+{% endfor %}
+{% do backend.environment.add_user_envs(values.baizhi.additional_envs) %}
+{% do backend.add_storage("/tmp", {"type": "tmpfs"}) %}
+{% for key, target in [("runtime_data", "/app/runtime"), ("license_data", "/app/license")] %}
+  {% do backend.add_storage(target, values.storage[key]) %}
+  {% do perms.add_or_skip_action(key, values.storage[key], {"uid": 10001, "gid": 10001, "mode": "check", "chmod": "0700"}) %}
+{% endfor %}
+{% set import_tmp = {"type": "temporary", "volume_config": {"volume_name": "import-tmp"}} %}
+{% do backend.add_storage("/app/import-tmp", import_tmp) %}
+{% do perms.add_or_skip_action("import-tmp", import_tmp, {"uid": 10001, "gid": 10001, "mode": "check", "chmod": "0700"}) %}
+
+{% set admin = tpl.add_container(values.consts.admin_container_name, "image") %}
+{% do admin.set_user(101, 101) %}
+{% do admin.set_init(true) %}
+{% do admin.set_read_only(true) %}
+{% do admin.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
+{% do admin.healthcheck.set_custom_test(["CMD", "wget", "-Y", "off", "-q", "--spider", "http://127.0.0.1:8080/healthz"]) %}
+{% do admin.environment.add_env("MONKEYAI_PUBLIC_URL", values.baizhi.public_url) %}
+{# 不复用上游安装器的共用证书；生产 TLS 由用户自己的 HTTPS 反向代理处理。 #}
+{% do admin.environment.add_env("MONKEYAI_TLS_ENABLED", false) %}
+{% do admin.environment.add_env("MONKEYAI_AUTO_TLS_ENABLED", false) %}
+{% do admin.environment.add_env("MONKEYAI_TRUSTED_PROXY_CIDRS", values.baizhi.trusted_proxy_cidrs) %}
+{% do admin.add_storage("/tmp", {"type": "tmpfs"}) %}
+{% do admin.add_port(values.network.web_port, {"container_port": 8080}) %}
+
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+  {% for container in [db, rustfs, backend] %}
+    {% do container.depends.add_dependency(values.consts.permissions_container_name, "service_completed_successfully") %}
+  {% endfor %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.notes.add_info("请使用安装时填写的管理员邮箱和密码登录。生产环境应配置 HTTPS 反向代理，并将外部访问地址填写为代理地址。") %}
+{% do tpl.notes.add_info("备份需要同时保留 PostgreSQL、RustFS 对象、运行身份状态与许可数据。模型与外部工具可能接收任务内容；请按团队数据策略配置。") %}
+
+{{ tpl.render() | tojson }}
