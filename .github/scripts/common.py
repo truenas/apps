@@ -55,7 +55,8 @@ def catalog_container_cmd(options: list[str], command: list[str]) -> list[str]:
 def render_app_cmd(app_path: Path | str, values_path: Path | str, readme: bool = False) -> list[str]:
     """Render the app into its templates/rendered/docker-compose.yaml.
 
-    With readme, the library also renders the x-readme data the app's README.md is generated from.
+    With readme, the library also renders the x-readme data the app's README.md is generated from,
+    and the x-host-mounts its app.yaml host_mounts are checked against.
     """
     render = shlex.join(
         ["apps_render_app", "render", f"--path=/workspace/{app_path}", f"--values=/workspace/{values_path}"]
