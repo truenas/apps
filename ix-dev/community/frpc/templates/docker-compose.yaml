@@ -1,0 +1,22 @@
+{% from "frpc_macros/frpc.toml" import frpc_toml %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.frpc_container_name, "image") %}
+
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.set_command(["-c", values.consts.config_path]) %}
+{% do c1.healthcheck.disable() %}
+
+{% do c1.configs.add("frpc-toml", frpc_toml(values, tpl), values.consts.config_path) %}
+
+{% do c1.environment.add_user_envs(values.frpc.additional_envs) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do c1.add_port(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
