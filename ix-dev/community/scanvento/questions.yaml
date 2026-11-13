@@ -41,23 +41,32 @@ questions:
             default: postgres_18_image
             required: true
             enum:
-              - value: postgres_17_image
-                description: Postgres 17
               - value: postgres_18_image
                 description: Postgres 18
-        - variable: public_url
-          label: Public URL
-          description: |
-            The address users type in the browser, with scheme and port and without a path,</br>
-            e.g. https://nas.example.lan:30051 (or http://… without a certificate).</br>
-            Used for links in e-mails, labels and alerts, and its host name as the passkey domain.
+        - variable: db_password
+          label: Database Password
           schema:
             type: string
             default: ""
             required: true
-            valid_chars: "^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?/?$"
-            valid_chars_error: |
-              Must be http(s)://<host name or IPv4 address>[:<port>], without a path.
+            private: true
+        - variable: redis_password
+          label: Redis Password
+          schema:
+            type: string
+            default: ""
+            required: true
+            private: true
+        - variable: public_url
+          label: Public URL
+          description: |
+            The address users type in the browser, with scheme and port and without a path,</br>
+            e.g. https://nas.example.lan:30584 (or http://… without a certificate).</br>
+            Used for links in e-mails, labels and alerts, and its host name as the passkey domain.
+          schema:
+            type: uri
+            default: ""
+            required: true
         - variable: admin_user
           label: Administrator User Name
           description: |
@@ -65,7 +74,7 @@ questions:
             It is only used for the initial installation.
           schema:
             type: string
-            default: "admin"
+            default: ""
             required: true
             immutable: true
         - variable: admin_email
@@ -88,9 +97,6 @@ questions:
             required: true
             private: true
             min_length: 12
-            valid_chars: "^(?=.*[^A-Za-z0-9]).{12,}$"
-            valid_chars_error: |
-              At least 12 characters, one of them neither a letter nor a digit.
         - variable: reset_admin_password
           label: Reset Administrator Password
           description: |
@@ -99,37 +105,6 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: db_password
-          label: Database Password
-          description: |
-            Password of the PostgreSQL user. Fixed when the database is initialized.</br>
-            At least 16 characters: letters, digits, ".", "_", "~" and "-".</br>
-            Generate one in the TrueNAS shell: openssl rand -hex 24
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-            immutable: true
-            min_length: 16
-            valid_chars: "^[A-Za-z0-9._~-]+$"
-            valid_chars_error: |
-              Only letters, digits, ".", "_", "~" and "-" are allowed.
-        - variable: redis_password
-          label: Valkey Password
-          description: |
-            Password of the Valkey cache.</br>
-            At least 16 characters: letters, digits, ".", "_", "~" and "-".</br>
-            Generate one in the TrueNAS shell: openssl rand -hex 24
-          schema:
-            type: string
-            default: ""
-            required: true
-            private: true
-            min_length: 16
-            valid_chars: "^[A-Za-z0-9._~-]+$"
-            valid_chars_error: |
-              Only letters, digits, ".", "_", "~" and "-" are allowed.
         - variable: encryption_master_key
           label: Encryption Master Key (back it up!)
           description: |
@@ -143,10 +118,8 @@ questions:
             required: true
             private: true
             immutable: true
-            min_length: 44
             valid_chars: "^[A-Za-z0-9+/]{43}=$"
-            valid_chars_error: |
-              Must be 32 bytes in base64 (44 characters ending in "="), as printed by: openssl rand -base64 32
+            valid_chars_error: 'Must be 32 bytes in base64 (44 characters ending in "=")'
         - variable: jwt_signing_key
           label: JWT Signing Key
           description: |
@@ -158,60 +131,8 @@ questions:
             default: ""
             required: true
             private: true
-            min_length: 44
             valid_chars: "^[A-Za-z0-9+/]{43,}={0,2}$"
-            valid_chars_error: |
-              Must be at least 32 bytes in base64, as printed by: openssl rand -base64 48
-        - variable: collector
-          label: Discovery Collector
-          schema:
-            type: dict
-            attrs:
-              - variable: enabled
-                label: Enable Collector
-                description: |
-                  Runs a Scanvento discovery collector on this NAS.</br>
-                  Create it first in Scanvento (Discovery, Collectors) and copy its key.
-                schema:
-                  type: boolean
-                  default: false
-              - variable: key
-                label: Collector Key
-                description: The key shown once when the collector was created in Scanvento.
-                schema:
-                  type: string
-                  show_if: [["enabled", "=", true]]
-                  default: ""
-                  required: true
-                  private: true
-              - variable: name
-                label: Collector Name
-                schema:
-                  type: string
-                  show_if: [["enabled", "=", true]]
-                  default: "truenas"
-                  required: true
-              - variable: additional_envs
-                label: Additional Environment Variables
-                schema:
-                  type: list
-                  show_if: [["enabled", "=", true]]
-                  default: []
-                  items:
-                    - variable: env
-                      label: Environment Variable
-                      schema:
-                        type: dict
-                        attrs:
-                          - variable: name
-                            label: Name
-                            schema:
-                              type: string
-                              required: true
-                          - variable: value
-                            label: Value
-                            schema:
-                              type: string
+            valid_chars_error: "Must be at least 32 bytes in base64"
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -267,7 +188,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30051
+                  default: 30584
                   min: 1
                   max: 65535
                   required: true
@@ -287,7 +208,7 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: certificate_id
-          label: Certificate
+          label: Certificate ID
           description: |
             The certificate for HTTPS on the WebUI port.</br>
             Without one, the WebUI port uses plain HTTP.
@@ -295,7 +216,7 @@ questions:
             type: int
             "null": true
             $ref:
-              - "definitions/certificate"
+              - definitions/certificate
         - variable: networks
           label: Networks
           description: The docker networks to join
@@ -338,10 +259,8 @@ questions:
                                         description: scanvento
                                       - value: postgres
                                         description: postgres
-                                      - value: valkey
-                                        description: valkey
-                                      - value: collector
-                                        description: collector
+                                      - value: redis
+                                        description: redis
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -386,7 +305,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -487,12 +406,11 @@ questions:
                         show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
-          description: Mounted into the scanvento container, for example a share with files to import.
           schema:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -681,10 +599,8 @@ questions:
                             description: scanvento
                           - value: postgres
                             description: postgres
-                          - value: valkey
-                            description: valkey
-                          - value: collector
-                            description: collector
+                          - value: redis
+                            description: redis
 
   - variable: resources
     label: ""
@@ -709,5 +625,5 @@ questions:
                 description: Memory limit for Scanvento.
                 schema:
                   type: int
-                  default: 2048
+                  default: 4096
                   required: true
