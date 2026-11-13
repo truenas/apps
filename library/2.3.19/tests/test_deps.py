@@ -462,7 +462,9 @@ def test_redis_dotnet_url_with_comma_in_password(mock_values):
     mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
     render = Render(mock_values)
     perms_container = render.deps.perms("perms_container")
-    r = render.deps.redis("redis_container", "redis_image", {"password": "test,password", "volume": _volume()}, perms_container)
+    r = render.deps.redis(
+        "redis_container", "redis_image", {"password": "test,password", "volume": _volume()}, perms_container
+    )
     # The comma is fine for the regular url
     assert r.get_url("redis") == "redis://default:test%2Cpassword@redis_container:6379"
     with pytest.raises(RenderError, match=r"Password cannot contain \[,\] for Dotnet Redis Password"):
