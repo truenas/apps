@@ -448,6 +448,29 @@ def test_add_redis_unsupported_redis_repo(mock_values):
         render.deps.redis("redis_container", "redis_image", {"password": "test", "volume": _volume()}, perms_container)
 
 
+def test_redis_dotnet_url(mock_values):
+    mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
+    render = Render(mock_values)
+    perms_container = render.deps.perms("perms_container")
+    r = render.deps.redis(
+        "redis_container", "redis_image", {"password": "test&pass=word@", "volume": _volume()}, perms_container
+    )
+    assert r.get_url("dotnet_redis") == "redis_container:6379,password=test&pass=word@,abortConnect=false"
+
+
+def test_redis_dotnet_url_with_comma_in_password(mock_values):
+    mock_values["images"]["redis_image"] = {"repository": "valkey/valkey", "tag": "latest"}
+    render = Render(mock_values)
+    perms_container = render.deps.perms("perms_container")
+    r = render.deps.redis(
+        "redis_container", "redis_image", {"password": "test,password", "volume": _volume()}, perms_container
+    )
+    # The comma is fine for the regular url
+    assert r.get_url("redis") == "redis://default:test%2Cpassword@redis_container:6379"
+    with pytest.raises(RenderError, match=r"Password cannot contain \[,\] for Dotnet Redis Password"):
+        r.get_url("dotnet_redis")
+
+
 def test_add_redis(mock_values):
     mock_values["images"]["redis_image"] = {
         "repository": "valkey/valkey",

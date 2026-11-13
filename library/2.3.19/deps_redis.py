@@ -85,10 +85,16 @@ class RedisContainer:
 
     def get_url(self, variant: str):
         addr = f"{self._name}:{self.get_port()}"
-        password = urllib.parse.quote_plus(self._config["password"])
+        raw_password = self._config["password"]
+        password = urllib.parse.quote_plus(raw_password)
+
+        if variant == "dotnet_redis" and "," in raw_password:
+            # StackExchange.Redis splits its configuration string on commas
+            raise RenderError("Password cannot contain [,] for Dotnet Redis Password")
 
         urls = {
             "redis": f"redis://default:{password}@{addr}",
+            "dotnet_redis": f"{addr},password={raw_password},abortConnect=false",
         }
 
         if variant not in urls:
