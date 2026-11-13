@@ -461,11 +461,6 @@ module.exports = {
       "^(?<compatibility>latest)-(?<major>\\d{4})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["devlikeapro/waha"],
     ),
-    customVersioning(
-      // v0.1.0-beta.9, and v1.0.0 once out of beta
-      "^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>beta\\.\\d+))?$",
-      ["cwlumm/lyftr-backend", "cwlumm/lyftr-frontend"],
-    ),
   ],
 };
 
