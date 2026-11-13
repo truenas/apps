@@ -9,7 +9,7 @@
 {% set health_port = values.network.web_port.port_number - 1 %}
 
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
-{% set perms_config = {"uid": values.consts.app_user, "gid": values.consts.app_user, "mode": "check"} %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set c1 = tpl.add_container(values.consts.scanvento_container_name, "image") %}
 {% do c1.add_network(sv_net) %}
@@ -51,7 +51,7 @@
 
 {# Shared by Scanvento and the migrate helper #}
 {% for c in [c1, migrate] %}
-  {% do c.set_user(values.consts.app_user, values.consts.app_user) %}
+  {% do c.set_user(values.run_as.user, values.run_as.group) %}
   {% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
   {% do c.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
   {% do c.environment.add_env("SV_ConnectionStrings__Default", postgres.get_url("dotnet_pgsql")) %}
