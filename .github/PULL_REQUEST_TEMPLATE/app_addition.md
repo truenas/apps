@@ -46,3 +46,4 @@ Please upload the following to the CDN:
 - [ ] Multiple test scenarios tested
 - [ ] questions.yaml has clear descriptions and follows structure of existing apps
 - [ ] All automated CI checks pass
+- [ ] I understand that updates are picked up automatically and I won't open PRs just to update the version
