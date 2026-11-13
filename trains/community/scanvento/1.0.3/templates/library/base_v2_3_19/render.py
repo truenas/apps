@@ -77,6 +77,7 @@ class Render(object):
         # Only for the metadata generator, which keeps the app's README in sync with it
         if os.environ.get("IX_RENDER_README") == "1":
             result["x-readme"] = self.notes.readme_warnings()
+            result["x-host-mounts"] = self.notes.readme_host_mounts()
 
         # Make sure that after services are rendered
         # there are no labels that target a non-existent container
