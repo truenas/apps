@@ -50,8 +50,7 @@ questions:
           description: |
             The address users type in the browser, with scheme and port and without a path,</br>
             e.g. https://nas.example.lan:30051 (or http://… without a certificate).</br>
-            Used for links in e-mails, labels and alerts, the allowed browser origin (CORS) and,
-            its host name, as the passkey domain. Passkeys stop working when the host name changes.
+            Used for links in e-mails, labels and alerts, and its host name as the passkey domain.
           schema:
             type: string
             default: ""
@@ -163,45 +162,6 @@ questions:
             valid_chars: "^[A-Za-z0-9+/]{43,}={0,2}$"
             valid_chars_error: |
               Must be at least 32 bytes in base64, as printed by: openssl rand -base64 48
-        - variable: backup
-          label: Database Backups
-          schema:
-            type: dict
-            attrs:
-              - variable: enabled
-                label: Enable Daily Backups
-                description: |
-                  Writes a pg_dump of the database into the backups storage once a day.
-                schema:
-                  type: boolean
-                  default: true
-              - variable: retention_days
-                label: Retention (Days)
-                description: Daily dumps older than this are deleted.
-                schema:
-                  type: int
-                  show_if: [["enabled", "=", true]]
-                  default: 14
-                  min: 1
-                  max: 3650
-                  required: true
-              - variable: pre_upgrade
-                label: Backup Before Updates
-                description: |
-                  Dumps the database before the migrations of an update (when the Scanvento image changed).</br>
-                  A failed dump stops the update before the database is changed.
-                schema:
-                  type: boolean
-                  default: true
-              - variable: pre_upgrade_keep
-                label: Pre-Update Backups to Keep
-                schema:
-                  type: int
-                  show_if: [["pre_upgrade", "=", true]]
-                  default: 5
-                  min: 1
-                  max: 100
-                  required: true
         - variable: collector
           label: Discovery Collector
           schema:
@@ -222,6 +182,7 @@ questions:
                   type: string
                   show_if: [["enabled", "=", true]]
                   default: ""
+                  required: true
                   private: true
               - variable: name
                 label: Collector Name
@@ -229,10 +190,30 @@ questions:
                   type: string
                   show_if: [["enabled", "=", true]]
                   default: "truenas"
+                  required: true
+              - variable: additional_envs
+                label: Additional Environment Variables
+                schema:
+                  type: list
+                  show_if: [["enabled", "=", true]]
+                  default: []
+                  items:
+                    - variable: env
+                      label: Environment Variable
+                      schema:
+                        type: dict
+                        attrs:
+                          - variable: name
+                            label: Name
+                            schema:
+                              type: string
+                              required: true
+                          - variable: value
+                            label: Value
+                            schema:
+                              type: string
         - variable: additional_envs
           label: Additional Environment Variables
-          description: |
-            For example SV_Smtp__Host. Variables of the scanvento container also apply to the migrate one-shot.
           schema:
             type: list
             default: []
@@ -242,17 +223,6 @@ questions:
                 schema:
                   type: dict
                   attrs:
-                    - variable: container
-                      label: Container
-                      schema:
-                        type: string
-                        required: true
-                        default: scanvento
-                        enum:
-                          - value: scanvento
-                            description: scanvento
-                          - value: collector
-                            description: collector
                     - variable: name
                       label: Name
                       schema:
@@ -320,7 +290,7 @@ questions:
           label: Certificate
           description: |
             The certificate for HTTPS on the WebUI port.</br>
-            Without one, Scanvento is served over plain HTTP; then put a reverse proxy with TLS in front of it.
+            Without one, the WebUI port uses plain HTTP.
           schema:
             type: int
             "null": true
@@ -366,14 +336,10 @@ questions:
                                     enum:
                                       - value: scanvento
                                         description: scanvento
-                                      - value: nginx
-                                        description: nginx
                                       - value: postgres
                                         description: postgres
                                       - value: valkey
                                         description: valkey
-                                      - value: backup
-                                        description: backup
                                       - value: collector
                                         description: collector
                                 - variable: config
@@ -515,96 +481,6 @@ questions:
                         If it finds incorrect permissions, it will `chown` the
                         host path to the user and group required for the
                         postgres container.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
-        - variable: backups
-          label: Scanvento Backups Storage
-          description: |
-            The path to store the database dumps (pg_dump).</br>
-            Only used when daily backups or backups before updates are enabled.
-          schema:
-            type: dict
-            attrs:
-              - variable: type
-                label: Type
-                description: |
-                  ixVolume: Is dataset created automatically by the system.</br>
-                  Host Path: Is a path that already exists on the system.
-                schema:
-                  type: string
-                  required: true
-                  default: "ix_volume"
-                  enum:
-                    - value: "host_path"
-                      description: Host Path (Path that already exists on the system)
-                    - value: "ix_volume"
-                      description: ixVolume (Dataset created automatically by the system)
-              - variable: ix_volume_config
-                label: ixVolume Configuration
-                description: The configuration for the ixVolume dataset.
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "ix_volume"]]
-                  $ref:
-                    - "normalize/ix_volume"
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: dataset_name
-                      label: Dataset Name
-                      description: The name of the dataset to use for storage.
-                      schema:
-                        type: string
-                        required: true
-                        hidden: true
-                        default: "backups"
-                    - variable: acl_entries
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-              - variable: host_path_config
-                label: Host Path Configuration
-                schema:
-                  type: dict
-                  show_if: [["type", "=", "host_path"]]
-                  attrs:
-                    - variable: acl_enable
-                      label: Enable ACL
-                      description: Enable ACL for the storage.
-                      schema:
-                        type: boolean
-                        default: false
-                    - variable: acl
-                      label: ACL Configuration
-                      schema:
-                        type: dict
-                        show_if: [["acl_enable", "=", true]]
-                        attrs: []
-                        $ref:
-                          - "normalize/acl"
-                    - variable: path
-                      label: Host Path
-                      description: The host path to use for storage.
-                      schema:
-                        type: hostpath
-                        show_if: [["acl_enable", "=", false]]
-                        required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this, will check the top level directory,</br>
-                        If it finds incorrect permissions, it will `chown` the
-                        host path to the user and group required for the
-                        backup containers (999:999).
                       schema:
                         type: boolean
                         default: false
@@ -803,14 +679,10 @@ questions:
                         enum:
                           - value: scanvento
                             description: scanvento
-                          - value: nginx
-                            description: nginx
                           - value: postgres
                             description: postgres
                           - value: valkey
                             description: valkey
-                          - value: backup
-                            description: backup
                           - value: collector
                             description: collector
 

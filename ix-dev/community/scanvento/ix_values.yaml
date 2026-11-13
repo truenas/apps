@@ -5,9 +5,6 @@ images:
   collector_image:
     repository: ghcr.io/andiwirz/scanvento/collector
     tag: "0.0.15@sha256:e6d535aba482f77cdf952ff6bed9497dedeeb1fd0b9c1379d5beea21a4eb2e27"
-  nginx_image:
-    repository: ghcr.io/nginx/nginx-unprivileged
-    tag: "1.31.8@sha256:e4264279b179f0e654579a90a1a9c1eab3ba9124c17551794bee20f68a38b5ce"
   container_utils_image:
     repository: ghcr.io/truenas/containers/container-utils
     tag: "1.1.2@sha256:6ddfdc314af9d18cfacb836ad266ef0ed91fecaa3686b20be72e464972860c08"
@@ -27,49 +24,22 @@ images:
 consts:
   scanvento_container_name: scanvento
   migrate_container_name: migrate
-  nginx_container_name: nginx
+  collector_container_name: collector
   postgres_container_name: postgres
   redis_container_name: valkey
   perms_container_name: permissions
-  backup_container_name: backup
-  pre_upgrade_backup_container_name: pre-upgrade-backup
-  collector_container_name: collector
 
   db_user: scanvento
   db_name: scanvento
-  db_port: 5432
-  # The API's own port inside the app network (the image's ASPNETCORE_HTTP_PORTS). Only nginx publishes a port.
-  internal_api_port: 8080
-  # Fixed users of the images: the .NET images run as "app" (1654), nginx-unprivileged as "nginx" (101),
-  # the Debian based postgres images (and the library's postgres helper) as 999.
-  api_user: 1654
-  nginx_user: 101
-  postgres_user: 999
-
-  backups_path: /backups
-  ssl_key_path: /etc/nginx-certs/tls.key
-  ssl_cert_path: /etc/nginx-certs/tls.crt
+  # Fixed non-root user of the Scanvento images ("app" of the .NET base images)
+  app_user: 1654
+  # Plain HTTP port inside the app network (collector, healthcheck) when the WebUI port uses HTTPS
+  internal_http_port: 8080
+  ssl_cert_path: /etc/scanvento/certs/tls.crt
+  ssl_key_path: /etc/scanvento/certs/tls.key
 
   notes_body: |
-    ## First steps
+    Sign in with the administrator user name and password entered during the installation.
 
-    Sign in with the administrator user name and password you entered during the installation,
-    then change the password (user menu, Profile) and set up MFA.
-
-    ## Back up the encryption master key
-
-    The **Encryption Master Key** decrypts the credentials Scanvento stores (integrations, discovery accounts, SMTP).
-    Keep a copy of it outside the NAS, for example in a password manager. Without it a restored database is
-    of no use for these credentials, and it must never be changed after the first start.
-    The **JWT Signing Key** may be changed, but signs everybody out.
-
-    ## Backups
-
-    With backups enabled, the `backup` container writes a `pg_dump` of the database into the backups storage
-    once a day, and a dump is made before the migrations of every update. ZFS snapshots of the
-    PostgreSQL dataset alone are not a consistent backup while the database is running.
-
-    ## Discovery collector
-
-    Create a collector in Scanvento (Discovery, Collectors), copy its key, then enable the collector
-    in the app settings and paste the key.
+    Keep a copy of the **Encryption Master Key** outside the NAS (e.g. in a password manager):
+    stored credentials cannot be decrypted without it, and it must not be changed after the first start.
