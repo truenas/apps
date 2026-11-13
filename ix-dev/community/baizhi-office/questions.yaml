@@ -1,0 +1,682 @@
+groups:
+- name: 百智办公配置
+  description: 百智办公配置
+- name: 网络配置
+  description: 网络配置
+- name: 存储配置
+  description: 存储配置
+- name: 标签配置
+  description: 标签配置
+- name: 资源配置
+  description: 资源配置
+questions:
+- variable: TZ
+  label: 时区
+  schema:
+    type: string
+    default: Etc/UTC
+    required: true
+    $ref:
+    - definitions/timezone
+  group: 百智办公配置
+- variable: baizhi
+  label: ''
+  schema:
+    type: dict
+    attrs:
+    - variable: public_url
+      label: 外部访问地址
+      schema:
+        type: uri
+        default: ''
+        required: true
+      description: 填写浏览器实际访问的根地址，例如 https://office.example.com。生产请使用 HTTPS 反向代理；本应用仅提供内部
+        HTTP Web 端口。
+    - variable: admin_email
+      label: 初始管理员邮箱
+      schema:
+        type: string
+        default: ''
+        required: true
+      description: 仅在数据库为空时创建；之后修改此字段不会重置现有管理员。
+    - variable: admin_password
+      label: 初始管理员密码
+      schema:
+        type: string
+        default: ''
+        required: true
+        private: true
+        min_length: 12
+    - variable: db_password
+      label: 数据库密码（安装后请勿直接修改）
+      schema:
+        type: string
+        default: ''
+        required: true
+        private: true
+        min_length: 16
+    - variable: s3_access_key
+      label: 对象存储访问标识（安装后请勿直接修改）
+      schema:
+        type: string
+        default: ''
+        required: true
+        min_length: 3
+    - variable: s3_secret_key
+      label: 对象存储密钥（安装后请勿直接修改）
+      schema:
+        type: string
+        default: ''
+        required: true
+        private: true
+        min_length: 16
+    - variable: runtime_relay
+      label: 启用已授权设备的远程执行中转
+      schema:
+        type: boolean
+        default: true
+      description: 设备侧仍须开启远程访问并授权；此选项不会在 NAS 主机执行任务。
+    - variable: trusted_proxy_cidrs
+      label: 可信前置代理 IP/CIDR（逗号分隔，可留空）
+      schema:
+        type: string
+        default: ''
+      description: 仅填写直接连接本应用的可信代理，不要信任所有网段。
+    - variable: additional_envs
+      label: 后端附加环境变量
+      schema:
+        type: list
+        default: []
+        items:
+        - variable: env
+          label: 环境变量
+          schema:
+            type: dict
+            attrs:
+            - variable: name
+              label: 名称
+              schema:
+                type: string
+                required: true
+            - variable: value
+              label: 值
+              schema:
+                type: string
+                private: true
+      description: 可配置上游支持的模型/工具访问等运行参数；不能覆盖模板已管理的端口、存储、数据库或公开地址变量。
+  group: 百智办公配置
+- variable: network
+  label: ''
+  schema:
+    type: dict
+    attrs:
+    - variable: web_port
+      label: Web 入口端口
+      schema:
+        type: dict
+        attrs:
+        - variable: bind_mode
+          label: 端口绑定方式
+          schema:
+            type: string
+            default: published
+            enum:
+            - value: published
+              description: 发布到主机
+            - value: exposed
+              description: 仅容器间开放
+            - value: ''
+              description: 不发布
+        - variable: port_number
+          label: 端口号
+          schema:
+            type: int
+            default: 30583
+            min: 1
+            max: 65535
+            required: true
+        - variable: host_ips
+          label: 主机绑定地址
+          schema:
+            type: list
+            default: []
+            show_if:
+            - - bind_mode
+              - '='
+              - published
+            items:
+            - variable: host_ip
+              label: 主机地址
+              schema:
+                type: string
+                required: true
+                $ref:
+                - definitions/node_bind_ip
+  group: 网络配置
+- variable: storage
+  label: ''
+  schema:
+    type: dict
+    attrs:
+    - variable: postgres_data
+      label: PostgreSQL 数据
+      schema:
+        type: dict
+        attrs:
+        - variable: type
+          label: 存储类型
+          schema:
+            type: string
+            default: ix_volume
+            required: true
+            enum:
+            - value: ix_volume
+              description: TrueNAS 自动创建的数据集
+            - value: host_path
+              description: 已有主机路径
+        - variable: ix_volume_config
+          label: 数据集配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: dataset_name
+              label: 数据集名称
+              schema:
+                type: string
+                default: postgres_data
+                required: true
+                hidden: true
+            - variable: acl_entries
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+        - variable: host_path_config
+          label: 主机路径配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - host_path
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: acl
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+                $ref:
+                - normalize/acl
+            - variable: path
+              label: 主机路径
+              schema:
+                type: hostpath
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+            - variable: auto_permissions
+              label: 自动设置目录权限
+              schema:
+                type: boolean
+                default: false
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+    - variable: object_data
+      label: RustFS 对象数据
+      schema:
+        type: dict
+        attrs:
+        - variable: type
+          label: 存储类型
+          schema:
+            type: string
+            default: ix_volume
+            required: true
+            enum:
+            - value: ix_volume
+              description: TrueNAS 自动创建的数据集
+            - value: host_path
+              description: 已有主机路径
+        - variable: ix_volume_config
+          label: 数据集配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: dataset_name
+              label: 数据集名称
+              schema:
+                type: string
+                default: object_data
+                required: true
+                hidden: true
+            - variable: acl_entries
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+        - variable: host_path_config
+          label: 主机路径配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - host_path
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: acl
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+                $ref:
+                - normalize/acl
+            - variable: path
+              label: 主机路径
+              schema:
+                type: hostpath
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+            - variable: auto_permissions
+              label: 自动设置目录权限
+              schema:
+                type: boolean
+                default: false
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+    - variable: object_logs
+      label: RustFS 日志
+      schema:
+        type: dict
+        attrs:
+        - variable: type
+          label: 存储类型
+          schema:
+            type: string
+            default: ix_volume
+            required: true
+            enum:
+            - value: ix_volume
+              description: TrueNAS 自动创建的数据集
+            - value: host_path
+              description: 已有主机路径
+        - variable: ix_volume_config
+          label: 数据集配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: dataset_name
+              label: 数据集名称
+              schema:
+                type: string
+                default: object_logs
+                required: true
+                hidden: true
+            - variable: acl_entries
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+        - variable: host_path_config
+          label: 主机路径配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - host_path
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: acl
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+                $ref:
+                - normalize/acl
+            - variable: path
+              label: 主机路径
+              schema:
+                type: hostpath
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+            - variable: auto_permissions
+              label: 自动设置目录权限
+              schema:
+                type: boolean
+                default: false
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+    - variable: runtime_data
+      label: 运行身份、签名密钥与状态
+      schema:
+        type: dict
+        attrs:
+        - variable: type
+          label: 存储类型
+          schema:
+            type: string
+            default: ix_volume
+            required: true
+            enum:
+            - value: ix_volume
+              description: TrueNAS 自动创建的数据集
+            - value: host_path
+              description: 已有主机路径
+        - variable: ix_volume_config
+          label: 数据集配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: dataset_name
+              label: 数据集名称
+              schema:
+                type: string
+                default: runtime_data
+                required: true
+                hidden: true
+            - variable: acl_entries
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+        - variable: host_path_config
+          label: 主机路径配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - host_path
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: acl
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+                $ref:
+                - normalize/acl
+            - variable: path
+              label: 主机路径
+              schema:
+                type: hostpath
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+            - variable: auto_permissions
+              label: 自动设置目录权限
+              schema:
+                type: boolean
+                default: false
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+    - variable: license_data
+      label: 服务许可数据
+      schema:
+        type: dict
+        attrs:
+        - variable: type
+          label: 存储类型
+          schema:
+            type: string
+            default: ix_volume
+            required: true
+            enum:
+            - value: ix_volume
+              description: TrueNAS 自动创建的数据集
+            - value: host_path
+              description: 已有主机路径
+        - variable: ix_volume_config
+          label: 数据集配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: dataset_name
+              label: 数据集名称
+              schema:
+                type: string
+                default: license_data
+                required: true
+                hidden: true
+            - variable: acl_entries
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+        - variable: host_path_config
+          label: 主机路径配置
+          schema:
+            type: dict
+            show_if:
+            - - type
+              - '='
+              - host_path
+            attrs:
+            - variable: acl_enable
+              label: 启用 ACL
+              schema:
+                type: boolean
+                default: false
+            - variable: acl
+              label: ACL 配置
+              schema:
+                type: dict
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                attrs: []
+                $ref:
+                - normalize/acl
+            - variable: path
+              label: 主机路径
+              schema:
+                type: hostpath
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+            - variable: auto_permissions
+              label: 自动设置目录权限
+              schema:
+                type: boolean
+                default: false
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+  group: 存储配置
+- variable: labels
+  label: 附加容器标签
+  schema:
+    type: list
+    default: []
+    items:
+    - variable: label
+      label: 标签
+      schema:
+        type: dict
+        attrs:
+        - variable: key
+          label: 名称
+          schema:
+            type: string
+            required: true
+        - variable: value
+          label: 值
+          schema:
+            type: string
+            required: true
+        - variable: containers
+          label: 应用标签的容器
+          schema:
+            type: list
+            items:
+            - variable: container
+              label: 容器
+              schema:
+                type: string
+                required: true
+                enum:
+                - value: admin
+                  description: admin
+                - value: backend
+                  description: backend
+                - value: db
+                  description: db
+                - value: rustfs
+                  description: rustfs
+  group: 标签配置
+- variable: resources
+  label: 资源限制
+  schema:
+    type: dict
+    attrs:
+    - variable: limits
+      label: 每个容器的资源上限
+      schema:
+        type: dict
+        attrs:
+        - variable: cpus
+          label: CPU 核数
+          schema:
+            type: int
+            default: 2
+            min: 1
+            required: true
+        - variable: memory
+          label: 内存（MiB）
+          schema:
+            type: int
+            default: 4096
+            min: 512
+            required: true
+  group: 资源配置
