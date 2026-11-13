@@ -5,8 +5,7 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{# The image has no shell or curl, HolyArrs listens where -addr says and checks itself with -healthcheck #}
-{% do c1.set_command(["-config", "/config", "-addr", ":%d"|format(values.network.web_port.port_number)]) %}
+{% do c1.set_command(["-config", values.consts.config_path, "-addr", ":%d"|format(values.network.web_port.port_number)]) %}
 {% do c1.healthcheck.set_custom_test(["CMD", "/holyarrs", "-healthcheck"]) %}
 
 {% do c1.environment.add_env("HOLYARRS_HEALTH_URL", "http://127.0.0.1:%d"|format(values.network.web_port.port_number)) %}
@@ -14,7 +13,7 @@
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
