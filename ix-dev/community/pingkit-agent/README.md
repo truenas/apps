@@ -6,4 +6,4 @@ Pair it with the code PingKit shows on your iPhone under Agents, Add an Agent, o
 web page.
 
 Ping is optional: without it the agent checks with TCP. To allow it, add System > Advanced
-Settings > Sysctl: `net.ipv4.ping_group_range` with the value `0 2147483647`.
+Settings > Sysctl: **net.ipv4.ping_group_range** with the value **0 2147483647**.
