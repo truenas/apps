@@ -300,6 +300,10 @@ class Analysis:
     readme_warnings: set[str]
     # Follows the README warnings, the same in every test value
     readme_warnings_footer: str
+    # Host paths the containers mount, of every test value
+    host_mounts: set[str]
+    # Libraries older than 2.3.19 don't render x-host-mounts
+    renders_host_mounts: bool
 
 
 # Discovery
@@ -402,6 +406,8 @@ def analyze(app: App) -> Analysis:
         users=defaultdict(list),
         readme_warnings=set(),
         readme_warnings_footer="",
+        host_mounts=set(),
+        renders_host_mounts=False,
     )
 
     for values_file in app.test_values:
@@ -411,6 +417,9 @@ def analyze(app: App) -> Analysis:
         readme = compose.get("x-readme") or {}
         analysis.readme_warnings.update(readme.get("warnings") or [])
         analysis.readme_warnings_footer = readme.get("warnings_footer") or analysis.readme_warnings_footer
+        if "x-host-mounts" in compose:
+            analysis.renders_host_mounts = True
+            analysis.host_mounts.update(compose["x-host-mounts"] or [])
 
         services = compose.get("services")
         if not services:
@@ -724,6 +733,23 @@ def validate_app_config(app: App, app_config: dict) -> None:
             logger.warning(f"{app.name}: invalid {kind} URL: {url}")
 
 
+def validate_host_mounts(app: App, app_config: dict, analysis: Analysis) -> None:
+    """Fail on host paths the rendered app mounts that app.yaml's host_mounts do not declare.
+
+    A declared path covers the paths under it. Declaring more than the test values mount is fine,
+    eg mounts behind options none of them enable.
+    """
+    if not analysis.renders_host_mounts:
+        return
+
+    declared = [m["host_path"].rstrip("/") for m in app_config.get("host_mounts") or []]
+    missing = sorted(
+        path for path in analysis.host_mounts if not any(path == d or path.startswith(f"{d}/") for d in declared)
+    )
+    if missing:
+        raise ValueError(f"{app.path / APP_METADATA_FILE} is missing host_mounts for: {missing}")
+
+
 def validate_app_lib(app: App) -> None:
     """Fail on per-app library modules that import each other.
 
@@ -765,6 +791,7 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     validate_questions(app, analysis.service_names)
     validate_images(app)
     validate_app_config(app, app_config)
+    validate_host_mounts(app, app_config, analysis)
     validate_app_lib(app)
 
     users = {service: select_service_user(service, values) for service, values in analysis.users.items()}
