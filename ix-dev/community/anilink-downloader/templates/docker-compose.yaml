@@ -6,8 +6,6 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/health/live", "spider": false, "busybox": true}) %}
-
-{% do c1.environment.add_env("ASPNETCORE_HTTP_PORTS", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("Downloads__Root", values.consts.downloads_path) %}
 {% do c1.environment.add_env("Debrid_ApiKey", values.anilink.debrid_api_key) %}
 {% do c1.environment.add_env("Debrid_Request_Delay", values.anilink.debrid_request_delay) %}
@@ -17,7 +15,22 @@
 {% endfor %}
 {% do c1.environment.add_user_envs(values.anilink.additional_envs) %}
 
+{% set urls = ["http://+:%d" | format(values.network.web_port.port_number)] %}
 {% do c1.add_port(values.network.web_port) %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+
+  {% do urls.append("https://+:%d" | format(values.network.https_port.port_number)) %}
+  {% do c1.environment.add_env("Kestrel__Certificates__Default__Path", values.consts.ssl_cert_path) %}
+  {% do c1.environment.add_env("Kestrel__Certificates__Default__KeyPath", values.consts.ssl_key_path) %}
+
+  {% do c1.add_port(values.network.https_port) %}
+{% endif %}
+
+{% do c1.environment.add_env("ASPNETCORE_URLS", urls | join(";")) %}
 
 {% do c1.add_storage(values.consts.downloads_path, values.storage.downloads) %}
 {% do perm_container.add_or_skip_action(values.consts.downloads_path, values.storage.downloads, perms_config) %}
@@ -33,5 +46,8 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
+{% if values.network.certificate_id %}
+  {% do tpl.portals.add(values.network.https_port, {"name": "Web UI HTTPS", "scheme": "https"}) %}
+{% endif %}
 
 {{ tpl.render() | tojson }}
