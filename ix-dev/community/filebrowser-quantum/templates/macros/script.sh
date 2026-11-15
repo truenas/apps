@@ -40,6 +40,21 @@ yq -i '.http.port = {{ values.network.web_port.port_number }}' "{{ cfg_path }}"
 yq -i '.server.database.path = "{{ values.consts.db_file_path }}"' "{{ cfg_path }}"
 yq -i '.server.cacheDir = "{{ values.consts.cache_dir_path }}"' "{{ cfg_path }}"
 
+# Remove sources whose paths are no longer in additional_storage.
+# Preserve configuration for sources that remain.
+echo "Removing sources no longer configured in additional storage..."
+yq -i '
+  .server.sources = [
+    (.server.sources // [])[] |
+    select(
+      false
+{% for store in values.storage.additional_storage %}
+      or .path == "{{ store.mount_path }}"
+{% endfor %}
+    )
+  ]
+' "{{ cfg_path }}"
+
 {%- for store in values.storage.additional_storage %}
 # Check if server.sources has the mount path, if not, add it
 if [ "$(yq '.server.sources[] | select(.path == "{{ store.mount_path }}")' "{{ cfg_path }}")" = "" ]; then
