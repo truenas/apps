@@ -70,6 +70,13 @@
 
 {% do c1.add_port(values.network.web_port) %}
 
+{# Large temporary files (vulnerability feed downloads, unpacked OSV exports) on a disk-backed volume instead of the small /tmp tmpfs #}
+{% set feed_tmp = tpl.funcs.temp_config("scanvento-feed-tmp") %}
+{% do c1.add_storage(values.consts.feed_tmp_path, feed_tmp) %}
+{% do perm_container.add_or_skip_action("feed-tmp", feed_tmp, perms_config) %}
+{% do c1.environment.add_env("SV_Vulnerabilities__TempDirectory", values.consts.feed_tmp_path) %}
+{% do c1.environment.add_env("SV_Msp__FeedCache__Directory", values.consts.feed_tmp_path) %}
+
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
   {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
