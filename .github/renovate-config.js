@@ -461,6 +461,15 @@ module.exports = {
       "^(?<compatibility>latest)-(?<major>\\d{4})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["devlikeapro/waha"],
     ),
+    customVersioning(
+      // 5.8-RELEASE-92 (TAK Product Center builds)
+      "^(?<major>\\d+)\\.(?<minor>\\d+)-RELEASE-(?<build>\\d+)$",
+      [
+        "takproductcenter/takserver-hardened",
+        "takproductcenter/takserver-hardened-db",
+        "takproductcenter/takserver-ca",
+      ],
+    ),
   ],
 };
 

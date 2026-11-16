@@ -1,0 +1,103 @@
+{% from "macros/certs.sh.jinja" import certs_script %}
+{% from "macros/database.sh.jinja" import database_script %}
+{% from "macros/takserver.sh.jinja" import takserver_script %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{# Permissions container fixes dataset ownership before the main services start #}
+{% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
+{% do perms.add_or_skip_action("db", values.storage.db, {"uid": 26, "gid": 0, "chmod": "0700", "mode": "check"}) %}
+{% do perms.add_or_skip_action("certs", values.storage.certs, {"uid": 1001, "gid": 0, "chmod": "0775", "mode": "check"}) %}
+{% do perms.add_or_skip_action("logs", values.storage.logs, {"uid": 1001, "gid": 0, "chmod": "0775", "mode": "check"}) %}
+{% do perms.add_or_skip_action("config", values.storage.config, {"uid": 1001, "gid": 0, "chmod": "0775", "mode": "check"}) %}
+{# Activated before the other containers, so they can depend on it #}
+{% if perms.has_actions() %}
+  {% do perms.activate() %}
+{% endif %}
+
+{# Certificate / secrets init container (one-shot) #}
+{% set certs = tpl.add_container(values.consts.certs_container_name, "takserver_ca_image") %}
+{% do certs.setup_as_helper(disable_network=true) %}
+{% do certs.set_user(0, 0) %}
+{% do certs.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+{% do certs.configs.add("certs.sh", certs_script(), "/init/certs.sh", "0755") %}
+{% do certs.set_entrypoint(["/bin/bash", "/init/certs.sh"]) %}
+{# Mount below /tak/certs so the image's helper scripts (*.sh, config.cfg) stay visible #}
+{% do certs.add_storage("/tak/certs/files", values.storage.certs) %}
+{% do certs.add_storage(values.consts.config_path, values.storage.config) %}
+{% if perms.has_actions() %}
+  {% do certs.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+{% do certs.environment.add_env("CONFIG_DIR", values.consts.config_path) %}
+{% do certs.environment.add_env("SECRETS_FILE", "%s/secrets.env"|format(values.consts.config_path)) %}
+{% do certs.environment.add_env("FILES", "/tak/certs/files") %}
+{% do certs.environment.add_env("CA_NAME", values.takserver.ca_name) %}
+{% do certs.environment.add_env("COUNTRY", values.takserver.country) %}
+{% do certs.environment.add_env("STATE", values.takserver.state) %}
+{% do certs.environment.add_env("CITY", values.takserver.city) %}
+{% do certs.environment.add_env("ORGANIZATION", values.takserver.organization) %}
+{% do certs.environment.add_env("ORGANIZATIONAL_UNIT", values.takserver.organizational_unit) %}
+{% do certs.environment.add_env("SERVER_ADDRESSES", values.takserver.server_addresses) %}
+{% do certs.environment.add_env("ADMIN_CERT_NAME", values.takserver.admin_cert_name) %}
+{% do certs.environment.add_env("USERS", values.takserver.users | join(" ")) %}
+{% do certs.environment.add_env("CLIENT_CERTS", values.takserver.client_certs | join(" ")) %}
+{% do certs.environment.add_env("USER_GROUPS", values.takserver.user_groups) %}
+{% do certs.environment.add_user_envs(values.takserver.additional_envs) %}
+
+{# Database container #}
+{% set db = tpl.add_container(values.consts.db_container_name, "takserver_db_image") %}
+{% do db.set_user(26, 0) %}
+{% do db.set_hostname("tak-database") %}
+{% do db.configs.add("database.sh", database_script(), "/init/database.sh", "0755") %}
+{% do db.set_entrypoint(["/bin/bash", "/init/database.sh"]) %}
+{% do db.add_storage(values.consts.db_path, values.storage.db) %}
+{% do db.add_storage(values.consts.config_path, values.storage.config) %}
+{% do db.depends.add_dependency(values.consts.certs_container_name, "service_completed_successfully") %}
+{% if perms.has_actions() %}
+  {% do db.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+{% do db.environment.add_env("PGDATA", values.consts.db_path) %}
+{% do db.environment.add_env("SECRETS_FILE", "%s/secrets.env"|format(values.consts.config_path)) %}
+{% do db.healthcheck.set_test("postgres", {"user": "postgres", "db": "postgres"}) %}
+{% do db.healthcheck.set_start_period(120) %}
+
+{# TAK Server container #}
+{% set app = tpl.add_container(values.consts.app_container_name, "image") %}
+{% do app.set_user(1001, 0) %}
+{% do app.configs.add("takserver.sh", takserver_script(), "/init/takserver.sh", "0755") %}
+{% do app.set_entrypoint(["/bin/bash", "/init/takserver.sh"]) %}
+{% do app.add_port(values.network.cot_port, {"container_port": 8089}) %}
+{% do app.add_port(values.network.web_port, {"container_port": 8443}) %}
+{% do app.add_port(values.network.enrollment_port, {"container_port": 8446}) %}
+{# Mount below /opt/tak/certs so the image's helper scripts (*.sh, config.cfg) stay visible #}
+{% do app.add_storage("/opt/tak/certs/files", values.storage.certs) %}
+{% do app.add_storage(values.consts.logs_path, values.storage.logs) %}
+{% do app.add_storage(values.consts.tak_config_path, values.storage.config) %}
+{% do app.depends.add_dependency(values.consts.db_container_name, "service_healthy") %}
+{% do app.depends.add_dependency(values.consts.certs_container_name, "service_completed_successfully") %}
+{% if perms.has_actions() %}
+  {% do app.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+{% do app.environment.add_env("SECRETS_FILE", "%s/secrets.env"|format(values.consts.tak_config_path)) %}
+{% do app.environment.add_env("FILES", "/opt/tak/certs/files") %}
+{% do app.environment.add_env("ADMIN_CERT_NAME", values.takserver.admin_cert_name) %}
+{% do app.environment.add_env("USERS", values.takserver.users | join(" ")) %}
+{% do app.environment.add_env("USER_GROUPS", values.takserver.user_groups) %}
+{% do app.environment.add_env("CONFIG_DIR", values.consts.tak_config_path) %}
+{% do app.environment.add_env("CONFIG_MAX_HEAP", "512") %}
+{% do app.environment.add_env("MESSAGING_MAX_HEAP", "1024") %}
+{% do app.environment.add_env("API_MAX_HEAP", "1024") %}
+{% do app.environment.add_env("RETENTION_MAX_HEAP", "512") %}
+{% do app.environment.add_env("PLUGIN_MANAGER_MAX_HEAP", "512") %}
+{% do app.environment.add_user_envs(values.takserver.additional_envs) %}
+{% do app.healthcheck.set_custom_test(["CMD-SHELL", "curl -ks -o /dev/null -w '%{http_code}' --cert-type P12 --cert /opt/tak/certs/files/${ADMIN_CERT_NAME}.p12:$(grep '^ADMIN_CERT_PASS=' /opt/tak/config/secrets.env | cut -d= -f2-) https://localhost:8443/Marti/api/missions | grep -q 200"]) %}
+{% do app.healthcheck.set_start_period(240) %}
+{% do app.healthcheck.set_interval(30) %}
+{% do app.healthcheck.set_timeout(10) %}
+{% do app.healthcheck.set_retries(20) %}
+{% do app.set_grace_period(60) %}
+
+{% do tpl.portals.add(values.network.web_port, {"scheme": "https", "path": "/Marti/certificates/index.html"}) %}
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}

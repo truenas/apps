@@ -1,0 +1,171 @@
+{% macro takserver_script() -%}
+#!/usr/bin/env bash
+# Renders CoreConfig.xml, starts TAK Server, registers admin cert and creates users.
+# Runs as tak (uid 1001) after the perms container fixes dataset ownership.
+set -euo pipefail
+
+SECRETS_FILE="${SECRETS_FILE:-/opt/tak/config/secrets.env}"
+set -a
+source "$SECRETS_FILE"
+set +a
+
+: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+: "${TAKSERVER_CERT_PASS:?TAKSERVER_CERT_PASS is required}"
+: "${CAPASS:?CAPASS is required}"
+: "${ADMIN_CERT_NAME:?ADMIN_CERT_NAME is required}"
+: "${ADMIN_CERT_PASS:?ADMIN_CERT_PASS is required}"
+: "${ADMIN_USER_PASS:?ADMIN_USER_PASS is required}"
+
+cd /opt/tak
+FILES=/opt/tak/certs/files
+mkdir -p logs
+exec > >(tee -a logs/takserver.log) 2>&1
+
+EXAMPLE=CoreConfig.example.docker-hardened.xml
+[[ -f "$EXAMPLE" ]] || EXAMPLE=CoreConfig.example.xml
+if [[ ! -f "$EXAMPLE" ]]; then
+  echo "No CoreConfig example found in /opt/tak" >&2
+  exit 1
+fi
+
+echo "Rendering CoreConfig.xml from $EXAMPLE"
+sed \
+  -e "s|\(<connection .*password=\)\"\"|\1\"${POSTGRES_PASSWORD}\"|" \
+  -e "s|keystorePass=\"atakatak\"|keystorePass=\"${TAKSERVER_CERT_PASS}\"|g" \
+  -e "s|truststorePass=\"atakatak\"|truststorePass=\"${CAPASS}\"|g" \
+  -e "s|truststoreFile=\"/opt/tak/certs/files/truststore-root.jks\"|truststoreFile=\"${FILES}/truststore-active.jks\"|" \
+  -e "s|^\( *\)<auth>$|\1<auth x509checkRevocation=\"true\">|" \
+  "$EXAMPLE" > CoreConfig.xml
+
+if ! grep -q 'password=""' CoreConfig.xml; then
+  echo "Database password injected"
+else
+  echo "WARNING: could not inject the database password into CoreConfig.xml" >&2
+fi
+
+if [[ -f "$FILES/intermediate.crl" ]]; then
+  tmp=$(mktemp)
+  inserted=false
+  while IFS= read -r line; do
+    if [[ "$inserted" == false && "$line" == *"</tls>"* ]]; then
+      echo "            <crl _name=\"intermediate\" crlFile=\"${FILES}/intermediate.crl\"/>"
+      inserted=true
+    fi
+    printf '%s\n' "$line"
+  done < CoreConfig.xml > "$tmp"
+  mv "$tmp" CoreConfig.xml
+else
+  echo "WARNING: no intermediate.crl; revocation checking will not work" >&2
+fi
+
+if [[ -f "$FILES/intermediate-signing.jks" ]]; then
+  tmp=$(mktemp)
+  inserted=false
+  while IFS= read -r line; do
+    if [[ "$inserted" == false && "$line" == *"</Configuration>"* ]]; then
+      cat <<EOF
+    <certificateSigning CA="TAKServer">
+        <certificateConfig>
+            <nameEntries>
+                <nameEntry name="O" value="${ORGANIZATION:-TAK}"/>
+                <nameEntry name="OU" value="${ORGANIZATIONAL_UNIT:-TAK}"/>
+            </nameEntries>
+        </certificateConfig>
+        <TAKServerCAConfig keystore="JKS" keystoreFile="${FILES}/intermediate-signing.jks"
+            keystorePass="${CAPASS}" validityDays="365" signatureAlg="SHA256WithRSA"
+            CAkey="${FILES}/intermediate" CAcertificate="${FILES}/intermediate"/>
+    </certificateSigning>
+EOF
+      inserted=true
+    fi
+    printf '%s\n' "$line"
+  done < CoreConfig.xml > "$tmp"
+  mv "$tmp" CoreConfig.xml
+  echo "Certificate signing enabled for enrollment"
+else
+  echo "WARNING: no intermediate-signing.jks; port 8446 enrollment will not work" >&2
+fi
+
+export CAPASS
+
+server=
+stop_children() {
+  if [[ -n "$server" ]]; then
+    kill -TERM "$server" 2>/dev/null || true
+  fi
+  for proc in /proc/[0-9]*; do
+    pid=${proc##*/}
+    [[ "$pid" == "$$" ]] && continue
+    cmd=$(tr '\0' ' ' < "$proc/cmdline" 2>/dev/null) || continue
+    case "$cmd" in
+      *takserver*) kill -TERM "$pid" 2>/dev/null || true ;;
+    esac
+  done
+}
+trap stop_children TERM INT
+
+echo "Starting TAK Server"
+/opt/tak/configureInDocker.sh init &
+server=$!
+
+echo "Waiting for the database and TAK Server"
+bootstrap_admin="$FILES/.bootstrap-admin"
+if [[ ! -f "$bootstrap_admin" ]]; then
+  admin_ready=false
+  for attempt in $(seq 1 60); do
+    if output=$(java -jar utils/UserManager.jar usermod -A -p "$ADMIN_USER_PASS" "$ADMIN_CERT_NAME" 2>&1); then
+      admin_ready=true
+      break
+    fi
+    if [[ "$output" == *complexity* ]]; then
+      echo "ERROR: TAK Server rejected ADMIN_USER_PASS: $output" >&2
+      break
+    fi
+    sleep 10
+  done
+
+  if [[ "$admin_ready" == true ]]; then
+    for attempt in $(seq 1 30); do
+      if java -jar utils/UserManager.jar certmod -A "$FILES/${ADMIN_CERT_NAME}.pem" >/dev/null 2>&1; then
+        echo "Admin certificate registered: ${ADMIN_CERT_NAME}"
+        touch "$bootstrap_admin"
+        break
+      fi
+      sleep 10
+    done
+  else
+    echo "WARNING: admin registration not attempted; check logs/takserver.log" >&2
+  fi
+else
+  echo "Admin already registered: ${ADMIN_CERT_NAME}"
+fi
+
+for user in ${USERS:-}; do
+  [[ -n "$user" ]] || continue
+  marker="$FILES/.bootstrap-user-$user"
+  if [[ -f "$marker" ]]; then
+    continue
+  fi
+  key="USER_PASS_$(echo "$user" | tr '[:lower:]-' '[:upper:]_')"
+  if [[ -z "${!key:-}" ]]; then
+    echo "No password for $user; add $key to $SECRETS_FILE" >&2
+    continue
+  fi
+  groups=()
+  for entry in ${USER_GROUPS:-}; do
+    if [[ "${entry%%:*}" == "$user" ]]; then
+      for group in $(echo "${entry#*:}" | tr ',' ' '); do
+        groups+=(-g "$group")
+      done
+    fi
+  done
+  if output=$(java -jar utils/UserManager.jar usermod -p "${!key}" "${groups[@]}" "$user" 2>&1); then
+    echo "User ready: $user"
+    date -u +%FT%TZ > "$marker"
+  else
+    echo "Could not create user $user: $output" >&2
+  fi
+done
+
+wait "$server" || true
+{%- endmacro %}

@@ -1,0 +1,23 @@
+{% macro database_script() -%}
+#!/usr/bin/env bash
+# Starts the TAK Server database. Runs as postgres (uid 26) after the perms
+# container fixes dataset ownership.
+set -euo pipefail
+
+SECRETS_FILE="${SECRETS_FILE:-/tak/config/secrets.env}"
+set -a
+source "$SECRETS_FILE"
+set +a
+
+: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+export envpass="$POSTGRES_PASSWORD"
+export HOME=/var/lib/postgresql
+: "${PGDATA:?PGDATA is required}"
+
+if [[ ! -f "$PGDATA/PG_VERSION" ]]; then
+  echo "Creating PostgreSQL cluster in $PGDATA"
+  initdb -D "$PGDATA" --no-locale -E UTF8
+fi
+
+exec /opt/tak/db-utils/configureInDocker.sh
+{%- endmacro %}

@@ -1,0 +1,215 @@
+{% macro certs_script() -%}
+#!/usr/bin/env bash
+# Generates TAK Server certificates on first start and refreshes truststore/CRLs
+# on every start. Also creates secrets.env on first start. Idempotent.
+set -euo pipefail
+
+SECRETS_FILE="${SECRETS_FILE:-/tak/config/secrets.env}"
+CONFIG_DIR="${CONFIG_DIR:-/tak/config}"
+FILES="${FILES:-/tak/certs/files}"
+
+random_hex() { openssl rand -hex 16; }
+# TAK Server requires 15+ characters with upper, lower, digit and symbol.
+random_user_pass() { printf 'Tak!%s%d' "$(openssl rand -hex 6)" "$((RANDOM % 10))"; }
+
+# Generate secrets on first boot
+if [[ ! -f "$SECRETS_FILE" ]]; then
+  echo "Generating secrets in $SECRETS_FILE"
+  mkdir -p "$(dirname "$SECRETS_FILE")"
+  : > "$SECRETS_FILE"
+  chmod 600 "$SECRETS_FILE"
+  {
+    echo "POSTGRES_PASSWORD=$(random_hex)"
+    echo "CAPASS=$(random_hex)"
+    echo "TAKSERVER_CERT_PASS=$(random_hex)"
+    echo "ADMIN_CERT_PASS=$(random_hex)"
+    echo "ADMIN_USER_PASS=$(random_user_pass)"
+    echo "CLIENT_CERT_PASS=$(random_hex)"
+    for user in ${USERS:-}; do
+      [[ -n "$user" ]] || continue
+      key="USER_PASS_$(echo "$user" | tr '[:lower:]-' '[:upper:]_')"
+      echo "$key=$(random_user_pass)"
+    done
+  } >> "$SECRETS_FILE"
+  # The db container runs as uid 26 and the app as uid 1001 (both gid 0), so the
+  # file must be group readable rather than root-only.
+  chown 1001:0 "$SECRETS_FILE"
+  chmod 640 "$SECRETS_FILE"
+  echo "Secrets generated"
+fi
+
+set -a
+source "$SECRETS_FILE"
+set +a
+
+# Certificate generation
+cd /tak/certs
+export CAPASS
+
+: "${CA_NAME:?CA_NAME is required}"
+: "${STATE:?STATE is required}"
+: "${CITY:?CITY is required}"
+: "${ORGANIZATIONAL_UNIT:?ORGANIZATIONAL_UNIT is required}"
+: "${CAPASS:?CAPASS is required}"
+: "${TAKSERVER_CERT_PASS:?TAKSERVER_CERT_PASS is required}"
+: "${CLIENT_CERT_PASS:?CLIENT_CERT_PASS is required}"
+: "${ADMIN_CERT_NAME:?ADMIN_CERT_NAME is required}"
+: "${ADMIN_CERT_PASS:?ADMIN_CERT_PASS is required}"
+
+COUNTRY=${COUNTRY:-US}
+ORGANIZATION=${ORGANIZATION:-TAK}
+SUBJ="/C=${COUNTRY}/ST=${STATE}/L=${CITY}/O=${ORGANIZATION}/OU=${ORGANIZATIONAL_UNIT}"
+
+mkdir -p "$FILES"
+sed -i 's/^COUNTRY=US$/COUNTRY=${COUNTRY:-US}/' cert-metadata.sh
+
+cert_cn() {
+  openssl x509 -noout -subject -nameopt multiline -in "$1" | sed -n 's/^ *commonName *= *//p'
+}
+
+# Root CA
+if [[ ! -f "$FILES/root-ca.pem" ]]; then
+  echo "Creating root CA: $CA_NAME"
+  bash makeRootCa.sh --ca-name "$CA_NAME"
+else
+  echo "Root CA exists: $(cert_cn "$FILES/root-ca.pem")"
+fi
+
+# Intermediate CA
+if [[ ! -f "$FILES/intermediate-signing.jks" ]]; then
+  echo "Creating intermediate CA"
+  cp -f "$FILES/root-ca.pem" "$FILES/ca.pem" 2>/dev/null || true
+  cp -f "$FILES/root-ca-do-not-share.key" "$FILES/ca-do-not-share.key" 2>/dev/null || true
+  cp -f "$FILES/root-ca-trusted.pem" "$FILES/ca-trusted.pem" 2>/dev/null || true
+  echo y | bash makeCert.sh ca intermediate
+else
+  echo "Intermediate CA exists: $(cert_cn "$FILES/intermediate.pem")"
+fi
+
+if [[ -f "$FILES/intermediate.pem" && "$(cat "$FILES/ca.pem")" != "$(cat "$FILES/intermediate.pem")" ]]; then
+  echo "Switching signing to the intermediate CA"
+  cp "$FILES/intermediate.pem" "$FILES/ca.pem"
+  cp "$FILES/intermediate.key" "$FILES/ca-do-not-share.key"
+  cp "$FILES/intermediate-trusted.pem" "$FILES/ca-trusted.pem"
+fi
+
+# Server certificate with SANs
+names=()
+for n in takserver ${SERVER_ADDRESSES:-}; do
+  duplicate=false
+  for existing in "${names[@]:-}"; do
+    if [[ "$existing" == "$n" ]]; then
+      duplicate=true
+      break
+    fi
+  done
+  if [[ "$duplicate" == false ]]; then
+    names+=("$n")
+  fi
+done
+san_list="${names[*]}"
+stamp="$CONFIG_DIR/takserver.names"
+
+if [[ -f "$FILES/takserver.pem" && "$(cat "$stamp" 2>/dev/null || true)" != "$san_list" ]]; then
+  echo "Server addresses changed ($san_list); re-issuing the server certificate"
+  rm -f "$FILES"/takserver.{pem,key,csr,p12,jks}
+fi
+
+if [[ ! -f "$FILES/takserver.pem" ]]; then
+  echo "Creating server certificate for: $san_list"
+  cp config.cfg "$FILES/config-takserver.cfg"
+  {
+    echo
+    echo "subjectAltName = @alt_names"
+    echo
+    echo "[alt_names]"
+    i=1
+    j=1
+    for n in "${names[@]}"; do
+      if [[ "$n" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+        echo "IP.$i = $n"
+        i=$((i + 1))
+      else
+        echo "DNS.$j = $n"
+        j=$((j + 1))
+      fi
+    done
+  } >> "$FILES/config-takserver.cfg"
+
+  openssl req -new -newkey rsa:2048 -sha256 \
+    -keyout "$FILES/takserver.key" -passout "pass:${TAKSERVER_CERT_PASS}" \
+    -out "$FILES/takserver.csr" \
+    -subj "${SUBJ}/CN=takserver"
+
+  openssl x509 -sha256 -req -days 730 -in "$FILES/takserver.csr" \
+    -CA "$FILES/ca.pem" -CAkey "$FILES/ca-do-not-share.key" \
+    -set_serial "0x$(openssl rand -hex 8)" -passin "pass:${CAPASS}" \
+    -extensions server -extfile "$FILES/config-takserver.cfg" \
+    -out "$FILES/takserver.pem"
+
+  cat "$FILES/ca.pem" >> "$FILES/takserver.pem"
+
+  openssl pkcs12 -export -in "$FILES/takserver.pem" -inkey "$FILES/takserver.key" \
+    -out "$FILES/takserver.p12" -name takserver -CAfile "$FILES/ca.pem" \
+    -passin "pass:${TAKSERVER_CERT_PASS}" -passout "pass:${TAKSERVER_CERT_PASS}"
+
+  keytool -importkeystore -noprompt \
+    -deststorepass "$TAKSERVER_CERT_PASS" -destkeypass "$TAKSERVER_CERT_PASS" \
+    -deststoretype JKS -destkeystore "$FILES/takserver.jks" \
+    -srckeystore "$FILES/takserver.p12" -srcstoretype PKCS12 \
+    -srcstorepass "$TAKSERVER_CERT_PASS" \
+    -srcalias takserver -destalias takserver
+
+  printf '%s' "$san_list" > "$stamp"
+else
+  echo "Server certificate exists: $(cert_cn "$FILES/takserver.pem") ($(cat "$stamp" 2>/dev/null || echo unknown))"
+fi
+
+# Client certificates
+make_client_cert() {
+  local name=$1 pass=$2
+  if [[ ! -f "$FILES/$name.pem" ]]; then
+    echo "Creating client certificate: $name"
+    PASS="$pass" bash makeCert.sh client "$name"
+  else
+    echo "Client certificate exists: $name"
+  fi
+}
+
+make_client_cert "$ADMIN_CERT_NAME" "$ADMIN_CERT_PASS"
+for name in ${USERS:-} ${CLIENT_CERTS:-}; do
+  [[ -n "$name" ]] || continue
+  make_client_cert "$name" "$CLIENT_CERT_PASS"
+done
+
+# Truststore
+echo "Building truststore"
+rm -f "$FILES/truststore-active.jks" "$FILES/truststore-active.p12"
+alias_index=0
+for ca in root-ca intermediate; do
+  [[ -f "$FILES/$ca.pem" ]] || continue
+  alias_index=$((alias_index + 1))
+  keytool -importcert -noprompt -trustcacerts -alias "ca-${alias_index}" \
+    -file "$FILES/$ca.pem" -keystore "$FILES/truststore-active.jks" \
+    -storepass "$CAPASS" >/dev/null
+done
+keytool -importkeystore -noprompt \
+  -srckeystore "$FILES/truststore-active.jks" -srcstoretype JKS \
+  -srcstorepass "$CAPASS" \
+  -destkeystore "$FILES/truststore-active.p12" -deststoretype PKCS12 \
+  -deststorepass "$CAPASS" >/dev/null 2>&1
+
+# Revocation list
+echo "Refreshing the revocation list"
+if [[ -f "$FILES/intermediate.pem" && -f "$FILES/intermediate.key" ]]; then
+  if ! (cd "$FILES" && openssl ca -config ../config.cfg -gencrl \
+        -keyfile intermediate.key -key "$CAPASS" -cert intermediate.pem \
+        -out intermediate.crl >/dev/null 2>&1); then
+    echo "WARNING: could not generate intermediate.crl"
+  fi
+fi
+
+chown -R 1001:0 "$FILES"
+chmod 600 "$FILES"/*.key "$FILES"/*-do-not-share.key 2>/dev/null || true
+echo "Certificates ready"
+{%- endmacro %}

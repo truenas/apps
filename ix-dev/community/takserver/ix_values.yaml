@@ -1,0 +1,53 @@
+images:
+  container_utils_image:
+    repository: ghcr.io/truenas/containers/container-utils
+    tag: "1.1.2@sha256:6ddfdc314af9d18cfacb836ad266ef0ed91fecaa3686b20be72e464972860c08"
+  image:
+    repository: takproductcenter/takserver-hardened
+    tag: "5.8-RELEASE-92@sha256:f3dbfb16a7b14850b5acf18dd40bab3cd8690eae0d643a11c1e032b80d9053a6"
+  takserver_db_image:
+    repository: takproductcenter/takserver-hardened-db
+    tag: "5.8-RELEASE-92@sha256:4ff3d725d066bd9bc557fbe794be43eecf7b9559201dc8eaf92fea6daf768681"
+  takserver_ca_image:
+    repository: takproductcenter/takserver-ca
+    tag: "5.8-RELEASE-92@sha256:d6b0f84c70dcd96c1f7781c8ac8f3a547ca59fe5dfdfdf64da7f98cdb2cc70f9"
+
+consts:
+  app_container_name: takserver
+  db_container_name: takserver-db
+  certs_container_name: takserver-certs
+  perms_container_name: takserver-perms
+
+  config_path: /tak/config
+  tak_config_path: /opt/tak/config
+  logs_path: /opt/tak/logs
+  db_path: /var/lib/postgresql/data
+
+  notes_body: |
+    # TAK Server
+
+    First start takes several minutes while the certificate authority, database schema and JVMs initialize.
+
+    ## Retrieving certificates
+
+    The CA and all client certificates are in the `certs` storage volume:
+
+    ```bash
+    docker cp ix-takserver-1:/opt/tak/certs/files/admin.p12 /tmp/
+    docker cp ix-takserver-1:/opt/tak/certs/files/root-ca.pem /tmp/
+    docker exec ix-takserver-1 grep '^ADMIN_CERT_PASS=' /opt/tak/config/secrets.env
+    ```
+
+    Import `admin.p12` into your browser as a client certificate, and trust `root-ca.pem` as a CA, to access the admin console at `https://<host>:8443`.
+
+    ## Client connections
+
+    - CoT streaming: port 8089
+    - Web/admin console: port 8443
+    - Certificate enrollment: port 8446
+
+    PostgreSQL port 5432 is never published.
+
+    ## EULA
+
+    TAK Server is subject to the TAK Product Center terms of use. Deploying this app confirms you have the right to use the upstream images.
