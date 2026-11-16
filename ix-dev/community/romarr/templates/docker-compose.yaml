@@ -5,20 +5,20 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_custom_test(["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%d/api/health' % " ~ values.network.web_port.port_number ~ ", timeout=4)"]) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/api/health", "spider": false, "busybox": true}) %}
 {% do c1.environment.add_env("ROMARR_PORT", values.network.web_port.port_number) %}
-{% do c1.environment.add_env("ROMARR_DATA", "/config/romarr.json") %}
-{% do c1.environment.add_env("ROM_HUB_HOME", "/config/rom-hub") %}
-{% do c1.environment.add_env("LIBRARY_PATH", "/roms") %}
+{% do c1.environment.add_env("ROMARR_DATA", "%s/romarr.json"|format(values.consts.config_path)) %}
+{% do c1.environment.add_env("ROM_HUB_HOME", "%s/rom-hub"|format(values.consts.config_path)) %}
+{% do c1.environment.add_env("LIBRARY_PATH", values.consts.roms_path) %}
 {% do c1.environment.add_user_envs(values.romarr.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/config", values.storage.config) %}
+{% do c1.add_storage(values.consts.config_path, values.storage.config) %}
 {% do perm_container.add_or_skip_action("config", values.storage.config, perms_config) %}
 
-{% do c1.add_storage("/roms", values.storage.library) %}
-{% do perm_container.add_or_skip_action("library", values.storage.library, perms_config) %}
+{% do c1.add_storage(values.consts.roms_path, values.storage.roms) %}
+{% do perm_container.add_or_skip_action("roms", values.storage.roms, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
