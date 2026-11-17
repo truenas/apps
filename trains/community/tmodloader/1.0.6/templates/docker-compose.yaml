@@ -1,0 +1,34 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.tmodloader_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c1.set_grace_period(120) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/usr/local/bin/healthcheck", "--container"]) %}
+{% do c1.healthcheck.set_start_period(60) %}
+
+{% do c1.environment.add_env("TMOD_USECONFIGFILE", "No") %}
+{% do c1.environment.add_env("TMOD_SHUTDOWN_DELAY", 3) %}
+{% do c1.environment.add_env("TMOD_SHUTDOWN_TIMEOUT", 90) %}
+{% do c1.environment.add_env("TMOD_WORLDNAME", values.tmodloader.world_name) %}
+{% do c1.environment.add_env("TMOD_WORLDSIZE", values.tmodloader.world_size) %}
+{% do c1.environment.add_env("TMOD_DIFFICULTY", values.tmodloader.world_difficulty) %}
+{% do c1.environment.add_env("TMOD_PASS", values.tmodloader.password or "N/A") %}
+{% do c1.environment.add_env("TMOD_PORT", values.network.server_port.port_number) %}
+{% do c1.environment.add_env("TMOD_WEB_ENABLED", "1" if values.network.web_port.bind_mode != "" else "0") %}
+
+{% do c1.add_port(values.network.server_port) %}
+
+{% if values.network.web_port.bind_mode != "" %}
+  {% do c1.environment.add_env("TMOD_WEB_PORT", values.network.web_port.port_number) %}
+  {% do c1.add_port(values.network.web_port) %}
+  {% do tpl.portals.add(values.network.web_port) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.tmodloader.additional_envs) %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+{% do c1.add_storage("/backups", values.storage.backups) %}
+
+{{ tpl.render() | tojson }}

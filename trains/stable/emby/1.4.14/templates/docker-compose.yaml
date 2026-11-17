@@ -1,0 +1,23 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.emby_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID", "KILL"]) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_http_port, "path": "/emby/System/Ping"}) %}
+
+{% do c1.environment.add_env("GIDLIST", c1.get_current_groups()|join(",")) %}
+{% do c1.environment.add_user_envs(values.emby.additional_envs) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.http_port, {"container_port": values.consts.internal_http_port}) %}
+  {% do c1.add_port(values.network.https_port, {"container_port": values.consts.internal_https_port}) %}
+{% endif %}
+
+{% do c1.add_storage("/config", values.storage.config) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.http_port, {"port": values.consts.internal_http_port if values.network.host_network else None})%}
+
+{{ tpl.render() | tojson }}

@@ -1,0 +1,30 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.mitmproxy_container_name, "image") %}
+{% do c1.set_tty(true) %}
+{% do c1.set_stdin(true) %}
+
+{% do c1.set_command([
+  "mitmweb",
+  "--web-host", "0.0.0.0",
+  "--web-port", values.network.web_port.port_number,
+  "--listen-port", values.network.proxy_port.port_number,
+]) %}
+
+{% do c1.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
+{% do c1.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]) %}
+
+{% if not values.network.host_network %}
+  {% do c1.add_port(values.network.proxy_port) %}
+  {% do c1.add_port(values.network.web_port) %}
+{%endif %}
+
+{% do c1.add_storage("/home/mitmproxy/.mitmproxy", values.storage.config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
