@@ -1,0 +1,402 @@
+groups:
+- description: Configure Plex Repairman
+  name: Plex Repairman Configuration
+- description: Configure User and Group for Plex Repairman
+  name: User and Group Configuration
+- description: Configure Network for Plex Repairman
+  name: Network Configuration
+- description: Configure Storage for Plex Repairman
+  name: Storage Configuration
+- description: Configure Labels for Plex Repairman
+  name: Labels Configuration
+- description: Configure Resources for Plex Repairman
+  name: Resources Configuration
+questions:
+- group: Plex Repairman Configuration
+  label: Timezone
+  schema:
+    $ref:
+    - definitions/timezone
+    default: Etc/UTC
+    required: true
+    type: string
+  variable: TZ
+- group: Plex Repairman Configuration
+  label: ''
+  schema:
+    attrs:
+    - label: Additional Environment Variables
+      schema:
+        default: []
+        items:
+        - label: Environment Variable
+          schema:
+            attrs:
+            - label: Name
+              schema:
+                required: true
+                type: string
+              variable: name
+            - label: Value
+              schema:
+                type: string
+              variable: value
+            type: dict
+          variable: env
+        type: list
+      variable: additional_envs
+    type: dict
+  variable: repairman
+- group: User and Group Configuration
+  label: ''
+  schema:
+    attrs:
+    - description: The user id that Plex Repairman files will be owned by.
+      label: User ID
+      schema:
+        default: 568
+        min: 568
+        required: true
+        type: int
+      variable: user
+    - description: The group id that Plex Repairman files will be owned by.
+      label: Group ID
+      schema:
+        default: 568
+        min: 568
+        required: true
+        type: int
+      variable: group
+    type: dict
+  variable: run_as
+- group: Network Configuration
+  label: ''
+  schema:
+    attrs:
+    - label: WebUI Port
+      schema:
+        attrs:
+        - description: 'The port bind mode.</br>
+
+            - Publish: The port will be published on the host for external access.</br>
+
+            - Expose: The port will be exposed for inter-container communication.</br>
+
+            - None: The port will not be exposed or published.</br>
+
+            Note: If the Dockerfile defines an EXPOSE directive,
+
+            the port will still be exposed for inter-container communication regardless
+            of this setting.
+
+            '
+          label: Port Bind Mode
+          schema:
+            default: published
+            enum:
+            - description: Publish port on the host for external access
+              value: published
+            - description: Expose port for inter-container communication
+              value: exposed
+            - description: None
+              value: ''
+            type: string
+          variable: bind_mode
+        - label: Port Number
+          schema:
+            default: 30600
+            max: 65535
+            min: 1
+            required: true
+            type: int
+          variable: port_number
+        - description: IPs on the host to bind this port
+          label: Host IPs
+          schema:
+            default: []
+            items:
+            - label: Host IP
+              schema:
+                $ref:
+                - definitions/node_bind_ip
+                required: true
+                type: string
+              variable: host_ip
+            show_if:
+            - - bind_mode
+              - '='
+              - published
+            type: list
+          variable: host_ips
+        type: dict
+      variable: web_port
+    - description: The docker networks to join
+      label: Networks
+      schema:
+        default: []
+        items:
+        - label: Network
+          schema:
+            attrs:
+            - description: 'The name of the network to join.</br>
+
+                The network must already exist.
+
+                '
+              label: Name
+              schema:
+                default: ''
+                required: true
+                type: string
+              variable: name
+            - description: The containers to add to this network.
+              label: Containers
+              schema:
+                items:
+                - label: Container
+                  schema:
+                    attrs:
+                    - label: Container Name
+                      schema:
+                        enum:
+                        - description: plex-repairman
+                          value: plex-repairman
+                        required: true
+                        type: string
+                      variable: name
+                    - label: Container Network Configuration
+                      schema:
+                        attrs:
+                        - description: The network aliases to use for this container
+                            on this network.
+                          label: Aliases (Optional)
+                          schema:
+                            default: []
+                            items:
+                            - label: Alias
+                              schema:
+                                type: string
+                              variable: alias
+                            type: list
+                          variable: aliases
+                        - description: The network interface name to use for this
+                            network
+                          label: Interface Name (Optional)
+                          schema:
+                            type: string
+                          variable: interface_name
+                        - description: The MAC address to use for this network interface.
+                          label: MAC Address (Optional)
+                          schema:
+                            type: string
+                          variable: mac_address
+                        - description: The IPv4 address to use for this network interface.
+                          label: IPv4 Address (Optional)
+                          schema:
+                            type: string
+                          variable: ipv4_address
+                        - description: The IPv6 address to use for this network interface.
+                          label: IPv6 Address (Optional)
+                          schema:
+                            type: string
+                          variable: ipv6_address
+                        - description: Indicates the priority of the gateway for this
+                            network interface.
+                          label: Gateway Priority (Optional)
+                          schema:
+                            'null': true
+                            type: int
+                          variable: gw_priority
+                        - description: Indicates in which order Compose connects the
+                            service's containers to its networks.
+                          label: Priority (Optional)
+                          schema:
+                            'null': true
+                            type: int
+                          variable: priority
+                        type: dict
+                      variable: config
+                    type: dict
+                  variable: container
+                type: list
+              variable: containers
+            type: dict
+          variable: network
+        show_if:
+        - - host_network
+          - '='
+          - false
+        type: list
+      variable: networks
+    - description: 'Bind to the host network. It''s recommended to keep this disabled.
+
+        '
+      label: Host Network
+      schema:
+        default: false
+        type: boolean
+      variable: host_network
+    type: dict
+  variable: network
+- group: Storage Configuration
+  label: ''
+  schema:
+    attrs:
+    - label: Application Configuration Storage
+      schema:
+        attrs:
+        - description: 'ixVolume: Is dataset created automatically by the system.</br>
+
+            Host Path: Is a path that already exists on the system.
+
+            '
+          label: Type
+          schema:
+            default: ix_volume
+            enum:
+            - description: Host Path (Path that already exists on the system)
+              value: host_path
+            - description: ixVolume (Dataset created automatically by the system)
+              value: ix_volume
+            required: true
+            type: string
+          variable: type
+        - description: The configuration for the ixVolume dataset.
+          label: ixVolume Configuration
+          schema:
+            $ref:
+            - normalize/ix_volume
+            attrs:
+            - description: Enable ACL for the storage.
+              label: Enable ACL
+              schema:
+                default: false
+                type: boolean
+              variable: acl_enable
+            - description: The name of the dataset to use for storage.
+              label: Dataset Name
+              schema:
+                default: config
+                hidden: true
+                required: true
+                type: string
+              variable: dataset_name
+            - label: ACL Configuration
+              schema:
+                attrs: []
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                type: dict
+              variable: acl_entries
+            show_if:
+            - - type
+              - '='
+              - ix_volume
+            type: dict
+          variable: ix_volume_config
+        - label: Host Path Configuration
+          schema:
+            attrs:
+            - description: Enable ACL for the storage.
+              label: Enable ACL
+              schema:
+                default: false
+                type: boolean
+              variable: acl_enable
+            - label: ACL Configuration
+              schema:
+                $ref:
+                - normalize/acl
+                attrs: []
+                show_if:
+                - - acl_enable
+                  - '='
+                  - true
+                type: dict
+              variable: acl
+            - description: The host path to use for storage.
+              label: Host Path
+              schema:
+                required: true
+                show_if:
+                - - acl_enable
+                  - '='
+                  - false
+                type: hostpath
+              variable: path
+            show_if:
+            - - type
+              - '='
+              - host_path
+            type: dict
+          variable: host_path_config
+        type: dict
+      variable: config
+      description: Persistent settings, encrypted service credentials, administrator
+        password, AI authentication and repair history. Back up this entire dataset
+        together.
+    type: dict
+  variable: storage
+- group: Labels Configuration
+  label: ''
+  schema:
+    default: []
+    items:
+    - label: Label
+      schema:
+        attrs:
+        - label: Key
+          schema:
+            required: true
+            type: string
+          variable: key
+        - label: Value
+          schema:
+            required: true
+            type: string
+          variable: value
+        - description: Containers where the label should be applied
+          label: Containers
+          schema:
+            items:
+            - label: Container
+              schema:
+                enum:
+                - description: plex-repairman
+                  value: plex-repairman
+                required: true
+                type: string
+              variable: container
+            type: list
+          variable: containers
+        type: dict
+      variable: label
+    type: list
+  variable: labels
+- group: Resources Configuration
+  label: ''
+  schema:
+    attrs:
+    - label: Limits
+      schema:
+        attrs:
+        - description: CPUs limit for Plex Repairman.
+          label: CPUs
+          schema:
+            default: 2
+            required: true
+            type: int
+          variable: cpus
+        - description: Memory limit for Plex Repairman.
+          label: Memory (in MB)
+          schema:
+            default: 1024
+            required: true
+            type: int
+          variable: memory
+        type: dict
+      variable: limits
+    type: dict
+  variable: resources
