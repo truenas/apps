@@ -28,13 +28,14 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: truenas_host
-          label: TrueNAS Host
-          description: |
-            Address and port of the TrueNAS web interface, for example <code>192.0.2.10:443</code>.</br>
-            It must be reachable from the container, so use the TrueNAS IP address (not localhost).
+        - variable: truenas_port
+          label: TrueNAS Web Interface HTTPS Port
+          description: The HTTPS port of the TrueNAS web interface (System > General Settings > GUI).
           schema:
-            type: string
+            type: int
+            default: 443
+            min: 1
+            max: 65535
             required: true
         - variable: truenas_api_key
           label: TrueNAS API Key
@@ -45,63 +46,6 @@ questions:
             type: string
             private: true
             required: true
-        - variable: truenas_tls
-          label: Use TLS
-          description: Connect to TrueNAS over wss:// (HTTPS). Disable only if the TrueNAS web interface is plain HTTP.
-          schema:
-            type: boolean
-            default: true
-        - variable: truenas_insecure_tls
-          label: Skip Certificate Verification
-          description: |
-            Do not verify the TrueNAS certificate.</br>
-            Needed with the default self-signed TrueNAS certificate.
-          schema:
-            type: boolean
-            default: true
-            show_if: [["truenas_tls", "=", true]]
-        - variable: docker_stats
-          label: Show Docker Stacks and Containers
-          description: |
-            Start a read-only Docker socket proxy next to NasWarden (it can only list containers and read their stats)
-            and show Compose stacks and containers.</br>
-            NasWarden itself never gets access to the Docker socket.
-          schema:
-            type: boolean
-            default: true
-        - variable: incus_url
-          label: Incus URL (Optional)
-          description: |
-            Show Incus virtual machines and containers. The API URL, for example <code>https://192.0.2.10:8443</code>.</br>
-            Leave empty to disable.
-          schema:
-            type: string
-            default: ""
-        - variable: incus_client_cert
-          label: Incus Client Certificate (Optional)
-          description: |
-            The Incus client certificate as PEM text, base64, or a path to a file mounted with Additional Storage.
-          schema:
-            type: string
-            private: true
-            default: ""
-            show_if: [["incus_url", "!=", ""]]
-        - variable: incus_client_key
-          label: Incus Client Key (Optional)
-          description: |
-            The Incus client private key as PEM text, base64, or a path to a file mounted with Additional Storage.
-          schema:
-            type: string
-            private: true
-            default: ""
-            show_if: [["incus_url", "!=", ""]]
-        - variable: incus_insecure_tls
-          label: Skip Incus Certificate Verification
-          description: Do not verify the Incus server certificate (Incus uses a self-signed certificate by default).
-          schema:
-            type: boolean
-            default: true
-            show_if: [["incus_url", "!=", ""]]
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -239,8 +183,6 @@ questions:
                                     enum:
                                       - value: naswarden
                                         description: naswarden
-                                      - value: naswarden-docker-proxy
-                                        description: naswarden-docker-proxy
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -285,7 +227,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -308,7 +250,7 @@ questions:
             type: list
             default: []
             items:
-              - variable: storageEntry
+              - variable: storage_entry
                 label: Storage Entry
                 schema:
                   type: dict
@@ -494,8 +436,6 @@ questions:
                         enum:
                           - value: naswarden
                             description: naswarden
-                          - value: naswarden-docker-proxy
-                            description: naswarden-docker-proxy
   - variable: resources
     label: ""
     group: Resources Configuration
