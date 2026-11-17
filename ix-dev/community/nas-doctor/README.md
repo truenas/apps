@@ -1,26 +1,21 @@
 # NAS Doctor
 
 [NAS Doctor](https://github.com/mcdays94/nas-doctor) is a local diagnostic and monitoring tool for your NAS.
-It runs periodic health checks — analyzing SMART data, disk usage, Docker containers,
-GPU, process CPU usage, network speed, ZFS pools, UPS power, tunnels, and more — then
-surfaces findings with actionable recommendations backed by Backblaze failure rate data.
 
-## Features
+It runs periodic health checks on SMART data, disk usage, Docker containers, GPU, process CPU usage,
+network speed, ZFS pools, UPS power and tunnels, then reports findings with recommendations
+backed by Backblaze drive failure rates.
 
-- 20+ diagnostic rules with automatic root-cause correlation
-- SMART health with Backblaze failure-rate thresholds (337k+ drives)
-- Top Processes with Docker container attribution (cgroup v1 and v2)
-- GPU monitoring (NVIDIA, Intel, AMD)
-- Network speed test scheduling (Ookla CLI)
-- Service checks (HTTP, TCP, DNS, Ping/ICMP, SMB, NFS, Speed)
-- ZFS pool health, UPS/power monitoring
-- Webhook alerts (Discord, Slack, Gotify, Ntfy)
-- Prometheus metrics endpoint
-- Multi-server fleet monitoring
+The container shares the host PID namespace so Top Processes can see every host process
+and match it to its Docker container.
 
-## Notes
+To monitor the disk space of a pool or dataset, add it under Additional Storage as a read only
+Host Path with a mount path under /host/mnt (for example /host/mnt/tank).
 
-- Requires privileged access (`SYS_RAWIO` capability) for SMART health monitoring
-- Host PID namespace sharing is enabled so Top Processes can see all host processes
-  and match them to Docker containers via cgroup data
-- `/dev` and `/sys` are mounted read-only for device access and GPU telemetry
+<!-- x-readme:warnings:start -->
+
+⚠️ **WARNING:** This app has access to the Docker socket, which gives it full control over all containers and effectively root access to the system.
+
+Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+
+<!-- x-readme:warnings:end -->
