@@ -7,8 +7,7 @@
 {# The container starts as root so the IDENT helper can bind its socket and open
    the enclosure; the entrypoint drops the web process to uid 1000 with setpriv. #}
 {% do c.set_user(0, 0) %}
-{% do c.restart.set_policy("unless-stopped") %}
-{% do c.healthcheck.set_test("tcp", {"port": values.consts.internal_port}) %}
+{% do c.healthcheck.set_test("tcp", {"port": values.network.web_port.port_number}) %}
 
 {# Only the two capabilities the setpriv drop needs; the library drops the rest. #}
 {% do c.add_caps(["SETUID", "SETGID"]) %}
@@ -32,7 +31,7 @@
 {% do c.add_storage("/run/ktn", {"type": "tmpfs", "tmpfs_config": {"mode": "0770", "uid": 0, "gid": values.consts.app_group_id}}) %}
 
 {% do c.environment.add_env("KTN_DATA_DIR", "/data") %}
-{% do c.environment.add_env("KTN_PORT", values.consts.internal_port) %}
+{% do c.environment.add_env("KTN_PORT", values.network.web_port.port_number) %}
 {% do c.environment.add_env("KTN_SYSFS_ROOT", "/sys") %}
 {% do c.environment.add_env("KTN_IDENT_HELPER_SOCKET", values.consts.ident_socket) %}
 {% do c.environment.add_env("KTN_ENCLOSURE_ALLOWLIST", values.enclosure.allowlist) %}
@@ -44,7 +43,7 @@
 {% do c.environment.add_user_envs(values.enclosure.additional_envs) %}
 
 {% if values.network.web_port.bind_mode %}
-  {% do c.add_port(values.network.web_port, {"container_port": values.consts.internal_port}) %}
+  {% do c.add_port(values.network.web_port) %}
 {% endif %}
 
 {% if perm_container.has_actions() %}
@@ -52,7 +51,7 @@
   {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port, {"name": "Web UI"}) %}
+{% do tpl.portals.add(values.network.web_port) %}
 
 {% if values.enclosure.auth_required %}
   {% do tpl.notes.add_warning("There is no default password. Open the Web UI and create the administrator on first run.") %}
