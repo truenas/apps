@@ -1,5 +1,6 @@
 import copy
 import os
+import sys
 
 from .configs import Configs
 from .container import Container
@@ -16,6 +17,20 @@ from .volumes import Volumes
 
 class Render(object):
     def __init__(self, values):
+        # The template calls into the library from its first line to its last, so a RenderError can be
+        # raised anywhere in between. The hook handles whatever is left uncaught when the render process ends.
+        # A RenderError is a user facing configuration error: show only its message (no traceback) and exit
+        # with EX_CONFIG, the same way the migration scripts refuse a blocked upgrade.
+        previous_excepthook = sys.excepthook
+
+        def exit_on_render_error(exc_type, exc, tb):
+            if issubclass(exc_type, RenderError):
+                print(exc, file=sys.stderr)
+                sys.exit(os.EX_CONFIG)
+            previous_excepthook(exc_type, exc, tb)
+
+        sys.excepthook = exit_on_render_error
+
         self._containers: dict[str, Container] = {}
         self.values = values
         # Make a copy after we inject the images
