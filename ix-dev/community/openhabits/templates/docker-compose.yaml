@@ -5,18 +5,13 @@
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{# The image is built FROM scratch (no shell, curl or wget), so it ships its own check. #}
-{% do c1.healthcheck.use_built_in() %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/app/bin/server", "--healthcheck"]) %}
 
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("HTTPS_PORT", values.network.https_port.port_number) %}
 {% do c1.environment.add_env("DB_PATH", "%s/data.sqlite"|format(values.consts.data_path)) %}
-{% if values.openhabits.public_url %}
-  {% do c1.environment.add_env("PUBLIC_URL", values.openhabits.public_url) %}
-{% endif %}
-{% if values.openhabits.trust_proxy %}
-  {% do c1.environment.add_env("TRUST_PROXY", "true") %}
-{% endif %}
+{% do c1.environment.add_env("TRUST_PROXY", values.openhabits.trust_proxy) %}
+{% do c1.environment.add_env("PUBLIC_URL", values.openhabits.public_url) %}
 {% do c1.environment.add_user_envs(values.openhabits.additional_envs) %}
 
 {% do c1.add_storage(values.consts.data_path, values.storage.data) %}

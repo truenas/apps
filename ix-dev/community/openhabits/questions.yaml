@@ -30,18 +30,16 @@ questions:
       type: dict
       attrs:
         - variable: public_url
-          label: Reverse Proxy Address (Optional)
+          label: Public URL
           description: |
-            Only if this server is reached through a reverse proxy or tunnel with its</br>
-            own certificate, for example https://habits.example.com. Otherwise leave it empty.
+            The public URL of OpenHabits when it is reached through a reverse proxy or tunnel.</br>
+            Example: https://habits.example.com
           schema:
-            type: string
+            type: uri
             default: ""
         - variable: trust_proxy
-          label: Behind a Reverse Proxy
-          description: |
-            Turn this on if a reverse proxy sits in front of OpenHabits, so the server</br>
-            sees each visitor's real address. Leave it off otherwise.
+          label: Trust Proxy
+          description: Trust the X-Forwarded-For header sent by a reverse proxy to get the client's real IP.
           schema:
             type: boolean
             default: false
@@ -94,20 +92,8 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: host_network
-          label: Host Network
-          description: |
-            Keep this on so "Enable remote access" on the setup page can ask your</br>
-            router to open a port for you (UPnP). Turn it off only if you forward</br>
-            the HTTPS port on your router yourself or use a public address above.
-          schema:
-            type: boolean
-            default: true
         - variable: web_port
-          label: Web Port
-          description: |
-            The port for the app and the setup page on your home network.</br>
-            With host networking on, this is the port the server listens on.
+          label: WebUI Port
           schema:
             type: dict
             attrs:
@@ -134,7 +120,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 8080
+                  default: 30591
                   min: 1
                   max: 65535
                   required: true
@@ -154,10 +140,8 @@ questions:
                         $ref:
                           - definitions/node_bind_ip
         - variable: https_port
-          label: Remote Access Port
-          description: |
-            The secure port devices use away from home.</br>
-            With host networking on, this is the port the server listens on.
+          label: HTTPS Port
+          description: The port devices use to connect from outside your home network.
           schema:
             type: dict
             attrs:
@@ -184,7 +168,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 8443
+                  default: 30592
                   min: 1
                   max: 65535
                   required: true
@@ -288,10 +272,19 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.</br>
+            Enable it only if you want "Enable remote access" on the setup page to
+            open the HTTPS port on your router automatically (UPnP).
+          schema:
+            type: boolean
+            default: false
 
   - variable: storage
     label: ""
@@ -300,8 +293,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: OpenHabits Data Storage
-          description: Where OpenHabits keeps its database and certificate.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -592,5 +584,5 @@ questions:
                 description: Memory limit for OpenHabits.
                 schema:
                   type: int
-                  default: 512
+                  default: 4096
                   required: true
