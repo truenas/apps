@@ -1,18 +1,34 @@
 {% from "macros/certs.sh.jinja" import certs_script %}
-{% from "macros/database.sh.jinja" import database_script %}
 {% from "macros/takserver.sh.jinja" import takserver_script %}
 
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{# Permissions container fixes dataset ownership before the main services start #}
+{% if not values.takserver.db_password %}
+  {% do ix_lib.base.utils.throw_error("Database password must not be empty") %}
+{% endif %}
+
 {% set perms = tpl.deps.perms(values.consts.perms_container_name) %}
-{% do perms.add_or_skip_action("db", values.storage.db, {"uid": 26, "gid": 0, "chmod": "0700", "mode": "check"}) %}
+
+{# TAK Server requires the PostGIS extension, so postgis/postgis is used instead of postgres #}
+{% set pg_config = {
+  "user": "martiuser",
+  "password": values.takserver.db_password,
+  "database": "cot",
+  "volume": values.storage.db,
+  "max_connections": 300,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.db_container_name, "postgis_image", pg_config, perms) %}
+{# TAK Server's CoreConfig connects to jdbc:postgresql://tak-database:5432/cot #}
+{% do postgres.container.set_hostname("tak-database") %}
+{# The postgis image creates the PostGIS extension, but not pgcrypto, which TAK's schema uses #}
+{% do postgres.container.configs.add("pgcrypto_init", "CREATE EXTENSION IF NOT EXISTS pgcrypto;", "/docker-entrypoint-initdb.d/10-pgcrypto.sql") %}
+
 {% do perms.add_or_skip_action("certs", values.storage.certs, {"uid": 1001, "gid": 0, "chmod": "0775", "mode": "check"}) %}
 {% do perms.add_or_skip_action("logs", values.storage.logs, {"uid": 1001, "gid": 0, "chmod": "0775", "mode": "check"}) %}
 {% do perms.add_or_skip_action("config", values.storage.config, {"uid": 1001, "gid": 0, "chmod": "0775", "mode": "check"}) %}
-{# Activated before the other containers, so they can depend on it #}
 {% if perms.has_actions() %}
   {% do perms.activate() %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
 {# Certificate / secrets init container (one-shot) #}
@@ -44,23 +60,6 @@
 {% do certs.environment.add_env("USER_GROUPS", values.takserver.user_groups) %}
 {% do certs.environment.add_user_envs(values.takserver.additional_envs) %}
 
-{# Database container #}
-{% set db = tpl.add_container(values.consts.db_container_name, "takserver_db_image") %}
-{% do db.set_user(26, 0) %}
-{% do db.set_hostname("tak-database") %}
-{% do db.configs.add("database.sh", database_script(), "/init/database.sh", "0755") %}
-{% do db.set_entrypoint(["/bin/bash", "/init/database.sh"]) %}
-{% do db.add_storage(values.consts.db_path, values.storage.db) %}
-{% do db.add_storage(values.consts.config_path, values.storage.config) %}
-{% do db.depends.add_dependency(values.consts.certs_container_name, "service_completed_successfully") %}
-{% if perms.has_actions() %}
-  {% do db.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
-{% endif %}
-{% do db.environment.add_env("PGDATA", values.consts.db_path) %}
-{% do db.environment.add_env("SECRETS_FILE", "%s/secrets.env"|format(values.consts.config_path)) %}
-{% do db.healthcheck.set_test("postgres", {"user": "postgres", "db": "postgres"}) %}
-{% do db.healthcheck.set_start_period(120) %}
-
 {# TAK Server container #}
 {% set app = tpl.add_container(values.consts.app_container_name, "image") %}
 {% do app.set_user(1001, 0) %}
@@ -80,6 +79,7 @@
 {% endif %}
 {% do app.environment.add_env("SECRETS_FILE", "%s/secrets.env"|format(values.consts.tak_config_path)) %}
 {% do app.environment.add_env("FILES", "/opt/tak/certs/files") %}
+{% do app.environment.add_env("POSTGRES_PASSWORD", values.takserver.db_password) %}
 {% do app.environment.add_env("ADMIN_CERT_NAME", values.takserver.admin_cert_name) %}
 {% do app.environment.add_env("USERS", values.takserver.users | join(" ")) %}
 {% do app.environment.add_env("USER_GROUPS", values.takserver.user_groups) %}

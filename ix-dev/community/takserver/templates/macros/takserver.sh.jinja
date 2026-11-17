@@ -1,6 +1,7 @@
 {% macro takserver_script() -%}
 #!/usr/bin/env bash
-# Renders CoreConfig.xml, starts TAK Server, registers admin cert and creates users.
+# Renders CoreConfig.xml, applies the database schema, starts TAK Server,
+# registers admin cert and creates users.
 # Runs as tak (uid 1001) after the perms container fixes dataset ownership.
 set -euo pipefail
 
@@ -85,6 +86,11 @@ EOF
 else
   echo "WARNING: no intermediate-signing.jks; port 8446 enrollment will not work" >&2
 fi
+
+# TAK Server's schema is created and upgraded by upstream's SchemaManager, which
+# reads the rendered CoreConfig.xml for the connection. Idempotent on later runs.
+echo "Applying the TAK Server database schema"
+(cd /opt/tak && java -jar db-utils/SchemaManager.jar upgrade)
 
 export CAPASS
 
