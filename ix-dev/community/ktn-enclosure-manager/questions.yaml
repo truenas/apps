@@ -1,8 +1,6 @@
 groups:
   - name: KTN Enclosure Manager Configuration
     description: Configure KTN Enclosure Manager
-  - name: TrueNAS Integration Configuration
-    description: Configure TrueNAS Integration for KTN Enclosure Manager
   - name: Network Configuration
     description: Configure Network for KTN Enclosure Manager
   - name: Storage Configuration
@@ -23,7 +21,7 @@ questions:
       $ref:
         - definitions/timezone
 
-  - variable: enclosure
+  - variable: ktn
     label: ""
     group: KTN Enclosure Manager Configuration
     schema:
@@ -37,6 +35,8 @@ questions:
             Eg: Host Device: /dev/sg16, Container Device: /dev/sg16
           schema:
             type: list
+            min: 1
+            required: true
             default: []
             items:
               - variable: device
@@ -50,7 +50,7 @@ questions:
                       schema:
                         type: string
                         required: true
-                        valid_chars: '^/dev/(sg|bsg)[a-zA-Z0-9/:]+$'
+                        valid_chars: "^/dev/(sg|bsg)[a-zA-Z0-9/:]+$"
                         valid_chars_error: Must be a /dev/sg* or /dev/bsg/* path
                     - variable: container_device
                       label: Container Device
@@ -58,19 +58,24 @@ questions:
                       schema:
                         type: string
                         required: true
-                        valid_chars: '^/dev/(sg|bsg)[a-zA-Z0-9/:]+$'
+                        valid_chars: "^/dev/(sg|bsg)[a-zA-Z0-9/:]+$"
                         valid_chars_error: Must be a /dev/sg* or /dev/bsg/* path
-
         - variable: allowlist
-          label: Restrict to enclosure ID
+          label: Restrict to Enclosure IDs
           description: |
-            Comma-separated enclosure logical identifiers.</br>
+            The enclosure logical identifiers to manage.</br>
             Leave empty to manage every enclosure found.</br>
             Find yours with: cat /sys/class/enclosure/*/id
           schema:
-            type: string
-            default: ""
-
+            type: list
+            default: []
+            items:
+              - variable: enclosure_id
+                label: Enclosure ID
+                schema:
+                  type: string
+                  default: ""
+                  required: true
         - variable: auth_required
           label: Require a login
           description: |
@@ -81,7 +86,6 @@ questions:
           schema:
             type: boolean
             default: true
-
         - variable: allow_anonymous_ident
           label: Allow Identify without a login
           description: |
@@ -91,10 +95,30 @@ questions:
             type: boolean
             default: false
             show_if: [["auth_required", "=", false]]
-
+        - variable: truenas_api_key
+          label: TrueNAS API Key
+          description: |
+            Used for pool, vdev, ZFS error and SMART data.</br>
+            Leave empty to run without it. The drive map, chassis telemetry and
+            Identify all work without it.</br>
+            Create one under <b>Credentials -> Users</b>: open the user and choose <b>Access -> View API Keys</b>
+            and add a key, for a user with the <b>Readonly Admin</b> role.
+          schema:
+            type: string
+            default: ""
+            private: true
+        - variable: truenas_port
+          label: TrueNAS Web Interface HTTPS Port
+          description: The HTTPS port of the TrueNAS web interface (System > General Settings > GUI).
+          schema:
+            type: int
+            default: 443
+            min: 1
+            max: 65535
+            required: true
+            show_if: [["truenas_api_key", "!=", ""]]
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for KTN Enclosure Manager.
           schema:
             type: list
             default: []
@@ -114,37 +138,6 @@ questions:
                       schema:
                         type: string
 
-  - variable: truenas
-    label: ""
-    group: TrueNAS Integration Configuration
-    schema:
-      type: dict
-      attrs:
-        - variable: url
-          label: TrueNAS URL
-          description: |
-            The TrueNAS URL to use for pool, vdev, ZFS error and SMART data.</br>
-            Leave empty to run without it. The drive map, chassis telemetry and
-            Identify all work without it.
-          schema:
-            type: string
-            default: ""
-
-        - variable: api_key
-          label: API Key
-          description: The TrueNAS API key. Create one under Credentials, API Keys, Add.
-          schema:
-            type: string
-            default: ""
-            private: true
-
-        - variable: verify_tls
-          label: Verify TLS Certificate
-          description: Verify the TrueNAS TLS certificate. Disable only for a self-signed certificate you cannot replace.
-          schema:
-            type: boolean
-            default: true
-
   - variable: network
     label: ""
     group: Network Configuration
@@ -152,7 +145,7 @@ questions:
       type: dict
       attrs:
         - variable: web_port
-          label: Web Port
+          label: WebUI Port
           schema:
             type: dict
             attrs:
@@ -179,7 +172,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30842
+                  default: 30113
                   min: 1
                   max: 65535
                   required: true
@@ -198,7 +191,102 @@ questions:
                         required: true
                         $ref:
                           - definitions/node_bind_ip
-
+        - variable: networks
+          label: Networks
+          description: The docker networks to join
+          schema:
+            type: list
+            show_if: [["host_network", "=", false]]
+            default: []
+            items:
+              - variable: network
+                label: Network
+                schema:
+                  type: dict
+                  attrs:
+                    - variable: name
+                      label: Name
+                      description: |
+                        The name of the network to join.</br>
+                        The network must already exist.
+                      schema:
+                        type: string
+                        default: ""
+                        required: true
+                    - variable: containers
+                      label: Containers
+                      description: The containers to add to this network.
+                      schema:
+                        type: list
+                        items:
+                          - variable: container
+                            label: Container
+                            schema:
+                              type: dict
+                              attrs:
+                                - variable: name
+                                  label: Container Name
+                                  schema:
+                                    type: string
+                                    required: true
+                                    enum:
+                                      - value: ktn-enclosure-manager
+                                        description: ktn-enclosure-manager
+                                - variable: config
+                                  label: Container Network Configuration
+                                  schema:
+                                    type: dict
+                                    attrs:
+                                      - variable: aliases
+                                        label: Aliases (Optional)
+                                        description: The network aliases to use for this container on this network.
+                                        schema:
+                                          type: list
+                                          default: []
+                                          items:
+                                            - variable: alias
+                                              label: Alias
+                                              schema:
+                                                type: string
+                                      - variable: interface_name
+                                        label: Interface Name (Optional)
+                                        description: The network interface name to use for this network
+                                        schema:
+                                          type: string
+                                      - variable: mac_address
+                                        label: MAC Address (Optional)
+                                        description: The MAC address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv4_address
+                                        label: IPv4 Address (Optional)
+                                        description: The IPv4 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: ipv6_address
+                                        label: IPv6 Address (Optional)
+                                        description: The IPv6 address to use for this network interface.
+                                        schema:
+                                          type: string
+                                      - variable: gw_priority
+                                        label: Gateway Priority (Optional)
+                                        description: Indicates the priority of the gateway for this network interface.
+                                        schema:
+                                          type: int
+                                          "null": true
+                                      - variable: priority
+                                        label: Priority (Optional)
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
+                                        schema:
+                                          type: int
+                                          "null": true
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.
+          schema:
+            type: boolean
+            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -206,8 +294,7 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: KTN Enclosure Manager Data Storage
-          description: The path to store KTN Enclosure Manager Data.
+          label: Data Storage
           schema:
             type: dict
             attrs:
@@ -281,21 +368,8 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this will check the top level directory,</br>
-                        and if it finds incorrect permissions, it will `chown`
-                        the host path to the user and group the app runs as.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
-
         - variable: additional_storage
           label: Additional Storage
-          description: Configure additional storage for KTN Enclosure Manager.
           schema:
             type: list
             default: []
@@ -310,7 +384,8 @@ questions:
                       description: |
                         ixVolume: Is dataset created automatically by the system.</br>
                         Host Path: Is a path that already exists on the system.</br>
-                        SMB Share: Is a SMB share that is mounted to as a volume.
+                        SMB Share: Is a SMB share that is mounted to as a volume.</br>
+                        NFS Share: Is a NFS share that is mounted to as a volume.
                       schema:
                         type: string
                         required: true
@@ -322,6 +397,8 @@ questions:
                             description: ixVolume (Dataset created automatically by the system)
                           - value: "cifs"
                             description: SMB/CIFS Share (Mounts a volume to a SMB share)
+                          - value: "nfs"
+                            description: NFS Share (Mounts a volume to a NFS share)
                     - variable: read_only
                       label: Read Only
                       description: Mount the volume as read only.
@@ -428,7 +505,25 @@ questions:
                             description: The domain to use for the SMB share.
                             schema:
                               type: string
-
+                    - variable: nfs_config
+                      label: NFS Configuration
+                      description: The configuration for the NFS dataset.
+                      schema:
+                        type: dict
+                        show_if: [["type", "=", "nfs"]]
+                        attrs:
+                          - variable: server
+                            label: Server
+                            description: The server to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
+                          - variable: path
+                            label: Path
+                            description: The path to mount the NFS share.
+                            schema:
+                              type: string
+                              required: true
   - variable: labels
     label: ""
     group: Labels Configuration
