@@ -200,6 +200,21 @@ def test_readme_warnings(render, c1, monkeypatch):
     }
 
 
+def test_risk_warning_mdns(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.add_risk_warning("mdns")
+    output = render.render()
+    assert output["x-action-required"] is False
+    assert "## Risks ⚠️\n\n- This app announces itself over mDNS (Bonjour) on the host network (when enabled)" in (
+        output["x-notes"]
+    )
+    assert output["x-readme"]["warnings"] == [
+        "This app announces itself over mDNS (Bonjour) on the host network (when enabled), "
+        "which can conflict with the system's own mDNS and disrupt discovery of TrueNAS and its services "
+        "(such as its .local name, SMB and Time Machine)."
+    ]
+
+
 def test_readme_no_warnings(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
     output = render.render()

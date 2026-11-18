@@ -26,6 +26,11 @@ RISK_WARNINGS = {
     "privileged": (
         "This app runs a container in privileged mode, which gives it full access to the system's devices and kernel."
     ),
+    "mdns": (
+        "This app announces itself over mDNS (Bonjour) on the host network (when enabled), "
+        "which can conflict with the system's own mDNS and disrupt discovery of TrueNAS and its services "
+        "(such as its .local name, SMB and Time Machine)."
+    ),
 }
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
 # Host paths the notes name. Devices only count as host mounts when they are one of these,
