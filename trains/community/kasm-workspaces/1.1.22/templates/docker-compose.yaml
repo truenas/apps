@@ -33,12 +33,14 @@
 {% endif %}
 
 {% do c1.environment.add_env("KASM_PORT", values.network.web_port.port_number) %}
+{% do c1.environment.add_env("KASM_SETUP", values.kasm.setup) %}
 {% do c1.environment.add_user_envs(values.kasm.additional_envs) %}
 
-{% if not values.network.host_network %}
+{% do c1.add_port(values.network.web_port) %}
+{% if values.kasm.setup %}
   {% do c1.add_port(values.network.setup_port, {"container_port": values.consts.setup_internal_port}) %}
-  {% do c1.add_port(values.network.web_port) %}
-{%endif %}
+  {% do tpl.portals.add(values.network.setup_port, {"name": "Setup", "scheme": "https", "port": values.consts.setup_internal_port if values.network.host_network else None}) %}
+{% endif %}
 
 {% do c1.add_storage("/opt", values.storage.opt) %}
 {% do c1.add_storage("/profiles", values.storage.profiles) %}
@@ -48,7 +50,6 @@
 {% endfor %}
 
 {% do tpl.portals.add(values.network.web_port, {"scheme": "https"}) %}
-{% do tpl.portals.add(values.network.setup_port, {"name": "Setup", "scheme": "https", "port": values.consts.setup_internal_port if values.network.host_network else None}) %}
 {% do tpl.notes.set_body(values.consts.notes_body) %}
 
 {{ tpl.render() | tojson }}
