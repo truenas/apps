@@ -14,7 +14,7 @@ RISK_WARNING_IMPACT = (
 # The notes are only visible after install, the README before it
 RISK_WARNING_NOTES_SUFFIX = "Use at your own risk."
 RISK_WARNING_README_SUFFIX = "Install at your own risk."
-# docker_access and privileged are added by the scan of the containers, apps add the rest
+# docker_access, privileged and host_capabilities are added by the scan of the containers, apps add the rest
 RISK_WARNINGS = {
     "truenas_api_access": (
         "This app requires a TrueNAS API key, which gives it administrative control over the system."
@@ -26,6 +26,10 @@ RISK_WARNINGS = {
     "privileged": (
         "This app runs a container in privileged mode, which gives it full access to the system's devices and kernel."
     ),
+    "host_capabilities": (
+        "This app runs a container with capabilities (such as SYS_ADMIN or SYS_MODULE) "
+        "that can give it control over the system, close to privileged mode."
+    ),
     "mdns": (
         "This app announces itself over mDNS (Bonjour) on the host network (when enabled), "
         "which can conflict with the system's own mDNS and disrupt discovery of TrueNAS and its services "
@@ -33,6 +37,10 @@ RISK_WARNINGS = {
     ),
 }
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
+# Capabilities that reach the host on their own: mount and admin syscalls, kernel modules,
+# raw I/O, and open_by_handle_at, which reads any file on a bind-mounted filesystem.
+# NET_ADMIN, SYS_PTRACE and the like stay in the container's namespaces, so they are left out.
+HOST_CONTROL_CAPS = ("SYS_ADMIN", "SYS_MODULE", "SYS_RAWIO", "DAC_READ_SEARCH")
 # Host paths the notes name. Devices only count as host mounts when they are one of these,
 # the rest of the devices are the ones the user picks in the app's questions
 KNOWN_HOST_MOUNTS = {
@@ -209,6 +217,8 @@ class Notes:
                         ],
                     )
                 )
+            elif any(cap in c._cap_add for cap in HOST_CONTROL_CAPS):
+                self.add_risk_warning("host_capabilities")
 
             networks = []
             for net in c.networks._networks.values():

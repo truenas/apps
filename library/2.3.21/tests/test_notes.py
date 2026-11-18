@@ -246,6 +246,36 @@ def test_risk_warning_privileged(render, c1, monkeypatch):
     ]
 
 
+@pytest.mark.parametrize("cap", ["SYS_ADMIN", "SYS_MODULE", "SYS_RAWIO", "DAC_READ_SEARCH"])
+def test_risk_warning_host_capabilities(render, c1, monkeypatch, cap):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.add_caps([cap])
+    output = render.render()
+    assert output["x-action-required"] is False
+    assert output["x-readme"]["warnings"] == [
+        "This app runs a container with capabilities (such as SYS_ADMIN or SYS_MODULE) "
+        "that can give it control over the system, close to privileged mode."
+    ]
+
+
+@pytest.mark.parametrize("cap", ["NET_ADMIN", "SYS_PTRACE", "CHOWN"])
+def test_no_risk_warning_namespaced_capabilities(render, c1, monkeypatch, cap):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.add_caps([cap])
+    output = render.render()
+    assert output["x-readme"]["warnings"] == []
+
+
+def test_privileged_skips_host_capabilities_warning(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.set_privileged(True)
+    c1.add_caps(["SYS_ADMIN"])
+    output = render.render()
+    assert output["x-readme"]["warnings"] == [
+        "This app runs a container in privileged mode, which gives it full access to the system's devices and kernel."
+    ]
+
+
 def test_risk_warning_detected_once_for_many_containers(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
     c1.set_privileged(True)
