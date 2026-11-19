@@ -172,7 +172,7 @@ class Notes:
             "intro": RISKS_INTRO,
             "list_header": RISKS_README_LIST_HEADER,
             "footer": RISKS_FOOTER,
-            "items":[{"key": name, "label": RISKS[name]} for name in self._ordered_risks(self._declared_risks)],
+            "items": [{"key": name, "label": RISKS[name]} for name in self._ordered_risks(self._declared_risks)],
         }
 
     def add_deprecation(self, deprecation: str):
