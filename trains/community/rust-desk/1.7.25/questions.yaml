@@ -1,41 +1,70 @@
 groups:
-  - name: Ultra Explorer Configuration
-    description: Configure Ultra Explorer
+  - name: Rust Desk Configuration
+    description: Configure Rust Desk
   - name: User and Group Configuration
-    description: Configure User and Group for Ultra Explorer
+    description: Configure User and Group for Rust Desk
   - name: Network Configuration
-    description: Configure Network for Ultra Explorer
+    description: Configure Network for Rust Desk
   - name: Storage Configuration
-    description: Configure Storage for Ultra Explorer
+    description: Configure Storage for Rust Desk
   - name: Labels Configuration
-    description: Configure Labels for Ultra Explorer
+    description: Configure Labels for Rust Desk
   - name: Resources Configuration
-    description: Configure Resources for Ultra Explorer
+    description: Configure Resources for Rust Desk
 
 questions:
-  - variable: ultra_explorer
+  - variable: rust_desk
     label: ""
-    group: Ultra Explorer Configuration
+    group: Rust Desk Configuration
     schema:
       type: dict
       attrs:
-        - variable: admin_password
-          label: Admin Password
-          description: The password to sign in to the web interface, at least 12 characters.
+        - variable: image_selector
+          label: Image Selector
+          description: The image selector to use for Scrypted.
           schema:
             type: string
-            min_length: 12
-            default: ""
-            private: true
-            required: true
-        - variable: secure_cookies
-          label: Secure Cookies
+            default: image
+            enum:
+              - value: image
+                description: OSS Image
+              - value: pro_image
+                description: Pro Image - Requires a paid license
+        - variable: mac_address
+          label: MAC Address
           description: |
-            Mark the session cookie as HTTPS only.</br>
-            Enable it only when Ultra Explorer is reached through an HTTPS reverse proxy.
+            This is not required if you enable Host Network.</br>
+            For licensing purposes, Rust Desk needs the MAC Address to tie the license to your server.</br>
+            Format: XX:XX:XX:XX:XX:XX
+          schema:
+            type: string
+            default: ""
+            valid_chars: "^.{17}$|^$"
+            show_if: [["image_selector", "=", "pro_image"]]
+        - variable: allow_only_encrypted_connections
+          label: Allow Only Encrypted Connections
+          description: |
+            Allow only encrypted connections.</br>
+            Clients have to use the generated key to connect to the server.
           schema:
             type: boolean
             default: false
+        - variable: additional_relay_servers
+          label: Additional Relay Servers
+          description: |
+            Configure additional relay servers for Rust Desk.</br>
+            If you don't specify any additional relay servers, clients will use port 21117 on the address of this server by default. Deploy the Rust Desk Relay app on this host to serve it.</br>
+            Format: </br> host:port
+          schema:
+            type: list
+            default: []
+            items:
+              - variable: server
+                label: Server
+                schema:
+                  type: string
+                  default: ""
+                  required: true
         - variable: additional_envs
           label: Additional Environment Variables
           schema:
@@ -56,6 +85,7 @@ questions:
                       label: Value
                       schema:
                         type: string
+
   - variable: run_as
     label: ""
     group: User and Group Configuration
@@ -64,18 +94,18 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Ultra Explorer files will be owned by.
+          description: The user id that Rust Desk files will be owned by.
           schema:
             type: int
-            min: 0
+            min: 568
             default: 568
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Ultra Explorer files will be owned by.
+          description: The group id that Rust Desk files will be owned by.
           schema:
             type: int
-            min: 0
+            min: 568
             default: 568
             required: true
 
@@ -85,10 +115,75 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: web_port
-          label: WebUI Port
+        - variable: host_network
+          label: Host Network
+          description: |
+            Bind to the host network. It's recommended to keep this disabled.</br>
+            This might be required if you use the PRO image.
+          schema:
+            type: boolean
+            default: false
+        - variable: webui_port
+          label: Port for the webui
+          description: |
+            This port will be used to connect to the webui.</br>
+            The internal port will always be 21114.</br>
+            This is only available in the PRO version.
           schema:
             type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: ""
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 21114
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: nat_type_test_port
+          label: NAT Type Test Port
+          description: |
+            The port to use for NAT type test.</br>
+            Internal port will always be 21115
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
             attrs:
               - variable: bind_mode
                 label: Port Bind Mode
@@ -113,7 +208,112 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30526
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 21115
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: id_reg_hole_punch_port
+          label: ID Registration and Hole Punching Port
+          description: |
+            The port to use for ID registration and Hole punching.</br>
+            Internal port will always be 21116 (TCP/UDP)
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 21116
+                  min: 1
+                  max: 65535
+                  required: true
+              - variable: host_ips
+                label: Host IPs
+                description: IPs on the host to bind this port
+                schema:
+                  type: list
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: []
+                  items:
+                    - variable: host_ip
+                      label: Host IP
+                      schema:
+                        type: string
+                        required: true
+                        $ref:
+                          - definitions/node_bind_ip
+        - variable: server_web_clients_port
+          label: Server Web Clients Port
+          description: |
+            The port to use for server web clients.</br>
+            Internal port will always be 21118
+          schema:
+            type: dict
+            show_if: [["host_network", "=", false]]
+            attrs:
+              - variable: bind_mode
+                label: Port Bind Mode
+                description: |
+                  The port bind mode.</br>
+                  - Publish: The port will be published on the host for external access.</br>
+                  - Expose: The port will be exposed for inter-container communication.</br>
+                  - None: The port will not be exposed or published.</br>
+                  Note: If the Dockerfile defines an EXPOSE directive,
+                  the port will still be exposed for inter-container communication regardless of this setting.
+                schema:
+                  type: string
+                  default: "published"
+                  enum:
+                    - value: "published"
+                      description: Publish port on the host for external access
+                    - value: "exposed"
+                      description: Expose port for inter-container communication
+                    - value: ""
+                      description: None
+              - variable: port_number
+                label: Port Number
+                schema:
+                  type: int
+                  show_if: [["bind_mode", "=", "published"]]
+                  default: 21118
                   min: 1
                   max: 65535
                   required: true
@@ -171,8 +371,8 @@ questions:
                                     type: string
                                     required: true
                                     enum:
-                                      - value: ultra-explorer
-                                        description: ultra-explorer
+                                      - value: rust-desk
+                                        description: rust-desk
                                 - variable: config
                                   label: Container Network Configuration
                                   schema:
@@ -217,17 +417,10 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service’s containers to its networks.
+                                        description: Indicates in which order Compose connects the service's containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
-        - variable: host_network
-          label: Host Network
-          description: |
-            Bind to the host network. It's recommended to keep this disabled.
-          schema:
-            type: boolean
-            default: false
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -236,7 +429,7 @@ questions:
       attrs:
         - variable: data
           label: Data Storage
-          description: The database, the rclone configuration and its credentials, and transfer staging.
+          description: If you have a relay also deployed in the same machine, this usually points to the same storage.
           schema:
             type: dict
             attrs:
@@ -321,14 +514,6 @@ questions:
                 schema:
                   type: dict
                   attrs:
-                    - variable: local_root
-                      label: Local Folder
-                      description: |
-                        Let Ultra Explorer browse this storage as a local folder.</br>
-                        When no storage is marked, only /mnt/local is used.
-                      schema:
-                        type: boolean
-                        default: false
                     - variable: type
                       label: Type
                       description: |
@@ -508,8 +693,8 @@ questions:
                         type: string
                         required: true
                         enum:
-                          - value: ultra-explorer
-                            description: ultra-explorer
+                          - value: rust-desk
+                            description: rust-desk
   - variable: resources
     label: ""
     group: Resources Configuration
@@ -523,14 +708,14 @@ questions:
             attrs:
               - variable: cpus
                 label: CPUs
-                description: CPUs limit for Ultra Explorer.
+                description: CPUs limit for Rust Desk.
                 schema:
                   type: int
                   default: 2
                   required: true
               - variable: memory
                 label: Memory (in MB)
-                description: Memory limit for Ultra Explorer.
+                description: Memory limit for Rust Desk.
                 schema:
                   type: int
                   default: 4096
