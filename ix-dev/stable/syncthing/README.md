@@ -8,8 +8,14 @@ where it is stored, whether it is shared with some third party, and how it's tra
 
 <!-- x-readme:warnings:start -->
 
-⚠️ **WARNING:** This app runs a container with capabilities (such as SYS_ADMIN or SYS_MODULE) that can give it control over the system, close to privileged mode.
+**!!! WARNING !!!**
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Extended System Capabilities
+
+• Host Networking
 
 <!-- x-readme:warnings:end -->

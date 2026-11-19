@@ -351,12 +351,14 @@ class Notes:
         enabled, may = self._notes_risks()
         if enabled or may:
             result += "## Risks ⚠️\n\n"
-            result += f"**{RISKS_HEADER}**\n\n{RISKS_INTRO}\n\n"
+            # Rules set the warning apart from the sections around it
+            result += f"---\n\n**{RISKS_HEADER}**\n\n{RISKS_INTRO}\n\n"
             for list_header, names in ((RISKS_ENABLED_LIST_HEADER, enabled), (RISKS_MAY_LIST_HEADER, may)):
                 if names:
                     result += f"{list_header}\n\n"
                     result += "".join(f"- {RISKS[name]}\n" for name in names)
                     result += "\n"
+            result += "---\n\n"
 
         if self._warnings:
             result += "## Warnings ⚠️\n\n"

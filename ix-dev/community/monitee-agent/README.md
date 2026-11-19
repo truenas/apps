@@ -4,10 +4,16 @@
 
 <!-- x-readme:warnings:start -->
 
-⚠️ **WARNING:** This app has access to the Docker socket, which gives it full control over all containers and effectively root access to the system.
+**!!! WARNING !!!**
 
-⚠️ **WARNING:** This app runs a container with capabilities (such as SYS_ADMIN or SYS_MODULE) that can give it control over the system, close to privileged mode.
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+The following additional privileges may be enabled from installing this application:
+
+• Docker Socket Access
+
+• Extended System Capabilities
+
+• Host Networking
 
 <!-- x-readme:warnings:end -->

@@ -143,6 +143,8 @@ def test_notes_with_risks(render, c1):
 
 ## Risks ⚠️
 
+---
+
 **!!! WARNING !!!**
 
 This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
@@ -154,6 +156,8 @@ The following additional privileges are enabled for this application:
 The following additional privileges may be enabled by this application:
 
 - mDNS Announcements
+
+---
 
 ## Warnings ⚠️
 
@@ -227,7 +231,7 @@ def test_notes_risks_do_not_require_action(render, c1, monkeypatch):
     assert "may be enabled by this application:\n\n- mDNS Announcements\n" in output["x-notes"]
     assert output["x-action-required"] is False
     # Risks don't mark the title, only warnings and deprecations do
-    assert output["x-notes"].startswith("# Test App\n\n## Risks ⚠️\n\n**!!! WARNING !!!**")
+    assert output["x-notes"].startswith("# Test App\n\n## Risks ⚠️\n\n---\n\n**!!! WARNING !!!**")
     assert "## Warnings" not in output["x-notes"]
 
 
@@ -572,6 +576,8 @@ some other info.
 
 ## Risks ⚠️
 
+---
+
 **!!! WARNING !!!**
 
 This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
@@ -581,6 +587,8 @@ The following additional privileges are enabled for this application:
 - Docker Socket Access
 - Privileged Mode
 - TrueNAS API Key
+
+---
 
 ## Warnings ⚠️
 

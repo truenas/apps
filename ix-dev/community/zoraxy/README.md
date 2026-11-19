@@ -4,10 +4,16 @@
 
 <!-- x-readme:warnings:start -->
 
-⚠️ **WARNING:** This app announces itself over mDNS (Bonjour) on the host network (when enabled), which can conflict with the system's own mDNS and disrupt discovery of TrueNAS and its services (such as its .local name, SMB and Time Machine).
+**!!! WARNING !!!**
 
-⚠️ **WARNING:** This app has access to the Docker socket, which gives it full control over all containers and effectively root access to the system.
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+The following additional privileges may be enabled from installing this application:
+
+• Docker Socket Access
+
+• Host Networking
+
+• mDNS Announcements
 
 <!-- x-readme:warnings:end -->

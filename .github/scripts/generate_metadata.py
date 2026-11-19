@@ -16,7 +16,6 @@ parts of the app's questions.yaml, ix_values.yaml and app.yaml along the way.
 
 import argparse
 import ast
-import json
 import logging
 import re
 import shlex
@@ -46,8 +45,6 @@ from prepare_libs import prepare_app_libs
 APP_VALUES_FILE = "ix_values.yaml"
 ITEM_FILE = "item.yaml"
 README_FILE = "README.md"
-# The app's risks as JSON, for readers outside the catalog
-RISKS_FILE = "risks.json"
 
 # The generated block of README warnings, placed at the end of the README
 README_WARNINGS_START = "<!-- x-readme:warnings:start -->"
@@ -646,11 +643,6 @@ def build_readme(readme: str, paragraphs: list[str]) -> str:
     return f"{stripped.rstrip()}\n\n{block}\n"
 
 
-def build_risks_file(analysis: Analysis) -> str:
-    """The app's risks for readers outside the catalog, like apps.truenas.com."""
-    return json.dumps({"risks": sorted_risks(analysis)}, indent=2) + "\n"
-
-
 def get_git_date_added(app: App) -> str:
     """Date of the commit that added the app's app.yaml (the latest one, if it was ever re-added)."""
     path = app.path / APP_METADATA_FILE
@@ -867,6 +859,18 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     )
     app_config.update(app_version=app_version, capabilities=capabilities, run_as_context=run_as_context)
 
+    # Readers outside the catalog, like apps.truenas.com, get the risks from the app's metadata
+    if analysis.renders_risks:
+        risks = sorted_risks(analysis)
+        if app_config.get("risks") != risks:
+            logger.info(f"Updated {app.name} risks: {len(risks)}")
+            app_config["risks"] = risks
+            changed = True
+    elif "risks" in app_config:
+        # Older libraries render no risks, the ones left from a newer library would be stale
+        del app_config["risks"]
+        changed = True
+
     # The dev validation checks the copied library against this hash, library/hashes.yaml is validated against library/
     if lib_version := app_config.get("lib_version"):
         lib_version_hash = read_yaml(LIBRARY_DIR / "hashes.yaml").get(lib_version)
@@ -907,18 +911,6 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     if new_readme != readme:
         logger.info(f"Updated {app.name} README warnings")
         readme_path.write_text(new_readme)
-        changed = True
-
-    risks_path = app.path / RISKS_FILE
-    if analysis.renders_risks:
-        risks = build_risks_file(analysis)
-        if not risks_path.exists() or risks_path.read_text() != risks:
-            logger.info(f"Updated {app.name} risks: {len(analysis.readme_risks)}")
-            risks_path.write_text(risks)
-            changed = True
-    elif risks_path.exists():
-        # Older libraries render no risks, a file left from a newer one would be stale
-        risks_path.unlink()
         changed = True
 
     # A library sync in this run has already bumped the app, one bump covers both changes
