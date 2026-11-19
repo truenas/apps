@@ -18,6 +18,8 @@ RISKS_README_LIST_HEADER = "The following additional privileges may be enabled f
 # The notes are shown after install, where the render knows which risks are there
 RISKS_ENABLED_LIST_HEADER = "The following additional privileges are enabled for this application:"
 RISKS_MAY_LIST_HEADER = "The following additional privileges may be enabled by this application:"
+# Follows the lists in the README and the notes, left out while empty (eg the link to the apps security page)
+RISKS_FOOTER = ""
 # Ordered by label, the README and the notes list them in this order
 RISKS = {
     "docker_access": "Docker Socket Access",
@@ -169,7 +171,8 @@ class Notes:
             "header": RISKS_HEADER,
             "intro": RISKS_INTRO,
             "list_header": RISKS_README_LIST_HEADER,
-            "items": [{"key": name, "label": RISKS[name]} for name in self._ordered_risks(self._declared_risks)],
+            "footer": RISKS_FOOTER,
+            "items":[{"key": name, "label": RISKS[name]} for name in self._ordered_risks(self._declared_risks)],
         }
 
     def add_deprecation(self, deprecation: str):
@@ -358,6 +361,8 @@ class Notes:
                     result += f"{list_header}\n\n"
                     result += "".join(f"- {RISKS[name]}\n" for name in names)
                     result += "\n"
+            if RISKS_FOOTER:
+                result += f"{RISKS_FOOTER}\n\n"
             result += "---\n\n"
 
         if self._warnings:

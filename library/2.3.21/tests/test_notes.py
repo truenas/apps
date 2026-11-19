@@ -267,6 +267,7 @@ def test_readme_risks(render, c1, monkeypatch):
                 "protections. Use at your own risk."
             ),
             "list_header": "The following additional privileges may be enabled from installing this application:",
+            "footer": "",
             "items": [
                 {"key": "host_network", "label": "Host Networking"},
                 {"key": "mdns", "label": "mDNS Announcements"},
@@ -278,6 +279,15 @@ def test_readme_risks(render, c1, monkeypatch):
     assert enabled_risks_section(["TrueNAS API Key"]) in output["x-notes"]
     assert "Host Networking" not in output["x-notes"]
     assert "mDNS Announcements" not in output["x-notes"]
+
+
+def test_risks_footer(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    monkeypatch.setattr("base.notes.RISKS_FOOTER", "See the apps security page.")
+    render.notes.declare_risk("truenas_api_access", True)
+    output = render.render()
+    assert output["x-readme"]["risks"]["footer"] == "See the apps security page."
+    assert "- TrueNAS API Key\n\nSee the apps security page.\n\n---\n\n" in output["x-notes"]
 
 
 def test_risks_that_do_not_apply_are_not_in_notes(render, c1):

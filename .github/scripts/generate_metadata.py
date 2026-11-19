@@ -619,7 +619,11 @@ def build_readme_paragraphs(analysis: Analysis) -> list[str]:
         text = analysis.readme_risks_text
         # The UI shows no lists, one paragraph for each risk
         items = [f"• {risk['label']}" for risk in sorted_risks(analysis)]
-        return [f"**{text['header']}**", text["intro"], text["list_header"], *items]
+        paragraphs = [f"**{text['header']}**", text["intro"], text["list_header"], *items]
+        # Left out while the library has none
+        if text.get("footer"):
+            paragraphs.append(text["footer"])
+        return paragraphs
 
     if not analysis.readme_warnings:
         return []
