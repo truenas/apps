@@ -16,6 +16,7 @@ parts of the app's questions.yaml, ix_values.yaml and app.yaml along the way.
 
 import argparse
 import ast
+import json
 import logging
 import re
 import shlex
@@ -45,6 +46,8 @@ from prepare_libs import prepare_app_libs
 APP_VALUES_FILE = "ix_values.yaml"
 ITEM_FILE = "item.yaml"
 README_FILE = "README.md"
+# The app's risks as JSON, for readers outside the catalog
+RISKS_FILE = "risks.json"
 
 # The generated block of README warnings, placed at the end of the README
 README_WARNINGS_START = "<!-- x-readme:warnings:start -->"
@@ -301,10 +304,16 @@ class Analysis:
     capabilities: dict[str, set[str]]
     # service -> (uid, gid) of each test value
     users: dict[str, list[tuple[int, int]]]
-    # README warnings of every test value
+    # README warnings of every test value, libraries older than 2.3.21
     readme_warnings: set[str]
     # Follows the README warnings, the same in every test value
     readme_warnings_footer: str
+    # Risk key -> label of every test value, libraries since 2.3.21
+    readme_risks: dict[str, str]
+    # The texts around the list of risks, the same in every test value
+    readme_risks_text: dict[str, str]
+    # Libraries older than 2.3.21 don't render x-readme risks
+    renders_risks: bool
     # Host paths the containers mount, of every test value
     host_mounts: set[str]
     # Libraries older than 2.3.19 don't render x-host-mounts
@@ -411,6 +420,9 @@ def analyze(app: App) -> Analysis:
         users=defaultdict(list),
         readme_warnings=set(),
         readme_warnings_footer="",
+        readme_risks={},
+        readme_risks_text={},
+        renders_risks=False,
         host_mounts=set(),
         renders_host_mounts=False,
     )
@@ -422,6 +434,10 @@ def analyze(app: App) -> Analysis:
         readme = compose.get("x-readme") or {}
         analysis.readme_warnings.update(readme.get("warnings") or [])
         analysis.readme_warnings_footer = readme.get("warnings_footer") or analysis.readme_warnings_footer
+        if risks := readme.get("risks"):
+            analysis.renders_risks = True
+            analysis.readme_risks.update({item["key"]: item["label"] for item in risks["items"]})
+            analysis.readme_risks_text = {k: v for k, v in risks.items() if k != "items"}
         if "x-host-mounts" in compose:
             analysis.renders_host_mounts = True
             analysis.host_mounts.update(compose["x-host-mounts"] or [])
@@ -592,20 +608,47 @@ def build_item(app_config: dict) -> dict:
     }
 
 
-def build_readme(readme: str, warnings: list[str], footer: str) -> str:
-    """The README with its generated warnings block replaced by (or removed for no) warnings."""
+def sorted_risks(analysis: Analysis) -> list[dict[str, str]]:
+    """The risks of every test value, ordered by label like the library lists them."""
+    risks = [{"key": key, "label": label} for key, label in analysis.readme_risks.items()]
+    return sorted(risks, key=lambda r: r["label"].casefold())
+
+
+def build_readme_paragraphs(analysis: Analysis) -> list[str]:
+    """The paragraphs of the README warnings block, none for an app without warnings."""
+    if analysis.renders_risks:
+        if not analysis.readme_risks:
+            return []
+        text = analysis.readme_risks_text
+        # The UI shows no lists, one paragraph for each risk
+        items = [f"• {risk['label']}" for risk in sorted_risks(analysis)]
+        return [f"**{text['header']}**", text["intro"], text["list_header"], *items]
+
+    if not analysis.readme_warnings:
+        return []
+    # Sorted, a set's order changes between runs
+    paragraphs = [f"⚠️ **WARNING:** {w}" for w in sorted(analysis.readme_warnings)]
+    if analysis.readme_warnings_footer:
+        paragraphs.append(analysis.readme_warnings_footer)
+    return paragraphs
+
+
+def build_readme(readme: str, paragraphs: list[str]) -> str:
+    """The README with its generated warnings block replaced by (or removed for no) paragraphs."""
     stripped = RE_README_WARNINGS.sub("", readme)
     # Removing a block also takes the README's final newline, a README without one is left untouched
     if stripped != readme:
         stripped = stripped.rstrip() + "\n"
-    if not warnings:
+    if not paragraphs:
         return stripped
 
-    lines = [README_WARNINGS_START, *(f"⚠️ **WARNING:** {w}" for w in warnings)]
-    if footer:
-        lines.append(footer)
-    block = "\n\n".join([*lines, README_WARNINGS_END])
+    block = "\n\n".join([README_WARNINGS_START, *paragraphs, README_WARNINGS_END])
     return f"{stripped.rstrip()}\n\n{block}\n"
+
+
+def build_risks_file(analysis: Analysis) -> str:
+    """The app's risks for readers outside the catalog, like apps.truenas.com."""
+    return json.dumps({"risks": sorted_risks(analysis)}, indent=2) + "\n"
 
 
 def get_git_date_added(app: App) -> str:
@@ -859,12 +902,23 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
 
     readme_path = app.path / README_FILE
     readme = readme_path.read_text()
-    # Sorted, a set's order changes between runs
-    new_readme = build_readme(readme, sorted(analysis.readme_warnings), analysis.readme_warnings_footer)
+    new_readme = build_readme(readme, build_readme_paragraphs(analysis))
     validate_readme(app, new_readme)
     if new_readme != readme:
-        logger.info(f"Updated {app.name} README warnings: {len(analysis.readme_warnings)}")
+        logger.info(f"Updated {app.name} README warnings")
         readme_path.write_text(new_readme)
+        changed = True
+
+    risks_path = app.path / RISKS_FILE
+    if analysis.renders_risks:
+        risks = build_risks_file(analysis)
+        if not risks_path.exists() or risks_path.read_text() != risks:
+            logger.info(f"Updated {app.name} risks: {len(analysis.readme_risks)}")
+            risks_path.write_text(risks)
+            changed = True
+    elif risks_path.exists():
+        # Older libraries render no risks, a file left from a newer one would be stale
+        risks_path.unlink()
         changed = True
 
     # A library sync in this run has already bumped the app, one bump covers both changes
