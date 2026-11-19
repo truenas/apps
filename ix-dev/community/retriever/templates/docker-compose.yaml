@@ -1,6 +1,9 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{% set retriever_net = tpl.networks.create_internal("retriever-net") %}
+
 {% set c1 = tpl.add_container(values.consts.retriever_container_name, "image") %}
+{% do c1.add_network(retriever_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
@@ -33,6 +36,7 @@
 
 {% if values.retriever.enable_pot %}
   {% set pot = tpl.add_container(values.consts.pot_container_name, "pot_image") %}
+  {% do pot.add_network(retriever_net) %}
   {% do pot.set_user(values.run_as.user, values.run_as.group) %}
   {% do pot.healthcheck.set_test("node", {"port": values.consts.pot_port, "path": "/ping"}) %}
   {% do c1.depends.add_dependency(values.consts.pot_container_name, "service_healthy") %}
@@ -42,6 +46,7 @@
   {# Runs as the app user, so it reads the downloads with the same access Retriever has.
      In local mode the server gets a file path, not an upload, so the mounts must match. #}
   {% set tg_api = tpl.add_container(values.consts.tg_api_container_name, "tg_api_image") %}
+  {% do tg_api.add_network(retriever_net) %}
   {% do tg_api.set_user(values.run_as.user, values.run_as.group) %}
   {% do tg_api.set_entrypoint(["telegram-bot-api"]) %}
   {% do tg_api.set_command([
