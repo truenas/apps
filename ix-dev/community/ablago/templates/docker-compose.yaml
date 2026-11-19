@@ -1,0 +1,57 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set dms_net = tpl.networks.create_internal("dms-net") %}
+
+{% set c = tpl.add_container(values.consts.dms_container_name, "image") %}
+{% do c.add_network(dms_net) %}
+{% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
+
+{% set pg_config = {
+  "user": values.consts.db_user,
+  "password": values.dms.db_password,
+  "database": values.consts.db_name,
+  "volume": values.storage.postgres_data,
+} %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.dms.postgres_image_selector, pg_config, perm_container) %}
+{% do postgres.container.add_network(dms_net) %}
+
+{# No set_init: the image starts with tini as PID 1 itself. #}
+{# Ablago starts as root, hands its folders to PUID:PGID and then drops to that user (0.299.0 and later,
+   motom001/dms#1354). Starting as root lets it run its document tools as a separate user.
+   The library sets PUID and PGID from run_as. #}
+{% do c.set_user(0, 0) %}
+{# Needed at start to take over the folders and switch the user (as Paperless-ngx does). #}
+{% do c.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do c.healthcheck.set_test("wget", {"port": 3000, "path": "/api/gesundheit", "busybox": true}) %}
+{% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+{# Database preset: the setup assistant starts with the household. #}
+{% do c.environment.add_env("DATABASE_URL", postgres.get_url("postgres")) %}
+{# App catalog: no setup code (it would only appear in the log). #}
+{% do c.environment.add_env("DMS_EINRICHTUNGSCODE", "aus") %}
+{% do c.environment.add_user_envs(values.dms.additional_envs) %}
+
+{% do c.add_port(values.network.web_port, {"container_port": 3000}) %}
+
+{% do c.add_storage("/data/files", values.storage.files) %}
+{% do perm_container.add_or_skip_action("files", values.storage.files, perms_config) %}
+{% do c.add_storage("/data/geheim", values.storage.geheim) %}
+{% do perm_container.add_or_skip_action("geheim", values.storage.geheim, perms_config) %}
+{% do c.add_storage("/data/sicherung", values.storage.sicherung) %}
+{% do perm_container.add_or_skip_action("sicherung", values.storage.sicherung, perms_config) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c.add_storage(store.mount_path, store) %}
+  {% do perm_container.add_or_skip_action(store.mount_path, store, perms_config) %}
+{% endfor %}
+
+{% if perm_container.has_actions() %}
+  {% do perm_container.activate() %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+  {% do c.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{{ tpl.render() | tojson }}
