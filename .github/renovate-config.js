@@ -461,6 +461,11 @@ module.exports = {
       "^(?<compatibility>latest)-(?<major>\\d{4})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["devlikeapro/waha"],
     ),
+    customVersioning(
+      // 0.1.0-beta.1 (beta tags only, stable releases are bumped manually).
+      "^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-beta\\.(?<build>\\d+)$",
+      ["ghcr.io/prusa3d/prusa-connect"],
+    ),
   ],
 };
 
