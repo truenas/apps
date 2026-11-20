@@ -1,6 +1,8 @@
 groups:
   - name: Prusa Connect Configuration
     description: Configure Prusa Connect
+  - name: User and Group Configuration
+    description: Configure User and Group for Prusa Connect
   - name: Network Configuration
     description: Configure Network for Prusa Connect
   - name: Storage Configuration
@@ -26,25 +28,8 @@ questions:
     schema:
       type: dict
       attrs:
-        - variable: log_level
-          label: Log Level
-          description: How much the server writes to its log.
-          schema:
-            type: string
-            default: "info"
-            required: true
-            enum:
-              - value: "debug"
-                description: Debug
-              - value: "info"
-                description: Info
-              - value: "warn"
-                description: Warn
-              - value: "error"
-                description: Error
         - variable: additional_envs
           label: Additional Environment Variables
-          description: Configure additional environment variables for Prusa Connect.
           schema:
             type: list
             default: []
@@ -63,6 +48,29 @@ questions:
                       label: Value
                       schema:
                         type: string
+
+  - variable: run_as
+    label: ""
+    group: User and Group Configuration
+    schema:
+      type: dict
+      attrs:
+        - variable: user
+          label: User ID
+          description: The user id that Prusa Connect files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
+        - variable: group
+          label: Group ID
+          description: The group id that Prusa Connect files will be owned by.
+          schema:
+            type: int
+            min: 568
+            default: 568
+            required: true
 
   - variable: network
     label: ""
@@ -98,7 +106,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30600
+                  default: 30610
                   min: 1
                   max: 65535
                   required: true
@@ -119,7 +127,11 @@ questions:
                           - definitions/node_bind_ip
         - variable: additional_ports
           label: Additional Ports
-          description: Ports for the printer listener, the time server and the printer logs extension.
+          description: |
+            Ports for optional printer-facing features.</br>
+            - Encryption: the printer listener port chosen in the setup wizard (TCP).</br>
+            - Time server: UDP 123.</br>
+            - Printer logs extension: UDP 13514 and 8514.
           schema:
             type: list
             show_if: [["host_network", "=", false]]
@@ -276,7 +288,8 @@ questions:
           label: Host Network
           description: |
             Bind to the host network. The Nearby printers list needs this to
-            see printers over mDNS. It's recommended to keep this disabled.
+            see printers over mDNS. The time server does not work with host networking.</br>
+            It's recommended to keep this disabled.
           schema:
             type: boolean
             default: false
@@ -288,7 +301,9 @@ questions:
       attrs:
         - variable: config
           label: Config Storage
-          description: Database, accounts, printers, setup answers and installed extensions. Back up this entire dataset together. Extensions run as programs from this dataset, so it must allow exec.
+          description: |
+            Database, accounts, printers, setup answers and installed extensions.
+            Extensions run as programs from this dataset, so it must allow exec.
           schema:
             type: dict
             attrs:
@@ -362,18 +377,6 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this, will check the top level directory,</br>
-                        If it finds incorrect permissions, it will `chown` the
-                        host path to the user and group required for the
-                        Prusa Connect container.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
         - variable: data
           label: Data Storage
           description: Uploaded print files.
@@ -450,18 +453,6 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-                    - variable: auto_permissions
-                      label: Automatic Permissions
-                      description: |
-                        Automatically set permissions for the host path.
-                        Enabling this, will check the top level directory,</br>
-                        If it finds incorrect permissions, it will `chown` the
-                        host path to the user and group required for the
-                        Prusa Connect container.
-                      schema:
-                        type: boolean
-                        default: false
-                        show_if: [["acl_enable", "=", false]]
         - variable: additional_storage
           label: Additional Storage
           schema:
