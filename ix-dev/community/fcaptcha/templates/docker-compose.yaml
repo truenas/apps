@@ -1,0 +1,16 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+{% if values.fcaptcha.signing_secret | length < 32 or values.fcaptcha.verification_secret | length < 32 %}
+  {% do tpl.funcs.fail("Each FCaptcha secret must contain at least 32 characters") %}
+{% endif %}
+{% if values.fcaptcha.signing_secret == values.fcaptcha.verification_secret %}
+  {% do tpl.funcs.fail("Signing and verification secrets must be different") %}
+{% endif %}
+{% set app = tpl.add_container(values.consts.fcaptcha_container_name, "image") %}
+{% do app.set_user(65532, 65532) %}
+{% do app.environment.add_env("FCAPTCHA_SECRET", values.fcaptcha.signing_secret) %}
+{% do app.environment.add_env("FCAPTCHA_VERIFY_SECRET", values.fcaptcha.verification_secret) %}
+{% do app.environment.add_env("PORT", values.consts.internal_port) %}
+{% do app.healthcheck.use_built_in() %}
+{% do app.add_port(values.network.web_port, {"container_port": values.consts.internal_port}) %}
+{% do tpl.portals.add(values.network.web_port, {"name": "Demo", "path": "/demo/"}) %}
+{{ tpl.render() | tojson }}
