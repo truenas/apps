@@ -1,6 +1,8 @@
 groups:
   - name: Ablago Configuration
     description: Configure Ablago
+  - name: User and Group Configuration
+    description: Configure User and Group for Ablago
   - name: Network Configuration
     description: Configure Network for Ablago
   - name: Storage Configuration
@@ -20,7 +22,8 @@ questions:
       required: true
       $ref:
         - definitions/timezone
-  - variable: dms
+
+  - variable: ablago
     label: ""
     group: Ablago Configuration
     schema:
@@ -37,11 +40,9 @@ questions:
             If something goes wrong, you will have to restore from backup.
           schema:
             type: string
-            default: postgres_17_image
+            default: postgres_18_image
             required: true
             enum:
-              - value: postgres_17_image
-                description: Postgres 17
               - value: postgres_18_image
                 description: Postgres 18
         - variable: db_password
@@ -80,7 +81,7 @@ questions:
       attrs:
         - variable: user
           label: User ID
-          description: The user id that Ablago runs as and that its files will be owned by.
+          description: The user id that Ablago files will be owned by.
           schema:
             type: int
             min: 568
@@ -88,7 +89,7 @@ questions:
             required: true
         - variable: group
           label: Group ID
-          description: The group id that Ablago runs as and that its files will be owned by.
+          description: The group id that Ablago files will be owned by.
           schema:
             type: int
             min: 568
@@ -129,7 +130,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 34560
+                  default: 30607
                   min: 1
                   max: 65535
                   required: true
@@ -234,11 +235,10 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
-
   - variable: storage
     label: ""
     group: Storage Configuration
@@ -320,7 +320,7 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: geheim
+        - variable: key_store
           label: Keys
           schema:
             type: dict
@@ -361,7 +361,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "geheim"
+                        default: "keys"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -395,7 +395,7 @@ questions:
                         type: hostpath
                         show_if: [["acl_enable", "=", false]]
                         required: true
-        - variable: sicherung
+        - variable: backups
           label: Backups
           schema:
             type: dict
@@ -436,7 +436,7 @@ questions:
                         type: string
                         required: true
                         hidden: true
-                        default: "sicherung"
+                        default: "backups"
                     - variable: acl_entries
                       label: ACL Configuration
                       schema:
@@ -655,8 +655,6 @@ questions:
                               type: dict
                               show_if: [["acl_enable", "=", true]]
                               attrs: []
-                              $ref:
-                                - "normalize/acl"
                     - variable: cifs_config
                       label: SMB Configuration
                       description: The configuration for the SMB dataset.
