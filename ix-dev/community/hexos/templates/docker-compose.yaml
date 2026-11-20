@@ -1,0 +1,20 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.hexos_container_name, "image") %}
+{% do c1.set_user(0, 0) %}
+{% do c1.set_network_mode("host") %}
+{% do c1.healthcheck.disable() %}
+
+{# No identity: the container registers the server and waits to be claimed at deck.hexos.com.
+   The HexOS service rewrites this app with the server's identity at the claim. #}
+{% do c1.environment.add_env("SERVER_MODE", "local") %}
+{% do c1.environment.add_env("HEXOS_INSTALL", "catalog") %}
+{% do c1.environment.add_env("HEXOS_IMAGE_TAG", values.images.image.tag) %}
+{% do c1.environment.add_env("LOG_LEVEL", "info") %}
+
+{% do c1.add_storage(values.consts.data_path, values.storage.data) %}
+{% do c1.add_docker_socket() %}
+
+{% do tpl.portals.add({"bind_mode": "published", "port_number": values.consts.portal_port}, {"name": "HexOS", "scheme": "http", "path": "/"}) %}
+
+{{ tpl.render() | tojson }}
