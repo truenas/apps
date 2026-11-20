@@ -5,6 +5,7 @@
 {% set c = tpl.add_container(values.consts.ablago_container_name, "image") %}
 {% do c.add_network(ablago_net) %}
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -30,8 +31,11 @@
 {% do c.add_port(values.network.web_port) %}
 
 {% do c.add_storage("%s/files" | format(values.consts.data_path), values.storage.files) %}
+{% do perm_container.add_or_skip_action("files", values.storage.files, perms_config) %}
 {% do c.add_storage("%s/geheim" | format(values.consts.data_path), values.storage.key_store) %}
+{% do perm_container.add_or_skip_action("key_store", values.storage.key_store, perms_config) %}
 {% do c.add_storage("%s/sicherung" | format(values.consts.data_path), values.storage.backups) %}
+{% do perm_container.add_or_skip_action("backups", values.storage.backups, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
   {% do c.add_storage(store.mount_path, store) %}
