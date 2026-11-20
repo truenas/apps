@@ -1,0 +1,30 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.sacdfs_container_name, "image") %}
+{# Why each capability: https://github.com/aclater/sacdfs/blob/main/docs/deployment.md#privileges #}
+{% do c1.add_caps(["SYS_ADMIN", "DAC_OVERRIDE", "DAC_READ_SEARCH", "SETUID", "SETGID", "NET_BIND_SERVICE", "SETPCAP"]) %}
+{% do c1.devices.add_device("/dev/fuse", "/dev/fuse") %}
+{% do c1.add_security_opt("apparmor", "unconfined") %}
+{% do c1.set_grace_period(30) %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/usr/local/bin/healthcheck.sh"]) %}
+{% do c1.healthcheck.set_start_period(300) %}
+
+{% if values.sacdfs.smb_user %}
+  {% do c1.environment.add_env("SMB_USER", values.sacdfs.smb_user) %}
+  {% do c1.environment.add_env("SMB_PASSWORD", values.sacdfs.smb_password) %}
+{% endif %}
+{% if values.sacdfs.nfs_clients %}
+  {% do c1.environment.add_env("NFS_CLIENTS", values.sacdfs.nfs_clients | join(",")) %}
+{% endif %}
+{% do c1.environment.add_user_envs(values.sacdfs.additional_envs) %}
+
+{% do c1.add_port(values.network.smb_port, {"container_port": 445}) %}
+{% do c1.add_port(values.network.nfs_port, {"container_port": 2049}) %}
+
+{% do c1.add_storage("/images", dict(values.storage.images, **{"read_only": true})) %}
+{% do c1.add_storage("/cache", values.storage.cache) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{{ tpl.render() | tojson }}
