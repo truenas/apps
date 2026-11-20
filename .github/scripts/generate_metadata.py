@@ -63,6 +63,11 @@ EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
 # so a digest pin (tag@sha256:...) breaks once the tag moves
 NO_DIGEST_PIN_REGISTRIES = ("quay.io/",)
 
+# Our images are published on GHCR instead of Docker Hub's ixsystems/*
+GHCR_CONTAINERS_REPO = "ghcr.io/truenas/containers"
+# ixsystems/* images not built by truenas/containers, so not on GHCR
+IXSYSTEMS_IMAGE_EXCEPTIONS = {"truenas-webui"}
+
 RE_VAR_NAME = re.compile(r"^[a-z0-9_]+$")
 # Existing variable names that predate the naming rule
 VAR_NAME_EXCEPTIONS = {
@@ -673,7 +678,8 @@ def validate_questions(app: App, service_names: set[str]) -> None:
 
 
 def validate_images(app: App) -> None:
-    """Fail on digest pinned images from registries that prune untagged manifests."""
+    """Fail on ixsystems/* images (moved to GHCR), and on digest pinned images from
+    registries that prune untagged manifests."""
     values_path = app.path / APP_VALUES_FILE
     if not values_path.exists():
         return
@@ -681,6 +687,12 @@ def validate_images(app: App) -> None:
     for name, image in (read_yaml(values_path).get("images") or {}).items():
         repo = image.get("repository", "")
         tag = str(image.get("tag", ""))
+        owner, _, image_name = repo.removeprefix("docker.io/").partition("/")
+        if owner == "ixsystems" and image_name not in IXSYSTEMS_IMAGE_EXCEPTIONS:
+            raise ValueError(
+                f"Image [{name}] ({repo}) in {values_path} has moved to GHCR, "
+                f"use [{GHCR_CONTAINERS_REPO}/{image_name}] instead"
+            )
         if repo.startswith(NO_DIGEST_PIN_REGISTRIES) and "@" in tag:
             raise ValueError(
                 f"Image [{name}] ({repo}) must not be pinned to a digest in {values_path}. "
