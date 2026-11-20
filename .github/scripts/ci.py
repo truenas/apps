@@ -32,15 +32,16 @@ from common import (
 from prepare_libs import prepare_app_libs
 
 CHANGE_PLATFORM_FOR_IMAGES = [
-    "redis",
-    "valkey/valkey",
     "chaptarr/chaptarr",
-    "ghcr.io/valkey-io/valkey",
-    "ghcr.io/lostb1t/remux",
-    "ghcr.io/stalwartlabs/stalwart",
+    "getmeili/meilisearch",
+    "ghcr.io/andiwirz/scanvento/api",
     "ghcr.io/euro-office/documentserver",
     "ghcr.io/karakeep-app/karakeep-chrome",
-    "ghcr.io/andiwirz/scanvento/api",
+    "ghcr.io/lostb1t/remux",
+    "ghcr.io/stalwartlabs/stalwart",
+    "ghcr.io/valkey-io/valkey",
+    "redis",
+    "valkey/valkey",
 ]
 
 DOCKER_SOCKET = "/var/run/docker.sock"
