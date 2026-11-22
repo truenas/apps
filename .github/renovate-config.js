@@ -393,6 +393,11 @@ module.exports = {
       ["amrit3701/lens"],
     ),
     customVersioning(
+      // backend-1.14.0, frontend-1.14.0
+      "^(?<compatibility>backend|frontend)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      ["ghcr.io/anyesh/wardrowbe"],
+    ),
+    customVersioning(
       // slim-v1.12.2
       "^slim-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
       ["itzcrazykns1337/vane"],
