@@ -1,5 +1,15 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
+{# The backend refuses to start with half an OIDC config, and without any sign-in method nobody can log in #}
+{% set oidc_issuer = values.wardrowbe.oidc_issuer_url %}
+{% set oidc_client = values.wardrowbe.oidc_client_id %}
+{% if (oidc_issuer and not oidc_client) or (oidc_client and not oidc_issuer) %}
+  {% do tpl.funcs.fail("OIDC Issuer URL and OIDC Client ID must be set together.") %}
+{% endif %}
+{% if not oidc_issuer and not values.wardrowbe.forward_auth_secret %}
+  {% do tpl.funcs.fail("Configure a sign-in method: set OIDC Issuer URL and OIDC Client ID, or a Forward Auth Secret.") %}
+{% endif %}
+
 {% set wb_net = tpl.networks.create_internal("wardrowbe-net") %}
 
 {% set frontend = tpl.add_container(values.consts.frontend_container_name, "frontend_image") %}
@@ -65,6 +75,7 @@
   {% do c.environment.add_env("OIDC_CLIENT_ID", values.wardrowbe.oidc_client_id) %}
   {% do c.environment.add_env("OIDC_CLIENT_SECRET", values.wardrowbe.oidc_client_secret) %}
   {% do c.environment.add_env("OIDC_MOBILE_CLIENT_ID", values.wardrowbe.oidc_mobile_client_id) %}
+  {% do c.environment.add_env("FORWARD_AUTH_SECRET", values.wardrowbe.forward_auth_secret) %}
   {% do c.environment.add_user_envs(values.wardrowbe.additional_envs) %}
 
   {% do c.add_storage(values.consts.storage_path, values.storage.data) %}
@@ -83,7 +94,8 @@
 {% do backend.set_command(["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", values.consts.backend_port | string]) %}
 {% do backend.healthcheck.set_test("curl", {"port": values.consts.backend_port, "path": "/api/v1/health"}) %}
 
-{# arq --check reads the heartbeat the worker writes to redis #}
+{# arq --check reads the heartbeat the worker writes to redis. It imports the whole app first,
+   so it gets more time than the default timeout on slow hardware. #}
 {% do worker.set_command(["arq", "app.workers.worker.WorkerSettings"]) %}
 {% do worker.healthcheck.set_custom_test(["CMD", "arq", "--check", "app.workers.worker.WorkerSettings"]) %}
 {% do worker.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
@@ -91,6 +103,11 @@
 {% do image_worker.set_command(["arq", "app.workers.image_worker.ImageWorkerSettings"]) %}
 {% do image_worker.healthcheck.set_custom_test(["CMD", "arq", "--check", "app.workers.image_worker.ImageWorkerSettings"]) %}
 {% do image_worker.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
+
+{% for c in [worker, image_worker] %}
+  {% do c.healthcheck.set_timeout(30) %}
+  {% do c.healthcheck.set_start_period(30) %}
+{% endfor %}
 
 {# Frontend: serves the UI and proxies /api/v1 to the backend #}
 {% do frontend.set_user(values.run_as.user, values.run_as.group) %}
@@ -104,7 +121,8 @@
 {% do frontend.environment.add_env("OIDC_ISSUER_URL", values.wardrowbe.oidc_issuer_url) %}
 {% do frontend.environment.add_env("OIDC_CLIENT_ID", values.wardrowbe.oidc_client_id) %}
 {% do frontend.environment.add_env("OIDC_CLIENT_SECRET", values.wardrowbe.oidc_client_secret) %}
-{% do frontend.environment.add_user_envs(values.wardrowbe.additional_envs) %}
+{% do frontend.environment.add_env("FORWARD_AUTH_SECRET", values.wardrowbe.forward_auth_secret) %}
+{% do frontend.environment.add_user_envs(values.wardrowbe.frontend_additional_envs) %}
 {% do frontend.healthcheck.set_test("node", {"port": values.network.web_port.port_number, "path": "/api/auth/providers"}) %}
 {% do frontend.add_port(values.network.web_port) %}
 
