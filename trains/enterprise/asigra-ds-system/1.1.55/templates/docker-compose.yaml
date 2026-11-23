@@ -1,0 +1,110 @@
+{% from "macros/haproxy_config.macro" import haproxy_config %}
+
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{#
+  Postgres will always create an empty database on the first start.
+  It will default to "user" if database is not specified.
+
+  Asigra on the other hand will check if the database exists, and if it exists,
+  it also assumes that the schema is already created and will not create it.
+
+  Therefore, we create a "dummy" database and let asigra to create its own database.
+  Asigra will create a database named after the value in values.consts.db_name.
+#}
+{% set pg_conf = {
+  "user": values.consts.db_user,
+  "database": "dummy",
+  "password": values.asigra.db_password,
+  "volume": values.storage.postgres_data,
+  "additional_options": {
+    "maintenance_work_mem": "%dMB" | format(values.resources.limits.memory),
+    "shared_buffers": "%dMB" | format(values.resources.limits.memory),
+  }
+} %}
+{% set perms_container = tpl.deps.perms(values.consts.perms_container_name) %}
+{% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, "postgres_image", pg_conf, perms_container) %}
+
+{# Asigra needs the hostname to be set, even if the PGHOST is set and internal dns resolves to the container #}
+{% do postgres.container.set_hostname(values.consts.postgres_container_name) %}
+{% do postgres.container.set_shm_size_mb(values.asigra.postgres_shm_size) %}
+
+{# Create asigra containers #}
+{% set asigra_container_names = namespace(x=[]) %}
+{% set cluster_size = values.asigra.cluster_size or 1 %}
+{% for i in range(cluster_size) %}
+  {% set container_name = values.consts.asigra_container_name %}
+
+  {# Default name plus index only if cluster size > 1 #}
+  {% if cluster_size > 1 %}
+    {% set container_name = "%s-%d" |format(values.consts.asigra_container_name, loop.index0 + 1) %}
+  {% endif %}
+  {% do asigra_container_names.x.append(container_name) %}
+
+  {% set c = tpl.add_container(container_name, "image") %}
+  {% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
+
+  {% do c.set_user(0, 0) %}
+  {% do c.add_caps(["CHOWN", "FOWNER", "DAC_OVERRIDE"]) %}
+  {% do c.healthcheck.set_custom_test(["CMD", "/Health-Check.sh"]) %}
+
+  {% do c.set_hostname(container_name) %}
+
+  {% do c.add_storage(values.consts.data_path, values.storage.data) %}
+  {% for store in values.storage.additional_storage %}
+    {% do c.add_storage(store.mount_path, store) %}
+  {% endfor %}
+
+  {% do c.environment.add_user_envs(values.asigra.additional_envs) %}
+  {% do c.environment.add_env("PGPORT", 5432) %}
+  {% do c.environment.add_env("PGHOST", values.consts.postgres_container_name) %}
+  {% do c.environment.add_env("PGDATABASE", values.consts.db_name) %}
+  {% do c.environment.add_env("PGUSER", values.consts.db_user) %}
+  {% do c.environment.add_env("PGPASSWORD", values.asigra.db_password) %}
+  {% do c.environment.add_env("DATA", values.consts.data_path) %}
+  {% do c.environment.add_env("DSSLANGUAGE", values.asigra.language) %}
+  {% do c.environment.add_env("ADMINPASSWORD", values.asigra.admin_password) %}
+  {% do c.environment.add_env("OPERPASSWORD", values.asigra.operator_password) %}
+
+  {% if cluster_size == 1 %}
+
+    {% do c.add_port(values.network.client_port, {"container_port": 4401}) %}
+    {% do c.add_port(values.network.admin_port, {"container_port": 4404}) %}
+    {% do c.add_port(values.network.replication_port, {"container_port": 4409}) %}
+    {% do c.add_port(values.network.billing_port, {"container_port": 4415}) %}
+
+  {% else %}
+
+    {% do c.environment.add_env("CLUSTERSIZE", cluster_size) %}
+    {% do c.environment.add_env("CLUSTERID", loop.index0 + 1) %}
+
+  {% endif %}
+{% endfor %}
+
+{# On cluster size > 1, we need to create a haproxy container #}
+{% if cluster_size > 1 %}
+  {% set haproxy_container = tpl.add_container(values.consts.haproxy_container_name, "haproxy_image") %}
+  {% do haproxy_container.set_user(568, 568) %}
+  {% do haproxy_container.add_port(values.network.client_port, {"container_port": 4401}) %}
+  {% do haproxy_container.add_port(values.network.admin_port, {"container_port": 4404}) %}
+  {% do haproxy_container.add_port(values.network.replication_port, {"container_port": 4409}) %}
+  {% do haproxy_container.add_port(values.network.billing_port, {"container_port": 4415}) %}
+  {% do haproxy_container.sysctls.add("net.ipv6.conf.all.disable_ipv6", 1) %}
+  {% do haproxy_container.healthcheck.disable() %}
+
+  {# Make sure all containers are healthy before starting haproxy #}
+  {% for c in asigra_container_names.x %}
+    {% do haproxy_container.depends.add_dependency(c, "service_healthy") %}
+  {% endfor %}
+
+  {% do haproxy_container.configs.add("haproxy_config", haproxy_config(asigra_container_names.x, values), "/usr/local/etc/haproxy/haproxy.cfg", "0555") %}
+{% endif %}
+
+{% if perms_container.has_actions() %}
+  {% do perms_container.activate() %}
+  {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
+{% endif %}
+
+{% do tpl.notes.set_body(values.consts.notes_body) %}
+
+{{ tpl.render() | tojson }}

@@ -1,0 +1,39 @@
+#!/usr/bin/python3
+
+import os
+import sys
+import yaml
+
+
+def migrate(values):
+    allow_registration = values["continuwuity"].pop("allow_registration", False)
+    registration_token = values["continuwuity"].pop("registration_token", "")
+
+    additional_envs = values["continuwuity"].get("additional_envs", [])
+    additional_envs.append(
+        {
+            "name": "CONTINUWUITY_ALLOW_REGISTRATION",
+            "value": "true" if allow_registration else "false",
+        }
+    )
+
+    if allow_registration and registration_token:
+        additional_envs.append(
+            {
+                "name": "CONTINUWUITY_REGISTRATION_TOKEN",
+                "value": registration_token,
+            }
+        )
+
+    values["continuwuity"]["additional_envs"] = additional_envs
+
+    return values
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        exit(1)
+
+    if os.path.exists(sys.argv[1]):
+        with open(sys.argv[1], "r") as f:
+            print(yaml.dump(migrate(yaml.safe_load(f.read()))))

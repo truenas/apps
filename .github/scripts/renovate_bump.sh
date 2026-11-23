@@ -39,7 +39,7 @@ docker run --quiet --rm \
   --platform linux/amd64 \
   -v ./:/workspace \
   -e FAKE_ENV=1 \
-  ghcr.io/truenas/apps_validation:latest app_bump_version \
+  ghcr.io/truenas/apps_validation:slim app_bump_version \
   --path /workspace/"$app_path" \
   --bump "$update_type" \
   --dep-name "$dep_name" \
