@@ -10,8 +10,8 @@ until [ -f "{{ values.consts.config_dir }}/setup.done" ]; do
 done
 
 {%- if values.storj.wallets %}
-/entrypoint --operator.wallet-features={{ values.storj.wallets | join(",") }}
+exec /entrypoint --operator.wallet-features={{ values.storj.wallets | join(",") }}
 {%- else %}
-/entrypoint
+exec /entrypoint
 {%- endif %}
 {%- endmacro %}

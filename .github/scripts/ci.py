@@ -17,6 +17,7 @@ import copy
 import json
 import yaml
 import sys
+import os
 
 import generate_metadata
 from common import (
@@ -31,15 +32,19 @@ from common import (
 from prepare_libs import prepare_app_libs
 
 CHANGE_PLATFORM_FOR_IMAGES = [
-    "redis",
-    "valkey/valkey",
     "chaptarr/chaptarr",
-    "ghcr.io/valkey-io/valkey",
-    "ghcr.io/lostb1t/remux",
-    "ghcr.io/stalwartlabs/stalwart",
+    "getmeili/meilisearch",
+    "ghcr.io/andiwirz/scanvento/api",
     "ghcr.io/euro-office/documentserver",
     "ghcr.io/karakeep-app/karakeep-chrome",
+    "ghcr.io/lostb1t/remux",
+    "ghcr.io/stalwartlabs/stalwart",
+    "ghcr.io/valkey-io/valkey",
+    "redis",
+    "valkey/valkey",
 ]
+
+DOCKER_SOCKET = "/var/run/docker.sock"
 
 
 # Used to print mostly structured data, like yaml or json
@@ -145,6 +150,28 @@ def replace_platform_in_service(svc):
     return svc_copy
 
 
+def add_docker_socket_group_to_service(svc):
+    # Rootless containers need the socket's group to reach docker. The runner's
+    # docker group id is not stable, so read it from the socket instead of
+    # hardcoding it in the app templates.
+    mounts_socket = any(
+        isinstance(vol, dict) and vol.get("source") == DOCKER_SOCKET
+        for vol in svc.get("volumes", [])
+    )
+    if not mounts_socket or not os.path.exists(DOCKER_SOCKET):
+        return svc
+
+    gid = os.stat(DOCKER_SOCKET).st_gid
+    groups = svc.get("group_add", [])
+    if gid == 0 or str(gid) in [str(g) for g in groups]:
+        return svc
+
+    svc_copy = copy.deepcopy(svc)
+    svc_copy["group_add"] = [*groups, gid]
+    print_stderr(f"Adding docker socket group [{gid}] to service")
+    return svc_copy
+
+
 def check_required_commands():
     required_commands = ["docker", "jq", "openssl"]
     for command in required_commands:
@@ -195,6 +222,7 @@ def render_compose():
             # arm64 when platform is set to linux/amd64.
             for svc_name, svc in out.get("services", {}).items():
                 new_svc = replace_platform_in_service(svc)
+                new_svc = add_docker_socket_group_to_service(new_svc)
                 out["services"][svc_name] = new_svc
             with open(template_file, "w") as f2:
                 yaml.dump(out, f2)
