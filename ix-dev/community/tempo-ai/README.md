@@ -5,3 +5,15 @@
 model predicts the national net load from the weather forecast, then the official RTE rules turn it
 into a color. All data is public (RTE eCO2mix, Open-Meteo, api-couleur-tempo.fr) and the model is
 trained locally on the CPU, no GPU needed.
+
+<!-- x-readme:warnings:start -->
+
+**!!! WARNING !!!**
+
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Host Networking
+
+<!-- x-readme:warnings:end -->
