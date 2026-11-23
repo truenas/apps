@@ -51,8 +51,6 @@ questions:
             default: ""
             required: true
             private: true
-            valid_chars: "^[A-Za-z0-9._~-]+$"
-            valid_chars_error: Must contain only letters, digits, ".", "_", "~" and "-".
         - variable: redis_password
           label: Redis Password
           schema:
@@ -88,45 +86,65 @@ questions:
             type: uri
             default: ""
             required: true
-        - variable: oidc_issuer_url
-          label: OIDC Issuer URL
-          description: |
-            Leave empty to disable OIDC sign-in.</br>
-            Must be set together with the OIDC Client ID.</br>
-            At least one sign-in method (OIDC or Forward Auth Secret) is required.
-          schema:
-            type: uri
-            default: ""
-        - variable: oidc_client_id
-          label: OIDC Client ID
+        - variable: auth_method
+          label: Sign-in Method
           schema:
             type: string
-            default: ""
-        - variable: oidc_client_secret
-          label: OIDC Client Secret
+            default: oidc
+            required: true
+            enum:
+              - value: oidc
+                description: OIDC
+              - value: forward_auth
+                description: Forward Auth
+              - value: both
+                description: OIDC and Forward Auth
+        - variable: oidc
+          label: OIDC
           schema:
-            type: string
-            default: ""
-            private: true
-        - variable: oidc_mobile_client_id
-          label: OIDC Mobile Client ID
-          description: Optional. Public OIDC client used by the mobile app.
+            type: dict
+            show_if: [["auth_method", "!=", "forward_auth"]]
+            attrs:
+              - variable: issuer_url
+                label: Issuer URL
+                schema:
+                  type: uri
+                  default: ""
+                  required: true
+              - variable: client_id
+                label: Client ID
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+              - variable: client_secret
+                label: Client Secret
+                schema:
+                  type: string
+                  default: ""
+                  private: true
+              - variable: mobile_client_id
+                label: Mobile Client ID
+                description: Optional. Public OIDC client used by the mobile app.
+                schema:
+                  type: string
+                  default: ""
+        - variable: forward_auth
+          label: Forward Auth
           schema:
-            type: string
-            default: ""
-        - variable: forward_auth_secret
-          label: Forward Auth Secret
-          description: |
-            Shared secret for sign-in through an authenticating reverse proxy.</br>
-            The proxy must send it as the X-Forward-Auth-Secret header.</br>
-            Leave empty to disable forward-auth sign-in.</br>
-            At least one sign-in method (OIDC or Forward Auth Secret) is required.
-          schema:
-            type: string
-            default: ""
-            private: true
-            valid_chars: "^$|^[!-~]{32,}$"
-            valid_chars_error: Must be empty, or at least 32 visible ASCII characters with no spaces.
+            type: dict
+            show_if: [["auth_method", "!=", "oidc"]]
+            attrs:
+              - variable: secret
+                label: Secret
+                description: |
+                  Shared secret for sign-in through an authenticating reverse proxy.</br>
+                  The proxy must send it as the X-Forward-Auth-Secret header.
+                schema:
+                  type: string
+                  default: ""
+                  required: true
+                  private: true
         - variable: ai_base_url
           label: AI Base URL
           description: |
@@ -154,8 +172,7 @@ questions:
             default: "gpt-4o"
             required: true
         - variable: additional_envs
-          label: Additional Backend Environment Variables
-          description: Applied to the backend, worker and image-worker containers.
+          label: Additional Environment Variables
           schema:
             type: list
             default: []
@@ -165,27 +182,16 @@ questions:
                 schema:
                   type: dict
                   attrs:
-                    - variable: name
-                      label: Name
+                    - variable: container
+                      label: Container
                       schema:
                         type: string
                         required: true
-                    - variable: value
-                      label: Value
-                      schema:
-                        type: string
-        - variable: frontend_additional_envs
-          label: Additional Frontend Environment Variables
-          description: Applied to the frontend container.
-          schema:
-            type: list
-            default: []
-            items:
-              - variable: env
-                label: Environment Variable
-                schema:
-                  type: dict
-                  attrs:
+                        enum:
+                          - value: backend
+                            description: Backend (backend, worker, image-worker and migrations)
+                          - value: frontend
+                            description: Frontend
                     - variable: name
                       label: Name
                       schema:
@@ -366,7 +372,8 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description: Indicates in which order Compose connects the service's containers
+                                        description:
+                                          Indicates in which order Compose connects the service's containers
                                           to its networks.
                                         schema:
                                           type: int

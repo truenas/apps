@@ -1,24 +1,32 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{% set oidc_issuer = values.wardrowbe.oidc_issuer_url %}
-{% set oidc_client = values.wardrowbe.oidc_client_id %}
-{% if (oidc_issuer and not oidc_client) or (oidc_client and not oidc_issuer) %}
-  {% do tpl.funcs.fail("OIDC Issuer URL and OIDC Client ID must be set together.") %}
+{% set auth_envs = {} %}
+{% if values.wardrowbe.auth_method in ["oidc", "both"] %}
+  {% do auth_envs.update({
+    "OIDC_ISSUER_URL": values.wardrowbe.oidc.issuer_url,
+    "OIDC_CLIENT_ID": values.wardrowbe.oidc.client_id,
+    "OIDC_CLIENT_SECRET": values.wardrowbe.oidc.client_secret,
+    "OIDC_MOBILE_CLIENT_ID": values.wardrowbe.oidc.mobile_client_id,
+  }) %}
 {% endif %}
-{% if not oidc_issuer and not values.wardrowbe.forward_auth_secret %}
-  {% do tpl.funcs.fail("Configure a sign-in method: set OIDC Issuer URL and OIDC Client ID, or a Forward Auth Secret.") %}
+{% if values.wardrowbe.auth_method in ["forward_auth", "both"] %}
+  {% do auth_envs.update({"FORWARD_AUTH_SECRET": values.wardrowbe.forward_auth.secret}) %}
 {% endif %}
 
 {% set wb_net = tpl.networks.create_internal("wardrowbe-net") %}
 
 {% set frontend = tpl.add_container(values.consts.frontend_container_name, "frontend_image") %}
 {% do frontend.add_network(wb_net) %}
+
 {% set backend = tpl.add_container(values.consts.backend_container_name, "image") %}
 {% do backend.add_network(wb_net) %}
+
 {% set worker = tpl.add_container(values.consts.worker_container_name, "image") %}
 {% do worker.add_network(wb_net) %}
+
 {% set image_worker = tpl.add_container(values.consts.image_worker_container_name, "image") %}
 {% do image_worker.add_network(wb_net) %}
+
 {% set migrations = tpl.add_container(values.consts.migrations_container_name, "image") %}
 {% do migrations.add_network(wb_net) %}
 
@@ -46,10 +54,10 @@
 {# Database URL #}
 {% set db_url = "postgresql+asyncpg://%s:%s@%s:%s/%s" | format(
   values.consts.db_user,
-  values.wardrowbe.db_password,
+  tpl.funcs.url_encode(values.wardrowbe.db_password),
   values.consts.postgres_container_name,
   postgres.get_port(),
-  values.consts.db_name,
+  values.consts.db_name
 ) %}
 
 {# Backend, workers and migrations #}
@@ -60,7 +68,7 @@
 
   {% do c.environment.add_env("DEBUG", false) %}
   {% do c.environment.add_env("DATABASE_URL", db_url) %}
-  {% do c.environment.add_env("REDIS_URL", redis.get_url("redis") ~ "/0") %}
+  {% do c.environment.add_env("REDIS_URL", "%s/0" | format(redis.get_url("redis"))) %}
   {% do c.environment.add_env("SECRET_KEY", values.wardrowbe.secret_key) %}
   {% do c.environment.add_env("STORAGE_PATH", values.consts.storage_path) %}
   {% do c.environment.add_env("APP_URL", values.wardrowbe.app_url) %}
@@ -68,12 +76,10 @@
   {% do c.environment.add_env("AI_API_KEY", values.wardrowbe.ai_api_key) %}
   {% do c.environment.add_env("AI_VISION_MODEL", values.wardrowbe.ai_vision_model) %}
   {% do c.environment.add_env("AI_TEXT_MODEL", values.wardrowbe.ai_text_model) %}
-  {% do c.environment.add_env("OIDC_ISSUER_URL", values.wardrowbe.oidc_issuer_url) %}
-  {% do c.environment.add_env("OIDC_CLIENT_ID", values.wardrowbe.oidc_client_id) %}
-  {% do c.environment.add_env("OIDC_CLIENT_SECRET", values.wardrowbe.oidc_client_secret) %}
-  {% do c.environment.add_env("OIDC_MOBILE_CLIENT_ID", values.wardrowbe.oidc_mobile_client_id) %}
-  {% do c.environment.add_env("FORWARD_AUTH_SECRET", values.wardrowbe.forward_auth_secret) %}
-  {% do c.environment.add_user_envs(values.wardrowbe.additional_envs) %}
+  {% for name, value in auth_envs.items() %}
+    {% do c.environment.add_env(name, value) %}
+  {% endfor %}
+  {% do c.environment.add_user_envs(values.wardrowbe.additional_envs | selectattr("container", "equalto", "backend") | list) %}
 
   {% do c.add_storage(values.consts.storage_path, values.storage.data) %}
   {% for store in values.storage.additional_storage %}
@@ -88,38 +94,34 @@
   {% do c.depends.add_dependency(values.consts.migrations_container_name, "service_completed_successfully") %}
 {% endfor %}
 
-{% do backend.set_command(["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", values.consts.backend_port | string]) %}
-{% do backend.healthcheck.set_test("curl", {"port": values.consts.backend_port, "path": "/api/v1/health"}) %}
+{% do backend.set_command(["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", values.consts.internal_backend_port]) %}
+{% do backend.healthcheck.set_test("curl", {"port": values.consts.internal_backend_port, "path": "/api/v1/health"}) %}
 
 {# Workers #}
-{% do worker.set_command(["arq", "app.workers.worker.WorkerSettings"]) %}
-{% do worker.healthcheck.set_custom_test(["CMD", "arq", "--check", "app.workers.worker.WorkerSettings"]) %}
-{% do worker.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
-
-{% do image_worker.set_command(["arq", "app.workers.image_worker.ImageWorkerSettings"]) %}
-{% do image_worker.healthcheck.set_custom_test(["CMD", "arq", "--check", "app.workers.image_worker.ImageWorkerSettings"]) %}
-{% do image_worker.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
-
-{% for c in [worker, image_worker] %}
-  {% do c.healthcheck.set_timeout(30) %}
-  {% do c.healthcheck.set_start_period(30) %}
+{% for c, settings in [
+  (worker, "app.workers.worker.WorkerSettings"),
+  (image_worker, "app.workers.image_worker.ImageWorkerSettings"),
+] %}
+  {% do c.set_command(["arq", settings]) %}
+  {% do c.healthcheck.set_custom_test(["CMD", "arq", "--check", settings]) %}
+  {% do c.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
 {% endfor %}
 
 {# Frontend #}
 {% do frontend.set_user(values.run_as.user, values.run_as.group) %}
+{% do frontend.healthcheck.set_test("node", {"port": values.network.web_port.port_number, "path": "/api/auth/providers"}) %}
 {% do frontend.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
 {% do frontend.environment.add_env("PORT", values.network.web_port.port_number) %}
+{% do frontend.environment.add_env("DEV_MODE", false) %}
 {% do frontend.environment.add_env("HOSTNAME", "0.0.0.0") %}
-{% do frontend.environment.add_env("BACKEND_URL", "http://%s:%s" | format(values.consts.backend_container_name, values.consts.backend_port)) %}
+{% do frontend.environment.add_env("BACKEND_URL", "http://%s:%s" | format(values.consts.backend_container_name, values.consts.internal_backend_port)) %}
 {% do frontend.environment.add_env("NEXTAUTH_URL", values.wardrowbe.app_url) %}
 {% do frontend.environment.add_env("NEXTAUTH_SECRET", values.wardrowbe.nextauth_secret) %}
-{% do frontend.environment.add_env("DEV_MODE", false) %}
-{% do frontend.environment.add_env("OIDC_ISSUER_URL", values.wardrowbe.oidc_issuer_url) %}
-{% do frontend.environment.add_env("OIDC_CLIENT_ID", values.wardrowbe.oidc_client_id) %}
-{% do frontend.environment.add_env("OIDC_CLIENT_SECRET", values.wardrowbe.oidc_client_secret) %}
-{% do frontend.environment.add_env("FORWARD_AUTH_SECRET", values.wardrowbe.forward_auth_secret) %}
-{% do frontend.environment.add_user_envs(values.wardrowbe.frontend_additional_envs) %}
-{% do frontend.healthcheck.set_test("node", {"port": values.network.web_port.port_number, "path": "/api/auth/providers"}) %}
+{% for name, value in auth_envs.items() %}
+  {% do frontend.environment.add_env(name, value) %}
+{% endfor %}
+{% do frontend.environment.add_user_envs(values.wardrowbe.additional_envs | selectattr("container", "equalto", "frontend") | list) %}
+
 {% do frontend.add_port(values.network.web_port) %}
 
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
