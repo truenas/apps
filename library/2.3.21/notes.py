@@ -8,33 +8,32 @@ if TYPE_CHECKING:
 
 SHORT_LIVED = "short-lived"
 
-RISK_WARNING_IMPACT = (
-    "Misconfiguration or a malicious update can compromise data integrity, security, or system stability."
+RISKS_HEADER = "!!! WARNING !!!"
+RISKS_INTRO = (
+    "This application requires additional elevated permissions beyond standard containerization protections. "
+    "Use at your own risk."
 )
-# The notes are only visible after install, the README before it
-RISK_WARNING_NOTES_SUFFIX = "Use at your own risk."
-RISK_WARNING_README_SUFFIX = "Install at your own risk."
-# docker_access, privileged and host_capabilities are added by the scan of the containers, apps add the rest
-RISK_WARNINGS = {
-    "truenas_api_access": (
-        "This app requires a TrueNAS API key, which gives it administrative control over the system."
-    ),
-    "docker_access": (
-        "This app has access to the Docker socket, "
-        "which gives it full control over all containers and effectively root access to the system."
-    ),
-    "privileged": (
-        "This app runs a container in privileged mode, which gives it full access to the system's devices and kernel."
-    ),
-    "host_capabilities": (
-        "This app runs a container with capabilities (such as SYS_ADMIN or SYS_MODULE) "
-        "that can give it control over the system, close to privileged mode."
-    ),
-    "mdns": (
-        "This app announces itself over mDNS (Bonjour) on the host network (when enabled), "
-        "which can conflict with the system's own mDNS and disrupt discovery of TrueNAS and its services "
-        "(such as its .local name, SMB and Time Machine)."
-    ),
+# The README is shown before install, where every declared risk is only possible
+RISKS_README_LIST_HEADER = "The following additional privileges may be enabled from installing this application:"
+# The notes are shown after install, where the render knows which risks are there
+RISKS_ENABLED_LIST_HEADER = "The following additional privileges are enabled for this application:"
+RISKS_MAY_LIST_HEADER = "The following additional privileges may be enabled by this application:"
+# Follows the lists in the README and the notes, left out while empty (eg the link to the apps security page)
+RISKS_FOOTER = ""
+# Ordered by label, the README and the notes list them in this order
+RISKS = {
+    "docker_access": "Docker Socket Access",
+    "host_capabilities": "Extended System Capabilities",
+    "host_network": "Host Networking",
+    "mdns": "mDNS Announcements",
+    "privileged": "Privileged Mode",
+    "truenas_api_access": "TrueNAS API Key",
+}
+# Risks the scan of the containers can't see, the template tells whether they apply.
+# True lists them as enabled in the notes, False as only possible (eg mDNS, the app may or may not announce itself)
+UNDETECTABLE_RISKS = {
+    "truenas_api_access": True,
+    "mdns": False,
 }
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
 # Capabilities that reach the host on their own: mount and admin syscalls, kernel modules,
@@ -86,7 +85,11 @@ class Notes:
         self._app_train: str = ""
         self._info: list[str] = []
         self._warnings: list[str] = []
-        self._risk_warnings: list[str] = []
+        # Every risk the app can bring, the README lists them
+        self._declared_risks: set[str] = set()
+        # Undetectable risks the template says apply, and the risks the scan finds in the containers
+        self._applied_risks: set[str] = set()
+        self._detected_risks: set[str] = set()
         self._host_mounts: set[str] = set()
         self._deprecations: list[str] = []
         self._security: dict[str, list[Security]] = {}
@@ -121,7 +124,8 @@ class Notes:
 
     def _set_header(self):
         header = f"# {self._app_name}"
-        if len(self._warnings) > 0 or len(self._risk_warnings) > 0 or len(self._deprecations) > 0:
+        # Risks are not marked, most apps have one and the mark would lose its meaning
+        if len(self._warnings) > 0 or len(self._deprecations) > 0:
             header += " ⚠️"
 
         self._header = f"{header}\n\n"
@@ -135,19 +139,40 @@ class Notes:
     def _prepend_warning(self, warning: str):
         self._warnings.insert(0, warning)
 
-    def add_risk_warning(self, name: str):
-        if name not in RISK_WARNINGS:
-            raise RenderError(
-                f"Risk warning [{name}] is not valid. Valid options are: [{', '.join(RISK_WARNINGS.keys())}]"
-            )
-        if name not in self._risk_warnings:
-            self._risk_warnings.append(name)
+    def declare_risk(self, name: str, applies: bool | None = None):
+        if name not in RISKS:
+            raise RenderError(f"Risk [{name}] is not valid. Valid options are: [{', '.join(RISKS.keys())}]")
+        if name in UNDETECTABLE_RISKS:
+            if applies is None:
+                raise RenderError(f"Risk [{name}] can't be detected, it needs [applies] to tell whether it applies")
+            if applies:
+                self._applied_risks.add(name)
+        elif applies is not None:
+            raise RenderError(f"Risk [{name}] is detected from the containers, it does not take [applies]")
+        self._declared_risks.add(name)
 
-    def readme_warnings(self) -> dict:
-        # The footer follows the list of warnings, once
+    def _ordered_risks(self, names: set[str]) -> list[str]:
+        return [name for name in RISKS if name in names]
+
+    def _notes_risks(self) -> tuple[list[str], list[str]]:
+        """The risks of this render, the ones that are enabled and the ones that may be."""
+        enabled = self._detected_risks | {n for n in self._applied_risks if UNDETECTABLE_RISKS[n]}
+        may = {n for n in self._applied_risks if not UNDETECTABLE_RISKS[n]}
+        return self._ordered_risks(enabled), self._ordered_risks(may)
+
+    def readme_risks(self) -> dict:
+        # The README must list everything the app can bring, a risk the scan found is one the template forgot
+        if undeclared := self._ordered_risks(self._detected_risks - self._declared_risks):
+            raise RenderError(
+                f"Risks [{', '.join(undeclared)}] were detected but not declared, "
+                "declare them with [tpl.notes.declare_risk(name)]"
+            )
         return {
-            "warnings": [RISK_WARNINGS[name] for name in self._risk_warnings],
-            "warnings_footer": f"{RISK_WARNING_IMPACT} {RISK_WARNING_README_SUFFIX}",
+            "header": RISKS_HEADER,
+            "intro": RISKS_INTRO,
+            "list_header": RISKS_README_LIST_HEADER,
+            "footer": RISKS_FOOTER,
+            "items": [{"key": name, "label": RISKS[name]} for name in self._ordered_risks(self._declared_risks)],
         }
 
     def add_deprecation(self, deprecation: str):
@@ -206,8 +231,11 @@ class Notes:
                     "manually stop it before reboot/shutdown to ensure the full wait time is honored."
                 )
 
+            if c._network_mode == "host":
+                self._detected_risks.add("host_network")
+
             if c._privileged:
-                self.add_risk_warning("privileged")
+                self._detected_risks.add("privileged")
                 self._security[name].append(
                     Security(
                         header="Privileged mode is enabled",
@@ -218,7 +246,7 @@ class Notes:
                     )
                 )
             elif any(cap in c._cap_add for cap in HOST_CONTROL_CAPS):
-                self.add_risk_warning("host_capabilities")
+                self._detected_risks.add("host_capabilities")
 
             networks = []
             for net in c.networks._networks.values():
@@ -295,7 +323,7 @@ class Notes:
                     # Resolved catches symlinks to the socket, the literal path a socket that is a
                     # symlink itself on the machine that renders (eg Docker Desktop)
                     if source in DOCKER_SOCKETS or vm.resolved_source in DOCKER_SOCKETS:
-                        self.add_risk_warning("docker_access")
+                        self._detected_risks.add("docker_access")
                     read_only = vm.volume_mount_spec.get("read_only", False)
                     pretty, is_host_mount = self.get_pretty_host_mount(source)
                     if is_host_mount:
@@ -323,11 +351,19 @@ class Notes:
 
         result = self._header
 
-        if self._risk_warnings:
+        enabled, may = self._notes_risks()
+        if enabled or may:
             result += "## Risks ⚠️\n\n"
-            for name in self._risk_warnings:
-                result += f"- {RISK_WARNINGS[name]}\n"
-            result += f"\n{RISK_WARNING_IMPACT} {RISK_WARNING_NOTES_SUFFIX}\n\n"
+            # Rules set the warning apart from the sections around it
+            result += f"---\n\n**{RISKS_HEADER}**\n\n{RISKS_INTRO}\n\n"
+            for list_header, names in ((RISKS_ENABLED_LIST_HEADER, enabled), (RISKS_MAY_LIST_HEADER, may)):
+                if names:
+                    result += f"{list_header}\n\n"
+                    result += "".join(f"- {RISKS[name]}\n" for name in names)
+                    result += "\n"
+            if RISKS_FOOTER:
+                result += f"{RISKS_FOOTER}\n\n"
+            result += "---\n\n"
 
         if self._warnings:
             result += "## Warnings ⚠️\n\n"
