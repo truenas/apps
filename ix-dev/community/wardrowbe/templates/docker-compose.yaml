@@ -1,6 +1,5 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
-{# The backend refuses to start with half an OIDC config, and without any sign-in method nobody can log in #}
 {% set oidc_issuer = values.wardrowbe.oidc_issuer_url %}
 {% set oidc_client = values.wardrowbe.oidc_client_id %}
 {% if (oidc_issuer and not oidc_client) or (oidc_client and not oidc_issuer) %}
@@ -44,9 +43,7 @@
 {% set redis = tpl.deps.redis(values.consts.redis_container_name, "redis_image", redis_config, perm_container) %}
 {% do redis.container.add_network(wb_net) %}
 
-{# The backend uses asyncpg, so the library's postgresql:// URL (with sslmode) cannot be used as is.
-   The password is not percent-encoded: alembic reads the URL through configparser, which rejects "%",
-   so questions.yaml limits it to characters that need no encoding. #}
+{# Database URL #}
 {% set db_url = "postgresql+asyncpg://%s:%s@%s:%s/%s" | format(
   values.consts.db_user,
   values.wardrowbe.db_password,
@@ -55,7 +52,7 @@
   values.consts.db_name,
 ) %}
 
-{# Backend, workers and migrations share one image and one configuration #}
+{# Backend, workers and migrations #}
 {% for c in [backend, worker, image_worker, migrations] %}
   {% do c.set_user(values.run_as.user, values.run_as.group) %}
   {% do c.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -84,7 +81,7 @@
   {% endfor %}
 {% endfor %}
 
-{# Upstream does not migrate on start, so run the migrations before anything uses the database #}
+{# Migrations #}
 {% do migrations.setup_as_helper(disable_network=false) %}
 {% do migrations.set_command(["alembic", "upgrade", "head"]) %}
 {% for c in [backend, worker, image_worker] %}
@@ -94,8 +91,7 @@
 {% do backend.set_command(["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", values.consts.backend_port | string]) %}
 {% do backend.healthcheck.set_test("curl", {"port": values.consts.backend_port, "path": "/api/v1/health"}) %}
 
-{# arq --check reads the heartbeat the worker writes to redis. It imports the whole app first,
-   so it gets more time than the default timeout on slow hardware. #}
+{# Workers #}
 {% do worker.set_command(["arq", "app.workers.worker.WorkerSettings"]) %}
 {% do worker.healthcheck.set_custom_test(["CMD", "arq", "--check", "app.workers.worker.WorkerSettings"]) %}
 {% do worker.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
@@ -109,7 +105,7 @@
   {% do c.healthcheck.set_start_period(30) %}
 {% endfor %}
 
-{# Frontend: serves the UI and proxies /api/v1 to the backend #}
+{# Frontend #}
 {% do frontend.set_user(values.run_as.user, values.run_as.group) %}
 {% do frontend.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
 {% do frontend.environment.add_env("PORT", values.network.web_port.port_number) %}
