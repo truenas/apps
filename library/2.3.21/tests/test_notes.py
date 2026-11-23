@@ -128,11 +128,12 @@ https://ixsystems.atlassian.net
     )
 
 
-def test_notes_with_risk_warnings(render, c1):
+def test_notes_with_risks(render, c1):
     render.notes.add_warning("this is not properly configured. fix it now!")
-    render.notes.add_risk_warning("truenas_api_access")
-    # Adding the same risk warning again is a no-op
-    render.notes.add_risk_warning("truenas_api_access")
+    render.notes.declare_risk("truenas_api_access", True)
+    # Declaring the same risk again is a no-op
+    render.notes.declare_risk("truenas_api_access", True)
+    render.notes.declare_risk("mdns", True)
     c1.set_user(568, 568)
     output = render.render()
     assert "x-readme" not in output
@@ -142,9 +143,21 @@ def test_notes_with_risk_warnings(render, c1):
 
 ## Risks ⚠️
 
-- This app requires a TrueNAS API key, which gives it administrative control over the system.
+---
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Use at your own risk.
+**!!! WARNING !!!**
+
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges are enabled for this application:
+
+- TrueNAS API Key
+
+The following additional privileges may be enabled by this application:
+
+- mDNS Announcements
+
+---
 
 ## Warnings ⚠️
 
@@ -174,116 +187,218 @@ https://ixsystems.atlassian.net
     )
 
 
-def test_notes_risk_warnings_do_not_require_action(render, c1):
-    render.notes.add_risk_warning("truenas_api_access")
+def readme_risk_keys(output: dict) -> list[str]:
+    return [item["key"] for item in output["x-readme"]["risks"]["items"]]
+
+
+def enabled_risks_section(labels: list[str]) -> str:
+    items = "".join(f"- {label}\n" for label in labels)
+    return f"The following additional privileges are enabled for this application:\n\n{items}\n"
+
+
+def test_notes_risks_do_not_require_action(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    # Every risk at once, enabled and may, none of them asks the user for an action
+    for risk in ("docker_access", "host_capabilities", "host_network", "privileged"):
+        render.notes.declare_risk(risk)
+    render.notes.declare_risk("truenas_api_access", True)
+    render.notes.declare_risk("mdns", True)
+    c1.set_privileged(True)
+    c1.set_network_mode("host")
+    c1.add_docker_socket()
+    # A separate container, privileged mode skips the capabilities risk
+    c2 = render.add_container("test_container2", "test_image")
+    c2.healthcheck.disable()
+    c2.add_caps(["SYS_ADMIN"])
     output = render.render()
+    assert readme_risk_keys(output) == [
+        "docker_access",
+        "host_capabilities",
+        "host_network",
+        "mdns",
+        "privileged",
+        "truenas_api_access",
+    ]
+    assert enabled_risks_section(
+        [
+            "Docker Socket Access",
+            "Extended System Capabilities",
+            "Host Networking",
+            "Privileged Mode",
+            "TrueNAS API Key",
+        ]
+    ) in output["x-notes"]
+    assert "may be enabled by this application:\n\n- mDNS Announcements\n" in output["x-notes"]
     assert output["x-action-required"] is False
-    assert output["x-notes"].startswith("# Test App ⚠️\n\n## Risks ⚠️\n\n- This app requires a TrueNAS API key")
+    # Risks don't mark the title, only warnings and deprecations do
+    assert output["x-notes"].startswith("# Test App\n\n## Risks ⚠️\n\n---\n\n**!!! WARNING !!!**")
     assert "## Warnings" not in output["x-notes"]
 
 
-def test_notes_invalid_risk_warning(render):
-    with pytest.raises(Exception, match=r"Risk warning \[invalid\] is not valid"):
-        render.notes.add_risk_warning("invalid")
+def test_notes_invalid_risk(render):
+    with pytest.raises(Exception, match=r"Risk \[invalid\] is not valid"):
+        render.notes.declare_risk("invalid")
 
 
-def test_readme_warnings(render, c1, monkeypatch):
+@pytest.mark.parametrize("risk", ["truenas_api_access", "mdns"])
+def test_undetectable_risk_needs_applies(render, risk):
+    with pytest.raises(Exception, match=rf"Risk \[{risk}\] can't be detected"):
+        render.notes.declare_risk(risk)
+
+
+@pytest.mark.parametrize("risk", ["docker_access", "host_capabilities", "host_network", "privileged"])
+def test_detected_risk_takes_no_applies(render, risk):
+    with pytest.raises(Exception, match=rf"Risk \[{risk}\] is detected from the containers"):
+        render.notes.declare_risk(risk, True)
+
+
+def test_readme_risks(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
-    render.notes.add_risk_warning("truenas_api_access")
+    render.notes.declare_risk("truenas_api_access", True)
+    render.notes.declare_risk("mdns", False)
+    # Declared risks the render doesn't have are still possible before install
+    render.notes.declare_risk("host_network")
     output = render.render()
     assert output["x-readme"] == {
-        "warnings": ["This app requires a TrueNAS API key, which gives it administrative control over the system."],
-        "warnings_footer": (
-            "Misconfiguration or a malicious update can compromise data integrity, security, or system stability. "
-            "Install at your own risk."
-        ),
+        "risks": {
+            "header": "!!! WARNING !!!",
+            "intro": (
+                "This application requires additional elevated permissions beyond standard containerization "
+                "protections. Use at your own risk."
+            ),
+            "list_header": "The following additional privileges may be enabled from installing this application:",
+            "footer": "",
+            "items": [
+                {"key": "host_network", "label": "Host Networking"},
+                {"key": "mdns", "label": "mDNS Announcements"},
+                {"key": "truenas_api_access", "label": "TrueNAS API Key"},
+            ],
+        }
     }
+    # After install, only what applies
+    assert enabled_risks_section(["TrueNAS API Key"]) in output["x-notes"]
+    assert "Host Networking" not in output["x-notes"]
+    assert "mDNS Announcements" not in output["x-notes"]
 
 
-def test_risk_warning_mdns(render, c1, monkeypatch):
+def test_risks_footer(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
-    render.notes.add_risk_warning("mdns")
+    monkeypatch.setattr("base.notes.RISKS_FOOTER", "See the apps security page.")
+    render.notes.declare_risk("truenas_api_access", True)
     output = render.render()
-    assert output["x-action-required"] is False
-    assert "## Risks ⚠️\n\n- This app announces itself over mDNS (Bonjour) on the host network (when enabled)" in (
-        output["x-notes"]
+    assert output["x-readme"]["risks"]["footer"] == "See the apps security page."
+    assert "- TrueNAS API Key\n\nSee the apps security page.\n\n---\n\n" in output["x-notes"]
+
+
+def test_risks_that_do_not_apply_are_not_in_notes(render, c1):
+    render.notes.declare_risk("truenas_api_access", False)
+    render.notes.declare_risk("mdns", False)
+    render.notes.declare_risk("host_network")
+    output = render.render()
+    assert output["x-notes"].startswith("# Test App\n\n")
+    assert "## Risks" not in output["x-notes"]
+
+
+def test_mdns_only_may_be_enabled(render, c1):
+    render.notes.declare_risk("mdns", True)
+    output = render.render()
+    assert "are enabled for this application" not in output["x-notes"]
+    assert (
+        "The following additional privileges may be enabled by this application:\n\n- mDNS Announcements\n\n"
+        in output["x-notes"]
     )
-    assert output["x-readme"]["warnings"] == [
-        "This app announces itself over mDNS (Bonjour) on the host network (when enabled), "
-        "which can conflict with the system's own mDNS and disrupt discovery of TrueNAS and its services "
-        "(such as its .local name, SMB and Time Machine)."
-    ]
 
 
-def test_readme_no_warnings(render, c1, monkeypatch):
+def test_readme_no_risks(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
     output = render.render()
-    assert output["x-readme"]["warnings"] == []
+    assert output["x-readme"]["risks"]["items"] == []
+
+
+def test_readme_undeclared_risk_fails(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.set_privileged(True)
+    c1.add_docker_socket()
+    with pytest.raises(Exception, match=r"Risks \[docker_access, privileged\] were detected but not declared"):
+        render.render()
+
+
+def test_undeclared_risk_does_not_fail_install(render, c1):
+    # Users can add the socket through additional storage, the notes still list it
+    c1.add_docker_socket()
+    output = render.render()
+    assert enabled_risks_section(["Docker Socket Access"]) in output["x-notes"]
 
 
 @pytest.mark.parametrize("socket", ["/var/run/docker.sock", "/run/docker.sock"])
-def test_risk_warning_docker_socket(render, c1, monkeypatch, socket):
+def test_risk_docker_socket(render, c1, monkeypatch, socket):
     monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("docker_access")
     c1.add_storage(socket, {"type": "host_path", "host_path_config": {"path": socket}, "read_only": True})
     output = render.render()
     assert output["x-action-required"] is False
-    assert "## Risks ⚠️\n\n- This app has access to the Docker socket" in output["x-notes"]
-    assert output["x-readme"]["warnings"] == [
-        "This app has access to the Docker socket, which gives it full control over all containers and effectively "
-        "root access to the system."
-    ]
+    assert enabled_risks_section(["Docker Socket Access"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["docker_access"]
 
 
-def test_risk_warning_privileged(render, c1, monkeypatch):
+def test_risk_privileged(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("privileged")
     c1.set_privileged(True)
     output = render.render()
-    assert output["x-notes"].startswith(
-        "# Test App ⚠️\n\n## Risks ⚠️\n\n- This app runs a container in privileged mode"
-    )
-    assert output["x-readme"]["warnings"] == [
-        "This app runs a container in privileged mode, which gives it full access to the system's devices and kernel."
-    ]
+    assert enabled_risks_section(["Privileged Mode"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["privileged"]
+
+
+def test_risk_host_network(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("host_network")
+    c1.set_network_mode("host")
+    output = render.render()
+    assert enabled_risks_section(["Host Networking"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["host_network"]
 
 
 @pytest.mark.parametrize("cap", ["SYS_ADMIN", "SYS_MODULE", "SYS_RAWIO", "DAC_READ_SEARCH"])
-def test_risk_warning_host_capabilities(render, c1, monkeypatch, cap):
+def test_risk_host_capabilities(render, c1, monkeypatch, cap):
     monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("host_capabilities")
     c1.add_caps([cap])
     output = render.render()
     assert output["x-action-required"] is False
-    assert output["x-readme"]["warnings"] == [
-        "This app runs a container with capabilities (such as SYS_ADMIN or SYS_MODULE) "
-        "that can give it control over the system, close to privileged mode."
-    ]
+    assert enabled_risks_section(["Extended System Capabilities"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["host_capabilities"]
 
 
 @pytest.mark.parametrize("cap", ["NET_ADMIN", "SYS_PTRACE", "CHOWN"])
-def test_no_risk_warning_namespaced_capabilities(render, c1, monkeypatch, cap):
+def test_no_risk_namespaced_capabilities(render, c1, monkeypatch, cap):
     monkeypatch.setenv("IX_RENDER_README", "1")
     c1.add_caps([cap])
     output = render.render()
-    assert output["x-readme"]["warnings"] == []
+    assert readme_risk_keys(output) == []
+    assert "## Risks" not in output["x-notes"]
 
 
-def test_privileged_skips_host_capabilities_warning(render, c1, monkeypatch):
+def test_privileged_skips_host_capabilities_risk(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("privileged")
     c1.set_privileged(True)
     c1.add_caps(["SYS_ADMIN"])
     output = render.render()
-    assert output["x-readme"]["warnings"] == [
-        "This app runs a container in privileged mode, which gives it full access to the system's devices and kernel."
-    ]
+    assert enabled_risks_section(["Privileged Mode"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["privileged"]
 
 
-def test_risk_warning_detected_once_for_many_containers(render, c1, monkeypatch):
+def test_risk_detected_once_for_many_containers(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("privileged")
     c1.set_privileged(True)
     c2 = render.add_container("test_container2", "test_image")
     c2.healthcheck.disable()
     c2.set_privileged(True)
     output = render.render()
-    assert len(output["x-readme"]["warnings"]) == 1
+    assert enabled_risks_section(["Privileged Mode"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["privileged"]
 
 
 def test_host_mounts_not_rendered_by_default(render, c1):
@@ -293,6 +408,7 @@ def test_host_mounts_not_rendered_by_default(render, c1):
 
 def test_host_mounts(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("docker_access")
     c1.add_docker_socket()
     c1.add_storage("/host/os-release", {"type": "host_path", "host_path_config": {"path": "/etc/os-release"}})
     c1.add_storage("/data", {"type": "host_path", "host_path_config": {"path": "/mnt/pool/data"}})
@@ -419,7 +535,7 @@ def test_notes_all(render, c1):
     render.notes.add_deprecation("that is will be removed later. fix it later!")
     render.notes.add_info("some info")
     render.notes.add_info("some other info")
-    render.notes.add_risk_warning("truenas_api_access")
+    render.notes.declare_risk("truenas_api_access", True)
     render.notes.set_body(
         """## Additional info
 
@@ -470,11 +586,19 @@ some other info.
 
 ## Risks ⚠️
 
-- This app requires a TrueNAS API key, which gives it administrative control over the system.
-- This app runs a container in privileged mode, which gives it full access to the system's devices and kernel.
-- This app has access to the Docker socket, which gives it full control over all containers and effectively root access to the system.
+---
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Use at your own risk.
+**!!! WARNING !!!**
+
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges are enabled for this application:
+
+- Docker Socket Access
+- Privileged Mode
+- TrueNAS API Key
+
+---
 
 ## Warnings ⚠️
 

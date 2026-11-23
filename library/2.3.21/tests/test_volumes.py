@@ -640,4 +640,4 @@ def test_docker_socket_symlink_risk_warning(render, c1, monkeypatch):
     monkeypatch.setattr(Path, "resolve", mock_resolve)
     c1.add_storage("/var/run/docker.sock", {"type": "host_path", "host_path_config": {"path": "/mnt/pool/sock"}})
     output = render.render()
-    assert "This app has access to the Docker socket" in output["x-notes"]
+    assert "- Docker Socket Access\n" in output["x-notes"]
