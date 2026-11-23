@@ -63,6 +63,11 @@ EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
 # so a digest pin (tag@sha256:...) breaks once the tag moves
 NO_DIGEST_PIN_REGISTRIES = ("quay.io/",)
 
+# Our images are published on GHCR instead of Docker Hub's ixsystems/*
+GHCR_CONTAINERS_REPO = "ghcr.io/truenas/containers"
+# ixsystems/* images not built by truenas/containers, so not on GHCR
+IXSYSTEMS_IMAGE_EXCEPTIONS = {"truenas-webui"}
+
 RE_VAR_NAME = re.compile(r"^[a-z0-9_]+$")
 # Existing variable names that predate the naming rule
 VAR_NAME_EXCEPTIONS = {
@@ -296,10 +301,16 @@ class Analysis:
     capabilities: dict[str, set[str]]
     # service -> (uid, gid) of each test value
     users: dict[str, list[tuple[int, int]]]
-    # README warnings of every test value
+    # README warnings of every test value, libraries older than 2.3.21
     readme_warnings: set[str]
     # Follows the README warnings, the same in every test value
     readme_warnings_footer: str
+    # Risk key -> label of every test value, libraries since 2.3.21
+    readme_risks: dict[str, str]
+    # The texts around the list of risks, the same in every test value
+    readme_risks_text: dict[str, str]
+    # Libraries older than 2.3.21 don't render x-readme risks
+    renders_risks: bool
     # Host paths the containers mount, of every test value
     host_mounts: set[str]
     # Libraries older than 2.3.19 don't render x-host-mounts
@@ -406,6 +417,9 @@ def analyze(app: App) -> Analysis:
         users=defaultdict(list),
         readme_warnings=set(),
         readme_warnings_footer="",
+        readme_risks={},
+        readme_risks_text={},
+        renders_risks=False,
         host_mounts=set(),
         renders_host_mounts=False,
     )
@@ -417,6 +431,10 @@ def analyze(app: App) -> Analysis:
         readme = compose.get("x-readme") or {}
         analysis.readme_warnings.update(readme.get("warnings") or [])
         analysis.readme_warnings_footer = readme.get("warnings_footer") or analysis.readme_warnings_footer
+        if risks := readme.get("risks"):
+            analysis.renders_risks = True
+            analysis.readme_risks.update({item["key"]: item["label"] for item in risks["items"]})
+            analysis.readme_risks_text = {k: v for k, v in risks.items() if k != "items"}
         if "x-host-mounts" in compose:
             analysis.renders_host_mounts = True
             analysis.host_mounts.update(compose["x-host-mounts"] or [])
@@ -587,19 +605,45 @@ def build_item(app_config: dict) -> dict:
     }
 
 
-def build_readme(readme: str, warnings: list[str], footer: str) -> str:
-    """The README with its generated warnings block replaced by (or removed for no) warnings."""
+def sorted_risks(analysis: Analysis) -> list[dict[str, str]]:
+    """The risks of every test value, ordered by label like the library lists them."""
+    risks = [{"key": key, "label": label} for key, label in analysis.readme_risks.items()]
+    return sorted(risks, key=lambda r: r["label"].casefold())
+
+
+def build_readme_paragraphs(analysis: Analysis) -> list[str]:
+    """The paragraphs of the README warnings block, none for an app without warnings."""
+    if analysis.renders_risks:
+        if not analysis.readme_risks:
+            return []
+        text = analysis.readme_risks_text
+        # The UI shows no lists, one paragraph for each risk
+        items = [f"• {risk['label']}" for risk in sorted_risks(analysis)]
+        paragraphs = [f"**{text['header']}**", text["intro"], text["list_header"], *items]
+        # Left out while the library has none
+        if text.get("footer"):
+            paragraphs.append(text["footer"])
+        return paragraphs
+
+    if not analysis.readme_warnings:
+        return []
+    # Sorted, a set's order changes between runs
+    paragraphs = [f"⚠️ **WARNING:** {w}" for w in sorted(analysis.readme_warnings)]
+    if analysis.readme_warnings_footer:
+        paragraphs.append(analysis.readme_warnings_footer)
+    return paragraphs
+
+
+def build_readme(readme: str, paragraphs: list[str]) -> str:
+    """The README with its generated warnings block replaced by (or removed for no) paragraphs."""
     stripped = RE_README_WARNINGS.sub("", readme)
     # Removing a block also takes the README's final newline, a README without one is left untouched
     if stripped != readme:
         stripped = stripped.rstrip() + "\n"
-    if not warnings:
+    if not paragraphs:
         return stripped
 
-    lines = [README_WARNINGS_START, *(f"⚠️ **WARNING:** {w}" for w in warnings)]
-    if footer:
-        lines.append(footer)
-    block = "\n\n".join([*lines, README_WARNINGS_END])
+    block = "\n\n".join([README_WARNINGS_START, *paragraphs, README_WARNINGS_END])
     return f"{stripped.rstrip()}\n\n{block}\n"
 
 
@@ -673,7 +717,8 @@ def validate_questions(app: App, service_names: set[str]) -> None:
 
 
 def validate_images(app: App) -> None:
-    """Fail on digest pinned images from registries that prune untagged manifests."""
+    """Fail on ixsystems/* images (moved to GHCR), and on digest pinned images from
+    registries that prune untagged manifests."""
     values_path = app.path / APP_VALUES_FILE
     if not values_path.exists():
         return
@@ -681,6 +726,12 @@ def validate_images(app: App) -> None:
     for name, image in (read_yaml(values_path).get("images") or {}).items():
         repo = image.get("repository", "")
         tag = str(image.get("tag", ""))
+        owner, _, image_name = repo.removeprefix("docker.io/").partition("/")
+        if owner == "ixsystems" and image_name not in IXSYSTEMS_IMAGE_EXCEPTIONS:
+            raise ValueError(
+                f"Image [{name}] ({repo}) in {values_path} has moved to GHCR, "
+                f"use [{GHCR_CONTAINERS_REPO}/{image_name}] instead"
+            )
         if repo.startswith(NO_DIGEST_PIN_REGISTRIES) and "@" in tag:
             raise ValueError(
                 f"Image [{name}] ({repo}) must not be pinned to a digest in {values_path}. "
@@ -812,6 +863,18 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     )
     app_config.update(app_version=app_version, capabilities=capabilities, run_as_context=run_as_context)
 
+    # Readers outside the catalog, like apps.truenas.com, get the risks from the app's metadata
+    if analysis.renders_risks:
+        risks = sorted_risks(analysis)
+        if app_config.get("risks") != risks:
+            logger.info(f"Updated {app.name} risks: {len(risks)}")
+            app_config["risks"] = risks
+            changed = True
+    elif "risks" in app_config:
+        # Older libraries render no risks, the ones left from a newer library would be stale
+        del app_config["risks"]
+        changed = True
+
     # The dev validation checks the copied library against this hash, library/hashes.yaml is validated against library/
     if lib_version := app_config.get("lib_version"):
         lib_version_hash = read_yaml(LIBRARY_DIR / "hashes.yaml").get(lib_version)
@@ -847,11 +910,10 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
 
     readme_path = app.path / README_FILE
     readme = readme_path.read_text()
-    # Sorted, a set's order changes between runs
-    new_readme = build_readme(readme, sorted(analysis.readme_warnings), analysis.readme_warnings_footer)
+    new_readme = build_readme(readme, build_readme_paragraphs(analysis))
     validate_readme(app, new_readme)
     if new_readme != readme:
-        logger.info(f"Updated {app.name} README warnings: {len(analysis.readme_warnings)}")
+        logger.info(f"Updated {app.name} README warnings")
         readme_path.write_text(new_readme)
         changed = True
 
