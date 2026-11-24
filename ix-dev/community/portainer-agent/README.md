@@ -4,8 +4,14 @@ The [Portainer Agent](https://github.com/portainer/agent) lets a Portainer Serve
 
 <!-- x-readme:warnings:start -->
 
-⚠️ **WARNING:** This app has access to the Docker socket, which gives it full control over all containers and effectively root access to the system.
+**!!! WARNING !!!**
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Docker Socket Access
+
+• Host Networking
 
 <!-- x-readme:warnings:end -->
