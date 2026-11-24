@@ -13,6 +13,11 @@ RISKS_INTRO = (
     "This application can be granted additional elevated permissions beyond standard containerization protections, "
     "depending on the configuration. Use at your own risk."
 )
+# The notes use this one when the render found at least one risk enabled
+RISKS_ENABLED_INTRO = (
+    "This application runs with additional elevated permissions beyond standard containerization protections. "
+    "Use at your own risk."
+)
 # The README is shown before install, where every declared risk is only possible
 RISKS_README_LIST_HEADER = "The following additional privileges may be enabled from installing this application:"
 # The notes are shown after install, where the render knows which risks are there
@@ -377,7 +382,7 @@ class Notes:
         if enabled or may:
             result += "## Risks ⚠️\n\n"
             # Rules set the warning apart from the sections around it
-            result += f"---\n\n**{RISKS_HEADER}**\n\n{RISKS_INTRO}\n\n"
+            result += f"---\n\n**{RISKS_HEADER}**\n\n{RISKS_ENABLED_INTRO if enabled else RISKS_INTRO}\n\n"
             for list_header, names in ((RISKS_ENABLED_LIST_HEADER, enabled), (RISKS_MAY_LIST_HEADER, may)):
                 if names:
                     result += f"{list_header}\n\n"

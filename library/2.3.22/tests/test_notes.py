@@ -147,7 +147,7 @@ def test_notes_with_risks(render, c1):
 
 **!!! WARNING !!!**
 
-This application can be granted additional elevated permissions beyond standard containerization protections, depending on the configuration. Use at your own risk.
+This application runs with additional elevated permissions beyond standard containerization protections. Use at your own risk.
 
 The following additional privileges are enabled for this application:
 
@@ -323,6 +323,8 @@ def test_mdns_only_may_be_enabled(render, c1):
     render.notes.declare_risk("mdns", True)
     output = render.render()
     assert "are enabled for this application" not in output["x-notes"]
+    assert "runs with additional elevated permissions" not in output["x-notes"]
+    assert "depending on the configuration" in output["x-notes"]
     assert (
         "The following additional privileges may be enabled by this application:\n\n- mDNS Announcements\n\n"
         in output["x-notes"]
@@ -680,7 +682,7 @@ some other info.
 
 **!!! WARNING !!!**
 
-This application can be granted additional elevated permissions beyond standard containerization protections, depending on the configuration. Use at your own risk.
+This application runs with additional elevated permissions beyond standard containerization protections. Use at your own risk.
 
 The following additional privileges are enabled for this application:
 

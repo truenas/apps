@@ -7,7 +7,7 @@ Playwright can automate user interactions in Chromium, Firefox and WebKit browse
 
 **!!! WARNING !!!**
 
-This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+This application can be granted additional elevated permissions beyond standard containerization protections, depending on the configuration. Use at your own risk.
 
 The following additional privileges may be enabled from installing this application:
 
