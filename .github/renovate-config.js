@@ -78,6 +78,12 @@ module.exports = {
       pinDigests: false,
     },
     {
+      // Never pin HexOS. It updates itself after the claim, so the catalog stays on a bare latest.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["eshtek/hexos"],
+      pinDigests: false,
+    },
+    {
       matchManagers: ["github-actions"],
       addLabels: ["actions"],
       groupName: "gh-actions",
