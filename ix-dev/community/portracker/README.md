@@ -12,8 +12,12 @@ This application requires additional elevated permissions beyond standard contai
 
 The following additional privileges may be enabled from installing this application:
 
+• Disabled Security Profiles
+
 • Docker Socket Access
 
 • Host Networking
+
+• Host Process Namespace
 
 <!-- x-readme:warnings:end -->

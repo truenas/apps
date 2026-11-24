@@ -10,6 +10,10 @@ This application requires additional elevated permissions beyond standard contai
 
 The following additional privileges may be enabled from installing this application:
 
+• Disabled Security Profiles
+
+• Host IPC Namespace
+
 • Host Networking
 
 <!-- x-readme:warnings:end -->

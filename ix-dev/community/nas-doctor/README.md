@@ -16,4 +16,6 @@ The following additional privileges may be enabled from installing this applicat
 
 • Host Networking
 
+• Host Process Namespace
+
 <!-- x-readme:warnings:end -->
