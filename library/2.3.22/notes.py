@@ -25,6 +25,7 @@ RISKS = {
     "docker_access": "Docker Socket Access",
     "host_capabilities": "Extended System Capabilities",
     "host_network": "Host Networking",
+    "host_pid": "Host Process Namespace",
     "mdns": "mDNS Announcements",
     "privileged": "Privileged Mode",
     "truenas_api_access": "TrueNAS API Key",
@@ -279,6 +280,7 @@ class Notes:
                     )
                 )
             if c._pid_mode == "host":
+                self._detected_risks.add("host_pid")
                 self._security[name].append(
                     Security(
                         header="Host PID namespace is enabled",

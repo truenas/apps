@@ -199,12 +199,13 @@ def enabled_risks_section(labels: list[str]) -> str:
 def test_notes_risks_do_not_require_action(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
     # Every risk at once, enabled and may, none of them asks the user for an action
-    for risk in ("docker_access", "host_capabilities", "host_network", "privileged"):
+    for risk in ("docker_access", "host_capabilities", "host_network", "host_pid", "privileged"):
         render.notes.declare_risk(risk)
     render.notes.declare_risk("truenas_api_access", True)
     render.notes.declare_risk("mdns", True)
     c1.set_privileged(True)
     c1.set_network_mode("host")
+    c1.set_pid_mode("host")
     c1.add_docker_socket()
     # A separate container, privileged mode skips the capabilities risk
     c2 = render.add_container("test_container2", "test_image")
@@ -215,6 +216,7 @@ def test_notes_risks_do_not_require_action(render, c1, monkeypatch):
         "docker_access",
         "host_capabilities",
         "host_network",
+        "host_pid",
         "mdns",
         "privileged",
         "truenas_api_access",
@@ -224,6 +226,7 @@ def test_notes_risks_do_not_require_action(render, c1, monkeypatch):
             "Docker Socket Access",
             "Extended System Capabilities",
             "Host Networking",
+            "Host Process Namespace",
             "Privileged Mode",
             "TrueNAS API Key",
         ]
@@ -246,7 +249,7 @@ def test_undetectable_risk_needs_applies(render, risk):
         render.notes.declare_risk(risk)
 
 
-@pytest.mark.parametrize("risk", ["docker_access", "host_capabilities", "host_network", "privileged"])
+@pytest.mark.parametrize("risk", ["docker_access", "host_capabilities", "host_network", "host_pid", "privileged"])
 def test_detected_risk_takes_no_applies(render, risk):
     with pytest.raises(Exception, match=rf"Risk \[{risk}\] is detected from the containers"):
         render.notes.declare_risk(risk, True)
@@ -357,6 +360,16 @@ def test_risk_host_network(render, c1, monkeypatch):
     output = render.render()
     assert enabled_risks_section(["Host Networking"]) in output["x-notes"]
     assert readme_risk_keys(output) == ["host_network"]
+
+
+def test_risk_host_pid(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("host_pid")
+    c1.set_pid_mode("host")
+    output = render.render()
+    assert output["x-action-required"] is False
+    assert enabled_risks_section(["Host Process Namespace"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["host_pid"]
 
 
 @pytest.mark.parametrize("cap", ["SYS_ADMIN", "SYS_MODULE", "SYS_RAWIO", "DAC_READ_SEARCH"])
@@ -595,6 +608,7 @@ This application requires additional elevated permissions beyond standard contai
 The following additional privileges are enabled for this application:
 
 - Docker Socket Access
+- Host Process Namespace
 - Privileged Mode
 - TrueNAS API Key
 
