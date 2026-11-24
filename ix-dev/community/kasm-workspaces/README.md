@@ -5,8 +5,14 @@ browser-based access to desktops, applications, and web services.
 
 <!-- x-readme:warnings:start -->
 
-⚠️ **WARNING:** This app runs a container in privileged mode, which gives it full access to the system's devices and kernel.
+**!!! WARNING !!!**
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Host Networking
+
+• Privileged Mode
 
 <!-- x-readme:warnings:end -->

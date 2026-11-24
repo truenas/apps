@@ -9,3 +9,15 @@ Because of that, App will force the webUI to listen to port 30000 (or the port s
 If you select a different port in the wizard, the Dashboard will not work initially but
 after a couple of minutes container will automatically restart and the Dashboard will
 be available on the port you selected on the TrueNAS SCALE UI.
+
+<!-- x-readme:warnings:start -->
+
+**!!! WARNING !!!**
+
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Host Networking
+
+<!-- x-readme:warnings:end -->
