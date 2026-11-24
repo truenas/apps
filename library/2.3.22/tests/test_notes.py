@@ -147,7 +147,7 @@ def test_notes_with_risks(render, c1):
 
 **!!! WARNING !!!**
 
-This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+This application can be granted additional elevated permissions beyond standard containerization protections, depending on the configuration. Use at your own risk.
 
 The following additional privileges are enabled for this application:
 
@@ -283,8 +283,8 @@ def test_readme_risks(render, c1, monkeypatch):
         "risks": {
             "header": "!!! WARNING !!!",
             "intro": (
-                "This application requires additional elevated permissions beyond standard containerization "
-                "protections. Use at your own risk."
+                "This application can be granted additional elevated permissions beyond standard containerization "
+                "protections, depending on the configuration. Use at your own risk."
             ),
             "list_header": "The following additional privileges may be enabled from installing this application:",
             "footer": "",
@@ -680,7 +680,7 @@ some other info.
 
 **!!! WARNING !!!**
 
-This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+This application can be granted additional elevated permissions beyond standard containerization protections, depending on the configuration. Use at your own risk.
 
 The following additional privileges are enabled for this application:
 

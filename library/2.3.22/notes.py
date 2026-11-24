@@ -10,8 +10,8 @@ SHORT_LIVED = "short-lived"
 
 RISKS_HEADER = "!!! WARNING !!!"
 RISKS_INTRO = (
-    "This application requires additional elevated permissions beyond standard containerization protections. "
-    "Use at your own risk."
+    "This application can be granted additional elevated permissions beyond standard containerization protections, "
+    "depending on the configuration. Use at your own risk."
 )
 # The README is shown before install, where every declared risk is only possible
 RISKS_README_LIST_HEADER = "The following additional privileges may be enabled from installing this application:"
