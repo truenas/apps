@@ -6,8 +6,12 @@ It draws inspiration from Pterodactyl but is written from scratch in Rust, with 
 
 <!-- x-readme:warnings:start -->
 
-⚠️ **WARNING:** This app has access to the Docker socket, which gives it full control over all containers and effectively root access to the system.
+**!!! WARNING !!!**
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Docker Socket Access
 
 <!-- x-readme:warnings:end -->

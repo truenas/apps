@@ -15,7 +15,7 @@
 {% do c1.environment.add_env("SNAPVIZ_DATA_DIR", values.consts.data_path) %}
 {% do c1.environment.add_env("SNAPVIZ_SOURCE", "truenas") %}
 {% do c1.environment.add_env("TRUENAS_VERIFY_TLS", false) %}
-{% do c1.environment.add_env("TRUENAS_HOST", "host.docker.internal") %}
+{% do c1.environment.add_env("TRUENAS_HOST", "host.docker.internal:%d"|format(values.snapshot_visualizer.truenas_port)) %}
 {% do c1.environment.add_env("TRUENAS_API_KEY", values.snapshot_visualizer.api_key) %}
 {% do c1.environment.add_env("SNAPVIZ_TLS", "auto" if values.snapshot_visualizer.use_https else "off") %}
 {% if values.snapshot_visualizer.password %}
@@ -41,8 +41,9 @@
   {% do c1.depends.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.notes.add_risk_warning("truenas_api_access") %}
-
 {% do tpl.portals.add(values.network.web_port, {"scheme": "https" if values.snapshot_visualizer.use_https else "http"}) %}
+
+{% do tpl.notes.declare_risk("host_network") %}
+{% do tpl.notes.declare_risk("truenas_api_access", true) %}
 
 {{ tpl.render() | tojson }}

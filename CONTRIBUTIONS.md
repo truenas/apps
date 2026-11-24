@@ -265,9 +265,10 @@ What each file is for:
   `basic-values.yaml` is required, add more files for other configurations that **REALLY** worth testing.
   See [Step 6](#step-6-create-test-files).
 
-Outside the app directory, the publish workflow generates `trains/{train}/{app}/`:
-the published copy of each app version, plus `app_versions.json`, which lists every published version
-with its metadata, and a copy of `item.yaml`. These are build output, never edit them.
+`ix-dev/{train}/{app}/` is the source you edit. On merge, the publish workflow builds it into
+`trains/{train}/{app}/`, which is what TrueNAS consumes: the current version (library included),
+`app_versions.json` (that version's metadata and rendered schema) and `item.yaml` (catalog listing data:
+categories, icon, tags). It is build output, never edit it.
 
 #### 2. The Library System
 
