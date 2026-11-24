@@ -9,8 +9,14 @@ lighting a drive bay's Identify LED.
 
 <!-- x-readme:warnings:start -->
 
-⚠️ **WARNING:** This app requires a TrueNAS API key, which gives it administrative control over the system.
+**!!! WARNING !!!**
 
-Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Host Networking
+
+• TrueNAS API Key
 
 <!-- x-readme:warnings:end -->
