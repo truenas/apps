@@ -27,8 +27,7 @@
 
 {% set paperless_container = tpl.add_container(values.consts.paperless_container_name, "image") %}
 {% do paperless_container.add_network(paperless_net) %}
-{% do paperless_container.set_user(0, 0) %}
-{% do paperless_container.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
+{% do paperless_container.set_user(values.run_as.user, values.run_as.group) %}
 {% do paperless_container.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
 
 {% do paperless_container.add_port(values.network.web_port) %}
@@ -36,8 +35,8 @@
 {% do paperless_container.environment.add_env("PAPERLESS_TIME_ZONE", values.TZ) %}
 {% do paperless_container.environment.add_env("PAPERLESS_BIND_ADDR", "0.0.0.0") %}
 {% do paperless_container.environment.add_env("PAPERLESS_PORT", values.network.web_port.port_number) %}
-{% do paperless_container.environment.add_env("USERMAP_UID", values.run_as.user) %}
-{% do paperless_container.environment.add_env("USERMAP_GID", values.run_as.group) %}
+{# Skips the image's usermod/chown init steps, which re-chown the app tree on every start #}
+{% do paperless_container.environment.add_env("USER_IS_NON_ROOT", true) %}
 {% do paperless_container.environment.add_env("PAPERLESS_DATA_DIR", values.consts.data_path) %}
 {% do paperless_container.environment.add_env("PAPERLESS_MEDIA_ROOT", values.consts.media_path) %}
 {% do paperless_container.environment.add_env("PAPERLESS_CONSUMPTION_DIR", values.consts.consume_path) %}
@@ -54,7 +53,7 @@
 {% do paperless_container.environment.add_env("PAPERLESS_DBPASS", values.paperless.db_password) %}
 {% do paperless_container.environment.add_env("PAPERLESS_REDIS", redis.get_url("redis")) %}
 
-{% do paperless_container.environment.add_user_envs(values.paperless.additional_envs) %}
+{% do paperless_container.environment.add_user_envs(values.paperless.additional_envs | selectattr("container", "equalto", "paperless") | list) %}
 
 {% do paperless_container.depends.add_dependency(values.consts.redis_container_name, "service_healthy") %}
 {% do paperless_container.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
@@ -88,14 +87,16 @@
 {% if values.paperless.enable_tika_gotenberg %}
   {% set tika_container = tpl.deps.tika(values.consts.tika_container_name, "tika_image", {"port": values.consts.tika_port}) %}
   {% do tika_container.container.add_network(paperless_net) %}
+  {% do tika_container.container.environment.add_user_envs(values.paperless.additional_envs | selectattr("container", "equalto", "tika") | list) %}
 
   {% set gotenberg_container = tpl.add_container(values.consts.gotenberg_container_name, "gotenberg_image") %}
   {% do gotenberg_container.add_network(paperless_net) %}
-  {% do gotenberg_container.set_user(values.consts.gotenberg_run_user, values.consts.gotenberg_run_user) %}
+  {% do gotenberg_container.set_user(values.consts.gotenberg_run_user, values.consts.gotenberg_run_group) %}
   {% do gotenberg_container.environment.add_env("API_PORT", values.consts.gotenberg_port) %}
   {% do gotenberg_container.environment.add_env("CHROMIUM_DISABLE_JAVASCRIPT", values.paperless.gotenberg_chromium_disable_javascript|string|lower) %}
   {% do gotenberg_container.environment.add_env("CHROMIUM_ALLOW_LIST", values.paperless.gotenberg_chromium_allow_list_regex) %}
   {% do gotenberg_container.healthcheck.set_test("http", {"port": values.consts.gotenberg_port, "path":"/health"}) %}
+  {% do gotenberg_container.environment.add_user_envs(values.paperless.additional_envs | selectattr("container", "equalto", "gotenberg") | list) %}
 
   {% do paperless_container.environment.add_env("PAPERLESS_TIKA_ENABLED", 1) %}
   {% do paperless_container.environment.add_env("PAPERLESS_TIKA_ENDPOINT", tika_container.get_url()) %}

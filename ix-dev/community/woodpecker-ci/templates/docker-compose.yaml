@@ -33,9 +33,6 @@
 {% do agent.depends.add_dependency(values.consts.server_container_name, "service_healthy") %}
 {% do agent.healthcheck.set_custom_test(["CMD", "/bin/woodpecker-agent", "ping"]) %}
 
-{# Github Actions Docker Group #}
-{% if values.ci %}{% do agent.add_group(118) %}{% endif %}
-
 {% do agent.environment.add_env("WOODPECKER_SERVER", "%s:%d" | format(values.consts.server_container_name, values.network.grpc_port.port_number)) %}
 {% do agent.environment.add_env("WOODPECKER_BACKEND", "docker") %}
 {% do agent.environment.add_env("WOODPECKER_GRPC_SECURE", false) %}
@@ -48,7 +45,7 @@
 
 {% do agent.add_storage("/etc/woodpecker", values.storage.agent_config) %}
 {% do perm_container.add_or_skip_action("agent_config", values.storage.agent_config, perms_config) %}
-{% do agent.add_docker_socket(read_only=false) %}
+{% do agent.add_docker_socket() %}
 
 {# Server #}
 {% do server.set_user(values.run_as.user, values.run_as.group) %}
@@ -107,6 +104,7 @@
 {% endif %}
 
 {% do server.add_port(values.network.http_port) %}
+{% do server.add_port(values.network.grpc_port) %}
 
 {% for store in values.storage.additional_storage %}
   {% do agent.add_storage(store.mount_path, store) %}
@@ -120,5 +118,7 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.http_port, {"name": "HTTP"}) %}
+
+{% do tpl.notes.declare_risk("docker_access") %}
 
 {{ tpl.render() | tojson }}

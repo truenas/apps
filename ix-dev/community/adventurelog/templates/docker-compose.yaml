@@ -20,7 +20,7 @@
 {# Frontend #}
 {% do frontend.set_user(1000, 1000) %}
 {% do frontend.depends.add_dependency(values.consts.backend_container_name, "service_healthy") %}
-{% do frontend.healthcheck.set_test("wget", {"port": values.consts.frontend_port, "path": "/"}) %}
+{% do frontend.healthcheck.set_test("node", {"port": values.consts.frontend_port}) %}
 
 {# Must always point to internal backend server #}
 {% do frontend.environment.add_env("PUBLIC_SERVER_URL", "http://%s:8000"|format(values.consts.backend_container_name)) %}
@@ -33,6 +33,8 @@
 {% do backend.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID"]) %}
 {% do backend.depends.add_dependency(values.consts.postgis_container_name, "service_healthy") %}
 {% do backend.healthcheck.set_test("http", {"port": values.consts.backend_port, "path": "/auth/is-registration-disabled/?format=json"}) %}
+{# First boot imports all countries and downloads their flags before the server starts #}
+{% do backend.healthcheck.set_start_period(300) %}
 
 {% do backend.environment.add_env("FRONTEND_URL", frontend_url) %}
 {% do backend.environment.add_env("PUBLIC_URL", backend_url) %}

@@ -4,6 +4,8 @@
   {% do tpl.notes.add_deprecation("Postgres 17 is deprecated and will be removed in the near future. Please upgrade.") %}
 {% endif %} #}
 
+{% set scheme = "https" if values.network.certificate_id else "http" %}
+
 {% set mealie_net = tpl.networks.create_internal("mealie-net") %}
 
 {% set c1 = tpl.add_container(values.consts.mealie_container_name, "image") %}
@@ -21,7 +23,7 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
-{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/app/about"}) %}
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/app/about", "scheme": scheme}) %}
 
 {% do c1.environment.add_env("API_PORT", values.network.web_port.port_number) %}
 {% do c1.environment.add_env("BASE_URL", values.mealie.base_url) %}
@@ -33,6 +35,14 @@
 {% do c1.environment.add_env("POSTGRES_SERVER", values.consts.postgres_container_name) %}
 {% do c1.environment.add_env("POSTGRES_PORT", 5432) %}
 {% do c1.environment.add_env("POSTGRES_DB", values.consts.db_name) %}
+{% if values.network.certificate_id %}
+  {% do c1.environment.add_env("TLS_PRIVATE_KEY_PATH", values.consts.ssl_key_path) %}
+  {% do c1.environment.add_env("TLS_CERTIFICATE_PATH", values.consts.ssl_cert_path) %}
+
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+{% endif %}
 {% do c1.environment.add_user_envs(values.mealie.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
@@ -57,6 +67,6 @@
   {% do postgres.add_dependency(values.consts.perms_container_name, "service_completed_successfully") %}
 {% endif %}
 
-{% do tpl.portals.add(values.network.web_port) %}
+{% do tpl.portals.add(values.network.web_port, {"scheme": scheme}) %}
 
 {{ tpl.render() | tojson }}

@@ -206,22 +206,69 @@ Each app lives in `/ix-dev/{train}/{app}/` and has this structure:
 ```txt
 /ix-dev/{train}/{app}/
 ├── app.yaml                    # App metadata (required)
-├── item.yaml                   # Auto-generated catalog entry
-├── ix_values.yaml              # Static default values (required)
-├── questions.yaml              # User configuration schema (required)
+├── item.yaml                   # Catalog entry (generated from app.yaml)
+├── ix_values.yaml              # Static values, not shown to users (required)
+├── questions.yaml              # Install/edit form shown to users (required)
 ├── README.md                   # Short app description (required)
 ├── app_migrations.yaml         # Migration definitions (optional)
+├── deprecations.yaml           # Deprecation notices (optional)
 ├── migrations/                 # Migration scripts (optional)
 │   └── migration_script        # Python migration script
 └── templates/
     ├── docker-compose.yaml     # Jinja2 template (required)
-    ├── library/                # Auto-copied library files (auto-generated)
-    │   └── base_v2_x_xx/       # Library version (auto-generated)
-    ├── rendered/               # Temporary (gitignored)
-    │   └── docker-compose.yaml # Rendered compose file (auto-generated)
+    ├── macros/                 # Extra Jinja2 macros/config templates (optional)
+    ├── library/                # Copy of the library (generated, gitignored)
+    │   └── base_v2_x_xx/       # Library version from lib_version
+    ├── rendered/               # Rendered output (generated, gitignored)
+    │   └── docker-compose.yaml # Rendered compose file
     └── test_values/            # CI test configurations (required)
         └── basic-values.yaml   # Basic test scenario (required)
 ```
+
+What each file is for:
+
+- **`app.yaml`**: The app's metadata: its name, title, description, upstream version (`app_version`),
+  app version (`version`), library version, icon, screenshots, categories and the user it runs as.
+  TrueNAS uses it to show the app in the catalog and to decide which upgrades are available.
+  Some fields (like `capabilities` and `lib_version_hash`) are filled in by scripts.
+  See [Step 2](#step-2-modify-appyaml).
+- **`item.yaml`**: The app's entry in the catalog listing (categories, icon, screenshots and tags).
+  It only mirrors fields of `app.yaml`, and is regenerated from it by
+  [the metadata script](#metadata-generation--validation). Don't edit it by hand.
+- **`ix_values.yaml`**: Values the app always needs but users never see or change,
+  such as the container images and tags (`images`) and constants like container names (`consts`).
+  They are merged with the user's answers before rendering.
+  See [Step 3](#step-3-define-static-values-ix_valuesyaml).
+- **`questions.yaml`**: Describes the form the user fills in when installing or editing the app in the TrueNAS UI:
+  every field, its type, default and validation.
+  The user's answers become the values your template reads.
+  See [Step 4](#step-4-create-user-configuration-schema-questionsyaml).
+- **`README.md`**: A short description of the app, shown to users in the catalog.
+  A warnings block between `<!-- x-readme:warnings:... -->` markers may be added by the metadata script, don't edit that part.
+  See [Step 7](#step-7-create-readmemd).
+- **`app_migrations.yaml`** and **`migrations/`**: Only needed when an update changes the shape of the user's saved values
+  (a renamed or removed question, for example). `app_migrations.yaml` lists which script runs for which version range,
+  and each script in `migrations/` converts the old values to the new shape.
+  See [Updates and Migrations](#updates-and-migrations).
+- **`deprecations.yaml`**: Notices about features or options that are going away,
+  with the dates and the steps users should take. A new app doesn't have one.
+- **`templates/docker-compose.yaml`**: The Jinja2 template that, using the library, turns the merged values into a Docker Compose file.
+  This is where the app's containers, storage, ports and dependencies are defined.
+  See [Step 5](#step-5-create-the-docker-compose-template).
+- **`templates/macros/`**: Optional extra Jinja2 files the main template includes,
+  for example to generate a config file for the app. Most apps don't need it.
+- **`templates/library/`**: A copy of the [rendering library](#2-the-library-system) matching `lib_version` in `app.yaml`.
+  It is made by the CI script (or `devbox run prepare-libs`), is gitignored and is never edited or committed.
+- **`templates/rendered/`**: Where the CI script writes the rendered compose file, so you can inspect what your template produced.
+  Gitignored.
+- **`templates/test_values/`**: Sets of values that stand in for a user's answers, used by CI to render and deploy the app.
+  `basic-values.yaml` is required, add more files for other configurations that **REALLY** worth testing.
+  See [Step 6](#step-6-create-test-files).
+
+`ix-dev/{train}/{app}/` is the source you edit. On merge, the publish workflow builds it into
+`trains/{train}/{app}/`, which is what TrueNAS consumes: the current version (library included),
+`app_versions.json` (that version's metadata and rendered schema) and `item.yaml` (catalog listing data:
+categories, icon, tags). It is build output, never edit it.
 
 #### 2. The Library System
 
@@ -233,7 +280,7 @@ The library (`/library/{version}/`) is a collection of Python modules that handl
 - **ports.py**: Port mapping configuration
 - **environment.py**: Environment variable handling
 - **healthcheck.py**: Health check configuration
-- **deps_*.py**: Pre-built common dependencies:
+- **deps\_\*.py**: Pre-built common dependencies:
   - `deps_postgres.py`: PostgreSQL database
   - `deps_redis.py`: Redis cache
   - `deps_mariadb.py`: MariaDB database
@@ -288,41 +335,46 @@ cp -r qbittorrent myapp
 cd myapp
 ```
 
+The app you copy may carry files that a brand-new app must not have.
+If the app you copied had them, delete `app_migrations.yaml`, `migrations/` and
+`deprecations.yaml`: a new app has no previous version to migrate from and nothing
+to deprecate yet.
+
 #### Step 2: Modify app.yaml
 
 Update the app metadata in `app.yaml`:
 
 ```yaml
-app_version: 2.1.0            # Upstream application version (ie the container image tag)
-capabilities: []              # List any Linux capabilities needed (autogenerated using the generate metadata script)
-categories:                   # Single category that best fits the app
-- productivity
-date_added: '2025-01-01'      # Date the app was added to TrueNAS
+app_version: 2.1.0 # Upstream application version (ie the container image tag)
+capabilities: [] # List any Linux capabilities needed (autogenerated using the generate metadata script)
+categories: # Single category that best fits the app
+  - productivity
+date_added: "2025-01-01" # Date the app was added to TrueNAS
 description: A brief description of what the app does
-home: https://myapp.com       # Upstream homepage
-host_mounts: []               # List any host mounts needed (usually for devices like /var/run/docker.sock)
+home: https://myapp.com # Upstream homepage
+host_mounts: [] # List any host mounts needed (usually for devices like /var/run/docker.sock)
 icon: https://media.sys.truenas.net/apps/myapp/icons/icon.png
 keywords:
-- productivity
-- tools
-lib_version: 2.1.60           # Use the latest library version (check /library/)
-lib_version_hash: ""          # Leave empty, will be auto-generated
-maintainers:                  # TrueNAS is the only maintainer for now
-- email: dev@ixsystems.com
-  name: truenas
-  url: https://www.ixsystems.com
-name: myapp                   # Must match directory name
-run_as_context:               # Metadata for user/group the app runs as (use 568 if it can run as any non-root user)
-- description: MyApp runs as any non-root user
-  gid: 568
-  group_name: myapp
-  uid: 568
-  user_name: myapp
-screenshots: []               # URLs to screenshots (hosted on TrueNAS CDN)
-sources: []                   # Upstream source code repositories
+  - productivity
+  - tools
+lib_version: 2.1.60 # Use the latest library version (check /library/)
+lib_version_hash: "" # Leave empty, will be auto-generated
+maintainers: # TrueNAS is the only maintainer for now
+  - email: dev@ixsystems.com
+    name: truenas
+    url: https://www.ixsystems.com
+name: myapp # Must match directory name
+run_as_context: # Metadata for user/group the app runs as (use 568 if it can run as any non-root user)
+  - description: MyApp runs as any non-root user
+    gid: 568
+    group_name: myapp
+    uid: 568
+    user_name: myapp
+screenshots: [] # URLs to screenshots (hosted on TrueNAS CDN)
+sources: [] # Upstream source code repositories
 title: My Awesome Application # Human-friendly app title
-train: community              # Must match parent directory
-version: 1.0.0                # App version (start at 1.0.0)
+train: community # Must match parent directory
+version: 1.0.0 # App version (start at 1.0.0)
 ```
 
 **Key fields:**
@@ -332,11 +384,27 @@ version: 1.0.0                # App version (start at 1.0.0)
 - `version`: Increment this whenever you make changes to the app
 - `app_version`: The version of the upstream application
 - `lib_version`: Use the latest non-v1 library version (check `/library/` directory)
+- `lib_version_hash`: Leave empty, generated by `copy-lib` (see below)
 - `run_as_context`: Metadata for user/group the app runs as (security best practice)
+- `changelog_url`: Must actually list the version you are shipping. Upstream release
+  pages are sometimes stale or abandoned in favour of tags; check the page before using it,
+  and fall back to a tags page or a `CHANGELOG.md` when there is no usable release feed.
+
+**About the library:**
+
+`templates/library/` is generated, never edit or copy it by hand.
+After setting `lib_version`, vendor the matching library and fill in `lib_version_hash` with:
+
+```bash
+devbox run copy-lib
+```
+
+Re-run it whenever you change `lib_version`.
+The copied library is gitignored and **must not be committed**, the publish workflow builds it.
 
 **About icons and screenshots:**
 
-For icons and screenshots that will be hosted on the TrueNAS CDN,
+Icons and screenshots will be hosted on the TrueNAS CDN,
 include the URLs or attach the images in your PR description.
 The PR reviewer will upload them to the CDN and provide you with the correct URLs.
 
@@ -369,6 +437,14 @@ consts:
 
 - `images`: Define all container images and their tags
 - `consts`: Constants used throughout your templates
+
+**What belongs in `consts`:**
+
+- Container names always belong there, by convention, even in a single-container app
+  that only uses one of them once.
+- Paths and other values only when the template actually needs them in more than one place.
+  A mount path used solely by a single `add_storage()` call reads better inline as a literal.
+  A data path that is also used to build env vars (`BLOB_DIR`, `DATABASE_URL`, ...) belongs in `consts`.
 
 #### Step 4: Create User Configuration Schema (questions.yaml)
 
@@ -536,6 +612,34 @@ questions:
 - `hidden`: Completely hides the field but includes it in config
 
 > And more...
+
+**Choosing the default port:**
+
+Port defaults must be unique across the whole catalog. Do not pick one by hand, ask the script:
+
+```bash
+./.github/scripts/port_validation.py
+# Next 5 available ports: [30489, 30490, 30491, 30492, 30493]
+```
+
+It prints the next free ports, and fails if a default collides with another app.
+
+**Which environment variables to expose:**
+
+The template owns anything it depends on, the user gets the rest through `additional_envs`.
+
+- **Set it in the template** when the rendered compose relies on the value.
+  Ports and storage paths are the clearest cases: the published port, the healthcheck
+  and the volume targets are all built from them, so a user overriding `PORT` or a data
+  directory by hand would leave the app rendered against values that no longer match.
+  The same applies to anything a probe depends on, such as a setting that switches
+  the app between serving http and https.
+- **Leave it to `additional_envs`** when it only tunes runtime behaviour and nothing in
+  the template reads it. These do not deserve a question each, and a question invites
+  users to change things they have no reason to touch.
+
+Set the values the template owns explicitly rather than relying on the image's `ENV`
+defaults, those can move in an upstream release and quietly relocate a user's data.
 
 #### Step 5: Create the Docker Compose Template
 
@@ -983,9 +1087,9 @@ The `.github/scripts/ci.py` script is your primary testing tool:
 
 When you run the CI script, it automatically:
 
-1. **Generates `item.yaml`**: Creates the catalog entry
-2. **Updates library files**: Copies the correct library version to `templates/library/` based on `lib_version` in `app.yaml`
-3. **Updates `lib_version_hash`**: Calculates and sets the hash in `app.yaml`
+1. **Updates library files**: Copies the correct library version to `templates/library/` based on `lib_version` in `app.yaml`
+2. **Updates `lib_version_hash`**: Calculates and sets the hash in `app.yaml`
+3. **Updates metadata**: Runs the metadata generation below for the app (unless `--skip-metadata`)
 4. **Renders the template**: Processes your Jinja2 template with the test values
 5. **Deploys with Docker Compose**: Starts the containers (unless `--render-only`)
 6. **Monitors health**: Waits for containers to become healthy (times out after 10 minutes)
@@ -993,7 +1097,7 @@ When you run the CI script, it automatically:
 ### Metadata Generation / Validation
 
 ```bash
-# Generates some metadata (like capabilities) for your app
+# Generates some metadata (like capabilities) for your app, and its item.yaml catalog entry
 ./.github/scripts/generate_metadata.py --app myapp --train community
 # Validates ports in questions.yaml are unique
 ./.github/scripts/port_validation.py
@@ -1091,9 +1195,9 @@ Define when your migration should run:
 migrations:
   - file: migrate_to_v2
     from:
-      max_version: 1.0.10     # Applies to apps upgrading from version <= 1.0.10
+      max_version: 1.0.10 # Applies to apps upgrading from version <= 1.0.10
     target:
-      min_version: 2.0.0      # When upgrading to version >= 2.0.0
+      min_version: 2.0.0 # When upgrading to version >= 2.0.0
 ```
 
 #### Step 2: Write the Migration Script
@@ -1154,7 +1258,7 @@ chmod +x migrations/migrate_to_v2
 Increment the `version` field to trigger the migration:
 
 ```yaml
-version: 2.0.0  # Incremented from 1.0.10
+version: 2.0.0 # Incremented from 1.0.10
 ```
 
 ### Migration Best Practices
@@ -1197,7 +1301,7 @@ version: 2.0.0  # Incremented from 1.0.10
 3. **Minimal Capabilities**: Only add capabilities if absolutely necessary
 
    ```python
-   {% do app.set_capabilities(["NET_ADMIN"]) %}  # Only if needed
+   {% do app.add_caps(["NET_ADMIN"]) %}  # Only if needed
    ```
 
 4. **Validate Input**: Use schema validation (min, max, enum) in `questions.yaml`
@@ -1379,7 +1483,7 @@ A: Fork the repo, make your changes, increment the version in `app.yaml`, and op
 
 **Q: An app is outdated. Can I update it?**
 A: If it's been more than 2 days that the upstream container tag has been released, and our bot hasn't picked it up yet, please open an issue.
-   A fix has to be applied so the bot can pick it up.
+A fix has to be applied so the bot can pick it up.
 
 ### Getting Involved
 
@@ -1395,6 +1499,24 @@ Want to do more than just contribute apps?
 - **GitHub Issues**: For bugs and feature requests
 - **GitHub Discussions**: For questions and general discussion
 - **Pull Requests**: For contributions
+
+## Apps Catalog Inclusion Policy
+
+The TrueNAS team maintains this catalog and reserves the right to reject, remove,
+or unpublish any application at its sole discretion, with or without a stated reason.
+
+Meeting the technical requirements in this repository does **not** guarantee inclusion.
+
+The following categories will not be accepted:
+
+- Applications with known risks to data integrity. This includes applications that can
+  silently corrupt or lose data, bypass or disable ZFS data protection features, or
+  require unsafe configurations to function normally.
+- Applications that interact with the TrueNAS host management layer or API.
+- Applications must operate within their assigned container boundaries and use
+  only the storage and network resources allocated to them.
+
+If you are unsure whether a proposed application falls into either category, open an issue before submitting a pull request.
 
 ---
 

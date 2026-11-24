@@ -2,5 +2,14 @@
 
 [Prometheus](https://prometheus.io/) - Monitoring system and time series database.
 
-The configuration file is located at `/config/prometheus.yml` inside the container.
-Data is stored at `/data` inside the container.
+<!-- x-readme:warnings:start -->
+
+**!!! WARNING !!!**
+
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Host Networking
+
+<!-- x-readme:warnings:end -->
