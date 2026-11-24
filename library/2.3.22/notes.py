@@ -22,8 +22,10 @@ RISKS_MAY_LIST_HEADER = "The following additional privileges may be enabled by t
 RISKS_FOOTER = ""
 # Ordered by label, the README and the notes list them in this order
 RISKS = {
+    "security_profiles": "Disabled Security Profiles",
     "docker_access": "Docker Socket Access",
     "host_capabilities": "Extended System Capabilities",
+    "host_ipc": "Host IPC Namespace",
     "host_network": "Host Networking",
     "host_pid": "Host Process Namespace",
     "mdns": "mDNS Announcements",
@@ -37,6 +39,12 @@ UNDETECTABLE_RISKS = {
     "mdns": False,
 }
 DOCKER_SOCKETS = ("/var/run/docker.sock", "/run/docker.sock")
+# Security options that turn off one of docker's default confinements when set to [unconfined]
+UNCONFINED_SECURITY_OPTS = {
+    "apparmor": "AppArmor - the default profile that blocks mounts and writes to kernel settings is off",
+    "seccomp": "Seccomp - all system calls are allowed, which widens the attack surface of the host kernel",
+    "systempaths": "System paths - the masked and read only paths under /proc and /sys are exposed",
+}
 # Capabilities that reach the host on their own: mount and admin syscalls, kernel modules,
 # raw I/O, and open_by_handle_at, which reads any file on a bind-mounted filesystem.
 # NET_ADMIN, SYS_PTRACE and the like stay in the container's namespaces, so they are left out.
@@ -270,6 +278,7 @@ class Notes:
             self._security[name].append(Security("Running user/group(s)", run_as_sec_items))
 
             if c._ipc_mode == "host":
+                self._detected_risks.add("host_ipc")
                 self._security[name].append(
                     Security(
                         header="Host IPC namespace is enabled",
@@ -310,6 +319,17 @@ class Notes:
                         ],
                     )
                 )
+
+            unconfined = [
+                UNCONFINED_SECURITY_OPTS[key]
+                for key, opt in sorted(c._security_opt._opts.items())
+                if key in UNCONFINED_SECURITY_OPTS and opt._value == "unconfined"
+            ]
+            if unconfined:
+                # Privileged mode turns these off already, its risk covers them
+                if not c._privileged:
+                    self._detected_risks.add("security_profiles")
+                self._security[name].append(Security(header="Security profiles are disabled", items=unconfined))
 
             host_mounts = []
             for dev in c.devices._devices:

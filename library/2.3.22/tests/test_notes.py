@@ -199,22 +199,34 @@ def enabled_risks_section(labels: list[str]) -> str:
 def test_notes_risks_do_not_require_action(render, c1, monkeypatch):
     monkeypatch.setenv("IX_RENDER_README", "1")
     # Every risk at once, enabled and may, none of them asks the user for an action
-    for risk in ("docker_access", "host_capabilities", "host_network", "host_pid", "privileged"):
+    for risk in (
+        "security_profiles",
+        "docker_access",
+        "host_capabilities",
+        "host_ipc",
+        "host_network",
+        "host_pid",
+        "privileged",
+    ):
         render.notes.declare_risk(risk)
     render.notes.declare_risk("truenas_api_access", True)
     render.notes.declare_risk("mdns", True)
     c1.set_privileged(True)
     c1.set_network_mode("host")
+    c1.set_ipc_mode("host")
     c1.set_pid_mode("host")
     c1.add_docker_socket()
-    # A separate container, privileged mode skips the capabilities risk
+    # A separate container, privileged mode skips the capabilities and security profiles risks
     c2 = render.add_container("test_container2", "test_image")
     c2.healthcheck.disable()
     c2.add_caps(["SYS_ADMIN"])
+    c2.add_security_opt("seccomp", "unconfined")
     output = render.render()
     assert readme_risk_keys(output) == [
+        "security_profiles",
         "docker_access",
         "host_capabilities",
+        "host_ipc",
         "host_network",
         "host_pid",
         "mdns",
@@ -223,8 +235,10 @@ def test_notes_risks_do_not_require_action(render, c1, monkeypatch):
     ]
     assert enabled_risks_section(
         [
+            "Disabled Security Profiles",
             "Docker Socket Access",
             "Extended System Capabilities",
+            "Host IPC Namespace",
             "Host Networking",
             "Host Process Namespace",
             "Privileged Mode",
@@ -249,7 +263,10 @@ def test_undetectable_risk_needs_applies(render, risk):
         render.notes.declare_risk(risk)
 
 
-@pytest.mark.parametrize("risk", ["docker_access", "host_capabilities", "host_network", "host_pid", "privileged"])
+@pytest.mark.parametrize(
+    "risk",
+    ["security_profiles", "docker_access", "host_capabilities", "host_ipc", "host_network", "host_pid", "privileged"],
+)
 def test_detected_risk_takes_no_applies(render, risk):
     with pytest.raises(Exception, match=rf"Risk \[{risk}\] is detected from the containers"):
         render.notes.declare_risk(risk, True)
@@ -370,6 +387,66 @@ def test_risk_host_pid(render, c1, monkeypatch):
     assert output["x-action-required"] is False
     assert enabled_risks_section(["Host Process Namespace"]) in output["x-notes"]
     assert readme_risk_keys(output) == ["host_pid"]
+
+
+def test_risk_host_ipc(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("host_ipc")
+    c1.set_ipc_mode("host")
+    output = render.render()
+    assert output["x-action-required"] is False
+    assert enabled_risks_section(["Host IPC Namespace"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["host_ipc"]
+
+
+@pytest.mark.parametrize(
+    "opt, item",
+    [
+        ("apparmor", "AppArmor - the default profile that blocks mounts and writes to kernel settings is off"),
+        ("seccomp", "Seccomp - all system calls are allowed, which widens the attack surface of the host kernel"),
+        ("systempaths", "System paths - the masked and read only paths under /proc and /sys are exposed"),
+    ],
+)
+def test_risk_security_profiles(render, c1, monkeypatch, opt, item):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("security_profiles")
+    c1.add_security_opt(opt, "unconfined")
+    output = render.render()
+    assert output["x-action-required"] is False
+    assert enabled_risks_section(["Disabled Security Profiles"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["security_profiles"]
+    assert f"#### Security profiles are disabled\n\n- {item}\n" in output["x-notes"]
+
+
+def test_security_profiles_lists_every_unconfined_opt(render, c1):
+    c1.add_security_opt("seccomp", "unconfined")
+    c1.add_security_opt("apparmor", "unconfined")
+    output = render.render()
+    assert (
+        "#### Security profiles are disabled\n\n"
+        "- AppArmor - the default profile that blocks mounts and writes to kernel settings is off\n"
+        "- Seccomp - all system calls are allowed, which widens the attack surface of the host kernel\n"
+    ) in output["x-notes"]
+
+
+def test_no_risk_confined_security_profile(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    c1.add_security_opt("apparmor", "custom-profile")
+    output = render.render()
+    assert readme_risk_keys(output) == []
+    assert "Security profiles are disabled" not in output["x-notes"]
+
+
+def test_privileged_skips_security_profiles_risk(render, c1, monkeypatch):
+    monkeypatch.setenv("IX_RENDER_README", "1")
+    render.notes.declare_risk("privileged")
+    c1.set_privileged(True)
+    c1.add_security_opt("seccomp", "unconfined")
+    output = render.render()
+    assert enabled_risks_section(["Privileged Mode"]) in output["x-notes"]
+    assert readme_risk_keys(output) == ["privileged"]
+    # The notes still say which profiles are off
+    assert "#### Security profiles are disabled" in output["x-notes"]
 
 
 @pytest.mark.parametrize("cap", ["SYS_ADMIN", "SYS_MODULE", "SYS_RAWIO", "DAC_READ_SEARCH"])
@@ -608,6 +685,7 @@ This application requires additional elevated permissions beyond standard contai
 The following additional privileges are enabled for this application:
 
 - Docker Socket Access
+- Host IPC Namespace
 - Host Process Namespace
 - Privileged Mode
 - TrueNAS API Key
