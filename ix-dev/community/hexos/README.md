@@ -19,3 +19,11 @@
 **Getting started.** Once the app runs, open its Web UI and choose **Claim this server**. Sign in at deck.hexos.com and enter this server's TrueNAS admin password. The deck opens read-only until the server has a HexOS license; get one at hexos.com.
 
 **Already running HexOS?** Then there is nothing to install: this server is already on your deck. Installed anyway, this app does nothing and removes itself.
+
+<!-- x-readme:warnings:start -->
+
+⚠️ **WARNING:** This app has access to the Docker socket, which gives it full control over all containers and effectively root access to the system.
+
+Misconfiguration or a malicious update can compromise data integrity, security, or system stability. Install at your own risk.
+
+<!-- x-readme:warnings:end -->
