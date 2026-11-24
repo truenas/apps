@@ -72,7 +72,7 @@ def extract_ports(quests):
 
 def get_current_port_map():
     port_map = defaultdict(list)
-    ignore_ports = (53, 22000)
+    ignore_ports = (53, 21116, 22000)
     dupe_found = False
     port_docs = []
     for path in sorted(APPS_ROOT_DIR.glob(f"*/*/{QUESTIONS_FILE}")):
