@@ -6,6 +6,9 @@
 
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.add_caps(["NET_BIND_SERVICE"]) %}
+{# The image grants NET_BIND_SERVICE to python via file capabilities (setcap), which no-new-privileges blocks.
+   Needed for the Virtual Printer to bind to ports 990 (FTPS) and 322 (RTSP) as a non-root user. #}
+{% do c1.remove_security_opt("no-new-privileges") %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/health"}) %}
 {% do c1.environment.add_env("DATA_DIR", values.consts.data_path) %}
 {% do c1.environment.add_env("LOG_DIR", values.consts.logs_path) %}
@@ -31,5 +34,7 @@
 {% endif %}
 
 {% do tpl.portals.add(values.network.web_port) %}
+
+{% do tpl.notes.declare_risk("host_network") %}
 
 {{ tpl.render() | tojson }}

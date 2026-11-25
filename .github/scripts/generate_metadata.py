@@ -23,6 +23,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 
 from common import (
@@ -34,6 +35,7 @@ from common import (
     RENDERED_COMPOSE_PATH,
     TEST_VALUES_DIR,
     hash_generate_cmd,
+    markdown_to_html_cmd,
     read_yaml,
     render_app_cmd,
     write_yaml,
@@ -42,6 +44,17 @@ from prepare_libs import prepare_app_libs
 
 APP_VALUES_FILE = "ix_values.yaml"
 ITEM_FILE = "item.yaml"
+README_FILE = "README.md"
+
+# The generated block of README warnings, placed at the end of the README
+README_WARNINGS_START = "<!-- x-readme:warnings:start -->"
+README_WARNINGS_END = "<!-- x-readme:warnings:end -->"
+RE_README_WARNINGS = re.compile(
+    rf"\n*{re.escape(README_WARNINGS_START)}.*?{re.escape(README_WARNINGS_END)}\n*", re.S
+)
+# The UI shows what follows the README's first </h1> and removes the tags not in this list
+# https://github.com/truenas/webui/blob/459561a05754239e04c7e8a09d718f1594002c0e/src/app/pages/apps/components/app-detail-view/app-details-header/app-details-header.component.ts#L48
+README_ALLOWED_TAGS = {"a", "b", "br", "em", "i", "p", "strong"}
 
 # Special apps excluded from test train
 EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
@@ -49,6 +62,11 @@ EXCLUDED_TEST_APPS = {"other-nginx", "nginx"}
 # Registries that garbage-collect manifests no longer referenced by a tag,
 # so a digest pin (tag@sha256:...) breaks once the tag moves
 NO_DIGEST_PIN_REGISTRIES = ("quay.io/",)
+
+# Our images are published on GHCR instead of Docker Hub's ixsystems/*
+GHCR_CONTAINERS_REPO = "ghcr.io/truenas/containers"
+# ixsystems/* images not built by truenas/containers, so not on GHCR
+IXSYSTEMS_IMAGE_EXCEPTIONS = {"truenas-webui"}
 
 RE_VAR_NAME = re.compile(r"^[a-z0-9_]+$")
 # Existing variable names that predate the naming rule
@@ -120,6 +138,8 @@ SERVICE_TITLES = {
     "npmplus": "Nginx Proxy Manager Plus",
     "omada": "Omada Controller",
     "lms": "Lyrion Media Server",
+    "swiparr": "Messer Swipe",
+    "yunkan": "SkyView",
 }
 
 # Host ids that are the same user and group name
@@ -281,6 +301,20 @@ class Analysis:
     capabilities: dict[str, set[str]]
     # service -> (uid, gid) of each test value
     users: dict[str, list[tuple[int, int]]]
+    # README warnings of every test value, libraries older than 2.3.21
+    readme_warnings: set[str]
+    # Follows the README warnings, the same in every test value
+    readme_warnings_footer: str
+    # Risk key -> label of every test value, libraries since 2.3.21
+    readme_risks: dict[str, str]
+    # The texts around the list of risks, the same in every test value
+    readme_risks_text: dict[str, str]
+    # Libraries older than 2.3.21 don't render x-readme risks
+    renders_risks: bool
+    # Host paths the containers mount, of every test value
+    host_mounts: set[str]
+    # Libraries older than 2.3.19 don't render x-host-mounts
+    renders_host_mounts: bool
 
 
 # Discovery
@@ -324,7 +358,7 @@ def render(app: App, values_file: str) -> dict:
     """Render the app with the given test values and return the compose data."""
     values_path = app.path / TEST_VALUES_DIR / values_file
     compose_path = app.path / RENDERED_COMPOSE_PATH
-    docker_cmd = render_app_cmd(app.path, values_path)
+    docker_cmd = render_app_cmd(app.path, values_path, readme=True)
 
     logger.debug(f"Rendering: {shlex.join(docker_cmd)}")
     result = subprocess.run(docker_cmd, capture_output=True, text=True)
@@ -377,11 +411,35 @@ def parse_user(service: str, user) -> tuple[int, int]:
 
 
 def analyze(app: App) -> Analysis:
-    analysis = Analysis(service_names=set(), capabilities=defaultdict(set), users=defaultdict(list))
+    analysis = Analysis(
+        service_names=set(),
+        capabilities=defaultdict(set),
+        users=defaultdict(list),
+        readme_warnings=set(),
+        readme_warnings_footer="",
+        readme_risks={},
+        readme_risks_text={},
+        renders_risks=False,
+        host_mounts=set(),
+        renders_host_mounts=False,
+    )
 
     for values_file in app.test_values:
         logger.debug(f"Processing {app.name} with {values_file}")
-        services = render(app, values_file).get("services")
+        compose = render(app, values_file)
+        # Libraries older than 2.3.18 don't render x-readme
+        readme = compose.get("x-readme") or {}
+        analysis.readme_warnings.update(readme.get("warnings") or [])
+        analysis.readme_warnings_footer = readme.get("warnings_footer") or analysis.readme_warnings_footer
+        if risks := readme.get("risks"):
+            analysis.renders_risks = True
+            analysis.readme_risks.update({item["key"]: item["label"] for item in risks["items"]})
+            analysis.readme_risks_text = {k: v for k, v in risks.items() if k != "items"}
+        if "x-host-mounts" in compose:
+            analysis.renders_host_mounts = True
+            analysis.host_mounts.update(compose["x-host-mounts"] or [])
+
+        services = compose.get("services")
         if not services:
             raise ValueError(f"No services found when rendering {app.name} with {values_file}")
 
@@ -547,6 +605,48 @@ def build_item(app_config: dict) -> dict:
     }
 
 
+def sorted_risks(analysis: Analysis) -> list[dict[str, str]]:
+    """The risks of every test value, ordered by label like the library lists them."""
+    risks = [{"key": key, "label": label} for key, label in analysis.readme_risks.items()]
+    return sorted(risks, key=lambda r: r["label"].casefold())
+
+
+def build_readme_paragraphs(analysis: Analysis) -> list[str]:
+    """The paragraphs of the README warnings block, none for an app without warnings."""
+    if analysis.renders_risks:
+        if not analysis.readme_risks:
+            return []
+        text = analysis.readme_risks_text
+        # The UI shows no lists, one paragraph for each risk
+        items = [f"• {risk['label']}" for risk in sorted_risks(analysis)]
+        paragraphs = [f"**{text['header']}**", text["intro"], text["list_header"], *items]
+        # Left out while the library has none
+        if text.get("footer"):
+            paragraphs.append(text["footer"])
+        return paragraphs
+
+    if not analysis.readme_warnings:
+        return []
+    # Sorted, a set's order changes between runs
+    paragraphs = [f"⚠️ **WARNING:** {w}" for w in sorted(analysis.readme_warnings)]
+    if analysis.readme_warnings_footer:
+        paragraphs.append(analysis.readme_warnings_footer)
+    return paragraphs
+
+
+def build_readme(readme: str, paragraphs: list[str]) -> str:
+    """The README with its generated warnings block replaced by (or removed for no) paragraphs."""
+    stripped = RE_README_WARNINGS.sub("", readme)
+    # Removing a block also takes the README's final newline, a README without one is left untouched
+    if stripped != readme:
+        stripped = stripped.rstrip() + "\n"
+    if not paragraphs:
+        return stripped
+
+    block = "\n\n".join([README_WARNINGS_START, *paragraphs, README_WARNINGS_END])
+    return f"{stripped.rstrip()}\n\n{block}\n"
+
+
 def get_git_date_added(app: App) -> str:
     """Date of the commit that added the app's app.yaml (the latest one, if it was ever re-added)."""
     path = app.path / APP_METADATA_FILE
@@ -617,7 +717,8 @@ def validate_questions(app: App, service_names: set[str]) -> None:
 
 
 def validate_images(app: App) -> None:
-    """Fail on digest pinned images from registries that prune untagged manifests."""
+    """Fail on ixsystems/* images (moved to GHCR), and on digest pinned images from
+    registries that prune untagged manifests."""
     values_path = app.path / APP_VALUES_FILE
     if not values_path.exists():
         return
@@ -625,11 +726,43 @@ def validate_images(app: App) -> None:
     for name, image in (read_yaml(values_path).get("images") or {}).items():
         repo = image.get("repository", "")
         tag = str(image.get("tag", ""))
+        owner, _, image_name = repo.removeprefix("docker.io/").partition("/")
+        if owner == "ixsystems" and image_name not in IXSYSTEMS_IMAGE_EXCEPTIONS:
+            raise ValueError(
+                f"Image [{name}] ({repo}) in {values_path} has moved to GHCR, "
+                f"use [{GHCR_CONTAINERS_REPO}/{image_name}] instead"
+            )
         if repo.startswith(NO_DIGEST_PIN_REGISTRIES) and "@" in tag:
             raise ValueError(
                 f"Image [{name}] ({repo}) must not be pinned to a digest in {values_path}. "
                 f"Registries {list(NO_DIGEST_PIN_REGISTRIES)} prune manifests that are no longer tagged."
             )
+
+
+class TagCollector(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.tags: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        self.tags.append(tag)
+
+
+def validate_readme(app: App, readme: str) -> None:
+    """Fail on a README with anything the UI does not show: no title or elements other than the allowed ones."""
+    result = subprocess.run(markdown_to_html_cmd(), input=readme, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Converting the README of {app.name} to HTML failed:\n{result.stderr}")
+
+    collector = TagCollector()
+    collector.feed(result.stdout)
+    if collector.tags[:1] != ["h1"]:
+        raise ValueError(f"{app.path / README_FILE} must start with a [# <title>] line")
+    if disallowed := sorted(set(collector.tags[1:]) - README_ALLOWED_TAGS):
+        raise ValueError(
+            f"{app.path / README_FILE} has elements the UI does not show: {disallowed}. "
+            f"Only the title and {sorted(README_ALLOWED_TAGS)} are allowed"
+        )
 
 
 def validate_app_config(app: App, app_config: dict) -> None:
@@ -649,6 +782,23 @@ def validate_app_config(app: App, app_config: dict) -> None:
             raise ValueError(f"Invalid {kind} URL: {url}. Must use {MEDIA_BASE_URL} as base")
         if not url.startswith(f"{app_media_url}/{subdir}/"):
             logger.warning(f"{app.name}: invalid {kind} URL: {url}")
+
+
+def validate_host_mounts(app: App, app_config: dict, analysis: Analysis) -> None:
+    """Fail on host paths the rendered app mounts that app.yaml's host_mounts do not declare.
+
+    A declared path covers the paths under it. Declaring more than the test values mount is fine,
+    eg mounts behind options none of them enable.
+    """
+    if not analysis.renders_host_mounts:
+        return
+
+    declared = [m["host_path"].rstrip("/") for m in app_config.get("host_mounts") or []]
+    missing = sorted(
+        path for path in analysis.host_mounts if not any(path == d or path.startswith(f"{d}/") for d in declared)
+    )
+    if missing:
+        raise ValueError(f"{app.path / APP_METADATA_FILE} is missing host_mounts for: {missing}")
 
 
 def validate_app_lib(app: App) -> None:
@@ -692,6 +842,7 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
     validate_questions(app, analysis.service_names)
     validate_images(app)
     validate_app_config(app, app_config)
+    validate_host_mounts(app, app_config, analysis)
     validate_app_lib(app)
 
     users = {service: select_service_user(service, values) for service, values in analysis.users.items()}
@@ -711,6 +862,18 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
         or (app_config.get("run_as_context") or []) != run_as_context
     )
     app_config.update(app_version=app_version, capabilities=capabilities, run_as_context=run_as_context)
+
+    # Readers outside the catalog, like apps.truenas.com, get the risks from the app's metadata
+    if analysis.renders_risks:
+        risks = sorted_risks(analysis)
+        if app_config.get("risks") != risks:
+            logger.info(f"Updated {app.name} risks: {len(risks)}")
+            app_config["risks"] = risks
+            changed = True
+    elif "risks" in app_config:
+        # Older libraries render no risks, the ones left from a newer library would be stale
+        del app_config["risks"]
+        changed = True
 
     # The dev validation checks the copied library against this hash, library/hashes.yaml is validated against library/
     if lib_version := app_config.get("lib_version"):
@@ -744,6 +907,15 @@ def update_app(app: App, bump_version: bool, set_date_added: bool, already_bumpe
         changed = True
     # Written every time, so it keeps the format generate_metadata writes app.yaml in
     write_yaml(item_path, item)
+
+    readme_path = app.path / README_FILE
+    readme = readme_path.read_text()
+    new_readme = build_readme(readme, build_readme_paragraphs(analysis))
+    validate_readme(app, new_readme)
+    if new_readme != readme:
+        logger.info(f"Updated {app.name} README warnings")
+        readme_path.write_text(new_readme)
+        changed = True
 
     # A library sync in this run has already bumped the app, one bump covers both changes
     bumped = changed and bump_version and not already_bumped

@@ -1,0 +1,32 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.docktail_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.add_docker_socket() %}
+{% do c1.healthcheck.set_custom_test(["CMD", "/app/docktail", "health"]) %}
+
+{% if values.docktail.credentials_type == "oauth" %}
+  {% do c1.environment.add_env("TAILSCALE_OAUTH_CLIENT_ID", values.docktail.oauth_client_id) %}
+  {% do c1.environment.add_env("TAILSCALE_OAUTH_CLIENT_SECRET", values.docktail.oauth_client_secret) %}
+{% elif values.docktail.credentials_type == "api_key" %}
+  {% do c1.environment.add_env("TAILSCALE_API_KEY", values.docktail.api_key) %}
+{% endif %}
+{% do c1.environment.add_env("DOCKTAIL_CLOUD_KEY", values.docktail.cloud_key) %}
+{% do c1.environment.add_user_envs(values.docktail.additional_envs) %}
+
+{% do c1.add_storage(values.consts.socket_path, values.storage.tailscale_socket) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{# CI has no Tailscale app, so there is no tailscaled socket and the healthcheck could never pass. #}
+{% if values.ci %}
+  {% do c1.healthcheck.disable() %}
+{% endif %}
+
+{% do tpl.notes.declare_risk("docker_access") %}
+{% do tpl.notes.declare_risk("host_network") %}
+
+{{ tpl.render() | tojson }}

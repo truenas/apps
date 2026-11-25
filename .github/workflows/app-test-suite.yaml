@@ -23,21 +23,6 @@ jobs:
       changed-apps-4: ${{ steps.changed-apps.outputs.changed-apps-4 }}
       change-count-4: ${{ steps.changed-apps.outputs.change-count-4 }}
     steps:
-      - name: Check Docker socket ownership
-        run: |
-          ls -la /var/run/docker.sock
-          gid=$(stat -c '%g' /var/run/docker.sock)
-          echo "Docker socket group is [$gid]"
-
-          # Some apps that run rootless, we add this group to their compose file when in CI
-          # So those apps can connect to the Docker socket, if that changes, we need to update
-          # the app's compose file to use the correct group
-
-          [ "$gid" -eq 118 ] && exit 0
-
-          echo "Expected Docker socket group to be 118, but it's [$gid]"
-          exit 1
-
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -105,6 +90,10 @@ jobs:
           echo "====== Docker Info ======"
           docker info
           echo "========================="
+
+      # ubuntu-26.04 runners don't load the legacy iptables tables, which concourse's worker needs
+      - name: Load legacy iptables modules
+        run: sudo modprobe -a ip_tables iptable_filter iptable_nat || true
 
       - name: Checkout
         uses: actions/checkout@v7

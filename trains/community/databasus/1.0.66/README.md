@@ -1,0 +1,15 @@
+# Databasus
+
+[Databasus](https://databasus.com) is a free, open source and self-hosted tool to backup databases (with focus on PostgreSQL). Make backups with different storages (S3, Google Drive, FTP, etc.) and notifications about progress (Slack, Discord, Telegram, etc.)
+
+<!-- x-readme:warnings:start -->
+
+**!!! WARNING !!!**
+
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Host Networking
+
+<!-- x-readme:warnings:end -->
