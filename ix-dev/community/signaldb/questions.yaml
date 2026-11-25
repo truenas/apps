@@ -47,7 +47,6 @@ questions:
                 description: Postgres 18
         - variable: db_password
           label: Database Password
-          description: The password for the bundled PostgreSQL database.
           schema:
             type: string
             default: ""
@@ -62,30 +61,6 @@ questions:
             type: string
             default: ""
             private: true
-        - variable: api_public_url
-          label: API and UI URL
-          description: |
-            The URL where clients reach the query API and Explore UI, when it differs from the NAS address.</br>
-            For example https://signaldb.example.com
-          schema:
-            type: uri
-            default: ""
-        - variable: otlp_grpc_public_url
-          label: OTLP gRPC URL
-          description: |
-            The URL where clients send OTLP over gRPC, when it differs from the NAS address.</br>
-            For example https://otlp.example.com:4317
-          schema:
-            type: uri
-            default: ""
-        - variable: otlp_http_public_url
-          label: OTLP HTTP URL
-          description: |
-            The URL where clients send OTLP over HTTP, when it differs from the NAS address.</br>
-            For example https://otlp.example.com
-          schema:
-            type: uri
-            default: ""
         - variable: enable_mcp
           label: Enable MCP Server
           description: |
@@ -94,20 +69,11 @@ questions:
           schema:
             type: boolean
             default: false
-        - variable: mcp_public_url
-          label: MCP URL
-          description: |
-            The URL of the MCP endpoint, when it differs from the NAS address.</br>
-            For example https://mcp.example.com/mcp
-          schema:
-            type: uri
-            default: ""
-            show_if: [["enable_mcp", "=", true]]
         - variable: mcp_allowed_hosts
           label: MCP Allowed Hosts
           description: |
-            Host headers the MCP server accepts besides loopback, for example 192.168.1.10:30560.</br>
-            The host of the MCP URL is added automatically.
+            Host headers the MCP server accepts besides loopback.</br>
+            For example 192.168.1.10:30628 or mcp.example.com
           schema:
             type: list
             default: []
@@ -129,6 +95,16 @@ questions:
                 schema:
                   type: dict
                   attrs:
+                    - variable: container
+                      label: Container
+                      schema:
+                        type: string
+                        required: true
+                        enum:
+                          - value: signaldb
+                            description: signaldb
+                          - value: mcp
+                            description: mcp
                     - variable: name
                       label: Name
                       schema:
@@ -196,7 +172,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30557
+                  default: 30625
                   min: 1
                   max: 65535
                   required: true
@@ -244,7 +220,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30558
+                  default: 30626
                   min: 1
                   max: 65535
                   required: true
@@ -292,7 +268,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30559
+                  default: 30627
                   min: 1
                   max: 65535
                   required: true
@@ -340,7 +316,7 @@ questions:
                 label: Port Number
                 schema:
                   type: int
-                  default: 30560
+                  default: 30628
                   min: 1
                   max: 65535
                   required: true
@@ -447,9 +423,7 @@ questions:
                                           "null": true
                                       - variable: priority
                                         label: Priority (Optional)
-                                        description:
-                                          Indicates in which order Compose connects the service’s containers
-                                          to its networks.
+                                        description: Indicates in which order Compose connects the service’s containers to its networks.
                                         schema:
                                           type: int
                                           "null": true
@@ -460,11 +434,10 @@ questions:
       type: dict
       attrs:
         - variable: data
-          label: SignalDB Data Storage
+          label: Data Storage
           description: |
             Holds your signaldb.toml and SignalDB's working directory.</br>
             Create signaldb.toml here to configure tenants and API keys.
-            The app does not create or overwrite this file.
           schema:
             type: dict
             attrs:
@@ -539,7 +512,7 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: wal
-          label: SignalDB WAL Storage
+          label: WAL Storage
           description: |
             Holds the write-ahead log. Every ingested signal lands here first,
             so fast storage (SSD) helps ingest latency.
@@ -617,7 +590,7 @@ questions:
                         show_if: [["acl_enable", "=", false]]
                         required: true
         - variable: signal_data
-          label: SignalDB Signal Data Storage
+          label: Signal Data Storage
           description: |
             Holds the Parquet files for traces, logs, metrics and profiles.
             This is where most of the disk usage goes.</br>
