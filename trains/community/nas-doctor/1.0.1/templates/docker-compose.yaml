@@ -1,0 +1,46 @@
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.nas_doctor_container_name, "image") %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.set_pid_mode("host") %}
+{% do c1.add_caps(["SYS_RAWIO"]) %}
+
+{% do c1.healthcheck.set_test("curl", {"port": values.network.web_port.port_number, "path": "/api/v1/health"}) %}
+
+{% do c1.environment.add_env("NAS_DOCTOR_LISTEN", ":%d"|format(values.network.web_port.port_number)) %}
+{% do c1.environment.add_env("NAS_DOCTOR_INTERVAL", values.nas_doctor.scan_interval) %}
+{% do c1.environment.add_user_envs(values.nas_doctor.additional_envs) %}
+
+{% do c1.add_port(values.network.web_port) %}
+
+{% if values.nas_doctor.mount_docker_socket %}
+  {% do c1.add_docker_socket() %}
+{% endif %}
+
+{% if values.nas_doctor.mount_dev %}
+  {% do c1.add_storage("/dev", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/dev"}}) %}
+{% endif %}
+
+{% if values.nas_doctor.mount_sys %}
+  {% do c1.add_storage("/sys", {"type": "host_path", "read_only": true, "host_path_config": {"path": "/sys"}}) %}
+{% endif %}
+
+{% do c1.add_storage("/data", values.storage.data) %}
+
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.portals.add(values.network.web_port) %}
+
+{# Container monitoring (when enabled) #}
+{% do tpl.notes.declare_risk("docker_access") %}
+{# SYS_RAWIO, smartctl needs it for SMART data of the disks #}
+{% do tpl.notes.declare_risk("host_capabilities") %}
+{# Host network (when enabled) #}
+{% do tpl.notes.declare_risk("host_network") %}
+{# Top Processes matches host processes to their containers #}
+{% do tpl.notes.declare_risk("host_pid") %}
+
+{{ tpl.render() | tojson }}
