@@ -18,9 +18,23 @@
 {% do c1.environment.add_env("HERMES_UID", values.run_as.user) %}
 {% do c1.environment.add_env("HERMES_GID", values.run_as.group) %}
 
-{% do c1.environment.add_env("HERMES_DASHBOARD", values.network.dashboard_port.bind_mode != "") %}
+{% set use_webapp = values.hermes_agent.get("use_webapp", false) %}
+{% if not use_webapp %}
+  {% do c1.environment.add_env("HERMES_DASHBOARD", values.network.dashboard_port.bind_mode != "") %}
+{% endif %}
 {% if values.network.dashboard_port.bind_mode %}
-  {% do c1.environment.add_env("HERMES_DASHBOARD_PORT", values.network.dashboard_port.port_number) %}
+  {% if use_webapp %}
+    {% set webapp_config = {
+      "webapp": {
+        "enabled": true,
+        "host": "0.0.0.0",
+        "port": values.network.dashboard_port.port_number,
+      }
+    } %}
+    {% do c1.configs.add("webapp_config", tpl.funcs.to_yaml(webapp_config), "/etc/hermes/config.yaml", "0444") %}
+  {% else %}
+    {% do c1.environment.add_env("HERMES_DASHBOARD_PORT", values.network.dashboard_port.port_number) %}
+  {% endif %}
   {% do tpl.portals.add(values.network.dashboard_port) %}
 
   {% if values.hermes_agent.enable_basic_auth %}
