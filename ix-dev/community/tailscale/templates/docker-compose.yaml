@@ -48,7 +48,15 @@
   {% do c1.add_tun_device() %}
 {% endif %}
 
-{% do c1.add_storage("/var/run/tailscale", {"type":"tmpfs", "tmpfs_config": {"mode": "0755"}}) %}
+{% set socket_storage = values.storage.get("socket", {}) %}
+{% if socket_storage.get("type") == "host_path" %}
+  {% do c1.add_storage("/var/run/tailscale", socket_storage) %}
+  {% if values.tailscale.userspace %}
+    {% do perm_container.add_or_skip_action("socket", socket_storage, perm_config) %}
+  {% endif %}
+{% else %}
+  {% do c1.add_storage("/var/run/tailscale", {"type":"tmpfs", "tmpfs_config": {"mode": "0755"}}) %}
+{% endif %}
 
 {% do c1.add_storage(values.consts.state_path, values.storage.state) %}
 {% if values.tailscale.userspace %}
