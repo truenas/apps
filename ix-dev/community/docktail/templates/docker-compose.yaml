@@ -1,6 +1,7 @@
 {% set tpl = ix_lib.base.render.Render(values) %}
 
 {% set c1 = tpl.add_container(values.consts.docktail_container_name, "image") %}
+
 {% do c1.set_user(0, 0) %}
 {% do c1.add_docker_socket() %}
 {% do c1.healthcheck.set_custom_test(["CMD", "/app/docktail", "health"]) %}
@@ -14,7 +15,6 @@
 {% do c1.environment.add_env("DOCKTAIL_CLOUD_KEY", values.docktail.cloud_key) %}
 {% do c1.environment.add_user_envs(values.docktail.additional_envs) %}
 
-{# Mount the directory, not the socket file: tailscaled recreates the socket on restart. #}
 {% do c1.add_storage(values.consts.socket_path, values.storage.tailscale_socket) %}
 
 {% for store in values.storage.additional_storage %}
@@ -25,9 +25,6 @@
 {% if values.ci %}
   {% do c1.healthcheck.disable() %}
 {% endif %}
-
-{% do tpl.notes.add_info("DockTail uses the node of the Tailscale app. In the Tailscale app, set Tailscale Socket Storage to the same Host Path as DockTail's Tailscale Socket Storage, and give the node a tag (for example Extra Arguments --advertise-tags=tag:server).") %}
-{% do tpl.notes.add_info("To make an app a Tailscale Service, add the docktail.service.enable, docktail.service.name and docktail.service.port labels to its container. See https://docktail.org/docs/") %}
 
 {% do tpl.notes.declare_risk("docker_access") %}
 {% do tpl.notes.declare_risk("host_network") %}
