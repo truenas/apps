@@ -6,9 +6,6 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% do c1.add_network(signaldb_net) %}
-{% do c1.set_user(values.run_as.user, values.run_as.group) %}
-{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/health", "busybox": true}) %}
 
 {% set pg_config = {
   "user": values.consts.db_user,
@@ -18,19 +15,20 @@
 } %}
 {% set postgres = tpl.deps.postgres(values.consts.postgres_container_name, values.signaldb.postgres_image_selector, pg_config, perm_container) %}
 {% do postgres.container.add_network(signaldb_net) %}
+
+{% do c1.add_network(signaldb_net) %}
+{% do c1.set_user(values.run_as.user, values.run_as.group) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.consts.internal_web_port, "path": "/health", "busybox": true}) %}
 {% do c1.depends.add_dependency(values.consts.postgres_container_name, "service_healthy") %}
 
-{% set pg_url = postgres.get_url("postgres") %}
-{% do c1.environment.add_env("SIGNALDB__DATABASE__DSN", pg_url) %}
-{% do c1.environment.add_env("SIGNALDB__DISCOVERY__DSN", pg_url) %}
+{% do c1.environment.add_env("SIGNALDB__DATABASE__DSN", postgres.get_url("postgres")) %}
+{% do c1.environment.add_env("SIGNALDB__DISCOVERY__DSN", postgres.get_url("postgres")) %}
 {% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_TYPE", "sql") %}
-{% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_URI", pg_url) %}
+{% do c1.environment.add_env("SIGNALDB__SCHEMA__CATALOG_URI", postgres.get_url("postgres")) %}
 {% do c1.environment.add_env("SIGNALDB__WAL__WAL_DIR", values.consts.wal_path) %}
 {% do c1.environment.add_env("SIGNALDB__STORAGE__DSN", "file://%s" | format(values.consts.signal_data_path)) %}
-
-{% set memory_mb = values.resources.limits.memory %}
-{% do c1.environment.add_env("SIGNALDB__QUERIER__MEMORY_LIMIT_MB", memory_mb // 2) %}
-{% do c1.environment.add_env("SIGNALDB__COMPACTOR__MEMORY_LIMIT_MB", [512, memory_mb // 8] | min) %}
+{% do c1.environment.add_env("SIGNALDB__QUERIER__MEMORY_LIMIT_MB", values.resources.limits.memory // 2) %}
+{% do c1.environment.add_env("SIGNALDB__COMPACTOR__MEMORY_LIMIT_MB", [512, values.resources.limits.memory // 8] | min) %}
 
 {% if values.signaldb.api_public_url %}
   {% do c1.environment.add_env("SIGNALDB__PUBLIC__API_URL", values.signaldb.api_public_url) %}
@@ -57,8 +55,10 @@
 
 {% do c1.add_storage("/data", values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
+
 {% do c1.add_storage(values.consts.wal_path, values.storage.wal) %}
 {% do perm_container.add_or_skip_action("wal", values.storage.wal, perms_config) %}
+
 {% do c1.add_storage(values.consts.signal_data_path, values.storage.signal_data) %}
 {% do perm_container.add_or_skip_action("signal_data", values.storage.signal_data, perms_config) %}
 
