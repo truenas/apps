@@ -678,6 +678,9 @@ def validate_question(question: dict) -> None:
         raise ValueError(f"Invalid variable name: {variable}")
 
     schema = question["schema"]
+    if "valid_chars" in schema and not schema.get("valid_chars_error"):
+        raise ValueError(f"Question [{variable}] has valid_chars but no valid_chars_error")
+
     if schema["type"] == "dict":
         for attr in schema["attrs"]:
             validate_question(attr)
