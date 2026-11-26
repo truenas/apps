@@ -29,6 +29,4 @@ if [ -f "$config_file.local" ]; then
   yq -i 'del(.{{ key }})' "$config_file.local"
 {%- endfor %}
 fi
-
-exec /bin/bash /docker_start.sh "$@"
 {%- endmacro %}
