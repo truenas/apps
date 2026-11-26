@@ -526,6 +526,37 @@ def test_add_redis(mock_values):
     }
 
 
+def test_add_redis_ghcr_valkey(mock_values):
+    mock_values["images"]["redis_image"] = {
+        "repository": "ghcr.io/valkey-io/valkey",
+        "tag": "latest",
+    }
+    render = Render(mock_values)
+    c1 = render.add_container("test_container", "test_image")
+    c1.healthcheck.disable()
+    perms_container = render.deps.perms("perms_container")
+    render.deps.redis(
+        "redis_container",
+        "redis_image",
+        {
+            "password": "test_password",
+            "volume": {
+                "type": "volume",
+                "volume_config": {
+                    "volume_name": "test_volume",
+                    "auto_permissions": True,
+                },
+            },
+        },
+        perms_container,
+    )
+    output = render.render()
+    assert (
+        output["services"]["redis_container"]["image"]
+        == "ghcr.io/valkey-io/valkey:latest"
+    )
+
+
 def test_add_mariadb(mock_values):
     mock_values["images"]["mariadb_image"] = {
         "repository": "mariadb",

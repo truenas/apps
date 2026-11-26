@@ -17,6 +17,7 @@ import copy
 import json
 import yaml
 import sys
+import os
 
 import generate_metadata
 from common import (
@@ -26,19 +27,24 @@ from common import (
     RENDERED_COMPOSE_PATH,
     TEST_VALUES_DIR,
     YAML_LOADER,
-    hash_generate_cmd,
     render_app_cmd,
 )
+from prepare_libs import prepare_app_libs
 
 CHANGE_PLATFORM_FOR_IMAGES = [
-    "redis",
-    "valkey/valkey",
     "chaptarr/chaptarr",
-    "ghcr.io/lostb1t/remux",
-    "ghcr.io/stalwartlabs/stalwart",
+    "getmeili/meilisearch",
+    "ghcr.io/andiwirz/scanvento/api",
     "ghcr.io/euro-office/documentserver",
     "ghcr.io/karakeep-app/karakeep-chrome",
+    "ghcr.io/lostb1t/remux",
+    "ghcr.io/stalwartlabs/stalwart",
+    "ghcr.io/valkey-io/valkey",
+    "redis",
+    "valkey/valkey",
 ]
+
+DOCKER_SOCKET = "/var/run/docker.sock"
 
 
 # Used to print mostly structured data, like yaml or json
@@ -132,13 +138,37 @@ def replace_platform_in_service(svc):
     svc_copy = copy.deepcopy(svc)
     image = svc.get("image", "")
     if not image:
-        print_stderr("No image found in service definition. Skipping platform replacement.")
+        print_stderr(
+            "No image found in service definition. Skipping platform replacement."
+        )
         sys.exit(1)
     repo = image.split(":")[0]
     if repo in CHANGE_PLATFORM_FOR_IMAGES:
         svc_copy["platform"] = "linux/arm64"
         # Drop the digest pin (repo:tag@sha256:...), it might not include an arm64 image
         svc_copy["image"] = image.split("@")[0]
+    return svc_copy
+
+
+def add_docker_socket_group_to_service(svc):
+    # Rootless containers need the socket's group to reach docker. The runner's
+    # docker group id is not stable, so read it from the socket instead of
+    # hardcoding it in the app templates.
+    mounts_socket = any(
+        isinstance(vol, dict) and vol.get("source") == DOCKER_SOCKET
+        for vol in svc.get("volumes", [])
+    )
+    if not mounts_socket or not os.path.exists(DOCKER_SOCKET):
+        return svc
+
+    gid = os.stat(DOCKER_SOCKET).st_gid
+    groups = svc.get("group_add", [])
+    if gid == 0 or str(gid) in [str(g) for g in groups]:
+        return svc
+
+    svc_copy = copy.deepcopy(svc)
+    svc_copy["group_add"] = [*groups, gid]
+    print_stderr(f"Adding docker socket group [{gid}] to service")
     return svc_copy
 
 
@@ -192,6 +222,7 @@ def render_compose():
             # arm64 when platform is set to linux/amd64.
             for svc_name, svc in out.get("services", {}).items():
                 new_svc = replace_platform_in_service(svc)
+                new_svc = add_docker_socket_group_to_service(new_svc)
                 out["services"][svc_name] = new_svc
             with open(template_file, "w") as f2:
                 yaml.dump(out, f2)
@@ -199,7 +230,9 @@ def render_compose():
         except yaml.YAMLError as e:
             print_stderr(f"Failed to parse rendered docker-compose file [{e}]")
             with open(template_file, "r") as f:
-                print_stderr(f"Syntax Error in rendered docker-compose file:\n{f.read()}")
+                print_stderr(
+                    f"Syntax Error in rendered docker-compose file:\n{f.read()}"
+                )
             sys.exit(1)
 
         if args["render_only_debug"]:
@@ -308,7 +341,9 @@ def get_parsed_containers():
     # Outputs one container per line, in json format
     cmd = f"{get_base_cmd()} ps --all --format json"
     print_cmd(cmd)
-    all_containers = subprocess.run(cmd, shell=True, capture_output=True).stdout.decode("utf-8")
+    all_containers = subprocess.run(
+        cmd, shell=True, capture_output=True
+    ).stdout.decode("utf-8")
     parsed_containers = []
     for line in all_containers.split("\n"):
         if not line:
@@ -445,7 +480,9 @@ def run_app():
             return res.returncode or 99
 
         failed_containers = get_failed_containers()
-        failed_containers_names = "\n".join([f"\t-{c['Name']} ({c['ID']})" for c in failed_containers])
+        failed_containers_names = "\n".join(
+            [f"\t-{c['Name']} ({c['ID']})" for c in failed_containers]
+        )
         if not failed_containers:
             print_stderr("✅ No failed containers found")
 
@@ -455,7 +492,9 @@ def run_app():
                 + f"failed containers that failed to start:\n {failed_containers_names}"
             )
         for container in failed_containers:
-            print_stderr(f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data")
+            print_stderr(
+                f"Container [{container['Name']}({container['ID']})] exited. Printing Inspect Data"
+            )
             print_inspect_data(container)
 
         # https://github.com/docker/compose/issues/10596
@@ -476,15 +515,10 @@ def check_app_dir_exists():
 
 
 def copy_lib():
-    cmd = hash_generate_cmd([f"--train={args['train']}", f"--app={args['app']}"])
-    print_cmd(shlex.join(cmd))
-    separator_start()
-    res = subprocess.run(cmd, capture_output=True)
-    print_stderr(res.stdout.decode("utf-8"))
-    separator_end()
-    if res.returncode != 0:
-        print_stderr("Failed to generate hashes and copy lib")
-        print_stderr(res.stderr.decode("utf-8"))
+    try:
+        prepare_app_libs(get_app_dir())
+    except Exception as e:
+        print_stderr(f"Failed to copy lib: {e}")
         sys.exit(1)
 
 
@@ -503,7 +537,9 @@ def update_metadata():
     print_stderr("Updating app metadata")
     separator_start()
     try:
-        generate_metadata.update_app(app, bump_version=True, set_date_added=False)
+        generate_metadata.update_app(
+            app, bump_version=True, set_date_added=False
+        )
     except Exception as e:
         print_stderr(f"Failed to update app metadata: {e}")
         sys.exit(1)

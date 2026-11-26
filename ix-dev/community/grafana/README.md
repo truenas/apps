@@ -2,11 +2,14 @@
 
 [Grafana](https://grafana.com/) is the open source analytics & monitoring solution for every database.
 
-Additional configuration can be made by adding additional environment variables
-Here is the available [configuration documentation](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/)
+<!-- x-readme:warnings:start -->
 
-Use the following syntax:
-`GF_[SECTION-NAME]_[KEY-NAME]`
+**!!! WARNING !!!**
 
-Example:
-`GF_SMTP_ENABLED`
+This application requires additional elevated permissions beyond standard containerization protections. Use at your own risk.
+
+The following additional privileges may be enabled from installing this application:
+
+• Host Networking
+
+<!-- x-readme:warnings:end -->

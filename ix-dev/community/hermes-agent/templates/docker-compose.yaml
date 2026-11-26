@@ -2,7 +2,7 @@
 
 {% set c1 = tpl.add_container(values.consts.hermes_agent_container_name, "image") %}
 {% do c1.set_user(0, 0) %}
-{% do c1.add_caps(["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"]) %}
+{% do c1.add_caps(["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE", "FOWNER"]) %}
 {% do c1.set_shm_size_mb(values.hermes_agent.shm_size_mb) %}
 {% do c1.set_command(["gateway", "run"]) %}
 {% do c1.healthcheck.set_test("curl", {"port": values.network.gateway_port.port_number, "path": "/health"}) %}
@@ -22,12 +22,18 @@
 {% if values.network.dashboard_port.bind_mode %}
   {% do c1.environment.add_env("HERMES_DASHBOARD_PORT", values.network.dashboard_port.port_number) %}
   {% do tpl.portals.add(values.network.dashboard_port) %}
+{% endif %}
 
-  {% if values.hermes_agent.enable_basic_auth %}
-    {% do c1.environment.add_env("HERMES_DASHBOARD_BASIC_AUTH_USERNAME", values.hermes_agent.basic_auth_username) %}
-    {% do c1.environment.add_env("HERMES_DASHBOARD_BASIC_AUTH_PASSWORD", values.hermes_agent.basic_auth_password) %}
-    {% do c1.environment.add_env("HERMES_DASHBOARD_BASIC_AUTH_SECRET", values.hermes_agent.basic_auth_secret) %}
-  {% endif %}
+{% if values.network.webapp_port.bind_mode %}
+  {% set webapp_config = {"webapp": {"enabled": true, "host": "0.0.0.0", "port": values.network.webapp_port.port_number}} %}
+  {% do c1.configs.add("webapp_config", tpl.funcs.to_yaml(webapp_config), "/etc/hermes/config.yaml", "0444") %}
+  {% do tpl.portals.add(values.network.webapp_port, {"name": "Webapp"}) %}
+{% endif %}
+
+{% if values.hermes_agent.enable_basic_auth %}
+  {% do c1.environment.add_env("HERMES_DASHBOARD_BASIC_AUTH_USERNAME", values.hermes_agent.basic_auth_username) %}
+  {% do c1.environment.add_env("HERMES_DASHBOARD_BASIC_AUTH_PASSWORD", values.hermes_agent.basic_auth_password) %}
+  {% do c1.environment.add_env("HERMES_DASHBOARD_BASIC_AUTH_SECRET", values.hermes_agent.basic_auth_secret) %}
 {% endif %}
 
 {% do c1.environment.add_env("WEBHOOK_ENABLED", values.network.webhook_port.bind_mode != "") %}
@@ -39,6 +45,7 @@
 
 {% do c1.add_port(values.network.gateway_port) %}
 {% do c1.add_port(values.network.dashboard_port) %}
+{% do c1.add_port(values.network.webapp_port) %}
 {% do c1.add_port(values.network.webhook_port) %}
 {% do c1.add_port(values.network.a2a_port) %}
 
@@ -46,5 +53,7 @@
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
+
+{% do tpl.notes.declare_risk("host_network") %}
 
 {{ tpl.render() | tojson }}
