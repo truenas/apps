@@ -15,11 +15,13 @@
   "db_config.db_path": "%s/crowdsec.db"|format(values.consts.data_dir),
   "config_paths.data_dir": values.consts.data_dir,
 } %}
+{% do init.set_user(0, 0) %}
 {% do init.setup_as_helper() %}
 {% do init.configs.add("entrypoint.sh", entrypoint(cfg), "/entrypoint.sh", "0500") %}
 {% do init.set_entrypoint(["/entrypoint.sh"]) %}
 {% do init.add_storage("/etc/crowdsec", values.storage.config) %}
 
+{% do c1.set_user(0, 0) %}
 {% do c1.add_caps(["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"]) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.lapi_port.port_number, "path": "/health", "scheme": scheme, "busybox": true}) %}
 {% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
@@ -53,5 +55,7 @@
 {% for store in values.storage.additional_storage %}
   {% do c1.add_storage(store.mount_path, store) %}
 {% endfor %}
+
+{% do tpl.notes.declare_risk("host_network") %}
 
 {{ tpl.render() | tojson }}
