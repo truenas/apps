@@ -4,29 +4,19 @@
 {% set perm_container = tpl.deps.perms(values.consts.perms_container_name) %}
 {% set perms_config = {"uid": values.run_as.user, "gid": values.run_as.group, "mode": "check"} %}
 
-{% if values.kinopeer.password and values.kinopeer.password | length < 8 %}
-  {% do tpl.funcs.fail("Password must be at least 8 characters long, or left empty.") %}
-{% endif %}
-
 {% do c1.set_user(values.run_as.user, values.run_as.group) %}
 {% do c1.healthcheck.set_test("wget", {"port": values.network.web_port.port_number, "path": "/healthz", "busybox": true}) %}
 
 {% do c1.environment.add_env("PORT", values.network.web_port.port_number) %}
-{% do c1.environment.add_env("KINOPEER_DATA_DIR", "/data") %}
-{% if values.kinopeer.password %}
-  {% do c1.environment.add_env("KINOPEER_PASSWORD", values.kinopeer.password) %}
-{% endif %}
-{% if values.kinopeer.qbittorrent_url %}
-  {% do c1.environment.add_env("QBITTORRENT_URL", values.kinopeer.qbittorrent_url) %}
-{% endif %}
-{% if values.kinopeer.prowlarr_url %}
-  {% do c1.environment.add_env("PROWLARR_URL", values.kinopeer.prowlarr_url) %}
-{% endif %}
+{% do c1.environment.add_env("KINOPEER_DATA_DIR", values.consts.data_dir) %}
+{% do c1.environment.add_env("KINOPEER_PASSWORD", values.kinopeer.password) %}
+{% do c1.environment.add_env("QBITTORRENT_URL", values.kinopeer.qbittorrent_url) %}
+{% do c1.environment.add_env("PROWLARR_URL", values.kinopeer.prowlarr_url) %}
 {% do c1.environment.add_user_envs(values.kinopeer.additional_envs) %}
 
 {% do c1.add_port(values.network.web_port) %}
 
-{% do c1.add_storage("/data", values.storage.data) %}
+{% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
 {% do perm_container.add_or_skip_action("data", values.storage.data, perms_config) %}
 
 {% for store in values.storage.additional_storage %}
