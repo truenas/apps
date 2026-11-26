@@ -27,7 +27,9 @@
 
 {% set paperless_container = tpl.add_container(values.consts.paperless_container_name, "image") %}
 {% do paperless_container.add_network(paperless_net) %}
-{% do paperless_container.set_user(values.run_as.user, values.run_as.group) %}
+{# Runs as root: upstream's rootless mode can't install PAPERLESS_OCR_LANGUAGES at startup #}
+{% do paperless_container.set_user(0, 0) %}
+{% do paperless_container.add_caps(["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]) %}
 {% do paperless_container.healthcheck.set_test("curl", {"port": values.network.web_port.port_number}) %}
 
 {% do paperless_container.add_port(values.network.web_port) %}
@@ -35,8 +37,8 @@
 {% do paperless_container.environment.add_env("PAPERLESS_TIME_ZONE", values.TZ) %}
 {% do paperless_container.environment.add_env("PAPERLESS_BIND_ADDR", "0.0.0.0") %}
 {% do paperless_container.environment.add_env("PAPERLESS_PORT", values.network.web_port.port_number) %}
-{# Skips the image's usermod/chown init steps, which re-chown the app tree on every start #}
-{% do paperless_container.environment.add_env("USER_IS_NON_ROOT", true) %}
+{% do paperless_container.environment.add_env("USERMAP_UID", values.run_as.user) %}
+{% do paperless_container.environment.add_env("USERMAP_GID", values.run_as.group) %}
 {% do paperless_container.environment.add_env("PAPERLESS_DATA_DIR", values.consts.data_path) %}
 {% do paperless_container.environment.add_env("PAPERLESS_MEDIA_ROOT", values.consts.media_path) %}
 {% do paperless_container.environment.add_env("PAPERLESS_CONSUMPTION_DIR", values.consts.consume_path) %}
