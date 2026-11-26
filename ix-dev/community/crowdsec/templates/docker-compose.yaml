@@ -1,0 +1,60 @@
+{% from "macros/entrypoint.sh" import entrypoint %}
+{% set tpl = ix_lib.base.render.Render(values) %}
+
+{% set c1 = tpl.add_container(values.consts.crowdsec_container_name, "image") %}
+{% set init = tpl.add_container(values.consts.init_container_name, "image") %}
+{% set scheme = "https" if values.network.certificate_id else "http" %}
+
+{% set cfg = {
+  "api.server.enable": true,
+  "api.server.listen_uri": "0.0.0.0:%d"|format(values.network.lapi_port.port_number),
+  "prometheus.enabled": values.network.metrics_port.bind_mode != "",
+  "prometheus.listen_addr": "0.0.0.0",
+  "prometheus.listen_port": values.network.metrics_port.port_number,
+  "db_config.type": "sqlite",
+  "db_config.db_path": "%s/crowdsec.db"|format(values.consts.data_dir),
+  "config_paths.data_dir": values.consts.data_dir,
+} %}
+{% do init.set_user(0, 0) %}
+{% do init.setup_as_helper() %}
+{% do init.configs.add("entrypoint.sh", entrypoint(cfg), "/entrypoint.sh", "0500") %}
+{% do init.set_entrypoint(["/entrypoint.sh"]) %}
+{% do init.add_storage("/etc/crowdsec", values.storage.config) %}
+
+{% do c1.set_user(0, 0) %}
+{% do c1.healthcheck.set_test("wget", {"port": values.network.lapi_port.port_number, "path": "/health", "scheme": scheme, "busybox": true}) %}
+{% do c1.depends.add_dependency(values.consts.init_container_name, "service_completed_successfully") %}
+
+{% do c1.environment.add_env("CONFIG_FILE", "/etc/crowdsec/config.yaml") %}
+{% do c1.environment.add_env("DISABLE_LOCAL_API", false) %}
+{% do c1.environment.add_env("METRICS_PORT", values.network.metrics_port.port_number) %}
+{% do c1.environment.add_env("LOCAL_API_URL", "%s://127.0.0.1:%d"|format(scheme, values.network.lapi_port.port_number)) %}
+{% do c1.environment.add_env("USE_TLS", scheme == "https") %}
+
+{% if values.network.certificate_id %}
+  {% set cert = values.ix_certificates[values.network.certificate_id] %}
+  {% do c1.configs.add("private", cert.privatekey, values.consts.ssl_key_path) %}
+  {% do c1.configs.add("public", cert.certificate, values.consts.ssl_cert_path) %}
+  {% do c1.environment.add_env("LAPI_CERT_FILE", values.consts.ssl_cert_path) %}
+  {% do c1.environment.add_env("LAPI_KEY_FILE", values.consts.ssl_key_path) %}
+  {# The certificate is not issued for 127.0.0.1, which the bundled agent and cscli connect to #}
+  {% do c1.environment.add_env("INSECURE_SKIP_VERIFY", true) %}
+{% endif %}
+
+{% do c1.environment.add_user_envs(values.crowdsec.additional_envs) %}
+
+{% do c1.add_port(values.network.lapi_port) %}
+{% do c1.add_port(values.network.metrics_port) %}
+{% for port in values.network.acquisition_ports %}
+  {% do c1.add_port(port) %}
+{% endfor %}
+
+{% do c1.add_storage("/etc/crowdsec", values.storage.config) %}
+{% do c1.add_storage(values.consts.data_dir, values.storage.data) %}
+{% for store in values.storage.additional_storage %}
+  {% do c1.add_storage(store.mount_path, store) %}
+{% endfor %}
+
+{% do tpl.notes.declare_risk("host_network") %}
+
+{{ tpl.render() | tojson }}
